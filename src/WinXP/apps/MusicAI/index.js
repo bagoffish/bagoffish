@@ -229,7 +229,25 @@ function HealthBar({ value, max = 1, label, width = 120, height = 14, onChange }
 function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }) {
   const scrollRef = React.useRef(null);
   const [pxPerSec, setPxPerSec] = React.useState(80);
-  const rowH = 14, minPitch = 24, maxPitch = 96, pitchCount = maxPitch - minPitch + 1;
+  const [fitWidth, setFitWidth] = React.useState(false);
+  const rowH = 12, minPitch = 24, maxPitch = 96, pitchCount = maxPitch - minPitch + 1;
+  const resizeRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!fitWidth || !scrollRef.current) return undefined;
+    const updateFit = () => {
+      const available = Math.max(240, scrollRef.current.clientWidth - 8);
+      const targetDuration = Math.max(duration || 4, 4, ...notes.map(n => n.startTimeSeconds + n.durationSeconds));
+      setPxPerSec(Math.max(30, Math.min(200, available / targetDuration)));
+    };
+    updateFit();
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(updateFit) : null;
+    if (observer) observer.observe(scrollRef.current);
+    window.addEventListener('resize', updateFit);
+    return () => {
+      if (observer) observer.disconnect();
+      window.removeEventListener('resize', updateFit);
+    };
+  }, [fitWidth, duration, notes.length]);
   const totalDur = Math.max(duration || 4, 4, ...notes.map(n => n.startTimeSeconds + n.durationSeconds));
   const width = Math.max(400, totalDur * pxPerSec + 40);
   const height = pitchCount * rowH;
@@ -267,12 +285,13 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
       <div style={{ display: 'flex', gap: 6, padding: '4px 6px', background: rbx.blue, color: '#fff', fontSize: 11, fontWeight: 'bold', borderBottom: '2px solid #000', alignItems: 'center', flexShrink: 0 }}>
         <span>Piano Roll</span>
         <span style={{ fontWeight: 'normal', opacity: 0.9, fontSize: 10 }}>drag · edge = length · double-click = add</span>
-        <button type="button" style={{ ...btnGray, marginLeft: 'auto', padding: '1px 6px', fontSize: 10 }} onClick={() => setPxPerSec(p => Math.min(200, p + 20))}>Zoom +</button>
-        <button type="button" style={{ ...btnGray, padding: '1px 6px', fontSize: 10 }} onClick={() => setPxPerSec(p => Math.max(30, p - 20))}>Zoom −</button>
+        <button type="button" style={{ ...btnGray, marginLeft: 'auto', padding: '1px 6px', fontSize: 10 }} onClick={() => { setFitWidth(false); setPxPerSec(p => Math.min(200, p + 20)); }}>Zoom +</button>
+        <button type="button" style={{ ...btnGray, padding: '1px 6px', fontSize: 10 }} onClick={() => { setFitWidth(false); setPxPerSec(p => Math.max(30, p - 20)); }}>Zoom −</button>
+        <button type="button" style={{ ...btnGray, padding: '1px 6px', fontSize: 10 }} onClick={() => setFitWidth(v => !v)}>{fitWidth ? 'Fit: ON' : 'Fit'}</button>
         <button type="button" style={{ ...btn, background: '#e8a0a0', padding: '1px 6px', fontSize: 10 }} onClick={() => { if (selectedId == null) return; onChange(notes.filter(n => n.id !== selectedId)); onSelect(null); }} disabled={selectedId == null}>Del</button>
       </div>
-      <div ref={scrollRef} style={{ flex: 1, overflow: 'auto', background: '#1a2030' }}>
-        <div data-grid="1" onDoubleClick={onGridDoubleClick} style={{ position: 'relative', width, height, backgroundImage: 'linear-gradient(to bottom, transparent ' + (rowH - 1) + 'px, #2a3040 ' + (rowH - 1) + 'px), linear-gradient(to right, transparent ' + (pxPerSec / 4 - 1) + 'px, #252b38 ' + (pxPerSec / 4 - 1) + 'px)', backgroundSize: pxPerSec / 4 + 'px ' + rowH + 'px' }}>
+      <div ref={scrollRef} style={{ flex: 1, minHeight: 0, minWidth: 0, overflow: 'auto', background: '#111722', overscrollBehavior: 'contain' }}>
+        <div data-grid="1" onDoubleClick={onGridDoubleClick} style={{ position: 'relative', width: Math.max(width, scrollRef.current ? scrollRef.current.clientWidth - 2 : 0), height: Math.max(height, scrollRef.current ? scrollRef.current.clientHeight - 2 : 0), minWidth: 400, minHeight: height, backgroundImage: 'linear-gradient(to bottom, transparent ' + (rowH - 1) + 'px, #2a3040 ' + (rowH - 1) + 'px), linear-gradient(to right, transparent ' + (pxPerSec / 4 - 1) + 'px, #252b38 ' + (pxPerSec / 4 - 1) + 'px)', backgroundSize: pxPerSec / 4 + 'px ' + rowH + 'px' }}>
           {Array.from({ length: pitchCount }, (_, i) => {
             const p = maxPitch - i; if (p % 12 !== 0) return null;
             return <div key={'c' + p} data-grid="1" style={{ position: 'absolute', left: 0, right: 0, top: i * rowH, height: rowH, background: 'rgba(110,153,201,0.12)', pointerEvents: 'none' }} />;
