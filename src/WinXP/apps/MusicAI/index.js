@@ -418,6 +418,7 @@ function MusicAI({ onClose }) {
 
   const updateArrangement = next => {
     setArrangement(next);
+    setNotes(next);
     setMidiBlob(makeMidi(next));
   };
 
@@ -448,17 +449,6 @@ function MusicAI({ onClose }) {
     }));
     updateArrangement(next);
     setStatus('NOTES QUANTIZED');
-  };
-
-  const downloadStemMidi = roleId => {
-    if (!arrangement.length) return;
-    const role = roles.find(item => item.id === roleId);
-    if (!role) return;
-    const blob = makeMidi(arrangement, roleId);
-    const base = file
-      ? file.name.replace(/\\.[^.]+$/, '')
-      : 'robloxify';
-    downloadBlob(blob, base + '-' + role.id + '.mid');
   };
 
   const transposeArrangement = amount => {
@@ -600,6 +590,15 @@ function MusicAI({ onClose }) {
           window.clearInterval(playbackTimerRef.current);
           playbackTimerRef.current = null;
         }
+        if (synthRef.current) {
+          try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
+          synthRef.current = null;
+        }
+        if (contextRef.current) {
+          contextRef.current.close().catch(() => {});
+          contextRef.current = null;
+        }
+        playbackStopTimerRef.current = null;
         setPlaybackTime(duration);
         setPlaying(false);
         setStatus('PLAYBACK FINISHED');
