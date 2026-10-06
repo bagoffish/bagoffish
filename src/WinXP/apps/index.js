@@ -125,7 +125,7 @@ export const defaultIconState = [
   {
     id: 6,
     icon: winamp,
-    title: "Winamp",
+    title: "Shoegazefy",
     component: Winamp,
     isFocus: false,
   },
@@ -278,7 +278,7 @@ export const appSettings = {
   Winamp: {
     header: {
       icon: winamp, // ← FIX HERE
-      title: "Winamp",
+      title: "Shoegazefy",
       invisible: true,
     },
     component: Winamp,
