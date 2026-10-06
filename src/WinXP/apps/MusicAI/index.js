@@ -110,6 +110,10 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
   const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   const primaryRole = roles.some(r => r.id === ai.primaryRole) ? ai.primaryRole : 'guitar';
   const support = Array.isArray(ai.supportRoles) ? ai.supportRoles : ['bass', 'keys'];
+  const harmonicComplexity = Math.max(0, Math.min(1, Number(ai.harmonicComplexity) || 0.5));
+  const bassPattern = ['root', 'octave', 'walking', 'pulse'].includes(ai.bassPattern) ? ai.bassPattern : 'root';
+  const chordRhythm = ['sustained', 'half', 'quarter', 'syncopated'].includes(ai.chordRhythm) ? ai.chordRhythm : 'half';
+  const melodyOctave = [-1, 0, 1].includes(Number(ai.melodyOctave)) ? Number(ai.melodyOctave) : 0;
 
   const clusters = [];
   ordered.forEach(note => {
@@ -139,7 +143,8 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
       role = 'guitar';
     }
 
-    pushNote(out, role, note.pitchMidi, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.72));
+    const sourcePitch = role === primaryRole && ai.preserveMelody !== false ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
+    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.72));
   });
 
   // Infer harmony only where the recording actually contains enough pitch
@@ -193,12 +198,16 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     if (!chord) continue;
     const root = clampMidi(36 + chord.rootPc);
     const hasBass = ordered.some(n => n.pitchMidi <= 52 && Math.abs(n.startTimeSeconds - t) < 0.3);
+    const beatIndex = Math.round(t / 0.5);
     if (supportBass && !hasBass && density > 0.45) {
-      pushNote(out, 'bass', root, t, 0.32, 0.34 + density * 0.18);
+      const bassPitch = bassPattern === 'octave' && beatIndex % 2 ? root + 12 : bassPattern === 'walking' ? root + ((beatIndex % 4 === 2 ? 7 : 0)) : root;
+      pushNote(out, 'bass', bassPitch, t, bassPattern === 'pulse' ? 0.22 : 0.32, 0.34 + density * 0.18);
     }
-    if (supportKeys && density > 0.42 && Math.round(t / 0.5) % 2 === 0) {
-      [0, 4, 7].forEach(interval => {
-        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, 0.38, 0.12 + density * 0.14);
+    const chordEvery = chordRhythm === 'quarter' ? 1 : chordRhythm === 'syncopated' ? 2 : chordRhythm === 'half' ? 2 : 4;
+    if (supportKeys && density > 0.42 && beatIndex % chordEvery === 0) {
+      const intervals = harmonicComplexity > 0.7 ? [0, 3, 7, 10] : harmonicComplexity > 0.35 ? [0, 4, 7] : [0, 7];
+      intervals.forEach(interval => {
+        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, chordRhythm === 'sustained' ? 0.8 : 0.38, 0.12 + density * 0.14);
       });
     }
   }
@@ -213,12 +222,13 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
   }
   const sortedGaps = gaps.slice().sort((a,b) => a-b);
   const medianGap = sortedGaps.length ? sortedGaps[Math.floor(sortedGaps.length / 2)] : 0;
-  if (ai.drums && medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
+  const drumPattern = ['none','basic','four_on_floor','breakbeat'].includes(ai.drumPattern) ? ai.drumPattern : (ai.drums ? 'basic' : 'none');
+  if (drumPattern !== 'none' && medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
     const beat = Math.max(0.25, Math.min(0.75, medianGap));
     for (let t = 0, i = 0; t < end; t += beat, i++) {
-      pushNote(out, 'drums', 36, t, 0.08, i % 4 === 0 ? 0.42 : 0.25);
-      if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.32);
-      if (i % 2 === 1 && density > 0.7) pushNote(out, 'drums', 42, t, 0.05, 0.18);
+      if (drumPattern === 'four_on_floor' || i % 2 === 0) pushNote(out, 'drums', 36, t, 0.08, i % 4 === 0 ? 0.42 : 0.25);
+      if (drumPattern !== 'four_on_floor' && i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.32);
+      if ((drumPattern === 'breakbeat' || density > 0.7) && i % 2 === 1) pushNote(out, 'drums', 42, t, 0.05, 0.18);
     }
   }
 
