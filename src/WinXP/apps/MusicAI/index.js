@@ -9,6 +9,10 @@ const MAX_BYTES = 50 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
 const SKY_URL = '/images/sky.png';
 
+const SOUNDFONT_BUFFER_CACHE = new Map();
+const SOUNDFONT_LOAD_PROMISES = new Map();
+const BASIC_PITCH_IDB = 'robloxify-basic-pitch-v1';
+
 const SOUNDFONT_LIBRARY = [
   { id: 'fjords', name: 'Wind of Fjords', url: '/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2' },
   { id: 'fjords-midi', name: 'Wind of Fjords MIDI', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2' },
@@ -639,7 +643,26 @@ async function transcribeLocally(file, onStatus, onProgress) {
   const tf = await import('@tensorflow/tfjs'); await yieldToBrowser();
   const { BasicPitch, addPitchBendsToNoteEvents, noteFramesToTime, outputToNotesPoly } = await import('@spotify/basic-pitch'); await yieldToBrowser();
   await tf.setBackend('cpu'); await tf.ready(); await yieldToBrowser();
-  const model = await tf.loadGraphModel(MODEL_URL); const basicPitch = new BasicPitch(model); await yieldToBrowser();
+  let model;
+  try {
+    const models = await tf.io.listModels();
+    if (models['indexeddb://' + BASIC_PITCH_IDB]) {
+      onStatus('Loading cached model...');
+      model = await tf.loadGraphModel('indexeddb://' + BASIC_PITCH_IDB);
+    }
+  } catch (err) {
+    console.warn('Basic Pitch IndexedDB cache unavailable:', err);
+  }
+  if (!model) {
+    onStatus('Downloading model...');
+    model = await tf.loadGraphModel(MODEL_URL);
+    try {
+      await model.save('indexeddb://' + BASIC_PITCH_IDB);
+    } catch (err) {
+      console.warn('Could not cache Basic Pitch model:', err);
+    }
+  }
+  const basicPitch = new BasicPitch(model); await yieldToBrowser();
   onStatus('Transcribing...');
   const frames = []; const onsets = []; const contours = [];
   let lastProgress = -1; let lastYield = performance.now();
@@ -829,17 +852,45 @@ function MusicAI() {
     const context = new AudioContext(); contextRef.current = context;
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
     const synth = new WorkletSynthesizer(context);
-    const toLoad = SOUNDFONT_LIBRARY.slice();
-    for (const bank of toLoad) {
+    const loadBank = async bank => {
       try {
-        setStatus('Loading soundfont: ' + bank.name + '…');
-        const buf = await fetch(bank.url).then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.arrayBuffer(); });
-        await synth.soundBankManager.addSoundBank(buf, bank.id);
-      } catch (err) { console.warn('SF2 load failed', bank.name, err); }
-    }
+        let promise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
+        if (!promise) {
+          promise = fetch(bank.url, { cache: 'force-cache' }).then(r => {
+            if (!r.ok) throw new Error('HTTP ' + r.status);
+            return r.arrayBuffer();
+          }).then(buf => {
+            SOUNDFONT_BUFFER_CACHE.set(bank.id, buf);
+            return buf;
+          });
+          SOUNDFONT_LOAD_PROMISES.set(bank.id, promise);
+        }
+        const cached = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await promise;
+        await synth.soundBankManager.addSoundBank(cached.slice(0), bank.id);
+      } catch (err) {
+        SOUNDFONT_LOAD_PROMISES.delete(bank.id);
+        console.warn('SF2 load failed', bank.name, err);
+      }
+    };
+
+    // Only load a small core set before playback can begin. The remaining
+    // palette is added in the background so the first listen does not wait
+    // for every SF2 file to download and parse.
+    const coreIds = new Set(['fjords', 'fjords-midi', 'strategy', 'roblox-sf', 'drums']);
+    const core = SOUNDFONT_LIBRARY.filter(bank => coreIds.has(bank.id));
+    const background = SOUNDFONT_LIBRARY.filter(bank => !coreIds.has(bank.id));
+    setStatus('Loading core soundfonts…');
+    await Promise.all(core.map(loadBank));
     if (synth.isReady) await synth.isReady;
     if (typeof synth.connect === 'function') synth.connect(context.destination);
-    synthRef.current = synth; planRef.current = usePlan; return synth;
+    synthRef.current = synth; planRef.current = usePlan;
+
+    // Continue loading the full orchestra without blocking playback.
+    Promise.all(background.map(async bank => {
+      setStatus('');
+      await loadBank(bank);
+    })).catch(err => console.warn('Background soundfont loading failed:', err));
+    return synth;
   };
 
   const stopPlayback = () => { stopPlaybackInternal(); setPlaying(false); };
