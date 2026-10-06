@@ -80,7 +80,6 @@ if (!cancelled) setVisitorCount(0);
           aria-label="Back"
         >
           <img className="ie__function_bar__icon" src={back} alt="" />
-          <span className="ie__function_bar__text">Back</span>
           <div className="ie__function_bar__arrow" />
         </button>
         <div className="ie__function_bar__button--disable">
