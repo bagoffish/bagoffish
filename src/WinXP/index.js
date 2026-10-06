@@ -369,7 +369,11 @@ const Container = styled.div`
   height: 100%;
   overflow: hidden;
   position: relative;
-  background: url(https://i.imgur.com/Zk6TR5k.jpg) no-repeat center center fixed;
+  background-color: #1d2530;
+  background-image: url('${process.env.PUBLIC_URL || '.'}/images/sky.png');
+  background-repeat: no-repeat;
+  background-position: center center;
+  background-attachment: fixed;
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
