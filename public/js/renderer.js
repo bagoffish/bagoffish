@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = window.RENDERER_API_BASE || "https://bagoffish-f4qd.onrender.com";
+  var API_BASE = window.RENDERER_API_BASE || "https://winxp-7yes.onrender.com";
   var RETRY_LIMIT = 100;
 
   function text(value) {
