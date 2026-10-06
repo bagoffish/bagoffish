@@ -18,7 +18,7 @@ const BACKEND_VERSION = "2026-10-06-robloxify-web-ai";
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
 const WORKER_PATH = path.join(__dirname, "chunkparser.js");
-const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || "/var/data/visitor-count.json";
+const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || "/var/data/visitor-count-v2.json";
 const COMMUNITY_DIR = process.env.COMMUNITY_DIR || "/var/data/robloxify-community";
 const COMMUNITY_AUDIO_DIR = path.join(COMMUNITY_DIR, "audio");
 const COMMUNITY_INDEX_PATH = path.join(COMMUNITY_DIR, "tracks.json");
@@ -69,12 +69,24 @@ app.get("/health", (req, res) => {
 });
 
 let visitorCountQueue = Promise.resolve();
-
 let memoryVisitorCount = 0;
+const memoryVisitorIds = new Set();
+
+function parseVisitorCookie(req) {
+  const raw = String(req.headers.cookie || "");
+  const match = raw.match(/(?:^|;\\s*)bagof-fish-visitor=([^;]+)/);
+  return match ? decodeURIComponent(match[1]) : "";
+}
 
 app.get("/visitor-count", async (req, res) => {
+  const visitorId = String(req.query.visitor || req.headers["x-visitor-id"] || parseVisitorCookie(req) || "").trim();
+  if (!visitorId || visitorId.length > 200) {
+    return res.status(400).json({ error: "Visitor cookie required" });
+  }
+
   visitorCountQueue = visitorCountQueue.then(async () => {
     let count = memoryVisitorCount;
+    let seen = memoryVisitorIds;
 
     try {
       const visitorDir = path.dirname(VISITOR_COUNT_PATH);
@@ -84,24 +96,31 @@ app.get("/visitor-count", async (req, res) => {
         const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
         const parsed = JSON.parse(raw);
         count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+        seen = new Set(Array.isArray(parsed.visitors) ? parsed.visitors.map(String) : []);
       } catch (err) {
         if (err.code !== "ENOENT") throw err;
       }
 
-      count += 1;
-      await fs.promises.writeFile(
-        VISITOR_COUNT_PATH,
-        JSON.stringify({ count }),
-        "utf8"
-      );
+      if (!seen.has(visitorId)) {
+        seen.add(visitorId);
+        count += 1;
+        await fs.promises.writeFile(
+          VISITOR_COUNT_PATH,
+          JSON.stringify({ count, visitors: Array.from(seen).slice(-100000) }),
+          "utf8"
+        );
+      }
     } catch (err) {
-      // The free backend may not have /var/data mounted. Keep the counter
-      // functional in memory instead of turning the About Me page into a 500.
       console.warn("Visitor counter persistence unavailable:", err.message);
-      count += 1;
+      if (!seen.has(visitorId)) {
+        seen.add(visitorId);
+        count += 1;
+      }
     }
 
     memoryVisitorCount = count;
+    memoryVisitorIds.clear();
+    seen.forEach(id => memoryVisitorIds.add(id));
     return count;
   });
 
