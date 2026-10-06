@@ -82,7 +82,7 @@
       loadingIndicator.style.display = "flex";
 
       try {
-        const res = await fetch(`${API_BASE}/proxy-roblox?username=${encodeURIComponent(username)}`);
+        const res = await fetch(`${API_BASE}/proxy-roblox?username=${encodeURIComponent(username)}`, {\n          credentials: "include",\n        });
         if (!res.ok) throw new Error("User not found");
 
         const data = await res.json();
