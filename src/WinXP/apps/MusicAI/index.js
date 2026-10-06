@@ -8,14 +8,11 @@ import {
 } from '@spotify/basic-pitch';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
-import * as ort from 'onnxruntime-web';
-import { DemucsProcessor } from 'demucs-web';
 
 const ROBLOX_SF2_URL =
   '/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2';
 const BASIC_PITCH_MODEL_URL = '/basic-pitch-model/model.json';
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
-const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
 
 const roles = [
   { id: 'drums', label: 'DRUMS', channel: 9, program: 0, stem: 'drums', percussion: true },
@@ -152,7 +149,6 @@ function MusicAI({ onClose }) {
   const synthRef = useRef(null);
   const contextRef = useRef(null);
   const basicPitchRef = useRef(null);
-  const demucsRef = useRef(null);
   const [file, setFile] = useState(null);
   const [midiBlob, setMidiBlob] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -173,6 +169,7 @@ function MusicAI({ onClose }) {
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const playbackTimerRef = useRef(null);
   const playbackStopTimerRef = useRef(null);
+  const conversionIdRef = useRef(0);
 
   useEffect(() => {
     return () => {
@@ -195,6 +192,15 @@ function MusicAI({ onClose }) {
     };
   }, []);
 
+
+  const yieldToBrowser = () => new Promise(resolve => {
+    if (typeof window !== 'undefined' && window.requestAnimationFrame) {
+      window.requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+
   const getBasicPitch = async () => {
     if (basicPitchRef.current) return basicPitchRef.current;
     setStatus('LOADING NOTE MODEL...');
@@ -205,124 +211,15 @@ function MusicAI({ onClose }) {
     return basicPitchRef.current;
   };
 
-  const getDemucs = async () => {
-    if (demucsRef.current) return demucsRef.current;
-    setStatus('LOADING STEM MODEL...');
-
-    if (ort.env.wasm) {
-      ort.env.wasm.numThreads = window.crossOriginIsolated
-        ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 4))
-        : 1;
-    }
-
-    const createProcessor = providers => new DemucsProcessor({
-      ort,
-      sessionOptions: {
-        executionProviders: providers,
-        graphOptimizationLevel: 'basic',
-      },
-      onDownloadProgress: (loaded, total) => {
-        if (total) {
-          setProgress(Math.round((loaded / total) * 18));
-          setStatus('LOADING STEM MODEL ' + Math.round((loaded / total) * 100) + '%');
-        }
-      },
-    });
-
-    try {
-      const processor = createProcessor(['webgpu', 'wasm']);
-      await processor.loadModel(DEMUCS_MODEL_URL);
-      demucsRef.current = processor;
-      return processor;
-    } catch (webgpuError) {
-      console.warn('WebGPU stem processing failed; retrying with WASM.', webgpuError);
-      const processor = createProcessor(['wasm']);
-      await processor.loadModel(DEMUCS_MODEL_URL);
-      demucsRef.current = processor;
-      return processor;
-    }
-  };
-
-  const resampleStemToMono = async stem => {
-    const sourceRate = 44100;
-    const targetRate = 22050;
-    const frameCount = Math.max(stem.left.length, stem.right.length);
-    const sourceContext = new OfflineAudioContext(2, frameCount, sourceRate);
-    const sourceBuffer = sourceContext.createBuffer(2, frameCount, sourceRate);
-    sourceBuffer.copyToChannel(stem.left, 0);
-    sourceBuffer.copyToChannel(stem.right, 1);
-
-    const targetLength = Math.ceil((frameCount / sourceRate) * targetRate);
-    const targetContext = new OfflineAudioContext(1, targetLength, targetRate);
-    const source = targetContext.createBufferSource();
-    source.buffer = sourceBuffer;
-    source.connect(targetContext.destination);
-    source.start(0);
-    return targetContext.startRendering();
-  };
-
-  const transcribeStem = async (stem, role, index, total) => {
-    const basicPitch = await getBasicPitch();
-    const audioBuffer = await resampleStemToMono(stem);
-    const frames = [];
-    const onsets = [];
-    const contours = [];
-
-    await basicPitch.evaluateModel(
-      audioBuffer,
-      (frameBatch, onsetBatch, contourBatch) => {
-        frames.push(...frameBatch);
-        onsets.push(...onsetBatch);
-        contours.push(...contourBatch);
-      },
-      value => {
-        const base = 20 + (index / total) * 65;
-        const span = 65 / total;
-        setProgress(Math.round(base + value * span));
-        setStatus('TRANSCRIBING ' + role.label + ' ' + Math.round(value * 100) + '%');
-      }
-    );
-
-    const settings = {
-      drums: { onset: 0.62, frame: 0.38, minFreq: 35, maxFreq: 1200, minDuration: 0.045, minAmplitude: 0.3 },
-      bass: { onset: 0.55, frame: 0.34, minFreq: 30, maxFreq: 280, minDuration: 0.09, minAmplitude: 0.28 },
-      guitar: { onset: 0.55, frame: 0.34, minFreq: 65, maxFreq: 1800, minDuration: 0.07, minAmplitude: 0.3 },
-      vocals: { onset: 0.58, frame: 0.36, minFreq: 70, maxFreq: 1400, minDuration: 0.11, minAmplitude: 0.32 },
-    }[role.id];
-
-    const detected = noteFramesToTime(
-      outputToNotesPoly(
-        frames,
-        onsets,
-        settings.onset,
-        settings.frame,
-        7,
-        true,
-        settings.maxFreq,
-        settings.minFreq,
-        true,
-        9
-      )
-    );
-
-    let cleaned = cleanDetectedNotes(detected, settings);
-
-    if (role.id === 'drums') {
-      cleaned = cleaned.map(note => ({
-        ...note,
-        pitchMidi:
-          note.pitchMidi < 48 ? 36 :
-          note.pitchMidi < 62 ? 38 :
-          note.pitchMidi < 76 ? 42 : 46,
-      }));
-    }
-
-    return cleaned.map(note => ({ ...note, role: role.id }));
-  };
-
   const convert = async inputFile => {
     if (!inputFile || !inputFile.type.startsWith('audio/')) {
       setStatus('CHOOSE AN AUDIO FILE');
+      return;
+    }
+
+    const conversionId = ++conversionIdRef.current;
+    if (working) {
+      setStatus('ALREADY CONVERTING — PLEASE WAIT');
       return;
     }
 
@@ -331,66 +228,125 @@ function MusicAI({ onClose }) {
     setProgress(0);
     setStatus('PREPARING AUDIO...');
 
-    try {
-      const bytes = await inputFile.arrayBuffer();
-      const decodeContext = new AudioContext();
-      const sourceBuffer = await decodeContext.decodeAudioData(bytes);
-      setInputSampleRate(sourceBuffer.sampleRate);
-      await decodeContext.close();
+    let decodeContext = null;
 
-      // Demucs works on 44.1 kHz stereo and separates the mix before transcription.
-      const targetRate = 44100;
-      const targetLength = Math.ceil(sourceBuffer.duration * targetRate);
-      const offlineContext = new OfflineAudioContext(2, targetLength, targetRate);
+    try {
+      // Keep the UI alive: decode once, down-mix/resample once, then run one
+      // transcription pass. Basic Pitch itself is designed to accept arbitrary
+      // sample rates and mono input; 22050 Hz is its processing rate.
+      const bytes = await inputFile.arrayBuffer();
+      await yieldToBrowser();
+
+      decodeContext = new AudioContext();
+      const sourceBuffer = await decodeContext.decodeAudioData(bytes);
+      if (conversionId !== conversionIdRef.current) return;
+
+      setInputSampleRate(sourceBuffer.sampleRate);
+      const duration = sourceBuffer.duration;
+
+      // Extremely long browser-side inference is a common cause of tabs becoming
+      // unusable. Keep conversion predictable and fail gracefully.
+      if (duration > 180) {
+        throw new Error('Audio is longer than 3 minutes. Trim it before converting.');
+      }
+
+      await decodeContext.close();
+      decodeContext = null;
+
+      setStatus('CONVERTING AUDIO TO MONO...');
+      await yieldToBrowser();
+
+      const targetRate = 22050;
+      const targetLength = Math.ceil(duration * targetRate);
+      const offlineContext = new OfflineAudioContext(1, targetLength, targetRate);
       const source = offlineContext.createBufferSource();
       source.buffer = sourceBuffer;
       source.connect(offlineContext.destination);
       source.start(0);
-      const stereoBuffer = await offlineContext.startRendering();
+      const audioBuffer = await offlineContext.startRendering();
 
-      const demucs = await getDemucs();
-      setStatus('SEPARATING DRUMS / BASS / GUITAR / VOCALS...');
+      if (conversionId !== conversionIdRef.current) return;
 
-      const separation = await demucs.separate(
-        stereoBuffer.getChannelData(0),
-        stereoBuffer.getChannelData(stereoBuffer.numberOfChannels > 1 ? 1 : 0)
+      setProgress(8);
+      setStatus('LOADING NOTE MODEL...');
+      await yieldToBrowser();
+
+      const basicPitch = await getBasicPitch();
+      if (conversionId !== conversionIdRef.current) return;
+
+      const frames = [];
+      const onsets = [];
+      const contours = [];
+
+      setStatus('TRANSCRIBING 0%');
+      await basicPitch.evaluateModel(
+        audioBuffer,
+        (frameBatch, onsetBatch, contourBatch) => {
+          frames.push(...frameBatch);
+          onsets.push(...onsetBatch);
+          contours.push(...contourBatch);
+        },
+        value => {
+          if (conversionId !== conversionIdRef.current) return;
+          setProgress(Math.round(10 + value * 75));
+          setStatus('TRANSCRIBING ' + Math.round(value * 100) + '%');
+        }
       );
 
-      const stemOrder = [
-        { id: 'drums', label: 'DRUMS', data: separation.drums },
-        { id: 'bass', label: 'BASS', data: separation.bass },
-        { id: 'guitar', label: 'GUITAR', data: separation.other },
-        { id: 'vocals', label: 'VOCALS', data: separation.vocals },
-      ];
+      if (conversionId !== conversionIdRef.current) return;
 
-      const allNotes = [];
+      await yieldToBrowser();
+      setStatus('CLEANING NOTES...');
 
-      for (let index = 0; index < stemOrder.length; index++) {
-        const stem = stemOrder[index];
-        setStatus('READING ' + stem.label + ' STEM...');
-        const role = roles.find(item => item.id === stem.id);
-        const stemNotes = await transcribeStem(
-          stem.data,
-          role,
-          index,
-          stemOrder.length
-        );
-        allNotes.push(...stemNotes);
-      }
+      const detected = noteFramesToTime(
+        addPitchBendsToNoteEvents(
+          contours,
+          outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
+        )
+      );
 
-      if (!allNotes.length) {
+      // Split the clean transcription into useful Roblox tracks. This is much
+      // more stable than four consecutive neural-network passes over stems.
+      const density = detected.length / Math.max(duration, 1);
+      const fitted = cleanDetectedNotes(detected, {
+        minDuration: 0.075,
+        minAmplitude: 0.34,
+      }).map((note, index) => {
+        const pitch = note.pitchMidi;
+        const short = note.durationSeconds < 0.18;
+        const long = note.durationSeconds > 0.65;
+        let role = 'guitar';
+
+        if (pitch < 52 && !short) {
+          role = 'bass';
+        } else if (short && pitch >= 38 && pitch <= 84 && density > 5) {
+          role = 'drums';
+        } else if (pitch >= 68 && (long || pitch >= 82)) {
+          role = 'vocals';
+        }
+
+        if (role === 'drums') {
+          return {
+            ...note,
+            id: index + 1,
+            role,
+            pitchMidi:
+              pitch < 48 ? 36 :
+              pitch < 62 ? 38 :
+              pitch < 76 ? 42 : 46,
+          };
+        }
+
+        return { ...note, id: index + 1, role };
+      });
+
+      if (!fitted.length) {
         throw new Error('No musical notes were detected.');
       }
 
-      allNotes.sort((x, y) =>
-        x.startTimeSeconds - y.startTimeSeconds ||
-        x.pitchMidi - y.pitchMidi
+      fitted.sort((a, b) =>
+        a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
       );
-
-      const fitted = allNotes.map((note, index) => ({
-        ...note,
-        id: index + 1,
-      }));
 
       setNotes(fitted);
       setArrangement(fitted);
@@ -405,7 +361,12 @@ function MusicAI({ onClose }) {
         (error && error.message ? error.message : 'UNKNOWN ERROR')
       );
     } finally {
-      setWorking(false);
+      if (decodeContext) {
+        try { await decodeContext.close(); } catch (error) { /* cleanup */ }
+      }
+      if (conversionId === conversionIdRef.current) {
+        setWorking(false);
+      }
     }
   };
 
