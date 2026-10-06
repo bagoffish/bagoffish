@@ -34,7 +34,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js"; // must exist in public/js/renderer.js
+    s.src = "/js/renderer.js?v=20261006"; // cache-bust the legacy renderer script
     s.async = true;
     document.body.appendChild(s);
   }, []);
