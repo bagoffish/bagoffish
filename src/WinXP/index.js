@@ -460,9 +460,19 @@ const Container = styled.div`
   [style*='ns-resize'], [style*='ew-resize'], [style*='col-resize'], [style*='row-resize'] {
     cursor: inherit !important;
   }
-`;
-
   @media (max-width: 700px) {
+    html, body, #root {
+      width: 100%;
+      height: 100%;
+      min-height: 100%;
+      overflow: hidden;
+    }
+    #root {
+      position: fixed;
+      inset: 0;
+    }
+  }
+`;
     html, body, #root {
       width: 100%;
       height: 100%;
