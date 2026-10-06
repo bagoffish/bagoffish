@@ -439,6 +439,7 @@ app.post("/community/tracks", async (req, res) => {
     });
 
     const name = String(req.body?.name || "").trim();
+    const ownerName = String(req.body?.ownerName || "").trim().slice(0, 20);
     if (!name) return res.status(400).json({ error: "A place name is required." });
     if (name.length > 40) return res.status(400).json({ error: "Place names must be 40 characters or shorter." });
     if (!req.file) return res.status(400).json({ error: "Upload a rendered audio file first." });
@@ -457,6 +458,7 @@ app.post("/community/tracks", async (req, res) => {
     const track = {
       id,
       name,
+      ownerName,
       file,
       createdAt: new Date().toISOString(),
     };
