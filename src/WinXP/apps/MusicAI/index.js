@@ -24,6 +24,30 @@ const SOUNDFONT_LIBRARY = [
   { id: 'nokia', name: 'Nokia Tongbao', url: '/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2' },
 ];
 
+
+function blendStylePrograms(styleMix, fallbackStyle) {
+  const mix = Array.isArray(styleMix) && styleMix.length
+    ? styleMix
+    : [{ style: fallbackStyle, weight: 1 }];
+  const total = mix.reduce((sum, item) => sum + Math.max(0, Number(item.weight) || 0), 0) || 1;
+  const programs = {};
+  const rolesToBlend = ['drums', 'bass', 'guitar', 'vocals'];
+  rolesToBlend.forEach(role => {
+    let value = 0;
+    let weight = 0;
+    mix.forEach(item => {
+      const style = STYLE_PLANS[item.style];
+      const w = Math.max(0, Number(item.weight) || 0) / total;
+      if (style && Number.isFinite(style.programs?.[role])) {
+        value += style.programs[role] * w;
+        weight += w;
+      }
+    });
+    if (weight) programs[role] = Math.round(value / weight);
+  });
+  return programs;
+}
+
 const STYLE_PLANS = {
   mule: { label: 'M.U.L.E. / Wind of Fjords', primaryIds: ['fjords', 'fjords-midi', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 0, vocals: 80 } },
   'fjords-midi': { label: 'Wind of Fjords (MIDI)', primaryIds: ['fjords-midi', 'fjords'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 0, vocals: 80 } },
@@ -703,7 +727,7 @@ function MusicAI() {
           primary: SOUNDFONT_LIBRARY.find(s => s.id === aiPlan.style) || plan.primary,
           drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') || plan.drums,
           programs: { ...plan.programs } };
-        if (STYLE_PLANS[aiPlan.style]) plan.programs = { ...STYLE_PLANS[aiPlan.style].programs };
+        if (STYLE_PLANS[aiPlan.style]) plan.programs = aiPlan.styleMix?.length ? blendStylePrograms(aiPlan.styleMix, aiPlan.style) : { ...STYLE_PLANS[aiPlan.style].programs };
       }
       if (manualStyle !== 'auto' && STYLE_PLANS[manualStyle]) {
         const forced = STYLE_PLANS[manualStyle];
