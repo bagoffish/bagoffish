@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://winxp-7yes.onrender.com";
-  var RETRY_LIMIT = 100;
+  var RETRY_LIMIT = 30;
 
   function text(value) {
     return value == null ? "" : String(value);
@@ -85,6 +85,61 @@
       messageBox.textContent = "";
     });
 
+    function fetchRobloxDirect(username) {
+      return fetch("https://users.roblox.com/v1/usernames/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Accept": "application/json" },
+        body: JSON.stringify({ usernames: [username], excludeBannedUsers: false })
+      })
+        .then(function (response) {
+          if (!response.ok) throw new Error("Roblox HTTP " + response.status);
+          return response.json();
+        })
+        .then(function (userResult) {
+          var user = userResult && userResult.data && userResult.data[0];
+          if (!user || !user.id) throw new Error("User not found");
+
+          return Promise.all([
+            fetch("https://users.roblox.com/v1/users/" + encodeURIComponent(user.id)).then(function (r) {
+              if (!r.ok) throw new Error("Profile HTTP " + r.status);
+              return r.json();
+            }),
+            fetch("https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=" + encodeURIComponent(user.id) + "&size=180x180&format=Png").then(function (r) {
+              if (!r.ok) throw new Error("Thumbnail HTTP " + r.status);
+              return r.json();
+            })
+          ]).then(function (parts) {
+            return {
+              roblox: {
+                id: user.id,
+                username: parts[0].name || user.name || username,
+                displayName: parts[0].displayName || user.displayName || user.name || username,
+                joinDate: parts[0].created ? new Date(parts[0].created).toUTCString().replace(" GMT", "") : "Unknown",
+                avatarUrl: parts[1] && parts[1].data && parts[1].data[0] ? parts[1].data[0].imageUrl : "",
+                oldAvatars: [],
+                pastUsernames: []
+              },
+              rolimons: {}
+            };
+          });
+        });
+    }
+
+    function fetchRendererData(username) {
+      // Direct Roblox APIs are the primary path, so a sleeping/broken Render
+      // instance cannot break the renderer or flood the console with CORS errors.
+      return fetchRobloxDirect(username).catch(function (directError) {
+        return fetch(API_BASE + "/proxy-roblox?username=" + encodeURIComponent(username), {
+          headers: { "Accept": "application/json" }
+        }).then(function (response) {
+          if (!response.ok) throw new Error("Backend HTTP " + response.status);
+          return response.json();
+        }).catch(function (backendError) {
+          throw directError || backendError;
+        });
+      });
+    }
+
     checkBtn.addEventListener("click", function () {
       var username = usernameInput.value.trim();
 
@@ -98,17 +153,7 @@
       centerPanel.innerHTML = "";
       loadingIndicator.style.display = "flex";
 
-      fetch(API_BASE + "/proxy-roblox?username=" + encodeURIComponent(username), {
-        headers: {
-          "Accept": "application/json"
-        }
-      })
-        .then(function (response) {
-          if (!response.ok) {
-            throw new Error("HTTP " + response.status);
-          }
-          return response.json();
-        })
+      fetchRendererData(username)
         .then(function (data) {
           var roblox = data && data.roblox ? data.roblox : {};
           var rolimons = data && data.rolimons ? data.rolimons : {};
