@@ -781,12 +781,13 @@ function MusicAI() {
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes; duration = result.duration || 0; aiPlan = result.aiPlan || null; usedBackend = true; setProgress(92);
       } catch (backendError) {
-        console.warn('Backend unavailable, local:', backendError);
+        console.warn('Robloxify server unavailable:', backendError);
         if (conversionId !== conversionIdRef.current) return;
-        setStatus('Server offline — running in browser…'); setProgress(5);
-        const result = await transcribeLocally(inputFile, msg => { if (conversionId === conversionIdRef.current) setStatus(msg); }, value => { if (conversionId === conversionIdRef.current) setProgress(Math.round(10 + value * 80)); });
-        if (conversionId !== conversionIdRef.current) return;
-        rawNotes = result.notes; duration = result.duration || 0;
+        throw new Error(
+          backendError && backendError.message
+            ? backendError.message
+            : 'Robloxify server unavailable. Please try again.'
+        );
       }
       setStatus('Building a unified Roblox orchestra — keeping your melody…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
