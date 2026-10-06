@@ -22,11 +22,9 @@ const roles = [
 ];
 
 const buttonStyle = {
-  background: '#202020',
-  border: '1px solid #8b8b8b',
-  borderRightColor: '#111',
-  borderBottomColor: '#111',
-  color: '#ddd',
+  background: '#000',
+  border: '1px solid #ff0000',
+  color: '#fff',
   fontFamily: 'Tahoma, Arial, sans-serif',
   fontSize: 11,
   padding: '4px 8px',
@@ -170,26 +168,19 @@ function MusicAI({ onClose }) {
       setInputSampleRate(sourceBuffer.sampleRate);
       await decodeContext.close();
 
-      // Basic Pitch evaluates audio at 22050 Hz. Browser decoding can produce
-      // 44100/48000/96000 Hz buffers, so explicitly resample any input here.
+      // Basic Pitch expects a mono 22050 Hz buffer.
       const targetSampleRate = 22050;
-      let audioBuffer = sourceBuffer;
-      if (sourceBuffer.sampleRate !== targetSampleRate) {
-        const targetLength = Math.ceil(
-          sourceBuffer.duration * targetSampleRate
-        );
-        const offlineContext = new OfflineAudioContext(
-          sourceBuffer.numberOfChannels,
-          targetLength,
-          targetSampleRate
-        );
-        const source = offlineContext.createBufferSource();
-        source.buffer = sourceBuffer;
-        source.connect(offlineContext.destination);
-        source.start(0);
-        audioBuffer = await offlineContext.startRendering();
-      }
-
+      const targetLength = Math.ceil(sourceBuffer.duration * targetSampleRate);
+      const offlineContext = new OfflineAudioContext(
+        1,
+        targetLength,
+        targetSampleRate
+      );
+      const source = offlineContext.createBufferSource();
+      source.buffer = sourceBuffer;
+      source.connect(offlineContext.destination);
+      source.start(0);
+      const audioBuffer = await offlineContext.startRendering();
       setStatus('LOADING ROBLOXIFY MODEL...');
       const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
       const basicPitch = new BasicPitch(model);
@@ -388,8 +379,8 @@ function MusicAI({ onClose }) {
     >
       <div
         style={{
-          background: 'linear-gradient(#4b4b4b, #111)',
-          border: '1px solid #777',
+          background: '#000',
+          border: '1px solid #ff0000',
           color: '#fff',
           fontWeight: 'bold',
           letterSpacing: 1,
@@ -407,8 +398,8 @@ function MusicAI({ onClose }) {
           convert(event.dataTransfer.files && event.dataTransfer.files[0]);
         }}
         style={{
-          border: '1px dashed #777',
-          background: '#050505',
+          border: '1px solid #ff0000',
+          background: '#000',
           padding: 14,
           textAlign: 'center',
           marginBottom: 8,
@@ -438,10 +429,10 @@ function MusicAI({ onClose }) {
 
       <div
         style={{
-          background: '#080808',
-          border: '1px inset #555',
+          background: '#000',
+          border: '1px solid #ff0000',
           padding: 7,
-          color: '#9dff9d',
+          color: '#fff',
           marginBottom: 8,
         }}
       >
@@ -455,7 +446,7 @@ function MusicAI({ onClose }) {
               style={{
                 width: progress + '%',
                 height: '100%',
-                background: '#5eff5e',
+                background: '#ff0000',
               }}
             />
           </div>
@@ -474,9 +465,9 @@ function MusicAI({ onClose }) {
           style={{
             width: '100%',
             boxSizing: 'border-box',
-            background: '#050505',
-            color: '#ddd',
-            border: '1px inset #555',
+            background: '#000',
+            color: '#fff',
+            border: '1px solid #ff0000',
             padding: '4px',
             fontFamily: 'Tahoma, Arial, sans-serif',
             fontSize: 11,
@@ -562,8 +553,8 @@ function MusicAI({ onClose }) {
       {showProjects && (
         <div style={{
           marginTop: 8,
-          border: '1px inset #555',
-          background: '#080808',
+          border: '1px solid #ff0000',
+          background: '#000',
           padding: 7,
         }}>
           <div style={{ color: '#ffcf70', marginBottom: 5 }}>PROJECTS</div>
@@ -575,7 +566,7 @@ function MusicAI({ onClose }) {
               display: 'flex',
               alignItems: 'center',
               gap: 5,
-              borderBottom: '1px dotted #333',
+              borderBottom: '1px solid #ff0000',
               padding: '4px 0',
             }}>
               <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>
@@ -595,7 +586,7 @@ function MusicAI({ onClose }) {
 
       {notes.length > 0 && (
         <div style={{ marginTop: 8, color: '#888' }}>
-          {notes.length} notes
+          {notes.length} NOTES
         </div>
       )}
     </div>
