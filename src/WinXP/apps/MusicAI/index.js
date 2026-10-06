@@ -1039,7 +1039,6 @@ function MusicAI() {
             <div style={{ background: rbx.blue, color: '#fff', fontWeight: 'bold', fontSize: 11, padding: '2px 6px', margin: '-8px -8px 6px', borderBottom: '2px solid #000' }}>Status</div>
             <div style={{ fontSize: 11, marginBottom: 4 }}>{status}</div>
             <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
-            <HealthBar value={progress} max={100} label="Loading" width="100%" height={14} />
             <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>Unified Roblox Orchestra</b> — all available soundfont palettes are blended around the original song.</div>
           </div>
           {showProjects && (
@@ -1105,7 +1104,6 @@ function MusicAI() {
           </div>
           <HealthBar value={volume} max={1} label="Volume" width="100%" height={18} onChange={v => { setVolume(v); if (synthRef.current && typeof synthRef.current.setMainVolume === 'function') { try { synthRef.current.setMainVolume(v); } catch (e) {} } }} />
           <HealthBar value={playbackTime} max={Math.max(playbackDuration, 0.01)} label={'Time ' + playbackTime.toFixed(1) + ' / ' + (playbackDuration || 0).toFixed(1) + 's'} width="100%" height={18} onChange={seekTo} />
-          <HealthBar value={progress} max={100} label="Loading" width="100%" height={18} />
         </div>
       </div>
       <div style={{ height: 24, background: 'rgba(0,0,0,0.65)', borderTop: '2px solid #000', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', padding: '0 8px', flexShrink: 0 }}>
