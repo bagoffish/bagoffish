@@ -635,3 +635,58 @@ const Div = styled.div`
 `;
 
 export default AboutMe;
+
+@media (max-width: 700px) {
+  .ie__toolbar {
+    min-height: 24px;
+  }
+  .ie__function_bar {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .ie__function_bar::-webkit-scrollbar {
+    display: none;
+  }
+  .ie__function_bar__text {
+    display: none;
+  }
+  .ie__address_bar {
+    min-width: 0;
+  }
+  .ie__address_bar__title {
+    display: none;
+  }
+  .ie__address_bar__content {
+    min-width: 0;
+    flex: 1;
+  }
+  .ie__address_bar__content__text {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+  .ie__address_bar__links,
+  .ie__address_bar__go {
+    flex-shrink: 0;
+  }
+  .about__container,
+  .about__page,
+  .about__content {
+    max-width: 100% !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+  .about__section,
+  .about__links,
+  .links {
+    max-width: 100%;
+  }
+  .about__lain-line {
+    overflow-wrap: anywhere;
+  }
+  .ie__lain-page {
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
