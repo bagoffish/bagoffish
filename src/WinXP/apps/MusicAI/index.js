@@ -238,10 +238,10 @@ function MusicAI({ onClose }) {
       setInputSampleRate(sourceBuffer.sampleRate);
       const duration = sourceBuffer.duration;
 
-      // Extremely long browser-side inference is a common cause of tabs becoming
-      // unusable. Keep conversion predictable and fail gracefully.
-      if (duration > 180) {
-        throw new Error('Audio is longer than 3 minutes. Trim it before converting.');
+      // Accept audio under 10 minutes. Inference runs in a Web Worker so it
+      // does not block the Windows XP shell while processing longer files.
+      if (duration >= 600) {
+        throw new Error('Audio must be shorter than 10 minutes. Please trim it and try again.');
       }
 
       await decodeContext.close();
