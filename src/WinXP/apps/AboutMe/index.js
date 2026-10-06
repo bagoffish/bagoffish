@@ -37,7 +37,6 @@ function AboutMe({ onClose }) {
   useEffect(() => {
     let cancelled = false;
     let visitorId = "";
-    let isNewVisitor = false;
 
     try {
       const cookieName = "bagof-fish-visitor";
@@ -56,13 +55,15 @@ function AboutMe({ onClose }) {
           "=" +
           encodeURIComponent(visitorId) +
           "; max-age=31536000; path=/; SameSite=Lax";
-        isNewVisitor = true;
       }
     } catch (e) {}
 
     if (!visitorId) return () => { cancelled = true; };
 
-    const endpoint = isNewVisitor ? "/visitor-count/visit" : "/visitor-count/current";
+    // Always use the idempotent visit endpoint. The server deduplicates known IDs,
+    // while this also recovers correctly when the browser still has its cookie but
+    // the backend was restarted and its ephemeral file cache was lost.
+    const endpoint = "/visitor-count/visit";
 
     fetch(
       "https://winxp-backend-live.onrender.com" +
