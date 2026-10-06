@@ -248,7 +248,9 @@ function makeStemMidi(notes, roleId, programs) {
 
 const rbx = { blue: '#6e99c9', yellow: '#f5cd2f', healthBg: '#1a1a1a', panel: 'rgba(255,255,255,0.92)', font: 'Verdana, Geneva, Tahoma, sans-serif', text: '#000' };
 const btn = { background: rbx.yellow, border: '2px solid #000', color: '#000', fontFamily: rbx.font, fontSize: 11, fontWeight: 'bold', padding: '3px 8px', cursor: 'url("/images/Link%20Select.cur") 3 3, pointer', borderRadius: 0, boxShadow: 'inset 1px 1px 0 #fff6a0, inset -1px -1px 0 #c9a600' };
-const btnGray = { ...btn, background: '#e0e0e0', boxShadow: 'inset 1px 1px 0 #fff, inset -1px -1px 0 #999' };\nconst saveBtn = { ...btn, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };\nconst saveBtnGray = { ...btnGray, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };
+const btnGray = { ...btn, background: '#e0e0e0', boxShadow: 'inset 1px 1px 0 #fff, inset -1px -1px 0 #999' };
+const saveBtn = { ...btn, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };
+const saveBtnGray = { ...btnGray, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };
 
 function HealthBar({ value, max = 1, label, width = 120, height = 14, onChange }) {
   const pct = Math.max(0, Math.min(100, (value / (max || 1)) * 100));
@@ -323,8 +325,11 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
   const onGridDoubleClick = e => {
     if (e.target !== e.currentTarget && !e.target.dataset.grid) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left + (scrollRef.current ? scrollRef.current.scrollLeft : 0);
-    const y = e.clientY - rect.top + (scrollRef.current ? scrollRef.current.scrollTop : 0);
+    // rect is the actual scrollable grid element, so getBoundingClientRect already
+    // accounts for the current scroll position. Adding scrollLeft/scrollTop again
+    // makes notes jump farther right/down after scrolling.
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
     const newNote = { id: Date.now(), pitchMidi: yToPitch(y), startTimeSeconds: Math.round(xToTime(x) * 8) / 8, durationSeconds: 0.25, amplitude: 0.85, role: 'guitar' };
     onChange([...notes, newNote]); onSelect(newNote.id);
   };
@@ -852,7 +857,7 @@ function MusicAI() {
         <label style={{ ...btn, display: 'inline-block' }}>Open<input type="file" accept="audio/*" onChange={onFileInput} disabled={working} style={{ display: 'none' }} /></label>
         <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => downloadStem(roleId))}>Save Stems</button>
-        <button type="button" style={{ ...btnGray, flex: '1 1 100px', minWidth: 90, minHeight: 26, whiteSpace: 'nowrap' }} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
+        <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
         <button type="button" style={btn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={btnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
         <button type="button" style={btnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
