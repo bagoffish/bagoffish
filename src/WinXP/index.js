@@ -411,7 +411,12 @@ const Container = styled.div`
   @import url('https://fonts.googleapis.com/css?family=Noto+Sans');
   font-family: Tahoma, 'Noto Sans', sans-serif;
   height: 100%;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   position: relative;
   background-color: #1d2530;
   background-image: url('${process.env.PUBLIC_URL || '.'}/images/bliss.png');
@@ -430,6 +435,7 @@ const Container = styled.div`
   *,
   *::before,
   *::after {
+    -webkit-tap-highlight-color: transparent;
     cursor: ${CURSOR_NORMAL} !important;
   }
 
@@ -458,3 +464,16 @@ const Container = styled.div`
 `;
 
 export default WinXP;
+
+@media (max-width: 700px) {
+  html, body, #root {
+    width: 100%;
+    height: 100%;
+    min-height: 100%;
+    overflow: hidden;
+  }
+  #root {
+    position: fixed;
+    inset: 0;
+  }
+}
