@@ -24,7 +24,7 @@ import stop from "assets/windowsIcons/stop.png";
 import windows from "assets/windowsIcons/windows.png";
 import dropdown from "assets/windowsIcons/dropdown.png";
 
-function AboutMe({ onClose }) {
+function AboutMe({ onClose, onOpenApp }) {
   const addressText = useMemo(() => "https://bagof.fish/about", []);
 
   const functionMap = useMemo(
@@ -33,6 +33,10 @@ function AboutMe({ onClose }) {
     }),
     [onClose]
   );
+
+  const openLain = () => {
+    if (typeof onOpenApp === "function") onOpenApp("Lain");
+  };
 
   return (
     <Div>
@@ -148,9 +152,8 @@ function AboutMe({ onClose }) {
                {" "}Also:{" "}
                 <a
                   className="about__lain"
-                  href="/vn/"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#lain"
+                  onClick={(event) => { event.preventDefault(); openLain(); }}
                 >
                   Serial Experiments Lain
                 </a>
@@ -165,7 +168,7 @@ function AboutMe({ onClose }) {
 
             <section className="about__section" id="recs">
               <div className="about__section-title"><span>03</span> RECOMMENDATIONS</div>
-              <pre className="about__text">{RECS_TEXT}</pre>
+              <pre className="about__text">{RECS_TEXT.split("Serial Experiments Lain").map((part, index, parts) => (\n                <React.Fragment key={index}>\n                  {part}\n                  {index < parts.length - 1 && (\n                    <a className="about__lain" href="#lain" onClick={(event) => { event.preventDefault(); openLain(); }}>\n                      Serial Experiments Lain\n                    </a>\n                  )}\n                </React.Fragment>\n              ))}</pre>
             </section>
 
             <section className="about__section about__links-section" id="links">
@@ -195,9 +198,8 @@ function AboutMe({ onClose }) {
                 </a>
                 <a
                   className="about__lain"
-                  href="/vn/"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                  href="#lain"
+                  onClick={(event) => { event.preventDefault(); openLain(); }}
                 >
                   Lain
                 </a>
