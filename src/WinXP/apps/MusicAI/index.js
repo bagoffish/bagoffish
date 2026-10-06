@@ -666,7 +666,7 @@ async function transcribeLocally(file, onStatus, onProgress) {
 }
 
 function MusicAI() {
-  const STORAGE_KEY = 'robloxify-projects-v2'; const COOKIE_KEY = 'robloxify-last-project';
+  const STORAGE_KEY = 'robloxify-projects-v2'; const COOKIE_KEY = 'robloxify-last-project'; const PLAYER_KEY = 'robloxify-player-name-v1';
   function readCookie(name) { const prefix = name + '='; const item = document.cookie.split('; ').find(v => v.indexOf(prefix) === 0); return item ? decodeURIComponent(item.slice(prefix.length)) : ''; }
   function writeCookie(name, value) { document.cookie = name + '=' + encodeURIComponent(value) + '; max-age=31536000; path=/; SameSite=Lax'; }
   function loadProjects() { try { const value = window.localStorage.getItem(STORAGE_KEY); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
@@ -677,13 +677,40 @@ function MusicAI() {
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false);
-  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place');
+  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerInput, setPlayerInput] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null);
   const [viewMode, setViewMode] = useState('roll');
+  const savePlayerLocal = name => { try { window.localStorage.setItem(PLAYER_KEY, name); } catch (e) {} };
+  const loadPlayer = useCallback(async name => {
+    const clean = String(name || '').trim(); if (!clean) return false;
+    setPlayerBusy(true);
+    try {
+      const response = await fetch(API_BASE + '/players/' + encodeURIComponent(clean), { cache: 'no-store' });
+      if (!response.ok) return false;
+      const data = await response.json();
+      setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(Array.isArray(data.projects) ? data.projects : []); setPlayerTracks(Array.isArray(data.tracks) ? data.tracks : []); savePlayerLocal(data.player.name); return true;
+    } catch (e) { return false; } finally { setPlayerBusy(false); }
+  }, []);
+  const registerPlayer = useCallback(async () => {
+    const clean = String(playerInput || '').trim(); if (!clean) return;
+    setPlayerBusy(true);
+    try {
+      const response = await fetch(API_BASE + '/players/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: clean }) });
+      const data = await response.json().catch(() => ({}));
+      if (response.status === 409) {
+        const existing = await loadPlayer(clean);
+        if (!existing) throw new Error(data.error || 'That name is already taken.');
+        return;
+      }
+      if (!response.ok) throw new Error(data.error || 'Could not save player name.');
+      setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(data.projects || []); savePlayerLocal(data.player.name);
+    } catch (e) { setStatus(e.message || 'Could not save player name.'); } finally { setPlayerBusy(false); }
+  }, [playerInput, loadPlayer]);
+
   const playbackStopTimerRef = useRef(null); const playbackRafRef = useRef(null); const conversionIdRef = useRef(0);
   const scheduledTimersRef = useRef([]); const playStartRef = useRef(0); const seekOffsetRef = useRef(0);
 
@@ -780,7 +807,7 @@ function MusicAI() {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
     const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Unified Roblox Orchestra', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
-    setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); setStatus('Project saved');
+    setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); if (playerName) { fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) }).then(async response => { if (response.ok) { const data = await response.json(); setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100)); } }).catch(() => {}); } setStatus('Project saved');
   };
 
   const loadProject = project => {
@@ -893,6 +920,7 @@ function MusicAI() {
 
   const publishTrack = useCallback(async () => {
     if (!wavBlob || publishing) return;
+    if (!playerName) { setStatus('Choose your Player List name before publishing.'); return; }
     const name = String(projectName || '').trim();
     if (!name) {
       setStatus('Give your place a name before publishing.');
@@ -902,6 +930,7 @@ function MusicAI() {
     try {
       const form = new FormData();
       form.append('name', name);
+      form.append('ownerName', playerName);
       form.append('audio', wavBlob, name.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 48) + '.wav');
       const response = await fetch(API_BASE + '/community/tracks', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({}));
@@ -914,7 +943,7 @@ function MusicAI() {
     } finally {
       setPublishing(false);
     }
-  }, [wavBlob, publishing, projectName, loadCommunityTracks]);
+  }, [wavBlob, publishing, projectName, playerName, loadCommunityTracks]);
 
   const onDrop = e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) convert(f); };
   const onFileInput = e => { const f = e.target.files && e.target.files[0]; if (f) convert(f); e.target.value = ''; };
@@ -963,7 +992,7 @@ function MusicAI() {
               {communityTracks.map(track => (
                 <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
                   <audio controls preload="none" src={API_BASE + track.audioUrl} style={{ width: 180, height: 26 }} />
-                  <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{track.name}</span>
+                  <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{track.name}</span>{track.ownerName && <span style={{ marginLeft: 5, color: '#666' }}>by {track.ownerName}</span>}
                 </div>
               ))}
             </div>
@@ -997,7 +1026,15 @@ function MusicAI() {
           </div>
         </div>
         <div style={{ width: 130, flexShrink: 0, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 12, background: 'rgba(0,0,0,0.25)', borderLeft: '2px solid #000' }}>
-          <div style={{ background: 'rgba(0,0,0,0.55)', border: '2px solid #000', padding: 6, color: '#fff', fontSize: 10, fontWeight: 'bold' }}>Player List<div style={{ marginTop: 4, fontWeight: 'normal' }}>You</div></div>
+          <div style={{ background: 'rgba(0,0,0,0.55)', border: '2px solid #000', padding: 6, color: '#fff', fontSize: 10, fontWeight: 'bold' }}>
+            Player List
+            <div style={{ marginTop: 5, display: 'flex', gap: 3 }}>
+              <input value={playerInput} onChange={e => setPlayerInput(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') registerPlayer(); }} placeholder="Your name" maxLength={20} style={{ minWidth: 0, width: 74, fontSize: 10, fontFamily: rbx.font }} />
+              <button type="button" onClick={registerPlayer} disabled={playerBusy} style={{ fontSize: 9, padding: '1px 3px' }}>{playerBusy ? '…' : 'Set'}</button>
+            </div>
+            <div style={{ marginTop: 5, fontWeight: 'normal' }}>{playerName || 'No name selected'}</div>
+            {playerName && <div style={{ marginTop: 3, fontSize: 9, fontWeight: 'normal' }}>{playerProjects.length} saved song{playerProjects.length === 1 ? '' : 's'}</div>}
+          </div>
           <HealthBar value={volume} max={1} label="Volume" width="100%" height={18} onChange={v => { setVolume(v); if (synthRef.current && typeof synthRef.current.setMainVolume === 'function') { try { synthRef.current.setMainVolume(v); } catch (e) {} } }} />
           <HealthBar value={playbackTime} max={Math.max(playbackDuration, 0.01)} label={'Time ' + playbackTime.toFixed(1) + ' / ' + (playbackDuration || 0).toFixed(1) + 's'} width="100%" height={18} onChange={seekTo} />
           <HealthBar value={progress} max={100} label="Loading" width="100%" height={18} />
