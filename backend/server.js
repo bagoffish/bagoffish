@@ -618,9 +618,9 @@ async function loadRobloxify() {
   if (!robloxifyModulePromise) {
     robloxifyModulePromise = (async () => {
       const multer = (await import("multer")).default;
-      const { transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await import(
-        "./robloxify.js"
-      );
+      const loaded = await import("./robloxify.cjs");
+      const { transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
+        loaded.default || loaded;
       return { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS };
     })().catch((err) => {
       robloxifyModulePromise = null;
