@@ -272,7 +272,7 @@ const legacyCss = `
 }
 .rendererMenuItem{
   padding: 2px 4px;
-  cursor: default;
+  cursor: url("/images/Normal Select.cur") 3 3, default;
 }
 .rendererContent{
   flex: 1;
@@ -325,7 +325,7 @@ const legacyCss = `
   font-family: Tahoma, Verdana, sans-serif;
   border: 1px solid #000;
   background: linear-gradient(#f5f5f5, #c0c0c0);
-  cursor: pointer;
+  cursor: url("/images/Link Select.cur") 3 3, pointer;
 }
 .messageBox{
   display: none; /* renderer.js toggles to flex */
@@ -393,7 +393,7 @@ const legacyCss = `
   border: 1px solid #808080;
   box-shadow: inset 0 0 0 1px #fff;
   object-fit: cover;
-  cursor: pointer;
+  cursor: url("/images/Link Select.cur") 3 3, pointer;
   background: #fff;
 }
 #oldAvatars{
