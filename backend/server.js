@@ -24,6 +24,18 @@ const allowedOrigins = new Set([
   "http://localhost:3001",
 ]);
 
+function applyCorsHeaders(req, res, next) {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+  }
+  next();
+}
+
+app.use(applyCorsHeaders);
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
@@ -34,16 +46,10 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 
-// Handle browser preflight requests explicitly.
-app.options("*", cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-    return callback(null, false);
-  },
-  methods: ["GET", "OPTIONS"],
-  allowedHeaders: ["Accept", "Content-Type"],
-  optionsSuccessStatus: 204,
-}));
+app.options("*", (req, res) => {
+  res.sendStatus(204);
+});
+
 app.use(express.json());
 
 // health check / root
@@ -261,6 +267,21 @@ app.get("/proxy-roblox", async (req, res) => {
 // API 404 (optional, but nice)
 app.use((req, res) => {
   res.status(404).json({ error: "Not found" });
+});
+
+// Keep CORS headers on unexpected API failures as well.
+app.use((err, req, res, next) => {
+  console.error("Unhandled API error:", err);
+  if (!res.headersSent) {
+    const origin = req.headers.origin;
+    if (origin && allowedOrigins.has(origin)) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Vary", "Origin");
+    }
+    res.status(500).json({ error: "Internal error" });
+  } else {
+    next(err);
+  }
 });
 
 /* ---------- start server ---------- */
