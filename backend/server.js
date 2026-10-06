@@ -27,9 +27,10 @@ const allowedOrigins = new Set([
 
 function setCors(req, res) {
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.has(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
+  if (origin) {
+    // Public API: the frontend never sends credentials, so wildcard CORS is safe
+    // and also supports bagof.fish/www/preview origins without deployment drift.
+    res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
@@ -48,10 +49,7 @@ app.use((req, res, next) => {
 
 app.use(
   cors({
-    origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-      return callback(null, false);
-    },
+    origin: "*",
     methods: ["GET", "POST", "OPTIONS"],
     allowedHeaders: ["Accept", "Content-Type"],
     optionsSuccessStatus: 204,
