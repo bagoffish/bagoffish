@@ -261,6 +261,9 @@ const btn = { background: rbx.yellow, border: '2px solid #000', color: '#000', f
 const btnGray = { ...btn, background: '#e0e0e0', boxShadow: 'inset 1px 1px 0 #fff, inset -1px -1px 0 #999' };
 const saveBtn = { ...btn, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };
 const saveBtnGray = { ...btnGray, width: 100, minWidth: 100, maxWidth: 100, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', flex: '0 0 100px', padding: '3px 4px', whiteSpace: 'nowrap' };
+const topBtn = { ...btn, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', whiteSpace: 'nowrap' };
+const topBtnGray = { ...btnGray, height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', padding: '3px 8px', whiteSpace: 'nowrap' };
+const topSelect = { height: 26, minHeight: 26, maxHeight: 26, boxSizing: 'border-box', fontFamily: rbx.font, fontSize: 10, border: '2px solid #000', padding: '2px 4px' };
 
 function HealthBar({ value, max = 1, label, width = 120, height = 14, onChange }) {
   const pct = Math.max(0, Math.min(100, (value / (max || 1)) * 100));
@@ -647,7 +650,7 @@ function MusicAI() {
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place');
-  const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
+  const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);\n  const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null); const [manualStyle, setManualStyle] = useState('auto');
@@ -856,6 +859,49 @@ function MusicAI() {
     }
   };
 
+  const loadCommunityTracks = useCallback(async () => {
+    setCommunityLoading(true);
+    try {
+      const response = await fetch(API_BASE + '/community/tracks', { cache: 'no-store' });
+      if (!response.ok) throw new Error('Community list unavailable');
+      const data = await response.json();
+      setCommunityTracks(Array.isArray(data.tracks) ? data.tracks : []);
+    } catch (error) {
+      setCommunityTracks([]);
+    } finally {
+      setCommunityLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (showProjects) loadCommunityTracks();
+  }, [showProjects, loadCommunityTracks]);
+
+  const publishTrack = useCallback(async () => {
+    if (!wavBlob || publishing) return;
+    const name = String(projectName || '').trim();
+    if (!name) {
+      setStatus('Give your place a name before publishing.');
+      return;
+    }
+    setPublishing(true);
+    try {
+      const form = new FormData();
+      form.append('name', name);
+      form.append('audio', wavBlob, name.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 48) + '.wav');
+      const response = await fetch(API_BASE + '/community/tracks', { method: 'POST', body: form });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Publish failed');
+      setStatus('Published "' + data.track.name + '" to Other Places.');
+      await loadCommunityTracks();
+      setShowProjects(true);
+    } catch (error) {
+      setStatus(error.message || 'Could not publish this track.');
+    } finally {
+      setPublishing(false);
+    }
+  }, [wavBlob, publishing, projectName, loadCommunityTracks]);
+
   const onDrop = e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) convert(f); };
   const onFileInput = e => { const f = e.target.files && e.target.files[0]; if (f) convert(f); e.target.value = ''; };
   const panel = { background: rbx.panel, border: '2px solid #000', boxShadow: '2px 2px 0 rgba(0,0,0,0.35)' };
@@ -864,14 +910,15 @@ function MusicAI() {
     <div style={{ height: '100%', width: '100%', fontFamily: rbx.font, fontSize: 12, color: rbx.text, display: 'flex', flexDirection: 'column', overflow: 'hidden', background: '#87ceeb url(' + SKY_URL + ') center / cover no-repeat' }} onDragOver={e => { e.preventDefault(); e.stopPropagation(); }} onDrop={onDrop}>
       <div style={{ height: 'auto', minHeight: 28, background: 'linear-gradient(180deg, #9ec4e8 0%, #6e99c9 100%)', borderBottom: '2px solid #000', display: 'flex', alignItems: 'center', padding: '4px 6px', gap: 5, flexShrink: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
         <span style={{ fontWeight: 'bold', fontSize: 13, color: '#fff', textShadow: '1px 1px 0 #000' }}>ROBLOX<span style={{ color: rbx.yellow }}>ify</span></span>
-        <label style={{ ...btn, display: 'inline-block' }}>Open<input type="file" accept="audio/*" onChange={onFileInput} disabled={working} style={{ display: 'none' }} /></label>
+        <label style={{ ...topBtn, display: 'inline-flex' }}>Open<input type="file" accept="audio/*" onChange={onFileInput} disabled={working} style={{ display: 'none' }} /></label>
         <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => downloadStem(roleId))}>Save Stems</button>
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
-        <button type="button" style={btn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
-        <button type="button" style={btnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
-        <button type="button" style={btnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
-        <button type="button" style={btnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
+        <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
+        <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
+        <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Other Places</button>
+        <button type="button" style={topBtnGray} disabled={!wavBlob || publishing} onClick={publishTrack}>{publishing ? 'Publishing…' : 'Publish'}</button>
+        <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
         <select value={manualStyle} onChange={e => {
             const v = e.target.value; setManualStyle(v);
             if (v !== 'auto' && STYLE_PLANS[v] && arrangement.length) {
@@ -882,7 +929,7 @@ function MusicAI() {
               setMidiBlob(makeMidi(arrangement, plan.programs));
               setStatus('Style set to ' + forced.label + ' — press Play to load soundfont');
             }
-          }} style={{ fontFamily: rbx.font, fontSize: 10, border: '2px solid #000', maxWidth: 160 }} title="Pick any soundfont style">
+          }} style={{ ...topSelect, maxWidth: 160 }} title="Pick any soundfont style">
           <option value="auto">Style: Auto</option>
           <option value="mule">Wind of Fjords (M.U.L.E.)</option>
           <option value="fjords-midi">Wind of Fjords MIDI</option>
@@ -910,13 +957,24 @@ function MusicAI() {
             {activePlan && <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>{activePlan.label}</b> — {activePlan.reason}</div>}
           </div>
           {showProjects && (
-            <div style={{ ...panel, padding: 6, maxHeight: 90, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
-              {projects.length === 0 && <div style={{ color: '#666' }}>No saved places.</div>}
+            <div style={{ ...panel, padding: 6, maxHeight: 180, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>Other Places</div>
+              <div style={{ color: '#555', marginBottom: 5 }}>Your saved places</div>
+              {projects.length === 0 && <div style={{ color: '#777', marginBottom: 6 }}>No saved places.</div>}
               {projects.map(p => (
-                <div key={p.id} style={{ display: 'flex', gap: 4, marginBottom: 3 }}>
-                  <button type="button" style={btn} onClick={() => loadProject(p)}>Load</button>
-                  <button type="button" style={{ ...btn, background: '#e8a0a0' }} onClick={() => { const next = projects.filter(x => x.id !== p.id); setProjects(next); persistProjects(next); }}>Del</button>
+                <div key={p.id} style={{ display: 'flex', gap: 4, marginBottom: 3, alignItems: 'center' }}>
+                  <button type="button" style={topBtn} onClick={() => loadProject(p)}>Load</button>
+                  <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => { const next = projects.filter(x => x.id !== p.id); setProjects(next); persistProjects(next); }}>Del</button>
                   <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                </div>
+              ))}
+              <div style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community uploads</div>
+              {communityLoading && <div style={{ color: '#666' }}>Loading places…</div>}
+              {!communityLoading && communityTracks.length === 0 && <div style={{ color: '#777' }}>No public uploads yet.</div>}
+              {communityTracks.map(track => (
+                <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
+                  <audio controls preload="none" src={API_BASE + track.audioUrl} style={{ width: 180, height: 26 }} />
+                  <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{track.name}</span>
                 </div>
               ))}
             </div>
