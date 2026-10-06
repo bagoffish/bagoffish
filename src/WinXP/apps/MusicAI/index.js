@@ -101,83 +101,116 @@ function buildFullArrangement(rawNotes, duration) {
   const source = cleanDetectedNotes(rawNotes || []);
   if (!source.length) return [];
 
-  const pitches = source.map(n => n.pitchMidi).sort((a, b) => a - b);
-  const median = pitches[Math.floor(pitches.length / 2)] || 60;
+  // Basic Pitch is the source of truth. Do not replace the transcription with a
+  // generic chord loop: that makes real songs sound unrelated to the input.
   const end = Math.max(duration || 0, ...source.map(n => n.startTimeSeconds + n.durationSeconds));
   const out = [];
+  const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
 
-  // Keep the detected performance, but split it into a lead and rhythm layer.
-  source.forEach(note => {
-    const high = note.pitchMidi >= median + 3;
-    const long = note.durationSeconds >= 0.28;
-    const role = high || long ? 'vocals' : 'guitar';
-    pushNote(out, role, note.pitchMidi, note.startTimeSeconds, note.durationSeconds, Math.min(0.9, note.amplitude || 0.72));
+  // Detect monophonic vs. polyphonic material in short windows. Monophonic lines
+  // become LEAD; lower sustained material becomes BASS; remaining notes become
+  // guitar/keys without changing their original pitch or timing.
+  const clusters = [];
+  ordered.forEach(note => {
+    let cluster = clusters[clusters.length - 1];
+    if (!cluster || note.startTimeSeconds - cluster.time > 0.09) {
+      cluster = { time: note.startTimeSeconds, notes: [] };
+      clusters.push(cluster);
+    }
+    cluster.notes.push(note);
   });
 
-  // Build chord snapshots from the detected material. This creates musical accompaniment
-  // instead of simply cloning the same melody into four MIDI tracks.
-  const chordStep = 0.5;
-  const chordMap = new Map();
-  source.forEach(note => {
-    const slot = Math.floor(note.startTimeSeconds / chordStep) * chordStep;
-    const list = chordMap.get(slot) || [];
-    list.push(note.pitchMidi);
-    chordMap.set(slot, list);
+  const medianPitch = ordered.map(n => n.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
+  ordered.forEach(note => {
+    const cluster = clusters.find(c => c.notes.includes(note));
+    const chordLike = cluster && cluster.notes.length >= 3;
+    let role = 'guitar';
+    if (note.pitchMidi <= Math.min(52, medianPitch - 10) && note.durationSeconds >= 0.18) role = 'bass';
+    else if (!chordLike && (note.pitchMidi >= medianPitch + 7 || note.durationSeconds >= 0.45)) role = 'vocals';
+    else if (chordLike) role = 'keys';
+    pushNote(out, role, note.pitchMidi, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.72));
+  });
+
+  // Infer harmony only where the audio actually contains enough simultaneous
+  // pitch information. We add a restrained accompaniment rather than filling
+  // every half-second with chords that were never in the recording.
+  const harmonyStep = 0.25;
+  const windows = new Map();
+  ordered.forEach(note => {
+    const slot = Math.floor(note.startTimeSeconds / harmonyStep) * harmonyStep;
+    const list = windows.get(slot) || [];
+    list.push(note);
+    windows.set(slot, list);
   });
 
   const chordEvents = [];
-  [...chordMap.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
-    const root = clampMidi(Math.min(...values));
-    const rootPc = ((root % 12) + 12) % 12;
-    const third = values.some(p => (((p % 12) + 12) % 12) === ((rootPc + 3) % 12)) ? 3 : 4;
-    const chord = [rootPc, (rootPc + third) % 12, (rootPc + 7) % 12];
-    chordEvents.push({ time, root, chord });
+  [...windows.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
+    const pcs = [...new Set(values.map(n => ((n.pitchMidi % 12) + 12) % 12))];
+    if (pcs.length < 3) return;
+    let best = null;
+    pcs.forEach(rootPc => {
+      const intervals = pcs.map(pc => (pc - rootPc + 12) % 12);
+      const score = intervals.includes(0) + intervals.includes(3) + intervals.includes(4) + intervals.includes(7) + intervals.includes(10) + intervals.includes(11);
+      if (!best || score > best.score) best = { rootPc, score };
+    });
+    if (!best || best.score < 3) return;
+    chordEvents.push({ time, rootPc: best.rootPc });
+  });
+
+  // Smooth repeated chord detections so the accompaniment follows the source.
+  const stableChords = [];
+  chordEvents.forEach(event => {
+    const previous = stableChords[stableChords.length - 1];
+    if (!previous || previous.rootPc !== event.rootPc || event.time - previous.time >= 1.0) {
+      stableChords.push(event);
+    }
   });
 
   const chordAt = time => {
-    if (!chordEvents.length) return { time: 0, root: 60, chord: [0, 4, 7] };
-    let current = chordEvents[0];
-    for (const event of chordEvents) {
+    let current = null;
+    for (const event of stableChords) {
       if (event.time > time) break;
       current = event;
     }
     return current;
   };
 
-  // Eight-bar-ish harmonic bed: bass, keys, pad, strings and an arpeggiator.
-  for (let t = 0; t < end; t += chordStep) {
+  for (let t = 0; t < end; t += 0.5) {
     const chord = chordAt(t);
-    const rootPc = chord.chord[0];
-    const root = clampMidi(36 + ((rootPc - 0 + 12) % 12));
-    pushNote(out, 'bass', root, t, Math.min(0.42, chordStep * 0.9), 0.72);
+    if (!chord) continue;
+    const root = clampMidi(36 + chord.rootPc);
+    const hasBass = ordered.some(n => n.role === 'bass' && Math.abs(n.startTimeSeconds - t) < 0.3);
+    if (!hasBass) pushNote(out, 'bass', root, t, 0.32, 0.48);
 
-    if (Math.round(t / chordStep) % 2 === 0) {
-      chord.chord.forEach((pc, index) => {
-        const pitch = clampMidi(60 + ((pc - rootPc + 12) % 12) + (index === 2 ? 12 : 0));
-        pushNote(out, 'keys', pitch, t, Math.min(0.48, chordStep * 0.92), 0.42);
-        pushNote(out, 'pad', pitch - 12, t, Math.min(1.0, chordStep * 1.95), 0.22);
+    // Only add a chord when the source has demonstrated that harmony exists.
+    if (Math.round(t / 0.5) % 2 === 0) {
+      [0, 4, 7].forEach((interval, index) => {
+        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, 0.38, 0.22);
       });
-      pushNote(out, 'strings', clampMidi(48 + ((rootPc - 0 + 12) % 12)), t, Math.min(1.0, chordStep * 1.9), 0.28);
     }
-
-    const arpPc = chord.chord[Math.round(t / chordStep) % chord.chord.length];
-    pushNote(out, 'arp', clampMidi(72 + ((arpPc - rootPc + 12) % 12)), t, Math.min(0.22, chordStep * 0.42), 0.35);
   }
 
-  // Deterministic drum groove: kick/snare on quarters, hats on eighths.
-  const beat = 0.5;
-  for (let t = 0; t < end; t += beat) {
-    const beatIndex = Math.round(t / beat);
-    pushNote(out, 'drums', 36, t, 0.12, beatIndex % 4 === 0 ? 0.9 : 0.62);
-    if (beatIndex % 4 === 2) pushNote(out, 'drums', 38, t, 0.10, 0.72);
-    pushNote(out, 'drums', 42, t + 0.25, 0.06, 0.38);
+  // Generate a restrained groove only when the source has a clear repeating
+  // onset pulse. This avoids forcing drums onto ambient/speech-like audio.
+  const onsets = ordered.map(n => n.startTimeSeconds);
+  const gaps = [];
+  for (let i = 1; i < onsets.length; i++) {
+    const gap = onsets[i] - onsets[i - 1];
+    if (gap >= 0.18 && gap <= 1.2) gaps.push(gap);
+  }
+  const medianGap = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : 0;
+  if (medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
+    const beat = Math.max(0.25, Math.min(0.75, medianGap));
+    for (let t = 0, i = 0; t < end; t += beat, i++) {
+      pushNote(out, 'drums', 36, t, 0.08, i % 4 === 0 ? 0.42 : 0.25);
+      if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.32);
+    }
   }
 
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
     .map((note, index) => ({ ...note, id: index + 1 }));
 }
-
 function makeStemMidi(notes, roleId, programs) {
   const role = roles.find(r => r.id === roleId);
   const midi = new Midi();
@@ -347,9 +380,25 @@ function assignRoles(detected) {
   });
 }
 
-function lightQuantize(notes, step = 0.0625) {
-  return notes.map(note => ({ ...note, startTimeSeconds: Math.max(0, Math.round(note.startTimeSeconds / step) * step), durationSeconds: Math.max(step, Math.round(note.durationSeconds / step) * step) }));
+function smartQuantize(notes) {
+  if (!notes.length) return notes;
+  const starts = notes.map(n => n.startTimeSeconds).sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = 1; i < starts.length; i++) {
+    const d = starts[i] - starts[i - 1];
+    if (d >= 0.08 && d <= 1.5) gaps.push(d);
+  }
+  if (!gaps.length) return notes;
+  const median = gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
+  const grid = Math.max(0.03125, Math.min(0.25, median / Math.max(1, Math.round(median / 0.125))));
+  const tolerance = Math.min(0.035, grid * 0.22);
+  return notes.map(note => {
+    const snapped = Math.round(note.startTimeSeconds / grid) * grid;
+    const start = Math.abs(snapped - note.startTimeSeconds) <= tolerance ? snapped : note.startTimeSeconds;
+    return { ...note, startTimeSeconds: Math.max(0, start), durationSeconds: Math.max(0.04, note.durationSeconds) };
+  });
 }
+
 
 function makeMidi(notes, programs) {
   const midi = new Midi(); midi.name = 'Robloxify'; midi.header.setTempo(120);
@@ -598,7 +647,7 @@ function MusicAI() {
       setStatus('Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
-      fitted = lightQuantize(fitted, 0.0625);
+      fitted = smartQuantize(fitted);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       let plan = pickClassicRobloxPlan(fitted, duration || 1);
       if (manualStyle !== 'auto' && STYLE_PLANS[manualStyle]) {
