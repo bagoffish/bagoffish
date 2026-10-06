@@ -17,7 +17,21 @@ const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
 const WORKER_PATH = path.join(__dirname, "workers", "chunkParser.js");
 
-app.use(cors());
+const allowedOrigins = new Set([
+  "https://bagof.fish",
+  "https://www.bagof.fish",
+  "http://localhost:3000",
+  "http://localhost:3001",
+]);
+
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ["GET", "OPTIONS"],
+  allowedHeaders: ["Accept", "Content-Type"],
+}));
 app.use(express.json());
 
 // health check / root
