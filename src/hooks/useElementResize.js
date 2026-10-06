@@ -392,23 +392,23 @@ function getComputedPagePosition(e, boundary) {
 function getCursorStyle(pos) {
   switch (pos) {
     case 'top':
-      return 'n-resize';
+      return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
     case 'topRight':
-      return 'ne-resize';
+      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
     case 'right':
-      return 'e-resize';
+      return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
     case 'bottomRight':
-      return 'se-resize';
+      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nwse-resize';
     case 'bottom':
-      return 's-resize';
+      return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
     case 'bottomLeft':
-      return 'sw-resize';
+      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nesw-resize';
     case 'left':
-      return 'w-resize';
+      return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
     case 'topLeft':
-      return 'nw-resize';
+      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nwse-resize';
     default:
-      return 'auto';
+      return 'url("/images/Normal%20Select.cur") 3 3, default';
   }
 }
 export default useElementResize;
