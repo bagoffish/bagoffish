@@ -12,6 +12,7 @@ import Robloxify from "./MusicAI";
 import iePaper from "assets/windowsIcons/ie-paper.png";
 import mine from "assets/minesweeper/mine-icon.png";
 import winamp from "assets/windowsIcons/winamp.png";
+import musicIcon from "assets/windowsIcons/550(32x32).png";
 import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
@@ -132,7 +133,7 @@ export const defaultIconState = [
   },
   {
     id: 7,
-    icon: winamp,
+    icon: musicIcon,
     title: "Robloxify",
     component: Robloxify,
     isFocus: false,
@@ -305,7 +306,7 @@ export const appSettings = {
 
   Robloxify: {
     header: {
-      icon: winamp,
+      icon: musicIcon,
       title: "Robloxify",
     },
     component: Robloxify,
