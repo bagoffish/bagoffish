@@ -1,4 +1,4 @@
-import React, { useRef, memo } from 'react';
+import React, { useRef, memo, useEffect } from 'react';
 import useWindowSize from 'react-use/lib/useWindowSize';
 import styled from 'styled-components';
 
@@ -71,6 +71,11 @@ const Window = memo(function({
   const dragRef = useRef(null);
   const ref = useRef(null);
   const { width: windowWidth, height: windowHeight } = useWindowSize();
+  const mobile = windowWidth <= 700;
+  useEffect(() => {
+    if (!mobile || maximized) return;
+  }, [mobile, maximized]);
+
   const { offset, size } = useElementResize(ref, {
     dragRef,
     defaultOffset,
@@ -85,11 +90,11 @@ const Window = memo(function({
     resizeThreshold: 10,
   });
   let width, height, x, y;
-  if (maximized) {
-    width = windowWidth + 6;
-    height = windowHeight - 24;
-    x = -3;
-    y = -3;
+  if (maximized || mobile) {
+    width = windowWidth;
+    height = Math.max(0, windowHeight - 32);
+    x = 0;
+    y = 0;
   } else {
     width = size.width;
     height = size.height;
@@ -222,6 +227,9 @@ const StyledWindow = styled(Window)`
   }
   .app__content {
     flex: 1;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
     position: relative;
     margin-top: 25px;
     height: calc(100% - 25px);
@@ -229,3 +237,17 @@ const StyledWindow = styled(Window)`
 `;
 
 export default Windows;
+
+@media (max-width: 700px) {
+  .app__header {
+    height: 29px !important;
+    line-height: 29px !important;
+  }
+  .app__header__title {
+    font-size: 11px;
+  }
+  .app__content {
+    margin-top: 29px !important;
+    height: calc(100% - 29px) !important;
+  }
+}
