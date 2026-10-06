@@ -29,7 +29,7 @@ function AboutMe({ onClose }) {
 
 useEffect(() => {
 let cancelled = false;
-    fetch("https://winxp-backend.onrender.com/visitor-count", { cache: "no-store" })
+    fetch("https://winxp-backend-live.onrender.com/visitor-count", { cache: "no-store" })
 .then((response) => {
 if (!response.ok) throw new Error("Visitor counter unavailable");
         return response.json();
