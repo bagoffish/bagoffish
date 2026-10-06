@@ -728,27 +728,24 @@ function MusicAI() {
     const clean = String(name || '').trim(); if (!clean) return false;
     setPlayerBusy(true);
     try {
-      const response = await fetch(API_BASE + '/players/' + encodeURIComponent(clean), { cache: 'no-store' });
-      if (!response.ok) return false;
-      const data = await response.json();
+      let response = await fetch(API_BASE + '/players/' + encodeURIComponent(clean), { cache: 'no-store' });
+
+      // Render's free filesystem can reset after a restart. If this browser
+      // still has the player's saved name, recreate the server-side record
+      // instead of leaving Player List stuck on a 404.
+      if (response.status === 404) {
+        response = await fetch(API_BASE + '/players/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: clean }),
+        });
+      }
+
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.player) return false;
       setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(Array.isArray(data.projects) ? data.projects : []); setProjects(prev => { const merged = [...(data.projects || []), ...prev.filter(p => !(data.projects || []).some(q => String(q.id) === String(p.id)))]; return merged.slice(0, 100); }); setPlayerTracks(Array.isArray(data.tracks) ? data.tracks : []); savePlayerLocal(data.player.name); return true;
     } catch (e) { return false; } finally { setPlayerBusy(false); }
   }, []);
-  const registerPlayer = useCallback(async () => {
-    const clean = String(playerInput || '').trim(); if (!clean) return;
-    setPlayerBusy(true);
-    try {
-      const response = await fetch(API_BASE + '/players/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: clean }) });
-      const data = await response.json().catch(() => ({}));
-      if (response.status === 409) {
-        const existing = await loadPlayer(clean);
-        if (!existing) throw new Error(data.error || 'That name is already taken.');
-        return;
-      }
-      if (!response.ok) throw new Error(data.error || 'Could not save player name.');
-      setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(data.projects || []); savePlayerLocal(data.player.name);
-    } catch (e) { setStatus(e.message || 'Could not save player name.'); } finally { setPlayerBusy(false); }
-  }, [playerInput, loadPlayer])
   useEffect(() => { if (playerName) loadPlayer(playerName); }, []);
 ;
 
