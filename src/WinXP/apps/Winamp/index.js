@@ -41,11 +41,15 @@ function Winamp({ onClose, onMinimize }) {
     <div
       ref={targetRef}
       style={{
-        position: 'fixed',
+        position: 'absolute',
         inset: 0,
         width: '100%',
         height: '100%',
+        minWidth: 0,
+        minHeight: 0,
+        overflow: 'hidden',
         pointerEvents: 'auto',
+        zIndex: 1,
       }}
     />
   );
