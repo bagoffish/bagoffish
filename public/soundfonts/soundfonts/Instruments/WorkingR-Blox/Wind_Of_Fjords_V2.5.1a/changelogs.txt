@@ -1,0 +1,15 @@
+2.5 CHANGELOGS:
+Preset Update [Rublead, String]
+Guitar Strat is now named Rub Lead to match Sample Original Name.
+Fixed that the kick preset had no instrument, resulting in the kick not appearing.
+2.5.1 CHANGELOGS:
+Tweaked Rub Lead and String Loop Points.
+String preset is now after Snare Drum preset.
+2.5.1a: Updated the String Root Key.
+
+OLDER CHANGELOGS:
+2.4 [Soundfont only version]: Made the Nightmare Sample Mono for a better loop, modified some presets number orders, tweaked some Loop Points, also changed back to the original Wind Of Fjords kick.
+2.3: Preset Update (String, Nightmare, Hi-Hat, Big Synth).
+2.2: Updated Harp.
+2.1: Minor Tweaks.
+2.0: Added individual samples folder.
