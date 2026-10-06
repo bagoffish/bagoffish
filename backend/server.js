@@ -12,6 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const BACKEND_VERSION = "2026-10-06-cors-fix";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -36,6 +37,10 @@ function applyCorsHeaders(req, res, next) {
 }
 
 app.use(applyCorsHeaders);
+app.use((req, res, next) => {
+  res.setHeader("X-WinXP-Backend", BACKEND_VERSION);
+  next();
+});
 app.use(cors({
   origin: function (origin, callback) {
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
@@ -55,6 +60,10 @@ app.use(express.json());
 // health check / root
 app.get("/", (req, res) => {
   res.type("text").send("ok");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ ok: true, service: "winxp-7yes", version: BACKEND_VERSION });
 });
 
 /* ---------- avatar index ---------- */
