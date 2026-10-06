@@ -94,6 +94,36 @@ function downloadBlob(blob, filename) {
 }
 
 function MusicAI({ onClose }) {
+  const STORAGE_KEY = 'robloxify-projects-v1';
+  const COOKIE_KEY = 'robloxify-last-project';
+
+  function readCookie(name) {
+    const prefix = name + '=';
+    const item = document.cookie.split('; ').find(value => value.indexOf(prefix) === 0);
+    return item ? decodeURIComponent(item.slice(prefix.length)) : '';
+  }
+
+  function writeCookie(name, value) {
+    document.cookie = name + '=' + encodeURIComponent(value) +
+      '; max-age=31536000; path=/; SameSite=Lax';
+  }
+
+  function loadProjects() {
+    try {
+      const value = window.localStorage.getItem(STORAGE_KEY);
+      return value ? JSON.parse(value) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function persistProjects(value) {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+    } catch (error) {
+      console.error(error);
+    }
+  }
   const synthRef = useRef(null);
   const contextRef = useRef(null);
   const [file, setFile] = useState(null);
@@ -104,6 +134,9 @@ function MusicAI({ onClose }) {
   const [progress, setProgress] = useState(0);
   const [working, setWorking] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Robloxify Project');
+  const [projects, setProjects] = useState(() => loadProjects());
+  const [showProjects, setShowProjects] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -185,7 +218,7 @@ function MusicAI({ onClose }) {
       setArrangement(fitted);
       setMidiBlob(makeMidi(fitted));
       setProgress(100);
-      setStatus('DONE — AI MIDI + ROBLOX ARRANGEMENT READY');
+      setStatus('DONE — ROBLOXIFY ARRANGEMENT READY');
     } catch (error) {
       console.error(error);
       setStatus(
@@ -194,6 +227,45 @@ function MusicAI({ onClose }) {
     } finally {
       setWorking(false);
     }
+  };
+
+  const saveProject = () => {
+    if (!arrangement.length) {
+      setStatus('CONVERT AUDIO FIRST');
+      return;
+    }
+
+    const project = {
+      id: Date.now(),
+      name: projectName.trim() || 'Untitled Robloxify Project',
+      sourceName: file ? file.name : 'Unknown audio',
+      notes,
+      arrangement,
+      savedAt: new Date().toISOString(),
+    };
+
+    const next = [project, ...projects.filter(item => item.name !== project.name)].slice(0, 25);
+    setProjects(next);
+    persistProjects(next);
+    writeCookie(COOKIE_KEY, project.name);
+    setStatus('PROJECT SAVED');
+  };
+
+  const loadProject = project => {
+    setProjectName(project.name);
+    setNotes(project.notes || []);
+    setArrangement(project.arrangement || []);
+    setMidiBlob(makeMidi(project.arrangement || []));
+    writeCookie(COOKIE_KEY, project.name);
+    setShowProjects(false);
+    setStatus('PROJECT LOADED — ' + project.name);
+  };
+
+  const deleteProject = project => {
+    const next = projects.filter(item => item.id !== project.id);
+    setProjects(next);
+    persistProjects(next);
+    setStatus('PROJECT DELETED');
   };
 
   const playArrangement = async () => {
@@ -302,7 +374,7 @@ function MusicAI({ onClose }) {
           marginBottom: 8,
         }}
       >
-        ROBLOX MIDI AI // MUSIC LAB
+        ROBLOXIFY // ROBLOX MUSIC LAB
       </div>
 
       <div
@@ -319,9 +391,9 @@ function MusicAI({ onClose }) {
           marginBottom: 8,
         }}
       >
-        <div style={{ color: '#8bdcff', marginBottom: 6 }}>AUDIO → MIDI</div>
+        <div style={{ color: '#8bdcff', marginBottom: 6 }}>ROBLOXIFY AUDIO</div>
         <div style={{ marginBottom: 8 }}>
-          MP3 / WAV / FLAC / OGG / M4A / AAC / WEBM
+          TURN AUDIO INTO A ROBLOX-READY MIDI ARRANGEMENT
         </div>
         <label style={buttonStyle}>
           CHOOSE AUDIO
@@ -365,6 +437,28 @@ function MusicAI({ onClose }) {
         </div>
       )}
 
+      <div style={{ marginBottom: 8 }}>
+        <div style={{ color: '#ffcf70', marginBottom: 4 }}>PROJECT</div>
+        <input
+          value={projectName}
+          onChange={event => {
+            setProjectName(event.target.value);
+            writeCookie(COOKIE_KEY, event.target.value);
+          }}
+          maxLength={80}
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            background: '#050505',
+            color: '#ddd',
+            border: '1px inset #555',
+            padding: '4px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 11,
+          }}
+        />
+      </div>
+
       <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8 }}>
         <button
           type="button"
@@ -373,6 +467,15 @@ function MusicAI({ onClose }) {
           onClick={playArrangement}
         >
           {playing ? 'PLAYING...' : 'PLAY WITH ROBLOX SF2'}
+        </button>
+
+        <button
+          type="button"
+          style={buttonStyle}
+          disabled={working || !arrangement.length}
+          onClick={saveProject}
+        >
+          SAVE PROJECT
         </button>
 
         <button
@@ -389,6 +492,14 @@ function MusicAI({ onClose }) {
           SAVE MIDI
         </button>
 
+        <button
+          type="button"
+          style={buttonStyle}
+          onClick={() => setShowProjects(value => !value)}
+        >
+          {showProjects ? 'HIDE PROJECTS' : 'PROJECTS'}
+        </button>
+
         {onClose && (
           <button type="button" style={buttonStyle} onClick={onClose}>
             CLOSE
@@ -399,7 +510,7 @@ function MusicAI({ onClose }) {
       {arrangement.length > 0 && (
         <div style={{ marginTop: 8, borderTop: '1px solid #555', paddingTop: 7 }}>
           <div style={{ color: '#ffcf70', marginBottom: 5 }}>
-            AI INSTRUMENT FIT
+            ROBLOXIFY INSTRUMENT FIT
           </div>
           {roles.map(role => {
             const count = arrangement.filter(note => note.role === role.id).length;
@@ -420,6 +531,40 @@ function MusicAI({ onClose }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {showProjects && (
+        <div style={{
+          marginTop: 8,
+          border: '1px inset #555',
+          background: '#080808',
+          padding: 7,
+        }}>
+          <div style={{ color: '#ffcf70', marginBottom: 5 }}>SAVED PROJECTS</div>
+          {projects.length === 0 && (
+            <div style={{ color: '#888' }}>No saved Robloxify projects.</div>
+          )}
+          {projects.map(project => (
+            <div key={project.id} style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+              borderBottom: '1px dotted #333',
+              padding: '4px 0',
+            }}>
+              <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>
+                LOAD
+              </button>
+              <span style={{ flex: 1, color: '#ddd' }}>
+                {project.name}
+                <span style={{ color: '#777', marginLeft: 5 }}>({project.sourceName})</span>
+              </span>
+              <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>
+                X
+              </button>
+            </div>
+          ))}
         </div>
       )}
 
