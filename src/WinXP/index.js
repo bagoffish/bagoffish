@@ -461,7 +461,6 @@ const Container = styled.div`
     cursor: inherit !important;
   }
   @media (max-width: 700px) {
-  `;
     html, body, #root {
       width: 100%;
       height: 100%;
@@ -473,4 +472,6 @@ const Container = styled.div`
       inset: 0;
     }
   }
-`;\n\nexport default WinXP;\n
+`;
+
+export default WinXP;
