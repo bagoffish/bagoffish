@@ -29,7 +29,7 @@
       }
     }
 
-    return Promise.all(unique.map(function (src) {
+    return Promise.all(unique.slice(0, 2).map(function (src) {
       return new Promise(function (resolve) {
         var image = new Image();
         image.onload = function () { resolve(src); };
@@ -90,7 +90,7 @@
     function fetchRendererData(username) {
       return fetch(API_BASE + "/proxy-roblox?username=" + encodeURIComponent(username), {
         headers: { "Accept": "application/json" },
-        cache: "no-store"
+        cache: "default"
       }).then(function (response) {
         if (!response.ok) throw new Error("Backend HTTP " + response.status);
         return response.json();
@@ -119,12 +119,6 @@
 
           if (roblox.avatarUrl) {
             imageUrls.push(roblox.avatarUrl);
-          }
-
-          for (i = 0; i < oldAvatars.length; i += 1) {
-            if (oldAvatars[i] && oldAvatars[i].wayback) {
-              imageUrls.push(oldAvatars[i].wayback);
-            }
           }
 
           return preloadImages(imageUrls).then(function () {
@@ -170,7 +164,7 @@
                 var thumb = document.createElement("img");
                 thumb.src = oldAvatars[i].wayback;
                 thumb.alt = "";
-                thumb.loading = "eager";
+                thumb.loading = "lazy";
                 thumb.className = "old-avatar-thumb";
                 thumb.title = "Open archived avatar";
                 (function (url) {
