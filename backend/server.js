@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-robloxify-fixes";
+const BACKEND_VERSION = "2026-10-07-robloxify-stable-import";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -280,7 +280,7 @@ const CACHE_TTL = 10 * 60 * 1000;
 
 
 /* ---------- Robloxify player list ---------- */
-const PLAYERS_DIR = process.env.PLAYERS_DIR || "/var/data/robloxify-players";
+const PLAYERS_DIR = process.env.PLAYERS_DIR || path.join(DATA_ROOT, "robloxify-players");
 const PLAYERS_INDEX_PATH = path.join(PLAYERS_DIR, "players.json");
 let memoryPlayers = new Map();
 
@@ -688,7 +688,7 @@ app.post("/robloxify", async (req, res) => {
       robloxifyBusy = false;
     }
   } catch (err) {
-    console.error("Robloxify failed:", err);
+    console.error("Robloxify failed:", err?.stack || err);
     setCors(req, res);
     const msg = err && err.message ? err.message : "Transcription failed";
     const status = /too large|shorter|Empty|busy/i.test(msg) ? 400 : 500;
