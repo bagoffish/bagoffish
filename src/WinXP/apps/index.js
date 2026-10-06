@@ -111,6 +111,13 @@ export const defaultIconState = [
     isFocus: false,
   },
   {
+    id: 7,
+    icon: musicIcon,
+    title: "Robloxify",
+    component: Robloxify,
+    isFocus: false,
+  },
+  {
     id: 4,
     icon: mine,
     title: "Minesweeper",
@@ -215,6 +222,26 @@ export const appSettings = {
     defaultOffset: {
       x: 210,
       y: 90,
+    },
+    resizable: true,
+    minimized: false,
+    maximized: window.innerWidth < 800,
+    multiInstance: true,
+  },
+
+  Robloxify: {
+    header: {
+      icon: musicIcon,
+      title: "Robloxify",
+    },
+    component: Robloxify,
+    defaultSize: {
+      width: 520,
+      height: 600,
+    },
+    defaultOffset: {
+      x: 220,
+      y: 70,
     },
     resizable: true,
     minimized: false,
