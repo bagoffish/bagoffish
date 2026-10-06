@@ -491,6 +491,17 @@ function MusicAI({ onClose }) {
     setStatus('NOTES QUANTIZED');
   };
 
+  const downloadStemMidi = roleId => {
+    if (!arrangement.length) return;
+    const role = roles.find(item => item.id === roleId);
+    if (!role) return;
+    const blob = makeMidi(arrangement, roleId);
+    const base = file
+      ? file.name.replace(/\\.[^.]+$/, '')
+      : 'robloxify';
+    downloadBlob(blob, base + '-' + role.id + '.mid');
+  };
+
   const transposeArrangement = amount => {
     const next = arrangement.map(note => ({
       ...note,
@@ -753,16 +764,26 @@ function MusicAI({ onClose }) {
                 key={role.id}
                 style={{
                   display: 'flex',
+                  alignItems: 'center',
                   justifyContent: 'space-between',
+                  gap: 5,
                   borderBottom: '1px solid #ff0000',
-                  padding: '3px 0',
+                  padding: '4px 0',
                   textAlign: 'center',
                 }}
               >
                 <span>{role.label}</span>
                 <span style={{ color: '#aaa' }}>
-                  GM {role.program} · {count} notes
+                  {count} notes
                 </span>
+                <button
+                  type="button"
+                  style={buttonStyle}
+                  disabled={!count || working}
+                  onClick={() => downloadStemMidi(role.id)}
+                >
+                  SAVE
+                </button>
               </div>
             );
           })}
@@ -777,7 +798,8 @@ function MusicAI({ onClose }) {
           padding: 7,
           textAlign: 'center',
         }}>
-          <div style={{ color: '#ff0000', marginBottom: 6 }}>MIDI EDITOR</div>
+          <div style={{ color: '#ff0000', marginBottom: 3 }}>MIDI EDITOR</div>
+          <div style={{ color: '#888', marginBottom: 6 }}>DRUMS · BASS · GUITAR · VOCALS</div>
 
           <div style={{
             display: 'flex',
