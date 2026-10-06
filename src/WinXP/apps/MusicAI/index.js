@@ -520,7 +520,7 @@ function MusicAI({ onClose }) {
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  borderBottom: '1px dotted #333',
+                  borderBottom: '1px solid ' + red,
                   padding: '3px 0',
                 }}
               >
@@ -543,7 +543,7 @@ function MusicAI({ onClose }) {
         }}>
           <div style={{ color: '#ffcf70', marginBottom: 5 }}>SAVED PROJECTS</div>
           {projects.length === 0 && (
-            <div style={{ color: '#888' }}>No saved Robloxify projects.</div>
+            <div style={{ color: '#aaa' }}>No saved Robloxify projects.</div>
           )}
           {projects.map(project => (
             <div key={project.id} style={{
@@ -556,9 +556,9 @@ function MusicAI({ onClose }) {
               <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>
                 LOAD
               </button>
-              <span style={{ flex: 1, color: '#ddd' }}>
+              <span style={{ flex: 1, color: white }}>
                 {project.name}
-                <span style={{ color: '#777', marginLeft: 5 }}>({project.sourceName})</span>
+                <span style={{ color: '#aaa', marginLeft: 5 }}>({project.sourceName})</span>
               </span>
               <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>
                 X
