@@ -25,23 +25,46 @@ import dropdown from "assets/windowsIcons/dropdown.png";
 
 function AboutMe({ onClose }) {
   const [showLain, setShowLain] = useState(false);
-  const [visitorCount, setVisitorCount] = useState(0);
+  const [visitorCount, setVisitorCount] = useState(() => {
+    try {
+      const cached = Number(window.localStorage.getItem("bagof-fish-visitor-count"));
+      return Number.isFinite(cached) && cached > 0 ? cached : 0;
+    } catch (e) {
+      return 0;
+    }
+  });
 
-useEffect(() => {
-let cancelled = false;
-    fetch("https://winxp-backend-live.onrender.com/visitor-count", { cache: "no-store" })
-.then((response) => {
-if (!response.ok) throw new Error("Visitor counter unavailable");
+  useEffect(() => {
+    let cancelled = false;
+    let visitorId = "";
+    try {
+      const cookieName = "bagof-fish-visitor";
+      const existing = document.cookie.split("; ").find(v => v.startsWith(cookieName + "="));
+      if (existing) {
+        visitorId = decodeURIComponent(existing.slice(cookieName.length + 1));
+      } else {
+        visitorId = (window.crypto && window.crypto.randomUUID)
+          ? window.crypto.randomUUID()
+          : Date.now().toString(36) + Math.random().toString(36).slice(2);
+        document.cookie = cookieName + "=" + encodeURIComponent(visitorId) + "; max-age=31536000; path=/; SameSite=Lax";
+      }
+    } catch (e) {}
+
+    if (!visitorId) return () => { cancelled = true; };
+
+    fetch("https://winxp-backend-live.onrender.com/visitor-count?visitor=" + encodeURIComponent(visitorId), { cache: "no-store" })
+      .then((response) => {
+        if (!response.ok) throw new Error("Visitor counter unavailable");
         return response.json();
       })
-.then((data) => {
-if (!cancelled && Number.isFinite(Number(data.count))) {
-setVisitorCount(Number(data.count));
+      .then((data) => {
+        if (!cancelled && Number.isFinite(Number(data.count))) {
+          const count = Number(data.count);
+          setVisitorCount(count);
+          try { window.localStorage.setItem("bagof-fish-visitor-count", String(count)); } catch (e) {}
         }
-})
-.catch(() => {
-if (!cancelled) setVisitorCount(0);
-      });
+      })
+      .catch(() => {});
     return () => { cancelled = true; };
   }, []);
   const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
