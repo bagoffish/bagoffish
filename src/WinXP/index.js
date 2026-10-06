@@ -370,7 +370,7 @@ const Container = styled.div`
   overflow: hidden;
   position: relative;
   background-color: #1d2530;
-  background-image: url('${process.env.PUBLIC_URL || '.'}/images/sky.png');
+  background-image: url('${process.env.PUBLIC_URL || '.'}/images/bliss.png');
   background-repeat: no-repeat;
   background-position: center center;
   background-attachment: fixed;
