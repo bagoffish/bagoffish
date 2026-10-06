@@ -1,4 +1,4 @@
-import React, { useRef, memo } from 'react';
+import React, { useRef, memo, useEffect } from 'react';
 import useWindowSize from 'react-use/lib/useWindowSize';
 import styled from 'styled-components';
 
@@ -13,6 +13,30 @@ function Windows({
   onMaximize,
   focusedAppId,
 }) {
+  useEffect(() => {
+    const webampApp = apps.find(app => app.header && app.header.title === 'Shoegazefy');
+    if (!webampApp) return undefined;
+
+    const handleWebampMouseDown = event => {
+      const target = event.target;
+      if (!target || !target.closest) return;
+      if (!target.closest('#webamp')) return;
+      onMouseDown(webampApp.id);
+    };
+
+    document.addEventListener('mousedown', handleWebampMouseDown, true);
+
+    const webampRoot = document.getElementById('webamp');
+    if (webampRoot) {
+      webampRoot.style.zIndex =
+        focusedAppId === webampApp.id ? String(webampApp.zIndex + 1) : '0';
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleWebampMouseDown, true);
+    };
+  }, [apps, focusedAppId, onMouseDown]);
+
   return (
     <div style={{ position: 'relative', zIndex: 0 }}>
       {apps.map(app => (
