@@ -1,11 +1,3 @@
-const tf = require("@tensorflow/tfjs");
-const basicPitchPackage = require("@spotify/basic-pitch");
-const {
-  addPitchBendsToNoteEvents,
-  noteFramesToTime,
-  outputToNotesPoly,
-  BasicPitch,
-} = basicPitchPackage;
 const brain = require("./robloxify-knowledge.json");
 
 const TARGET_RATE = 22050;
@@ -17,6 +9,19 @@ let basicPitchPromise = null;
 async function getBasicPitch() {
   if (!basicPitchPromise) {
     basicPitchPromise = (async () => {
+      // Keep heavy dependencies behind dynamic imports so Node does not parse
+      // incompatible dependency entrypoints while loading the route module.
+      const tfModule = await import("@tensorflow/tfjs");
+      const tf = tfModule.default || tfModule;
+      const basicPitchModule = await import("@spotify/basic-pitch");
+      const basicPitchPackage = basicPitchModule.default || basicPitchModule;
+      const {
+        addPitchBendsToNoteEvents,
+        noteFramesToTime,
+        outputToNotesPoly,
+        BasicPitch,
+      } = basicPitchPackage;
+
       // Pure-JS backend — runs on the server so the user's browser stays free
       await tf.setBackend("cpu");
       await tf.ready();
