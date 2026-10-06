@@ -3,6 +3,7 @@ import styled from 'styled-components';
 
 import SubMenu from 'components/SubMenu';
 import ie from 'assets/windowsIcons/ie.png';
+import iePaper from 'assets/windowsIcons/ie-paper.png';
 import mine from 'assets/minesweeper/mine-icon.png';
 import setAccess from 'assets/windowsIcons/227(32x32).png';
 import outlook from 'assets/windowsIcons/887(32x32).png';
@@ -27,6 +28,7 @@ import allProgramsIcon from 'assets/windowsIcons/all-programs.ico';
 import winamp from 'assets/windowsIcons/winamp.png';
 import notepad from 'assets/windowsIcons/327(32x32).png';
 import empty from 'assets/empty.png';
+import rendererIcon from 'assets/windowsIcons/299(32x32).png';
 
 import { AllPrograms, ConnectTo, MyRecentDocuments } from './FooterMenuData';
 
@@ -46,22 +48,17 @@ function FooterMenu({ className, onClick }) {
       <section className="menu" onMouseOver={onMouseOver}>
         <hr className="orange-hr" />
         <div className="menu__left">
-          <Item onClick={onClick} text="Internet" icon={ie}>
-            <div className="menu__item__subtext">Internet Explorer</div>
-          </Item>
-          <Item onClick={onClick} text="E-mail" icon={outlook}>
-            <div className="menu__item__subtext">Outlook Express</div>
-          </Item>
-          <div className="menu__separator" />
           <Items
             onClick={onClick}
             items={[
+              { icon: iePaper, text: 'About Me' },
+              { icon: ie, text: 'Socials' },
+              { icon: notepad, text: 'Poems' },
+              { icon: rendererIcon, text: 'Renderer' },
               { icon: mine, text: 'Minesweeper' },
+              { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
               { icon: music, text: 'Robloxify' },
-              { icon: paint, text: 'Paint' },
-              { icon: mediaPlayer, text: 'Windows Media Player' },
-              { icon: messenger, text: 'Windows Messenger' },
             ]}
           />
           <div style={{ flex: 1 }} />
