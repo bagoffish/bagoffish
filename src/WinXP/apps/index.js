@@ -6,7 +6,7 @@ import Paint from "./Paint";
 import Poems from "./Poems";
 import Socials from "./Socials";
 import Winamp from "./Winamp";
-import MusicAI from "./MusicAI";
+import Robloxify from "./MusicAI";
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -128,6 +128,13 @@ export const defaultIconState = [
     icon: winamp,
     title: "Winamp",
     component: Winamp,
+    isFocus: false,
+  },
+  {
+    id: 7,
+    icon: winamp,
+    title: "Robloxify",
+    component: Robloxify,
     isFocus: false,
   },
 ];
@@ -296,12 +303,12 @@ export const appSettings = {
     multiInstance: false,
   },
 
-  "Roblox MIDI AI": {
+  Robloxify: {
     header: {
       icon: winamp,
-      title: "Roblox MIDI AI",
+      title: "Robloxify",
     },
-    component: MusicAI,
+    component: Robloxify,
     defaultSize: {
       width: 520,
       height: 600,
@@ -328,5 +335,5 @@ export {
   ErrorBox,
   Paint,
   Winamp,
-  MusicAI,
+  Robloxify,
 };
