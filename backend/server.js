@@ -18,6 +18,9 @@ const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
 const WORKER_PATH = path.join(__dirname, "chunkparser.js");
 const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || "/var/data/visitor-count.json";
+const COMMUNITY_DIR = process.env.COMMUNITY_DIR || "/var/data/robloxify-community";
+const COMMUNITY_AUDIO_DIR = path.join(COMMUNITY_DIR, "audio");
+const COMMUNITY_INDEX_PATH = path.join(COMMUNITY_DIR, "tracks.json");
 
 const allowedOrigins = [
   "https://bagof.fish",
@@ -209,6 +212,94 @@ buildAvatarIndex().catch((err) =>
 /* ---------- cache ---------- */
 const cache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
+
+/* ---------- Robloxify community places ---------- */
+async function readCommunityTracks() {
+  await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
+  try {
+    const raw = await fs.promises.readFile(COMMUNITY_INDEX_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (err) {
+    if (err.code === "ENOENT") return [];
+    throw err;
+  }
+}
+
+async function writeCommunityTracks(tracks) {
+  await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
+  const temp = COMMUNITY_INDEX_PATH + ".tmp";
+  await fs.promises.writeFile(temp, JSON.stringify(tracks.slice(0, 2000), null, 2), "utf8");
+  await fs.promises.rename(temp, COMMUNITY_INDEX_PATH);
+}
+
+app.use("/community/audio", express.static(COMMUNITY_AUDIO_DIR, {
+  fallthrough: false,
+  maxAge: "1h",
+  index: false,
+}));
+
+app.get("/community/tracks", async (req, res) => {
+  try {
+    const tracks = await readCommunityTracks();
+    res.setHeader("Cache-Control", "no-store");
+    res.json({
+      tracks: tracks.map(track => ({
+        ...track,
+        audioUrl: "/community/audio/" + encodeURIComponent(track.file),
+      })),
+    });
+  } catch (err) {
+    console.error("Community list error:", err);
+    res.status(500).json({ error: "Could not load community places" });
+  }
+});
+
+app.post("/community/tracks", async (req, res) => {
+  try {
+    const multer = (await import("multer")).default;
+    const upload = multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 30 * 1024 * 1024, files: 1 },
+      fileFilter: (request, file, callback) => {
+        const allowed = new Set(["audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg", "audio/ogg", "audio/webm"]);
+        callback(null, allowed.has(file.mimetype));
+      },
+    }).single("audio");
+
+    await new Promise((resolve, reject) => {
+      upload(req, res, err => err ? reject(err) : resolve());
+    });
+
+    const name = String(req.body?.name || "").trim();
+    if (!name) return res.status(400).json({ error: "A place name is required." });
+    if (name.length > 40) return res.status(400).json({ error: "Place names must be 40 characters or shorter." });
+    if (!req.file) return res.status(400).json({ error: "Upload a rendered audio file first." });
+
+    const tracks = await readCommunityTracks();
+    if (tracks.some(track => track.name.trim().toLocaleLowerCase() === name.toLocaleLowerCase())) {
+      return res.status(409).json({ error: "That place name is already taken." });
+    }
+
+    const id = crypto.randomUUID();
+    const ext = req.file.mimetype === "audio/mpeg" ? ".mp3" : req.file.mimetype === "audio/ogg" ? ".ogg" : ".wav";
+    const file = id + ext;
+    await fs.promises.writeFile(path.join(COMMUNITY_AUDIO_DIR, file), req.file.buffer);
+
+    const track = {
+      id,
+      name,
+      file,
+      createdAt: new Date().toISOString(),
+    };
+    tracks.unshift(track);
+    await writeCommunityTracks(tracks);
+    res.status(201).json({ ok: true, track: { ...track, audioUrl: "/community/audio/" + encodeURIComponent(file) } });
+  } catch (err) {
+    console.error("Community upload error:", err);
+    res.status(400).json({ error: "Could not publish this place." });
+  }
+});
 
 /* ---------- API: proxy-roblox ---------- */
 app.get("/proxy-roblox", async (req, res) => {
