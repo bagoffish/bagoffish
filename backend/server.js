@@ -303,6 +303,34 @@ app.post("/community/tracks", async (req, res) => {
 });
 
 /* ---------- API: proxy-roblox ---------- */
+app.get("/proxy-roblox-avatar", async (req, res) => {
+  const source = String(req.query.url || "");
+  if (!source) return res.status(400).end();
+  let parsed;
+  try {
+    parsed = new URL(source);
+  } catch {
+    return res.status(400).end();
+  }
+  if (!["http:", "https:"].includes(parsed.protocol)) return res.status(400).end();
+
+  try {
+    const upstream = await fetch(parsed.toString(), {
+      headers: { "User-Agent": "WinXP Renderer/1.0" },
+    });
+    if (!upstream.ok || !upstream.body) return res.status(upstream.status || 502).end();
+
+    const contentType = upstream.headers.get("content-type") || "image/png";
+    res.setHeader("Content-Type", contentType);
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    const buffer = Buffer.from(await upstream.arrayBuffer());
+    res.end(buffer);
+  } catch (err) {
+    console.error("proxy-roblox-avatar error:", err.message);
+    res.status(502).end();
+  }
+});
+
 app.get("/proxy-roblox", async (req, res) => {
   setCors(req, res);
 
@@ -367,6 +395,10 @@ app.get("/proxy-roblox", async (req, res) => {
     const chunkAvatars = avatarIndex.get(String(id)) || [];
     const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
     const liveAvatarUrl = avatarRes?.data?.[0]?.imageUrl || "";
+    const avatarSourceUrl = chunkAvatarUrl || liveAvatarUrl;
+    const avatarUrl = avatarSourceUrl
+      ? `/proxy-roblox-avatar?url=${encodeURIComponent(avatarSourceUrl)}`
+      : "";
 
     const payload = {
       roblox: {
@@ -378,7 +410,7 @@ app.get("/proxy-roblox", async (req, res) => {
           : "Unknown",
         // Prefer the avatar captured in the thumbnail chunks. Roblox's live
         // thumbnail endpoint remains a fallback for users absent from the chunks.
-        avatarUrl: chunkAvatarUrl || liveAvatarUrl,
+        avatarUrl: avatarUrl || liveAvatarUrl,
         oldAvatars: chunkAvatars.slice(0, 100),
         pastUsernames,
       },
