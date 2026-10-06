@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState } from "react";
 import styled from "styled-components";
 
 import { WindowDropDowns } from "components";
@@ -24,8 +24,9 @@ import stop from "assets/windowsIcons/stop.png";
 import windows from "assets/windowsIcons/windows.png";
 import dropdown from "assets/windowsIcons/dropdown.png";
 
-function AboutMe({ onClose, onOpenApp }) {
-  const addressText = useMemo(() => "https://bagof.fish/about", []);
+function AboutMe({ onClose }) {
+  const [showLain, setShowLain] = useState(false);
+  const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
 
   const functionMap = useMemo(
     () => ({
@@ -34,9 +35,8 @@ function AboutMe({ onClose, onOpenApp }) {
     [onClose]
   );
 
-  const openLain = () => {
-    if (typeof onOpenApp === "function") onOpenApp("Lain");
-  };
+  const openLain = () => setShowLain(true);
+  const goBack = () => setShowLain(false);
 
   return (
     <Div>
@@ -54,11 +54,16 @@ function AboutMe({ onClose, onOpenApp }) {
       </section>
 
       <section className="ie__function_bar">
-        <div className="ie__function_bar__button--disable">
+        <button
+          type="button"
+          className={showLain ? "ie__function_bar__button" : "ie__function_bar__button--disable"}
+          onClick={goBack}
+          disabled={!showLain}
+        >
           <img className="ie__function_bar__icon" src={back} alt="" />
           <span className="ie__function_bar__text">Back</span>
           <div className="ie__function_bar__arrow" />
-        </div>
+        </button>
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={forward} alt="" />
           <div className="ie__function_bar__arrow" />
@@ -119,6 +124,11 @@ function AboutMe({ onClose, onOpenApp }) {
       </section>
 
       <div className="ie__content">
+        {showLain ? (
+          <div className="ie__lain-page">
+            <img src="/images/lain.gif" alt="serial experiments lain" />
+          </div>
+        ) : (
         <div className="ie__content__inner">
           <div className="about">
             <div className="about__site-header">
@@ -148,18 +158,7 @@ function AboutMe({ onClose, onOpenApp }) {
             <section className="about__section about__section--intro" id="about">
               <div className="about__section-title"><span>01</span> ABOUT ME</div>
               <pre className="about__text">{ABOUT_TEXT}</pre>
-              <p className="about__lain-line">
-               {" "}Also:{" "}
-                <a
-                  className="about__lain"
-                  href="#lain"
-                  onClick={(event) => { event.preventDefault(); openLain(); }}
-                >
-                  Serial Experiments Lain
-                </a>
-                {" "}(present day, present time…)
-              </p>
-            </section>
+              </section>
 
             <section className="about__section" id="interests">
               <div className="about__section-title"><span>02</span> INTERESTS</div>
@@ -205,17 +204,11 @@ function AboutMe({ onClose, onOpenApp }) {
                 <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">
                   GitHub
                 </a>
-                <a
-                  className="about__lain"
-                  href="#lain"
-                  onClick={(event) => { event.preventDefault(); openLain(); }}
-                >
-                  Lain
-                </a>
               </div>
             </section>
           </div>
         </div>
+        )}
       </div>
 
       <footer className="ie__footer">
@@ -433,6 +426,19 @@ const Div = styled.div`
   .ie__content__inner {
     min-height: 100%;
     padding: 18px 22px 28px;
+  }
+  .ie__lain-page {
+    min-height: 100%;
+    width: 100%;
+    background: #fff;
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+  }
+  .ie__lain-page img {
+    display: block;
+    max-width: 100%;
+    height: auto;
   }
   .about {
     width: min(760px, 100%);
