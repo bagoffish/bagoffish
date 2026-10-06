@@ -80,8 +80,8 @@ if (!cancelled) setVisitorCount(0);
           aria-label="Back"
         >
           <img className="ie__function_bar__icon" src={back} alt="" />
+          <div className="ie__function_bar__arrow" />
         </button>
-        <div className="ie__function_bar__back-arrow" aria-hidden="true" />
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={forward} alt="" />
           <div className="ie__function_bar__arrow" />
@@ -314,130 +314,138 @@ const Div = styled.div`
     display: flex;
     height: 100%;
     align-items: center;
-    justify-content: center;
     border: 1px solid rgba(0, 0, 0, 0);
-    box-sizing: border-box;
+    border-radius: 3px;
     background: transparent;
     padding: 0;
-    margin: 0;
+  }
+  .ie__function_bar__button:hover {
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.1);
+  }
+  .ie__function_bar__button:hover:active {
+    border: 1px solid rgb(185, 185, 185);
+    background-color: #dedede;
+    box-shadow: inset 0 -1px 1px rgba(255, 255, 255, 0.7);
   }
   .ie__function_bar__button--disable {
     filter: grayscale(1);
     opacity: 0.7;
   }
-  .ie__function_bar__button:not(:disabled):hover {
-    border-color: #7f9db9;
-    background: rgba(255, 255, 255, 0.35);
-  }
-  .ie__function_bar__button--disable > * {
-    pointer-events: none;
+  .ie__function_bar__text {
+    margin-right: 4px;
   }
   .ie__function_bar__icon {
-    height: 22px;
-    width: 22px;
+    height: 30px;
+    width: 30px;
   }
   .ie__function_bar__icon--normalize {
     height: 22px;
     width: 22px;
-  }
-  .ie__function_bar__icon--margin-1 {
-    height: 22px;
-    width: 22px;
-    margin: 0 1px;
+    margin: 0 4px 0 1px;
   }
   .ie__function_bar__icon--margin12 {
     height: 22px;
     width: 22px;
     margin: 0 1px 0 2px;
   }
-  .ie__function_bar__text {
-    margin-left: 3px;
-  }
-  .ie__function_bar__back-arrow {
-    width: 0;
-    height: 0;
-    border-left: 3px solid transparent;
-    border-right: 3px solid transparent;
-    border-top: 3px solid #000;
-    margin: 0 5px 0 1px;
-    align-self: center;
-    flex-shrink: 0;
-  }
-  .ie__function_bar__arrow {
-    width: 0;
-    height: 0;
-    border-left: 3px solid transparent;
-    border-right: 3px solid transparent;
-    border-top: 3px solid #000;
-    margin-left: 4px;
-  }
-  .ie__function_bar__arrow--margin-11 {
-    width: 0;
-    height: 0;
-    border-left: 3px solid transparent;
-    border-right: 3px solid transparent;
-    border-top: 3px solid #000;
-    margin: 0 1px 0 11px;
+  .ie__function_bar__icon--margin-1 {
+    margin: 0 -1px;
+    height: 30px;
+    width: 30px;
   }
   .ie__function_bar__separate {
-    height: 28px;
+    height: 90%;
     width: 1px;
-    background: rgba(0, 0, 0, 0.15);
+    background-color: rgba(0, 0, 0, 0.2);
+    margin: 0 2px;
+  }
+  .ie__function_bar__arrow {
+    height: 100%;
+    display: flex;
+    align-items: center;
     margin: 0 4px;
   }
-  .ie__address_bar {
-    height: 24px;
+  .ie__function_bar__arrow:before {
+    content: "";
+    display: block;
+    border-width: 3px 3px 0;
+    border-color: #000 transparent;
+    border-style: solid;
+  }
+  .ie__function_bar__arrow--margin-11 {
+    height: 100%;
     display: flex;
     align-items: center;
-    padding: 0 4px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-    gap: 4px;
-    flex-shrink: 0;
+    margin: 0 1px 0 -1px;
+  }
+  .ie__function_bar__arrow--margin-11:before {
+    content: "";
+    display: block;
+    border-width: 3px 3px 0;
+    border-color: #000 transparent;
+    border-style: solid;
+  }
+  .ie__address_bar {
+    border-top: 1px solid rgba(255, 255, 255, 0.7);
+    height: 22px;
+    font-size: 11px;
+    display: flex;
+    align-items: center;
+    padding: 0 2px 2px;
+    box-shadow: inset 0 -2px 3px -1px #2d2d2d;
   }
   .ie__address_bar__title {
+    line-height: 100%;
     color: rgba(0, 0, 0, 0.5);
-    font-size: 11px;
+    padding: 5px;
   }
   .ie__address_bar__content {
-    flex: 1;
-    height: 18px;
+    border: rgba(122, 122, 255, 0.6) 1px solid;
+    height: 100%;
     display: flex;
+    flex: 1;
     align-items: center;
-    background: #fff;
-    border: 1px solid #7f9db9;
-    padding: 0 2px;
-    overflow: hidden;
+    background-color: white;
+    position: relative;
   }
   .ie__address_bar__content__img {
     width: 14px;
     height: 14px;
   }
+  .ie__address_bar__content__img:last-child {
+    width: 15px;
+    height: 15px;
+    right: 1px;
+    position: absolute;
+  }
+  .ie__address_bar__content__img:last-child:hover {
+    filter: brightness(1.1);
+  }
   .ie__address_bar__content__text {
-    flex: 1;
-    font-size: 11px;
-    margin: 0 4px;
+    position: absolute;
     white-space: nowrap;
+    left: 16px;
+    right: 17px;
     overflow: hidden;
-    text-overflow: ellipsis;
   }
   .ie__address_bar__go {
     display: flex;
     align-items: center;
-    height: 20px;
-    padding: 0 4px;
+    padding: 0 18px 0 5px;
+    height: 100%;
+    position: relative;
   }
   .ie__address_bar__go__img {
-    width: 16px;
-    height: 16px;
-  }
-  .ie__address_bar__go__text {
-    font-size: 11px;
-    margin-left: 2px;
+    height: 95%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    margin-right: 3px;
   }
   .ie__address_bar__separate {
-    height: 18px;
+    height: 100%;
     width: 1px;
-    background: rgba(0, 0, 0, 0.15);
+    background-color: rgba(0, 0, 0, 0.1);
+    box-shadow: 1px 0 rgba(255, 255, 255, 0.7);
   }
   .ie__content {
     flex: 1;
