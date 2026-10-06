@@ -12,11 +12,11 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-06-cors-fix";
+const BACKEND_VERSION = "2026-10-06-worker-path-fix";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
-const WORKER_PATH = path.join(__dirname, "workers", "chunkParser.js");
+const WORKER_PATH = path.join(__dirname, "chunkparser.js");
 
 const allowedOrigins = new Set([
   "https://bagof.fish",
