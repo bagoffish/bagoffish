@@ -234,10 +234,6 @@ const StyledWindow = styled(Window)`
     margin-top: 25px;
     height: calc(100% - 25px);
   }
-`;
-
-export default Windows;
-
 @media (max-width: 700px) {
   .app__header {
     height: 29px !important;
@@ -251,3 +247,7 @@ export default Windows;
     height: calc(100% - 29px) !important;
   }
 }
+
+`;
+
+export default Windows;
