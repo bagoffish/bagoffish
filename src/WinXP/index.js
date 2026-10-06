@@ -274,6 +274,11 @@ function WinXP() {
     dispatch({ type: FOCUS_DESKTOP });
   }
 
+  function onOpenApp(name) {
+    const appSetting = appSettings[name];
+    if (appSetting) dispatch({ type: ADD_APP, payload: appSetting });
+  }
+
   function onClickMenuItem(o) {
     if (o === 'Minesweeper')
       dispatch({ type: ADD_APP, payload: appSettings.Minesweeper });
@@ -353,6 +358,7 @@ function WinXP() {
         onMinimize={onMinimizeWindow}
         onMaximize={onMaximizeWindow}
         focusedAppId={focusedAppId}
+        onOpenApp={onOpenApp}
       />
       <Footer
         apps={state.apps}
