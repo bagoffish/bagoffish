@@ -14,7 +14,7 @@
     "express": "^4.21.2",
     "node-fetch": "^3.3.2",
     "multer": "^2.0.2",
-    "@tensorflow/tfjs": "^4.22.0",
+    "@tensorflow/tfjs": "^3.21.0",
     "@spotify/basic-pitch": "1.0.1",
     "audio-decode": "^2.2.2"
   }
