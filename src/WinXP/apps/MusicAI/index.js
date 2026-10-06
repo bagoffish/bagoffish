@@ -154,13 +154,56 @@ const btn = {
 };
 const btnGray = { ...btn, background: '#e0e0e0', boxShadow: 'inset 1px 1px 0 #fff, inset -1px -1px 0 #999' };
 
-function HealthBar({ value, max = 1, label, width = 120, height = 14 }) {
+function HealthBar({ value, max = 1, label, width = 120, height = 14, onChange }) {
   const pct = Math.max(0, Math.min(100, (value / (max || 1)) * 100));
+  const barRef = React.useRef(null);
+  const dragging = React.useRef(false);
+
+  const setFromEvent = e => {
+    if (!onChange || !barRef.current) return;
+    const rect = barRef.current.getBoundingClientRect();
+    const x = (e.clientX != null ? e.clientX : (e.touches && e.touches[0] && e.touches[0].clientX)) - rect.left;
+    const next = Math.max(0, Math.min(1, x / Math.max(rect.width, 1)));
+    onChange(next * (max || 1));
+  };
+
+  const onPointerDown = e => {
+    if (!onChange) return;
+    dragging.current = true;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (err) {}
+    setFromEvent(e);
+  };
+  const onPointerMove = e => {
+    if (!onChange || !dragging.current) return;
+    setFromEvent(e);
+  };
+  const onPointerUp = e => {
+    dragging.current = false;
+    try { e.currentTarget.releasePointerCapture(e.pointerId); } catch (err) {}
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2, width: typeof width === 'string' ? width : undefined, minWidth: typeof width === 'number' ? width : undefined }}>
       {label && <div style={{ fontFamily: rbx.font, fontSize: 10, fontWeight: 'bold', color: '#fff', textShadow: '1px 1px 0 #000' }}>{label}</div>}
-      <div style={{ width: '100%', height, background: rbx.healthBg, border: '2px solid #000', boxShadow: 'inset 1px 1px 0 #444', position: 'relative', overflow: 'hidden' }}>
-        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: pct + '%', background: 'linear-gradient(180deg, #66ff66 0%, #00b400 45%, #008000 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45)', transition: 'width 0.12s linear' }} />
+      <div
+        ref={barRef}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
+        style={{
+          width: '100%',
+          height,
+          background: rbx.healthBg,
+          border: '2px solid #000',
+          boxShadow: 'inset 1px 1px 0 #444',
+          position: 'relative',
+          overflow: 'hidden',
+          cursor: onChange ? 'url("/images/Link%20Select.cur") 3 3, pointer' : 'default',
+          touchAction: onChange ? 'none' : undefined,
+        }}
+      >
+        <div style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: pct + '%', background: 'linear-gradient(180deg, #66ff66 0%, #00b400 45%, #008000 100%)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.45)', transition: dragging.current ? 'none' : 'width 0.12s linear', pointerEvents: 'none' }} />
       </div>
     </div>
   );
@@ -755,8 +798,19 @@ function MusicAI({ onClose }) {
 
         <div style={{ width: 130, flexShrink: 0, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 12, background: 'rgba(0,0,0,0.25)', borderLeft: '2px solid #000' }}>
           <div style={{ background: 'rgba(0,0,0,0.55)', border: '2px solid #000', padding: 6, color: '#fff', fontSize: 10, fontWeight: 'bold', textShadow: '1px 1px 0 #000' }}>Player List<div style={{ marginTop: 4, fontWeight: 'normal' }}>You</div></div>
-          <HealthBar value={volume} max={1} label="Health (Volume)" width="100%" height={18} />
-          <input type="range" min={0} max={1} step={0.05} value={volume} onChange={e => setVolume(Number(e.target.value))} style={{ width: '100%' }} />
+          <HealthBar
+            value={volume}
+            max={1}
+            label="Volume"
+            width="100%"
+            height={18}
+            onChange={v => {
+              setVolume(v);
+              if (synthRef.current && typeof synthRef.current.setMainVolume === 'function') {
+                try { synthRef.current.setMainVolume(v); } catch (e) {}
+              }
+            }}
+          />
           <HealthBar value={playbackDuration > 0 ? playbackTime : 0} max={playbackDuration > 0 ? playbackDuration : 1} label={'Time ' + (playbackDuration > 0 ? playbackTime.toFixed(1) + ' / ' + playbackDuration.toFixed(1) + 's' : '0 / 0s')} width="100%" height={18} />
           <HealthBar value={progress} max={100} label="Loading" width="100%" height={18} />
         </div>
