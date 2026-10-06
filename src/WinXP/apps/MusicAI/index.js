@@ -232,8 +232,12 @@ function MusicAI({ onClose }) {
         : 1;
     }
 
-    const processor = new DemucsProcessor({
+    const createProcessor = providers => new DemucsProcessor({
       ort,
+      sessionOptions: {
+        executionProviders: providers,
+        graphOptimizationLevel: 'basic',
+      },
       onDownloadProgress: (loaded, total) => {
         if (total) {
           setProgress(Math.round((loaded / total) * 18));
@@ -242,9 +246,18 @@ function MusicAI({ onClose }) {
       },
     });
 
-    await processor.loadModel(DEMUCS_MODEL_URL);
-    demucsRef.current = processor;
-    return processor;
+    try {
+      const processor = createProcessor(['webgpu', 'wasm']);
+      await processor.loadModel(DEMUCS_MODEL_URL);
+      demucsRef.current = processor;
+      return processor;
+    } catch (webgpuError) {
+      console.warn('WebGPU stem processing failed; retrying with WASM.', webgpuError);
+      const processor = createProcessor(['wasm']);
+      await processor.loadModel(DEMUCS_MODEL_URL);
+      demucsRef.current = processor;
+      return processor;
+    }
   };
 
   const resampleStemToMono = async stem => {
