@@ -1,5 +1,10 @@
 import * as tf from '@tensorflow/tfjs';
-import { BasicPitch } from '@spotify/basic-pitch';
+import {
+  addPitchBendsToNoteEvents,
+  noteFramesToTime,
+  outputToNotesPoly,
+  BasicPitch,
+} from '@spotify/basic-pitch';
 
 const MODEL_URL = '/basic-pitch-model/model.json';
 
@@ -64,7 +69,14 @@ self.onmessage = async event => {
       }
     );
 
-    self.postMessage({ type: 'result', frames, onsets, contours });
+    const notes = noteFramesToTime(
+      addPitchBendsToNoteEvents(
+        contours,
+        outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
+      )
+    );
+
+    self.postMessage({ type: 'result', notes });
   } catch (error) {
     self.postMessage({
       type: 'error',
