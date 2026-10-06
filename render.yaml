@@ -1,7 +1,6 @@
 services:
   # Node API (proxy-roblox, health, robloxify)
   # Must stay a Web Service — NOT a Static Site.
-  # URL should be https://winxp-7yes.onrender.com (or update public/js/renderer.js API_BASE)
   - type: web
     name: winxp-7yes
     runtime: node
@@ -14,13 +13,12 @@ services:
       - key: NODE_VERSION
         value: "22"
 
-  # Optional: frontend static site (bagof.fish).
-  # If bagof.fish is already deployed as its own Static Site in the dashboard,
-  # you can ignore this block or delete it to avoid a second frontend service.
+  # Frontend static site
   - type: web
     name: winxp-frontend
     runtime: static
-    buildCommand: npm install && npm run build
+    # Wipe node_modules so a bad cache cannot leave react-scripts missing
+    buildCommand: rm -rf node_modules && yarn install --frozen-lockfile --check-files && yarn build
     staticPublishPath: build
     autoDeployTrigger: commit
     routes:
