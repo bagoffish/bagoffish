@@ -4,7 +4,6 @@ import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
 import Paint from "./Paint";
 import Poems from "./Poems";
-import Socials from "./Socials";
 import Winamp from "./Winamp";
 import Robloxify from "./MusicAI";
 
@@ -42,7 +41,7 @@ export const defaultAppState = [
     component: AboutMe,
     header: {
       title: "About Me",
-      icon: iePaper,
+      icon: socialsIcon,
     },
     defaultSize: {
       width: 700,
@@ -84,16 +83,9 @@ export const defaultAppState = [
 export const defaultIconState = [
   {
     id: 0,
-    icon: iePaper,
+    icon: socialsIcon,
     title: "About Me",
     component: AboutMe,
-    isFocus: false,
-  },
-  {
-    id: 1,
-    icon: socialsIcon,
-    title: "Socials",
-    component: Socials,
     isFocus: false,
   },
   {
@@ -144,7 +136,7 @@ export const defaultIconState = [
 export const appSettings = {
   "About Me": {
     header: {
-      icon: iePaper,
+      icon: socialsIconSmall,
       title: "About Me",
     },
     component: AboutMe,
@@ -182,19 +174,20 @@ export const appSettings = {
     multiInstance: true,
   },
 
+  /* Socials opens the combined About Me app */
   Socials: {
     header: {
       icon: socialsIconSmall,
-      title: "Socials",
+      title: "About Me",
     },
-    component: Socials,
+    component: AboutMe,
     defaultSize: {
-      width: 520,
-      height: 420,
+      width: 700,
+      height: 500,
     },
     defaultOffset: {
-      x: 190,
-      y: 80,
+      x: 140,
+      y: 30,
     },
     resizable: true,
     minimized: false,
@@ -306,7 +299,7 @@ export const appSettings = {
 
   Winamp: {
     header: {
-      icon: winamp, // ← FIX HERE
+      icon: winamp,
       title: "Winamp",
     },
     component: Winamp,
@@ -325,10 +318,8 @@ export const appSettings = {
   },
 };
 
-/* export list */
 export {
   AboutMe,
-  Socials,
   Poems,
   Renderer,
   Minesweeper,
