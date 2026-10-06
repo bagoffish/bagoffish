@@ -24,7 +24,26 @@ import windows from "assets/windowsIcons/windows.png";
 import dropdown from "assets/windowsIcons/dropdown.png";
 
 function AboutMe({ onClose }) {
-  const [showLain, setShowLain] = useState(false);\n  const [visitorCount, setVisitorCount] = useState(0);\n\n  useEffect(() => {\n    let cancelled = false;\n    fetch("https://winxp-7yes.onrender.com/visitor-count", { cache: "no-store" })\n      .then((response) => {\n        if (!response.ok) throw new Error("Visitor counter unavailable");\n        return response.json();\n      })\n      .then((data) => {\n        if (!cancelled && Number.isFinite(Number(data.count))) {\n          setVisitorCount(Number(data.count));\n        }\n      })\n      .catch(() => {\n        if (!cancelled) setVisitorCount(0);\n      });\n    return () => { cancelled = true; };\n  }, []);
+  const [showLain, setShowLain] = useState(false);
+  const [visitorCount, setVisitorCount] = useState(0);
+
+useEffect(() => {
+let cancelled = false;
+    fetch("https://winxp-7yes.onrender.com/visitor-count", { cache: "no-store" })
+.then((response) => {
+if (!response.ok) throw new Error("Visitor counter unavailable");
+        return response.json();
+      })
+.then((data) => {
+if (!cancelled && Number.isFinite(Number(data.count))) {
+setVisitorCount(Number(data.count));
+        }
+})
+.catch(() => {
+if (!cancelled) setVisitorCount(0);
+      });
+    return () => { cancelled = true; };
+  }, []);
   const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
 
   const functionMap = useMemo(
@@ -645,7 +664,7 @@ const Div = styled.div`
   .ie__footer__right__dots {
     width: 20px;
   }
-{
+  @media (max-width: 700px) {
   .ie__toolbar {
     min-height: 24px;
   }
