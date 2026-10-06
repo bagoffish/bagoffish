@@ -225,6 +225,106 @@ const avatarIndexReady = buildAvatarIndex().catch((err) => {
 const cache = new Map();
 const CACHE_TTL = 10 * 60 * 1000;
 
+
+/* ---------- Robloxify player list ---------- */
+const PLAYERS_DIR = process.env.PLAYERS_DIR || "/var/data/robloxify-players";
+const PLAYERS_INDEX_PATH = path.join(PLAYERS_DIR, "players.json");
+let memoryPlayers = new Map();
+
+function normalizePlayerName(value) {
+  return String(value || "").trim().replace(/\\s+/g, " ");
+}
+function playerKey(value) {
+  return normalizePlayerName(value).toLocaleLowerCase();
+}
+function validPlayerName(value) {
+  return /^[A-Za-z0-9._-]{2,20}(?: [A-Za-z0-9._-]{1,20})*$/.test(value);
+}
+async function readPlayers() {
+  try {
+    await fs.promises.mkdir(PLAYERS_DIR, { recursive: true });
+    const raw = await fs.promises.readFile(PLAYERS_INDEX_PATH, "utf8");
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) {
+      const map = new Map();
+      parsed.forEach(p => { if (p && p.name) map.set(playerKey(p.name), p); });
+      memoryPlayers = map;
+    }
+  } catch (err) {
+    if (err.code !== "ENOENT" && !["EACCES","EROFS"].includes(err.code)) {
+      console.warn("Player store unavailable:", err.message);
+    }
+  }
+  return Array.from(memoryPlayers.values());
+}
+async function writePlayers(players) {
+  memoryPlayers = new Map(players.map(p => [playerKey(p.name), p]));
+  try {
+    await fs.promises.mkdir(PLAYERS_DIR, { recursive: true });
+    const tmp = PLAYERS_INDEX_PATH + ".tmp";
+    await fs.promises.writeFile(tmp, JSON.stringify(players, null, 2), "utf8");
+    await fs.promises.rename(tmp, PLAYERS_INDEX_PATH);
+  } catch (err) {
+    console.warn("Player store persistence unavailable:", err.message);
+  }
+}
+function projectsForPlayer(player) {
+  return Array.isArray(player.projects) ? player.projects.slice(0, 100) : [];
+}
+app.post("/players/register", async (req, res) => {
+  try {
+    await readPlayers();
+    const name = normalizePlayerName(req.body?.name);
+    if (!validPlayerName(name)) {
+      return res.status(400).json({ error: "Names must be 2-20 characters and use letters, numbers, spaces, dots, underscores, or hyphens." });
+    }
+    const key = playerKey(name);
+    const existing = memoryPlayers.get(key);
+    if (existing && existing.name !== name) {
+      return res.status(409).json({ error: "That player name is already taken." });
+    }
+    const player = existing || { name, createdAt: new Date().toISOString(), projects: [] };
+    memoryPlayers.set(key, player);
+    await writePlayers(Array.from(memoryPlayers.values()));
+    res.json({ ok: true, player: { name: player.name, createdAt: player.createdAt }, projects: projectsForPlayer(player), tracks: [] });
+  } catch (err) {
+    console.error("Player registration error:", err);
+    res.status(500).json({ error: "Could not save player name." });
+  }
+});
+app.get("/players/:name", async (req, res) => {
+  try {
+    await readPlayers();
+    const name = normalizePlayerName(req.params.name);
+    const player = memoryPlayers.get(playerKey(name));
+    if (!player) return res.status(404).json({ error: "Player name not found." });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ player: { name: player.name, createdAt: player.createdAt }, projects: projectsForPlayer(player), tracks: [] });
+  } catch (err) {
+    console.error("Player lookup error:", err);
+    res.status(500).json({ error: "Could not load player." });
+  }
+});
+app.post("/players/:name/projects", async (req, res) => {
+  try {
+    await readPlayers();
+    const name = normalizePlayerName(req.params.name);
+    const player = memoryPlayers.get(playerKey(name));
+    if (!player) return res.status(404).json({ error: "Player name not found." });
+    const project = req.body?.project;
+    if (!project || !project.id) return res.status(400).json({ error: "Project data required." });
+    const projects = projectsForPlayer(player).filter(p => String(p.id) !== String(project.id));
+    projects.unshift(project);
+    player.projects = projects.slice(0, 100);
+    memoryPlayers.set(playerKey(player.name), player);
+    await writePlayers(Array.from(memoryPlayers.values()));
+    res.json({ ok: true, project });
+  } catch (err) {
+    console.error("Player project save error:", err);
+    res.status(500).json({ error: "Could not save project." });
+  }
+});
+
 /* ---------- Robloxify community places ---------- */
 async function readCommunityTracks() {
   await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
