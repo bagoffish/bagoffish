@@ -212,6 +212,118 @@ function MusicAI({ onClose }) {
     };
   }, []);
 
+  const getBasicPitch = async () => {
+    if (basicPitchRef.current) return basicPitchRef.current;
+    setStatus('LOADING NOTE MODEL...');
+    await tf.setBackend('cpu');
+    await tf.ready();
+    const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
+    basicPitchRef.current = new BasicPitch(model);
+    return basicPitchRef.current;
+  };
+
+  const getDemucs = async () => {
+    if (demucsRef.current) return demucsRef.current;
+    setStatus('LOADING STEM MODEL...');
+
+    if (ort.env.wasm) {
+      ort.env.wasm.numThreads = window.crossOriginIsolated
+        ? Math.max(1, Math.min(4, navigator.hardwareConcurrency || 4))
+        : 1;
+    }
+
+    const processor = new DemucsProcessor({
+      ort,
+      onDownloadProgress: (loaded, total) => {
+        if (total) {
+          setProgress(Math.round((loaded / total) * 18));
+          setStatus('LOADING STEM MODEL ' + Math.round((loaded / total) * 100) + '%');
+        }
+      },
+    });
+
+    await processor.loadModel(DEMUCS_MODEL_URL);
+    demucsRef.current = processor;
+    return processor;
+  };
+
+  const resampleStemToMono = async stem => {
+    const sourceRate = 44100;
+    const targetRate = 22050;
+    const frameCount = Math.max(stem.left.length, stem.right.length);
+    const sourceContext = new OfflineAudioContext(2, frameCount, sourceRate);
+    const sourceBuffer = sourceContext.createBuffer(2, frameCount, sourceRate);
+    sourceBuffer.copyToChannel(stem.left, 0);
+    sourceBuffer.copyToChannel(stem.right, 1);
+
+    const targetLength = Math.ceil((frameCount / sourceRate) * targetRate);
+    const targetContext = new OfflineAudioContext(1, targetLength, targetRate);
+    const source = targetContext.createBufferSource();
+    source.buffer = sourceBuffer;
+    source.connect(targetContext.destination);
+    source.start(0);
+    return targetContext.startRendering();
+  };
+
+  const transcribeStem = async (stem, role, index, total) => {
+    const basicPitch = await getBasicPitch();
+    const audioBuffer = await resampleStemToMono(stem);
+    const frames = [];
+    const onsets = [];
+    const contours = [];
+
+    await basicPitch.evaluateModel(
+      audioBuffer,
+      (frameBatch, onsetBatch, contourBatch) => {
+        frames.push(...frameBatch);
+        onsets.push(...onsetBatch);
+        contours.push(...contourBatch);
+      },
+      value => {
+        const base = 20 + (index / total) * 65;
+        const span = 65 / total;
+        setProgress(Math.round(base + value * span));
+        setStatus('TRANSCRIBING ' + role.label + ' ' + Math.round(value * 100) + '%');
+      }
+    );
+
+    const settings = {
+      drums: { onset: 0.62, frame: 0.38, minFreq: 35, maxFreq: 1200, minDuration: 0.045, minAmplitude: 0.3 },
+      bass: { onset: 0.55, frame: 0.34, minFreq: 30, maxFreq: 280, minDuration: 0.09, minAmplitude: 0.28 },
+      guitar: { onset: 0.55, frame: 0.34, minFreq: 65, maxFreq: 1800, minDuration: 0.07, minAmplitude: 0.3 },
+      vocals: { onset: 0.58, frame: 0.36, minFreq: 70, maxFreq: 1400, minDuration: 0.11, minAmplitude: 0.32 },
+    }[role.id];
+
+    const detected = noteFramesToTime(
+      outputToNotesPoly(
+        frames,
+        onsets,
+        settings.onset,
+        settings.frame,
+        7,
+        true,
+        settings.maxFreq,
+        settings.minFreq,
+        true,
+        9
+      )
+    );
+
+    let cleaned = cleanDetectedNotes(detected, settings);
+
+    if (role.id === 'drums') {
+      cleaned = cleaned.map(note => ({
+        ...note,
+        pitchMidi:
+          note.pitchMidi < 48 ? 36 :
+          note.pitchMidi < 62 ? 38 :
+          note.pitchMidi < 76 ? 42 : 46,
+      }));
+    }
+
+    return cleaned.map(note => ({ ...note, role: role.id }));
+  };
+
   const convert = async inputFile => {
     if (!inputFile || !inputFile.type.startsWith('audio/')) {
       setStatus('CHOOSE AN AUDIO FILE');
