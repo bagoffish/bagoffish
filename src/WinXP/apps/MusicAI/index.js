@@ -654,6 +654,7 @@ function MusicAI({ onClose }) {
         borderBottom: '1px solid #333',
         display: 'flex',
         alignItems: 'stretch',
+        justifyContent: 'center',
         boxSizing: 'border-box',
         position: 'sticky',
         top: 0,
@@ -682,7 +683,6 @@ function MusicAI({ onClose }) {
             textAlign: 'center',
           }}>{item}</div>
         ))}
-        <div style={{ flex: 1 }} />
         {onClose && (
           <button type="button" onClick={onClose} style={{
             border: 0,
@@ -697,7 +697,7 @@ function MusicAI({ onClose }) {
         )}
       </div>
 
-      <div style={{ padding: 8, maxWidth: 760, margin: '0 auto', boxSizing: 'border-box' }}>
+      <div style={{ padding: 8, maxWidth: 760, margin: '0 auto', boxSizing: 'border-box', textAlign: 'center' }}>
         <div style={{
           background: 'rgba(75, 45, 39, .72)',
           border: '1px solid rgba(35, 25, 25, .8)',
@@ -904,7 +904,7 @@ function MusicAI({ onClose }) {
           padding: 8,
           marginBottom: 7,
         }}>
-          <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PROJECT</div>
+          <div style={{ fontWeight: 'bold', marginBottom: 5, textAlign: 'center' }}>PROJECT</div>
           <input
             value={projectName}
             onChange={event => {
@@ -947,8 +947,8 @@ function MusicAI({ onClose }) {
                   padding: 5,
                   marginBottom: 3,
                 }}>
-                  <span style={{ minWidth: 60, textAlign: 'left' }}>{role.label}</span>
-                  <span style={{ flex: 1, color: '#ddd' }}>{count} notes</span>
+                  <span style={{ minWidth: 60, textAlign: 'center' }}>{role.label}</span>
+                  <span style={{ flex: 1, color: '#ddd', textAlign: 'center' }}>{count} notes</span>
                   <button
                     type="button"
                     disabled={!count || working}
@@ -1114,7 +1114,7 @@ function MusicAI({ onClose }) {
                 padding: '5px 0',
               }}>
                 <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>LOAD</button>
-                <span style={{ flex: 1, color: '#fff' }}>
+                <span style={{ flex: 1, color: '#fff', textAlign: 'center' }}>
                   {project.name}
                   <span style={{ color: '#bbb', marginLeft: 5 }}>({project.sourceName})</span>
                 </span>
