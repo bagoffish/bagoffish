@@ -10,7 +10,27 @@ function Winamp({ onClose, onMinimize }) {
     const target = targetRef.current;
     if (!target) return undefined;
 
+    target.classList.add('winamp-host');
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .winamp-host,
+      .winamp-host:focus,
+      .winamp-host *:focus {
+        outline: none !important;
+      }
+      .winamp-host,
+      .winamp-host * {
+        -webkit-tap-highlight-color: transparent;
+      }
+    `;
+    document.head.appendChild(style);
+
     if (Webamp.browserIsSupported && !Webamp.browserIsSupported()) {
+      style.remove();
+      target.classList.remove('winamp-host');
+      return undefined;
+    }
       return undefined;
     }
 
@@ -30,6 +50,8 @@ function Winamp({ onClose, onMinimize }) {
       });
 
     return () => {
+      style.remove();
+      target.classList.remove('winamp-host');
       if (webampRef.current) {
         webampRef.current.dispose();
         webampRef.current = null;
