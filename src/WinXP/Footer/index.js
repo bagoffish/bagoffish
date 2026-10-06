@@ -41,7 +41,7 @@ function Footer({
   }
   function _onMouseDown(e) {
     if (e.target.closest('.footer__window')) return;
-    onMouseDown();
+    if (typeof onMouseDown === 'function') onMouseDown();
   }
   function _onClickMenuItem(name) {
     onClickMenuItem(name);
