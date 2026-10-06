@@ -6,6 +6,7 @@ import Paint from "./Paint";
 import Poems from "./Poems";
 import Socials from "./Socials";
 import Winamp from "./Winamp";
+import MusicAI from "./MusicAI";
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -125,7 +126,7 @@ export const defaultIconState = [
   {
     id: 6,
     icon: winamp,
-    title: "Shoegazefy",
+    title: "Winamp",
     component: Winamp,
     isFocus: false,
   },
@@ -278,22 +279,41 @@ export const appSettings = {
   Winamp: {
     header: {
       icon: winamp, // ← FIX HERE
-      title: "Shoegazefy",
-      invisible: true,
+      title: "Winamp",
     },
     component: Winamp,
     defaultSize: {
-      width: 0,
-      height: 0,
+      width: 320,
+      height: 120,
     },
     defaultOffset: {
-      x: 0,
-      y: 0,
+      x: 90,
+      y: 90,
     },
     resizable: false,
     minimized: false,
     maximized: false,
     multiInstance: false,
+  },
+
+  "Roblox MIDI AI": {
+    header: {
+      icon: winamp,
+      title: "Roblox MIDI AI",
+    },
+    component: MusicAI,
+    defaultSize: {
+      width: 520,
+      height: 600,
+    },
+    defaultOffset: {
+      x: 220,
+      y: 70,
+    },
+    resizable: true,
+    minimized: false,
+    maximized: window.innerWidth < 800,
+    multiInstance: true,
   },
 
 };
@@ -308,4 +328,5 @@ export {
   ErrorBox,
   Paint,
   Winamp,
+  MusicAI,
 };
