@@ -132,6 +132,7 @@ function MusicAI({ onClose }) {
   const [arrangement, setArrangement] = useState([]);
   const [status, setStatus] = useState('DROP AUDIO TO BEGIN');
   const [progress, setProgress] = useState(0);
+  const [inputSampleRate, setInputSampleRate] = useState(null);
   const [working, setWorking] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Robloxify Project');
@@ -166,6 +167,7 @@ function MusicAI({ onClose }) {
       const bytes = await inputFile.arrayBuffer();
       const decodeContext = new AudioContext();
       const audioBuffer = await decodeContext.decodeAudioData(bytes);
+      setInputSampleRate(audioBuffer.sampleRate);
       await decodeContext.close();
 
       setStatus('LOADING AI MODEL...');
@@ -287,7 +289,7 @@ function MusicAI({ onClose }) {
         await contextRef.current.close();
       }
 
-      const context = new AudioContext({ sampleRate: 44100 });
+      const context = new AudioContext();
       contextRef.current = context;
 
       await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
@@ -394,6 +396,9 @@ function MusicAI({ onClose }) {
         <div style={{ color: '#8bdcff', marginBottom: 6 }}>ROBLOXIFY AUDIO</div>
         <div style={{ marginBottom: 8 }}>
           TURN AUDIO INTO A ROBLOX-READY MIDI ARRANGEMENT
+          <div style={{ marginTop: 4, color: '#aaa', fontSize: 10 }}>
+            ANY INPUT SAMPLE RATE · TRANSCRIPTION NORMALIZES INTERNALLY
+          </div>
         </div>
         <label style={buttonStyle}>
           CHOOSE AUDIO
