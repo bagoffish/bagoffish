@@ -97,19 +97,20 @@ function pushNote(target, role, pitchMidi, startTimeSeconds, durationSeconds, am
   });
 }
 
-function buildFullArrangement(rawNotes, duration) {
+function buildFullArrangement(rawNotes, duration, stylePlan) {
   const source = cleanDetectedNotes(rawNotes || []);
   if (!source.length) return [];
 
-  // Basic Pitch is the source of truth. Do not replace the transcription with a
-  // generic chord loop: that makes real songs sound unrelated to the input.
+  // The AI decides the *musical direction*; Basic Pitch remains the source of
+  // truth for the actual performance so the arrangement does not hallucinate
+  // an unrelated song.
+  const ai = stylePlan || {};
   const end = Math.max(duration || 0, ...source.map(n => n.startTimeSeconds + n.durationSeconds));
   const out = [];
   const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
+  const primaryRole = roles.some(r => r.id === ai.primaryRole) ? ai.primaryRole : 'guitar';
+  const support = Array.isArray(ai.supportRoles) ? ai.supportRoles : ['bass', 'keys'];
 
-  // Detect monophonic vs. polyphonic material in short windows. Monophonic lines
-  // become LEAD; lower sustained material becomes BASS; remaining notes become
-  // guitar/keys without changing their original pitch or timing.
   const clusters = [];
   ordered.forEach(note => {
     let cluster = clusters[clusters.length - 1];
@@ -124,16 +125,26 @@ function buildFullArrangement(rawNotes, duration) {
   ordered.forEach(note => {
     const cluster = clusters.find(c => c.notes.includes(note));
     const chordLike = cluster && cluster.notes.length >= 3;
-    let role = 'guitar';
-    if (note.pitchMidi <= Math.min(52, medianPitch - 10) && note.durationSeconds >= 0.18) role = 'bass';
-    else if (!chordLike && (note.pitchMidi >= medianPitch + 7 || note.durationSeconds >= 0.45)) role = 'vocals';
-    else if (chordLike) role = 'keys';
+    let role = primaryRole;
+
+    // Keep the important source voices separated even when the AI chose a
+    // single primary instrument.
+    if (support.includes('bass') && note.pitchMidi <= Math.min(52, medianPitch - 10) && note.durationSeconds >= 0.18) {
+      role = 'bass';
+    } else if (support.includes('keys') && chordLike) {
+      role = 'keys';
+    } else if (support.includes('vocals') && !chordLike && note.pitchMidi >= medianPitch + 7) {
+      role = 'vocals';
+    } else if (support.includes('guitar') && !chordLike && note.pitchMidi < medianPitch + 7 && primaryRole !== 'guitar') {
+      role = 'guitar';
+    }
+
     pushNote(out, role, note.pitchMidi, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.72));
   });
 
-  // Infer harmony only where the audio actually contains enough simultaneous
-  // pitch information. We add a restrained accompaniment rather than filling
-  // every half-second with chords that were never in the recording.
+  // Infer harmony only where the recording actually contains enough pitch
+  // information. AI can request support harmony, but it cannot invent a whole
+  // song's chord bed from nothing.
   const harmonyStep = 0.25;
   const windows = new Map();
   ordered.forEach(note => {
@@ -157,7 +168,6 @@ function buildFullArrangement(rawNotes, duration) {
     chordEvents.push({ time, rootPc: best.rootPc });
   });
 
-  // Smooth repeated chord detections so the accompaniment follows the source.
   const stableChords = [];
   chordEvents.forEach(event => {
     const previous = stableChords[stableChords.length - 1];
@@ -175,35 +185,40 @@ function buildFullArrangement(rawNotes, duration) {
     return current;
   };
 
+  const density = Math.max(0.25, Math.min(1, Number(ai.density) || 0.6));
+  const supportBass = support.includes('bass');
+  const supportKeys = support.includes('keys');
   for (let t = 0; t < end; t += 0.5) {
     const chord = chordAt(t);
     if (!chord) continue;
     const root = clampMidi(36 + chord.rootPc);
-    const hasBass = ordered.some(n => n.role === 'bass' && Math.abs(n.startTimeSeconds - t) < 0.3);
-    if (!hasBass) pushNote(out, 'bass', root, t, 0.32, 0.48);
-
-    // Only add a chord when the source has demonstrated that harmony exists.
-    if (Math.round(t / 0.5) % 2 === 0) {
-      [0, 4, 7].forEach((interval, index) => {
-        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, 0.38, 0.22);
+    const hasBass = ordered.some(n => n.pitchMidi <= 52 && Math.abs(n.startTimeSeconds - t) < 0.3);
+    if (supportBass && !hasBass && density > 0.45) {
+      pushNote(out, 'bass', root, t, 0.32, 0.34 + density * 0.18);
+    }
+    if (supportKeys && density > 0.42 && Math.round(t / 0.5) % 2 === 0) {
+      [0, 4, 7].forEach(interval => {
+        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, 0.38, 0.12 + density * 0.14);
       });
     }
   }
 
-  // Generate a restrained groove only when the source has a clear repeating
-  // onset pulse. This avoids forcing drums onto ambient/speech-like audio.
+  // Drums are only generated when the AI sees a rhythmic style AND the source
+  // itself contains a stable onset pulse.
   const onsets = ordered.map(n => n.startTimeSeconds);
   const gaps = [];
   for (let i = 1; i < onsets.length; i++) {
     const gap = onsets[i] - onsets[i - 1];
     if (gap >= 0.18 && gap <= 1.2) gaps.push(gap);
   }
-  const medianGap = gaps.length ? gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)] : 0;
-  if (medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
+  const sortedGaps = gaps.slice().sort((a,b) => a-b);
+  const medianGap = sortedGaps.length ? sortedGaps[Math.floor(sortedGaps.length / 2)] : 0;
+  if (ai.drums && medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
     const beat = Math.max(0.25, Math.min(0.75, medianGap));
     for (let t = 0, i = 0; t < end; t += beat, i++) {
       pushNote(out, 'drums', 36, t, 0.08, i % 4 === 0 ? 0.42 : 0.25);
       if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.32);
+      if (i % 2 === 1 && density > 0.7) pushNote(out, 'drums', 42, t, 0.05, 0.18);
     }
   }
 
@@ -380,7 +395,7 @@ function assignRoles(detected) {
   });
 }
 
-function smartQuantize(notes) {
+function smartQuantize(notes, preferredGrid) {
   if (!notes.length) return notes;
   const starts = notes.map(n => n.startTimeSeconds).sort((a, b) => a - b);
   const gaps = [];
@@ -390,7 +405,10 @@ function smartQuantize(notes) {
   }
   if (!gaps.length) return notes;
   const median = gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
-  const grid = Math.max(0.03125, Math.min(0.25, median / Math.max(1, Math.round(median / 0.125))));
+  const requested = Number(preferredGrid);
+  const grid = [0.0625, 0.125, 0.25, 0.5].includes(requested)
+    ? requested
+    : Math.max(0.03125, Math.min(0.25, median / Math.max(1, Math.round(median / 0.125))));
   const tolerance = Math.min(0.035, grid * 0.22);
   return notes.map(note => {
     const snapped = Math.round(note.startTimeSeconds / grid) * grid;
@@ -555,7 +573,7 @@ async function transcribeOnBackend(file, onStatus) {
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
     if (!Array.isArray(data.notes)) throw new Error('Server returned no notes');
-    return { notes: data.notes, duration: data.duration || 0 };
+    return { notes: data.notes, duration: data.duration || 0, aiPlan: data.aiPlan || null };
   } finally { clearTimeout(timeout); }
 }
 
@@ -642,11 +660,11 @@ function MusicAI() {
     if (working) { setStatus('Already converting…'); return; }
     setFile(inputFile); setWorking(true); setProgress(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Starting…');
     try {
-      let rawNotes = []; let duration = 0; let usedBackend = false;
+      let rawNotes = []; let duration = 0; let usedBackend = false; let aiPlan = null;
       try {
         const result = await transcribeOnBackend(inputFile, msg => { if (conversionId === conversionIdRef.current) setStatus(msg); });
         if (conversionId !== conversionIdRef.current) return;
-        rawNotes = result.notes; duration = result.duration || 0; usedBackend = true; setProgress(90);
+        rawNotes = result.notes; duration = result.duration || 0; aiPlan = result.aiPlan || null; usedBackend = true; setProgress(92);
       } catch (backendError) {
         console.warn('Backend unavailable, local:', backendError);
         if (conversionId !== conversionIdRef.current) return;
@@ -655,12 +673,19 @@ function MusicAI() {
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes; duration = result.duration || 0;
       }
-      setStatus('Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
-      let fitted = buildFullArrangement(rawNotes, duration);
+      setStatus(aiPlan && aiPlan.ai ? 'AI studied Roblox soundfont music — building an original arrangement…' : 'Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
+      let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
-      fitted = smartQuantize(fitted);
+      fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       let plan = pickClassicRobloxPlan(fitted, duration || 1);
+      if (aiPlan) {
+        plan = { ...plan, ...aiPlan, label: (STYLE_PLANS[aiPlan.style] || plan).label || plan.label,
+          primary: SOUNDFONT_LIBRARY.find(s => s.id === aiPlan.style) || plan.primary,
+          drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') || plan.drums,
+          programs: { ...plan.programs } };
+        if (STYLE_PLANS[aiPlan.style]) plan.programs = { ...STYLE_PLANS[aiPlan.style].programs };
+      }
       if (manualStyle !== 'auto' && STYLE_PLANS[manualStyle]) {
         const forced = STYLE_PLANS[manualStyle];
         plan = { ...plan, style: manualStyle, label: forced.label, reason: 'Manual: ' + forced.label, programs: { ...forced.programs }, primary: SOUNDFONT_LIBRARY.find(s => forced.primaryIds.includes(s.id)) || plan.primary };
@@ -670,7 +695,7 @@ function MusicAI() {
       setMidiBlob(makeMidi(fitted, plan.programs));
       setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + plan.label + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
+      setStatus('Done — ' + fitted.length + ' notes · ' + plan.label + (aiPlan && aiPlan.ai ? ' · AI web research' : '') + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
