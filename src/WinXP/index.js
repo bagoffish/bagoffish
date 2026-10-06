@@ -179,7 +179,34 @@ const reducer = (state, action = { type: '' }) => {
   }
 };
 
+function injectXpCursors() {
+  if (typeof document === 'undefined') return;
+  if (document.getElementById('xp-cursor-style')) return;
+  const style = document.createElement('style');
+  style.id = 'xp-cursor-style';
+  style.textContent = [
+    'html, body, #root, #root * { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    'a, a *, button, button *, [role="button"], [role="button"] *, label, label *, summary, summary *, select, option, .xpButton, .xpButton *, .ie__function_bar__button, .ie__function_bar__button *, .inline-link, .inline-link *, [onclick], [onclick] *, [data-clickable], [data-clickable] *, input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"], input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
+    'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: text !important; }',
+  ].join('\n');
+  document.head.appendChild(style);
+  const mark = () => {
+    try {
+      document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
+        el.setAttribute('data-clickable', '1');
+      });
+    } catch (e) {}
+  };
+  mark();
+  if (!window.__xpCursorObserver) {
+    const obs = new MutationObserver(() => mark());
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    window.__xpCursorObserver = obs;
+  }
+}
+
 function WinXP() {
+  if (typeof window !== 'undefined') injectXpCursors();
   const [state, dispatch] = useReducer(reducer, initState);
   const ref = useRef(null);
   const mouse = useMouse(ref);
@@ -362,8 +389,7 @@ const animation = {
   [POWER_STATE.LOG_OFF]: powerOffAnimation,
 };
 
-/* XP custom cursors — forced with !important so every app (inline styles,
-   styled-components, etc.) still shows Normal Select / Link Select. */
+/* XP cursors — also enforced in Container for the desktop shell */
 const CURSOR_NORMAL = `url("/images/Normal%20Select.cur") 3 3, default`;
 const CURSOR_LINK = `url("/images/Link%20Select.cur") 3 3, pointer`;
 
@@ -381,74 +407,38 @@ const Container = styled.div`
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
-  /* Base arrow on the desktop shell */
   cursor: ${CURSOR_NORMAL} !important;
 
   *:not(input):not(textarea):not(select) {
     user-select: none;
   }
 
-  /* Force Normal Select on EVERY node (beats inline cursor:pointer without !important) */
   *,
   *::before,
   *::after {
     cursor: ${CURSOR_NORMAL} !important;
   }
 
-  /* Link Select on anything clickable */
-  a,
-  a *,
-  button,
-  button *,
-  [role='button'],
-  [role='button'] *,
-  label,
-  label *,
-  summary,
-  select,
-  option,
-  .xpButton,
-  .xpButton *,
-  .ie__function_bar__button,
-  .ie__function_bar__button *,
-  .inline-link,
-  .inline-link *,
-  [onclick],
-  [onclick] *,
-  [tabindex]:not([tabindex='-1']),
-  [tabindex]:not([tabindex='-1']) *,
-  [style*='cursor: pointer'],
-  [style*='cursor:pointer'],
-  [style*="cursor: 'pointer'"],
-  [style*="cursor: \"pointer\""],
-  [style*='cursor: url'],
-  [style*='cursor:url'] {
+  a, a *,
+  button, button *,
+  [role='button'], [role='button'] *,
+  label, label *,
+  summary, select, option,
+  .xpButton, .xpButton *,
+  .ie__function_bar__button, .ie__function_bar__button *,
+  .inline-link, .inline-link *,
+  [data-clickable], [data-clickable] *,
+  [onclick], [onclick] * {
     cursor: ${CURSOR_LINK} !important;
   }
 
-  /* Text fields keep an I-beam */
-  input,
-  textarea,
-  input *,
-  textarea *,
-  [contenteditable='true'],
-  [contenteditable='true'] * {
+  input, textarea, [contenteditable='true'] {
     cursor: text !important;
   }
 
-  /* Window resize handles — allow native resize cursors */
-  [style*='n-resize'],
-  [style*='s-resize'],
-  [style*='e-resize'],
-  [style*='w-resize'],
-  [style*='ne-resize'],
-  [style*='nw-resize'],
-  [style*='se-resize'],
-  [style*='sw-resize'],
-  [style*='ns-resize'],
-  [style*='ew-resize'],
-  [style*='col-resize'],
-  [style*='row-resize'] {
+  [style*='n-resize'], [style*='s-resize'], [style*='e-resize'], [style*='w-resize'],
+  [style*='ne-resize'], [style*='nw-resize'], [style*='se-resize'], [style*='sw-resize'],
+  [style*='ns-resize'], [style*='ew-resize'], [style*='col-resize'], [style*='row-resize'] {
     cursor: auto !important;
   }
 `;
