@@ -256,6 +256,77 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     }
   }
 
+  // Full-style orchestra: every reference style contributes a distinct, restrained
+  // musical layer. The original transcription remains the melody source, so these
+  // layers enrich it instead of replacing it with unrelated material.
+  const styleLayers = [
+    ['mule', 'vocals', 0, 0.34],
+    ['fjords-midi', 'strings', 12, 0.13],
+    ['strategy', 'bass', -24, 0.16],
+    ['roblox-sf', 'keys', 0, 0.12],
+    ['gamehero', 'guitar', -12, 0.11],
+    ['classic-days', 'pad', 0, 0.08],
+    ['party', 'drums', 0, 0.10],
+    ['monster', 'bass', -12, 0.07],
+    ['horror', 'strings', -12, 0.06],
+    ['stealth', 'arp', 12, 0.07],
+    ['chip', 'arp', 24, 0.055],
+    ['classic', 'vocals', 0, 0.09],
+  ];
+  const requestedStyles = new Set((ai.styleMix || []).map(x => x && x.style));
+  const fullMix = requestedStyles.size >= 8;
+  if (fullMix) {
+    const sampled = ordered.filter((n, i) => i % 2 === 0);
+    styleLayers.forEach(([style, role, octave, gain]) => {
+      if (!requestedStyles.has(style)) return;
+      if (style === 'party') {
+        // Party influence is rhythmic rather than another copy of the melody.
+        const step = Math.max(0.25, Math.min(0.75, medianGap || 0.5));
+        for (let t = 0, i = 0; t < end; t += step, i++) {
+          if (i % 2 === 0) pushNote(out, 'drums', 36, t, 0.06, gain * 2.2);
+          if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.06, gain * 1.7);
+          if (i % 2 === 1) pushNote(out, 'drums', 42, t, 0.035, gain * 1.2);
+        }
+        return;
+      }
+      if (style === 'strategy' || style === 'monster') {
+        sampled.filter(n => n.pitchMidi <= medianPitch + 2).forEach(n => {
+          pushNote(out, 'bass', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.45, n.durationSeconds), gain);
+        });
+        return;
+      }
+      if (style === 'fjords-midi' || style === 'horror') {
+        sampled.filter(n => n.pitchMidi >= medianPitch).forEach(n => {
+          pushNote(out, 'strings', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.max(0.18, Math.min(0.8, n.durationSeconds * 1.35)), gain);
+        });
+        return;
+      }
+      if (style === 'classic-days' || style === 'roblox-sf') {
+        stableChords.forEach(chord => {
+          const root = clampMidi(60 + chord.rootPc);
+          const intervals = style === 'classic-days' ? [0, 7] : [0, 4, 7];
+          intervals.forEach(interval => pushNote(out, role, clampMidi(root + interval + octave), chord.time, 0.55, gain));
+        });
+        return;
+      }
+      if (style === 'stealth' || style === 'chip') {
+        sampled.filter((n, i) => i % 3 === 0).forEach(n => {
+          pushNote(out, 'arp', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.16, n.durationSeconds), gain);
+        });
+        return;
+      }
+      if (style === 'gamehero') {
+        sampled.filter(n => n.pitchMidi >= medianPitch - 5).forEach(n => {
+          pushNote(out, 'guitar', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.3, n.durationSeconds), gain);
+        });
+        return;
+      }
+      sampled.forEach(n => {
+        pushNote(out, role, clampMidi(n.pitchMidi + octave), n.startTimeSeconds, n.durationSeconds, gain);
+      });
+    });
+  }
+
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
     .map((note, index) => ({ ...note, id: index + 1 }));
