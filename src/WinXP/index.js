@@ -377,8 +377,24 @@ const Container = styled.div`
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
+  cursor: url('${process.env.PUBLIC_URL || '.'}/images/Normal%20Select.cur'), default;
+
   *:not(input):not(textarea) {
     user-select: none;
+  }
+
+  a,
+  button,
+  [role='button'],
+  label,
+  summary,
+  select {
+    cursor: url('${process.env.PUBLIC_URL || '.'}/images/Link%20Select.cur'), pointer;
+  }
+
+  input,
+  textarea {
+    cursor: url('${process.env.PUBLIC_URL || '.'}/images/Normal%20Select.cur'), text;
   }
 `;
 
