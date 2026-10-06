@@ -280,6 +280,16 @@ function sanitizeStylePlan(plan, fallback) {
   const roles = new Set(['bass','guitar','vocals','keys','pad','strings','arp']);
   const out = { ...fallback, ...(plan || {}) };
   out.style = styles.has(out.style) ? out.style : fallback.style;
+  out.styleMix = Array.isArray(out.styleMix)
+    ? out.styleMix
+        .filter(x => styles.has(x?.style) && Number.isFinite(Number(x?.weight)))
+        .map(x => ({ style: x.style, weight: Math.max(0, Math.min(1, Number(x.weight))) }))
+        .sort((a, b) => b.weight - a.weight)
+        .slice(0, 4)
+    : [];
+  if (!out.styleMix.length) out.styleMix = [{ style: out.style, weight: 1 }];
+  const totalStyleWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
+  out.styleMix = out.styleMix.map(x => ({ ...x, weight: Number((x.weight / totalStyleWeight).toFixed(3)) }));
   out.primaryRole = roles.has(out.primaryRole) ? out.primaryRole : fallback.primaryRole;
   out.supportRoles = Array.isArray(out.supportRoles)
     ? [...new Set(out.supportRoles.filter(x => roles.has(x)).slice(0, 4))]
@@ -315,7 +325,8 @@ export async function createRobloxifyStylePlan(notes, duration) {
   const prompt = [
     'You are the persistent musical director and reference brain for Robloxify.',
     'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
-    'Treat the reference library as learned arrangement knowledge: compare the input against its traits, select the closest musical vocabulary, and combine traits into an original arrangement.',
+    'Treat the reference library as learned arrangement knowledge: compare the input against its traits, select several compatible musical vocabularies, and combine them into one coherent original arrangement. Do NOT force the song into one style.',
+    'Prefer a deliberate blend of 2 to 4 styles when that improves the music. Assign different influences to different musical functions: one may guide harmony, another rhythm, another instrumentation, another melodic phrasing. Make the blend feel intentional rather than like random genre switching.',
     'Use web search as optional fresh research and corroboration, not as the only source of musical knowledge.',
     'Study broad traits such as instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
     'Do NOT copy a specific song, melody, lyric, chord progression, or distinctive rhythmic phrase. Produce an original style-level plan.',
@@ -327,7 +338,8 @@ export async function createRobloxifyStylePlan(notes, duration) {
       availableStyles: ['mule','fjords-midi','strategy','roblox-sf','gamehero','classic-days','party','monster','horror','stealth','chip','classic'],
       analysis,
       outputSchema: {
-        style: 'one available style',
+        style: 'dominant available style (keep for backward compatibility)',
+        styleMix: [{ style: 'available style', weight: '0 to 1' }, { style: 'optional second style', weight: '0 to 1' }],
         primaryRole: 'bass|guitar|vocals|keys|pad|strings|arp',
         supportRoles: ['up to four roles'],
         drums: true,
