@@ -186,7 +186,14 @@ function injectXpCursors() {
   style.id = 'xp-cursor-style';
   style.textContent = [
     'html, body, #root, #root * { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
-    'a, a *, button, button *, [role="button"], [role="button"] *, label, label *, summary, summary *, select, option, .xpButton, .xpButton *, .ie__function_bar__button, .ie__function_bar__button *, .inline-link, .inline-link *, [onclick], [onclick] *, [data-clickable], [data-clickable] *, input[type="button"], input[type="submit"], input[type="reset"], input[type="checkbox"], input[type="radio"], input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
+    '#root a, #root a *, #root button, #root button *, #root [role="button"], #root [role="button"] *, #root label, #root label *, #root summary, #root summary *, #root select, #root option, #root .xpButton, #root .xpButton *, #root .ie__function_bar__button, #root .ie__function_bar__button *, #root .inline-link, #root .inline-link *, #root [onclick], #root [onclick] *, #root [data-clickable], #root [data-clickable] *, #root input[type="button"], #root input[type="submit"], #root input[type="reset"], #root input[type="checkbox"], #root input[type="radio"], #root input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
+    '#root .app__header { cursor: url("/images/Move.cur") 8 8, move !important; }',
+    '#root .xp-cursor-move { cursor: url("/images/Move.cur") 8 8, move !important; }',
+    '#root .xp-cursor-horizontal { cursor: url("/images/Horizontal%20Resize.cur") 8 8, ew-resize !important; }',
+    '#root .xp-cursor-vertical { cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important; }',
+    '#root .xp-cursor-diagonal-1 { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
+    '#root .xp-cursor-diagonal-2 { cursor: url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize !important; }',
+    '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: text !important; }',
   ].join('\n');
   document.head.appendChild(style);
