@@ -6,6 +6,7 @@ import {
   BasicPitch,
 } from "@spotify/basic-pitch";
 import decodeAudio from "audio-decode";
+import brain from "./robloxify-knowledge.json" with { type: "json" };
 
 const TARGET_RATE = 22050;
 const MAX_SECONDS = 600; // 10 minutes
@@ -312,12 +313,14 @@ export async function createRobloxifyStylePlan(notes, duration) {
 
   const model = process.env.ROBLOXIFY_AI_MODEL || 'gpt-6-luna';
   const prompt = [
-    'You are the music director for Robloxify.',
-    'Study the current Roblox/soundfont music scene on the public web before planning this arrangement.',
-    'Search for multiple examples of original songs, remixes, and soundfont compositions associated with Roblox, especially 2008-2013 Roblox-style music, Wind of Fjords/M.U.L.E.-style MIDI music, classic Roblox soundfonts, and newer Roblox soundfont songs.',
-    'Use the search results only to learn broad musical traits: instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
+    'You are the persistent musical director and reference brain for Robloxify.',
+    'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
+    'Treat the reference library as learned arrangement knowledge: compare the input against its traits, select the closest musical vocabulary, and combine traits into an original arrangement.',
+    'Use web search as optional fresh research and corroboration, not as the only source of musical knowledge.',
+    'Study broad traits such as instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
     'Do NOT copy a specific song, melody, lyric, chord progression, or distinctive rhythmic phrase. Produce an original style-level plan.',
     'Then study the supplied transcription statistics and decide how to turn THAT exact performance into a convincing Roblox-soundfont arrangement.',
+    JSON.stringify({ stableReferenceLibrary: brain }),
     'Return JSON only. Do not write prose outside the JSON.',
     JSON.stringify({
       task: 'Create an original Roblox-soundfont arrangement plan',
