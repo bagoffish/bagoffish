@@ -70,27 +70,38 @@ app.get("/health", (req, res) => {
 
 let visitorCountQueue = Promise.resolve();
 
+let memoryVisitorCount = 0;
+
 app.get("/visitor-count", async (req, res) => {
   visitorCountQueue = visitorCountQueue.then(async () => {
-    const visitorDir = path.dirname(VISITOR_COUNT_PATH);
-    await fs.promises.mkdir(visitorDir, { recursive: true });
+    let count = memoryVisitorCount;
 
-    let count = 0;
     try {
-      const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
-      const parsed = JSON.parse(raw);
-      count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+      const visitorDir = path.dirname(VISITOR_COUNT_PATH);
+      await fs.promises.mkdir(visitorDir, { recursive: true });
+
+      try {
+        const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
+        const parsed = JSON.parse(raw);
+        count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+      } catch (err) {
+        if (err.code !== "ENOENT") throw err;
+      }
+
+      count += 1;
+      await fs.promises.writeFile(
+        VISITOR_COUNT_PATH,
+        JSON.stringify({ count }),
+        "utf8"
+      );
     } catch (err) {
-      if (err.code !== "ENOENT") throw err;
+      // The free backend may not have /var/data mounted. Keep the counter
+      // functional in memory instead of turning the About Me page into a 500.
+      console.warn("Visitor counter persistence unavailable:", err.message);
+      count += 1;
     }
 
-    count += 1;
-    await fs.promises.writeFile(
-      VISITOR_COUNT_PATH,
-      JSON.stringify({ count }),
-      "utf8"
-    );
-
+    memoryVisitorCount = count;
     return count;
   });
 
