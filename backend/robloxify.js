@@ -288,6 +288,12 @@ function sanitizeStylePlan(plan, fallback) {
   out.swing = Math.max(0, Math.min(0.35, Number(out.swing) || 0));
   out.quantizeGrid = [0.0625,0.125,0.25,0.5].includes(Number(out.quantizeGrid)) ? Number(out.quantizeGrid) : fallback.quantizeGrid;
   out.preserveMelody = out.preserveMelody !== false;
+  out.tempoBpm = Math.max(70, Math.min(180, Number(out.tempoBpm) || 120));
+  out.harmonicComplexity = Math.max(0, Math.min(1, Number(out.harmonicComplexity) || 0.5));
+  out.bassPattern = ['root','octave','walking','pulse'].includes(out.bassPattern) ? out.bassPattern : 'root';
+  out.chordRhythm = ['sustained','half','quarter','syncopated'].includes(out.chordRhythm) ? out.chordRhythm : 'half';
+  out.melodyOctave = [-1,0,1].includes(Number(out.melodyOctave)) ? Number(out.melodyOctave) : 0;
+  out.drumPattern = ['none','basic','four_on_floor','breakbeat'].includes(out.drumPattern) ? out.drumPattern : 'none';
   out.reason = typeof out.reason === 'string' ? out.reason.slice(0, 500) : fallback.reason;
   out.webResearch = Array.isArray(out.webResearch) ? out.webResearch.slice(0, 8).map(x => ({
     title: String(x?.title || '').slice(0, 180),
@@ -326,6 +332,12 @@ export async function createRobloxifyStylePlan(notes, duration) {
         swing: '0 to 0.35',
         quantizeGrid: '0.0625|0.125|0.25|0.5',
         preserveMelody: true,
+        tempoBpm: '70 to 180',
+        harmonicComplexity: '0 to 1',
+        bassPattern: 'root|octave|walking|pulse',
+        chordRhythm: 'sustained|half|quarter|syncopated',
+        melodyOctave: '-1|0|1',
+        drumPattern: 'none|basic|four_on_floor|breakbeat',
         reason: 'short explanation',
         webResearch: [{ title: 'source title', url: 'source url', takeaway: 'style takeaway' }]
       }
@@ -362,4 +374,4 @@ export async function createRobloxifyStylePlan(notes, duration) {
     return { ...fallback, ai: false, aiError: error.message, analysis, webResearch: [] };
   }
 }
-\nexport const ROBLOXIFY_LIMITS = { MAX_SECONDS, MAX_BYTES };
+export const ROBLOXIFY_LIMITS = { MAX_SECONDS, MAX_BYTES };
