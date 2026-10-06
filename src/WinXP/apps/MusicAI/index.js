@@ -640,7 +640,10 @@ function MusicAI({ onClose }) {
       style={{
         height: '100%',
         overflow: 'auto',
-        background: '#8b3f2f',
+        backgroundImage: "url('/images/sky.png')",
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundAttachment: 'fixed',
         color: '#fff',
         fontFamily: 'Tahoma, Arial, sans-serif',
         fontSize: 11,
@@ -965,10 +968,14 @@ function MusicAI({ onClose }) {
 
         {arrangement.length > 0 && (
           <div style={{
-            background: 'rgba(38, 34, 34, .88)',
-            border: '1px solid #333',
-            padding: 8,
+            background: 'rgba(45, 35, 35, .78)',
+            border: '1px solid #222',
+            padding: 10,
             marginBottom: 7,
+            minHeight: 460,
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
           }}>
             <div style={{ fontWeight: 'bold', marginBottom: 2 }}>MIDI EDITOR</div>
             <div style={{ color: '#ccc', marginBottom: 7 }}>DRUMS · BASS · GUITAR · VOCALS</div>
@@ -1026,13 +1033,15 @@ function MusicAI({ onClose }) {
 
             <div style={{
               overflowX: 'auto',
-              overflowY: 'hidden',
-              border: '1px solid #333',
-              background: '#222',
+              overflowY: 'auto',
+              border: '2px solid #555',
+              background: 'rgba(20,20,20,.88)',
+              flex: 1,
+              minHeight: 390,
             }}>
               <div style={{
                 position: 'relative',
-                height: 260,
+                height: 390,
                 minWidth: Math.max(650, Math.ceil(
                   arrangement.reduce(
                     (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
@@ -1062,7 +1071,7 @@ function MusicAI({ onClose }) {
                 })}
 
                 {arrangement.map(note => {
-                  const top = Math.max(0, Math.min(240, (84 - note.pitchMidi) * 6.67));
+                  const top = Math.max(0, Math.min(360, (84 - note.pitchMidi) * 10));
                   const left = note.startTimeSeconds * 70 + 28;
                   const width = Math.max(5, note.durationSeconds * 70);
                   const selected = note.id === selectedNoteId;
@@ -1090,7 +1099,7 @@ function MusicAI({ onClose }) {
               </div>
             </div>
             <div style={{ color: '#bbb', marginTop: 5 }}>
-              CLICK A NOTE TO EDIT
+              CLICK A NOTE TO EDIT · THE MIDI EDITOR USES THE WHOLE WORKSPACE
             </div>
           </div>
         )}
