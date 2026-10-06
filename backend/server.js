@@ -13,13 +13,14 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-06-robloxify-web-ai";
+const BACKEND_VERSION = "2026-10-07-robloxify-fixes";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
 const WORKER_PATH = path.join(__dirname, "chunkparser.js");
-const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || "/var/data/visitor-count-v2.json";
-const COMMUNITY_DIR = process.env.COMMUNITY_DIR || "/var/data/robloxify-community";
+const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
+const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || path.join(DATA_ROOT, "visitor-count-v2.json");
+const COMMUNITY_DIR = process.env.COMMUNITY_DIR || path.join(DATA_ROOT, "robloxify-community");
 const COMMUNITY_AUDIO_DIR = path.join(COMMUNITY_DIR, "audio");
 const COMMUNITY_INDEX_PATH = path.join(COMMUNITY_DIR, "tracks.json");
 
