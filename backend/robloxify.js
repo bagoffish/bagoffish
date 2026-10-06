@@ -6,7 +6,10 @@ import {
   BasicPitch,
 } from "@spotify/basic-pitch";
 import decodeAudio from "audio-decode";
-import brain from "./robloxify-knowledge.json" with { type: "json" };
+import { createRequire } from "module";
+
+const require = createRequire(import.meta.url);
+const brain = require("./robloxify-knowledge.json");
 
 const TARGET_RATE = 22050;
 const MAX_SECONDS = 600; // 10 minutes
