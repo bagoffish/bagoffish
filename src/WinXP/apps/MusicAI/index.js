@@ -25,72 +25,7 @@ const SOUNDFONT_LIBRARY = [
 ];
 
 
-function blendStylePrograms(styleMix, fallbackStyle) {
-  const mix = Array.isArray(styleMix) && styleMix.length
-    ? styleMix
-    : [{ style: fallbackStyle, weight: 1 }];
-  const total = mix.reduce((sum, item) => sum + Math.max(0, Number(item.weight) || 0), 0) || 1;
-  const programs = {};
-  const rolesToBlend = ['drums', 'bass', 'guitar', 'vocals'];
-  rolesToBlend.forEach(role => {
-    let value = 0;
-    let weight = 0;
-    mix.forEach(item => {
-      const style = STYLE_PLANS[item.style];
-      const w = Math.max(0, Number(item.weight) || 0) / total;
-      if (style && Number.isFinite(style.programs?.[role])) {
-        value += style.programs[role] * w;
-        weight += w;
-      }
-    });
-    if (weight) programs[role] = Math.round(value / weight);
-  });
-  return programs;
-}
-
-const STYLE_PLANS = {
-  mule: { label: 'M.U.L.E. / Wind of Fjords', primaryIds: ['fjords', 'fjords-midi', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 0, vocals: 80 } },
-  'fjords-midi': { label: 'Wind of Fjords (MIDI)', primaryIds: ['fjords-midi', 'fjords'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 0, vocals: 80 } },
-  strategy: { label: 'Great Strategy', primaryIds: ['strategy', 'gamehero'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 48, vocals: 56 } },
-  'roblox-sf': { label: 'Roblox Soundfont', primaryIds: ['roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 25, vocals: 80 } },
-  gamehero: { label: 'GameHero', primaryIds: ['gamehero', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 30, vocals: 80 } },
-  'classic-days': { label: 'Classic Days', primaryIds: ['classic-days', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 0, vocals: 48 } },
-  party: { label: 'Party Music', primaryIds: ['party', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 38, guitar: 81, vocals: 80 } },
-  monster: { label: 'Monster Mash', primaryIds: ['monster', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 34, guitar: 19, vocals: 80 } },
-  horror: { label: 'Roblox Horror', primaryIds: ['horror', 'classic-days'], drumId: 'drums', programs: { drums: 0, bass: 34, guitar: 19, vocals: 89 } },
-  stealth: { label: 'StealthPilot', primaryIds: ['stealth', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 30, vocals: 80 } },
-  chip: { label: 'Chip / Nokia', primaryIds: ['nokia', 'fjords', 'roblox-sf'], drumId: 'drums', programs: { drums: 0, bass: 38, guitar: 80, vocals: 81 } },
-  classic: { label: 'Classic Roblox', primaryIds: ['roblox-sf', 'gamehero', 'fjords'], drumId: 'drums', programs: { drums: 0, bass: 33, guitar: 25, vocals: 80 } },
-};
-
-function pickClassicRobloxPlan(notes, duration) {
-  const n = notes.length || 1;
-  const dur = Math.max(duration || 1, 0.5);
-  const density = n / dur;
-  let sumPitch = 0, shortCount = 0, lowCount = 0, highCount = 0;
-  notes.forEach(note => {
-    const p = note.pitchMidi || 60;
-    sumPitch += p;
-    if ((note.durationSeconds || 0) < 0.15) shortCount++;
-    if (p < 50) lowCount++;
-    if (p >= 72) highCount++;
-  });
-  const avgPitch = sumPitch / n;
-  const shortRatio = shortCount / n;
-  const lowRatio = lowCount / n;
-  const highRatio = highCount / n;
-  let style = 'mule';
-  let reason = 'Classic M.U.L.E. / Fjords (closest to original melody)';
-  if (density > 12 && shortRatio > 0.5) { style = 'party'; reason = 'Busy rhythm → party palette'; }
-  else if (density > 7 && highRatio > 0.4) { style = 'chip'; reason = 'Bright busy lead → chip palette'; }
-  else if (lowRatio > 0.45 && density < 5) { style = 'strategy'; reason = 'Bass-heavy → Great Strategy'; }
-  else if (avgPitch >= 58 && density >= 2) { style = 'mule'; reason = 'Balanced song → Wind of Fjords (M.U.L.E.)'; }
-  else { style = 'classic'; reason = 'General → classic Roblox bank'; }
-  const plan = STYLE_PLANS[style] || STYLE_PLANS.mule;
-  const primary = SOUNDFONT_LIBRARY.find(s => plan.primaryIds.includes(s.id)) || SOUNDFONT_LIBRARY[0];
-  const drums = SOUNDFONT_LIBRARY.find(s => s.id === plan.drumId);
-  return { style, label: plan.label, reason, primary, drums, programs: { ...plan.programs } };
-}
+const ORCHESTRA_PROGRAMS = { drums: 0, bass: 33, guitar: 29, vocals: 80, keys: 4, pad: 89, strings: 48, arp: 81 };
 
 const roles = [
   { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
@@ -273,12 +208,10 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     ['chip', 'arp', 24, 0.055],
     ['classic', 'vocals', 0, 0.09],
   ];
-  const requestedStyles = new Set((ai.styleMix || []).map(x => x && x.style));
-  const fullMix = requestedStyles.size >= 8;
+  const fullMix = true;
   if (fullMix) {
     const sampled = ordered.filter((n, i) => i % 2 === 0);
     styleLayers.forEach(([style, role, octave, gain]) => {
-      if (!requestedStyles.has(style)) return;
       if (style === 'party') {
         // Party influence is rhythmic rather than another copy of the melody.
         const step = Math.max(0.25, Math.min(0.75, medianGap || 0.5));
@@ -749,7 +682,7 @@ function MusicAI() {
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
-  const [activePlan, setActivePlan] = useState(null); const [manualStyle, setManualStyle] = useState('auto');
+  const [activePlan, setActivePlan] = useState(null);
   const [viewMode, setViewMode] = useState('roll');
   const playbackStopTimerRef = useRef(null); const playbackRafRef = useRef(null); const conversionIdRef = useRef(0);
   const scheduledTimersRef = useRef([]); const playStartRef = useRef(0); const seekOffsetRef = useRef(0);
@@ -787,29 +720,18 @@ function MusicAI() {
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes; duration = result.duration || 0;
       }
-      setStatus(aiPlan && aiPlan.ai ? 'Studying Roblox soundfont styles — building an original arrangement…' : 'Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
+      setStatus('Building a unified Roblox orchestra — keeping your melody…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
-      let plan = pickClassicRobloxPlan(fitted, duration || 1);
-      if (aiPlan) {
-        plan = { ...plan, ...aiPlan, label: (STYLE_PLANS[aiPlan.style] || plan).label || plan.label,
-          primary: SOUNDFONT_LIBRARY.find(s => s.id === aiPlan.style) || plan.primary,
-          drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') || plan.drums,
-          programs: { ...plan.programs } };
-        if (STYLE_PLANS[aiPlan.style]) plan.programs = aiPlan.styleMix?.length ? blendStylePrograms(aiPlan.styleMix, aiPlan.style) : { ...STYLE_PLANS[aiPlan.style].programs };
-      }
-      if (manualStyle !== 'auto' && STYLE_PLANS[manualStyle]) {
-        const forced = STYLE_PLANS[manualStyle];
-        plan = { ...plan, style: manualStyle, label: forced.label, reason: 'Manual: ' + forced.label, programs: { ...forced.programs }, primary: SOUNDFONT_LIBRARY.find(s => forced.primaryIds.includes(s.id)) || plan.primary };
-      }
+      const plan = { ...(aiPlan || {}), label: 'Unified Roblox Orchestra', reason: 'All available soundfont palettes blended into one cohesive arrangement.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs));
       setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + plan.label + (aiPlan && aiPlan.ai ? ' · web research' : '') + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
+      setStatus('Done — ' + fitted.length + ' notes · ' + 'Unified Roblox Orchestra' + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -819,7 +741,7 @@ function MusicAI() {
   const updateArrangement = next => {
     const cleaned = next.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
     setArrangement(cleaned);
-    const programs = (planRef.current && planRef.current.programs) || STYLE_PLANS.mule.programs;
+    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     setMidiBlob(makeMidi(cleaned, programs));
     setWavBlob(null);
     setPlaybackDuration(cleaned.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
@@ -827,7 +749,7 @@ function MusicAI() {
 
   const downloadStem = roleId => {
     if (!arrangement.length) return;
-    const programs = (planRef.current && planRef.current.programs) || STYLE_PLANS.mule.programs;
+    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     const role = roles.find(r => r.id === roleId);
     const blob = makeStemMidi(arrangement, roleId, programs);
     downloadBlob(blob, 'robloxify-' + roleId + '.mid');
@@ -856,7 +778,7 @@ function MusicAI() {
 
   const saveProject = () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { style: activePlan.style, label: activePlan.label, programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Unified Roblox Orchestra', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); setStatus('Project saved');
   };
@@ -865,24 +787,20 @@ function MusicAI() {
     setProjectName(project.name);
     const loaded = (project.arrangement || []).map((n, i) => ({ ...n, id: n.id || i + 1 }));
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
-    const plan = project.plan && STYLE_PLANS[project.plan.style] ? { ...pickClassicRobloxPlan(loaded, 1), style: project.plan.style, label: project.plan.label, programs: project.plan.programs || STYLE_PLANS[project.plan.style].programs } : pickClassicRobloxPlan(loaded, 1);
+    const plan = { ...(project.plan || {}), label: 'Unified Roblox Orchestra', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
     planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
   const ensureSynth = async plan => {
-    const usePlan = plan || planRef.current || pickClassicRobloxPlan([], 1);
+    const usePlan = plan || planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
     if (synthRef.current && contextRef.current) return synthRef.current;
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
     if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
     const context = new AudioContext(); contextRef.current = context;
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
     const synth = new WorkletSynthesizer(context);
-    const toLoad = [];
-    if (usePlan.primary) toLoad.push(usePlan.primary);
-    if (usePlan.drums && (!usePlan.primary || usePlan.drums.id !== usePlan.primary.id)) toLoad.push(usePlan.drums);
-    const extra = SOUNDFONT_LIBRARY.find(s => s.id === 'roblox-sf' && (!usePlan.primary || usePlan.primary.id !== 'roblox-sf'));
-    if (extra) toLoad.push(extra);
+    const toLoad = SOUNDFONT_LIBRARY.slice();
     for (const bank of toLoad) {
       try {
         setStatus('Loading soundfont: ' + bank.name + '…');
@@ -899,7 +817,7 @@ function MusicAI() {
 
   const scheduleFrom = (synth, fromTime) => {
     stopPlaybackInternal();
-    const programs = (planRef.current && planRef.current.programs) || STYLE_PLANS.mule.programs;
+    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     if (typeof synth.systemReset === 'function') synth.systemReset();
     synth.programChange(9, programs.drums || 0); synth.programChange(0, programs.bass || 33);
     synth.programChange(1, programs.guitar || 0); synth.programChange(2, programs.vocals || 80);
@@ -932,12 +850,12 @@ function MusicAI() {
   const playArrangement = async () => {
     if (!arrangement.length) { setStatus('Nothing to play'); return; }
     try {
-      const plan = planRef.current || pickClassicRobloxPlan(arrangement, 1);
-      setStatus('Loading ' + plan.label + '…');
+      const plan = planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS };
+      setStatus('Loading the Roblox orchestra…');
       const synth = await ensureSynth(plan);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
-      scheduleFrom(synth, from); setStatus('Playing · ' + plan.label);
+      scheduleFrom(synth, from); setStatus('Playing · Roblox orchestra');
     } catch (error) {
       console.error(error); setStatus('Playback failed — ' + (error.message || 'unknown')); setPlaying(false);
     }
@@ -947,7 +865,7 @@ function MusicAI() {
     const clamped = Math.max(0, Math.min(playbackDuration || t, t)); setPlaybackTime(clamped);
     if (playing) {
       try {
-        const plan = planRef.current || pickClassicRobloxPlan(arrangement, 1);
+        const plan = planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
         scheduleFrom(synth, clamped);
@@ -1015,31 +933,6 @@ function MusicAI() {
         <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Other Places</button>
         <button type="button" style={topBtnGray} disabled={!wavBlob || publishing} onClick={publishTrack}>{publishing ? 'Publishing…' : 'Publish'}</button>
         <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
-        <select value={manualStyle} onChange={e => {
-            const v = e.target.value; setManualStyle(v);
-            if (v !== 'auto' && STYLE_PLANS[v] && arrangement.length) {
-              const forced = STYLE_PLANS[v];
-              const plan = { style: v, label: forced.label, reason: 'Manual: ' + forced.label, programs: { ...forced.programs }, primary: SOUNDFONT_LIBRARY.find(s => forced.primaryIds.includes(s.id)) || SOUNDFONT_LIBRARY[0], drums: SOUNDFONT_LIBRARY.find(s => s.id === forced.drumId) };
-              planRef.current = plan; setActivePlan(plan);
-              if (synthRef.current) { try { synthRef.current.destroy(); } catch (err) {} synthRef.current = null; }
-              setMidiBlob(makeMidi(arrangement, plan.programs));
-              setStatus('Style set to ' + forced.label + ' — press Play to load soundfont');
-            }
-          }} style={{ ...topSelect, maxWidth: 160 }} title="Pick any soundfont style">
-          <option value="auto">Style: Auto</option>
-          <option value="mule">Wind of Fjords (M.U.L.E.)</option>
-          <option value="fjords-midi">Wind of Fjords MIDI</option>
-          <option value="strategy">Great Strategy</option>
-          <option value="roblox-sf">Roblox Soundfont</option>
-          <option value="gamehero">GameHero</option>
-          <option value="classic-days">Classic Days</option>
-          <option value="party">Party Music</option>
-          <option value="monster">Monster Mash</option>
-          <option value="horror">Roblox Horror</option>
-          <option value="stealth">StealthPilot</option>
-          <option value="chip">Nokia / Chip</option>
-          <option value="classic">Classic Roblox</option>
-        </select>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#fff', textShadow: '1px 1px 0 #000' }}>{projectName}</span>
       </div>
 
@@ -1050,7 +943,7 @@ function MusicAI() {
             <div style={{ fontSize: 11, marginBottom: 4 }}>{status}</div>
             <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
             <HealthBar value={progress} max={100} label="Loading" width="100%" height={14} />
-            {activePlan && <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>{activePlan.label}</b> — {activePlan.reason}</div>}
+            <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>Unified Roblox Orchestra</b> — all available soundfont palettes are blended around the original song.</div>
           </div>
           {showProjects && (
             <div style={{ ...panel, padding: 6, maxHeight: 180, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
@@ -1111,7 +1004,7 @@ function MusicAI() {
         </div>
       </div>
       <div style={{ height: 24, background: 'rgba(0,0,0,0.65)', borderTop: '2px solid #000', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', padding: '0 8px', flexShrink: 0 }}>
-        Any song → Roblox style. Pick any soundfont in Style. Piano roll to edit. Drag Time to seek.
+        Any song → one unified Roblox orchestra. All soundfont palettes are blended around the original song. Piano roll to edit. Drag Time to seek.
       </div>
     </div>
   );
