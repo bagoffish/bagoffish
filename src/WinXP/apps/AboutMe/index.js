@@ -117,9 +117,32 @@ function AboutMe({ onClose }) {
       <div className="ie__content">
         <div className="ie__content__inner">
           <div className="about">
-            <h1 className="about__title">About Me</h1>
+            <div className="about__site-header">
+              <div className="about__site-header__top">
+                <div>
+                  <div className="about__site-kicker">PERSONAL HOMEPAGE</div>
+                  <h1 className="about__title">★ Welcome to Coy's Homepage ★</h1>
+                  <div className="about__subtitle">~ a little corner of the internet ~</div>
+                </div>
+                <div className="about__badge">
+                  <img src={earth} alt="" />
+                  <span>YOU ARE<br /><b>VISITOR #000142</b></span>
+                </div>
+              </div>
+              <div className="about__nav">
+                <a href="#about">ABOUT ME</a><span>|</span>
+                <a href="#interests">INTERESTS</a><span>|</span>
+                <a href="#recs">RECS</a><span>|</span>
+                <a href="#links">LINKS</a>
+              </div>
+            </div>
 
-            <section className="about__section">
+            <div className="about__welcome">
+              <span>WELCOME!</span> Thanks for stopping by. This page is best viewed at 1024×768 with Internet Explorer 6.0.
+            </div>
+
+            <section className="about__section about__section--intro" id="about">
+              <div className="about__section-title"><span>01</span> ABOUT ME</div>
               <pre className="about__text">{ABOUT_TEXT}</pre>
               <p className="about__lain-line">
                {" "}Also:{" "}
@@ -135,18 +158,18 @@ function AboutMe({ onClose }) {
               </p>
             </section>
 
-            <section className="about__section">
-              <h2 className="about__heading">INTERESTS</h2>
+            <section className="about__section" id="interests">
+              <div className="about__section-title"><span>02</span> INTERESTS</div>
               <pre className="about__text">{INTERESTS_TEXT}</pre>
             </section>
 
-            <section className="about__section">
-              <h2 className="about__heading">RECOMMENDATIONS</h2>
+            <section className="about__section" id="recs">
+              <div className="about__section-title"><span>03</span> RECOMMENDATIONS</div>
               <pre className="about__text">{RECS_TEXT}</pre>
             </section>
 
-            <section className="about__section about__links-section">
-              <h2 className="about__heading">LINKS</h2>
+            <section className="about__section about__links-section" id="links">
+              <div className="about__section-title"><span>04</span> LINKS / ELSEWHERE
               <div className="links">
                 <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
                   Spotify
@@ -391,39 +414,134 @@ const Div = styled.div`
   .ie__content {
     flex: 1;
     overflow: auto;
-    background: #fff;
     position: relative;
+    background:
+      linear-gradient(rgba(255,255,255,.72), rgba(255,255,255,.72)),
+      repeating-linear-gradient(0deg, #dbe8f3 0, #dbe8f3 1px, #eef5fa 1px, #eef5fa 3px);
   }
   .ie__content__inner {
     min-height: 100%;
-    padding: 12px 16px 20px;
+    padding: 18px 22px 28px;
+  }
+  .about {
+    width: min(760px, 100%);
+    margin: 0 auto;
+    box-sizing: border-box;
+    border: 1px solid #7f9db9;
+    background: #fff;
+    box-shadow: 2px 2px 0 rgba(0,0,0,.18);
+  }
+  .about__site-header {
+    border-bottom: 1px solid #7f9db9;
+    background: linear-gradient(#f8fbff, #d8e8f7);
+  }
+  .about__site-header__top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 14px 9px;
+  }
+  .about__site-kicker {
+    font: bold 9px Tahoma, sans-serif;
+    letter-spacing: 1px;
+    color: #777;
+    margin-bottom: 3px;
   }
   .about__title {
-    font-family: Tahoma, sans-serif;
-    font-size: 16px;
-    margin: 0 0 10px;
+    font: bold 22px Georgia, "Times New Roman", serif;
+    color: #003399;
+    text-shadow: 1px 1px #fff;
+    margin: 0;
   }
-  .about__section {
-    margin-bottom: 14px;
+  .about__subtitle {
+    font: italic 11px "Courier New", monospace;
+    color: #555;
+    margin-top: 3px;
   }
-  .about__heading {
-    font-family: Tahoma, sans-serif;
-    font-size: 12px;
-    margin: 0 0 6px;
+  .about__badge {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 7px;
+    border: 1px solid #aaa;
+    background: #f4f4f4;
+    font: 9px Tahoma, sans-serif;
+    color: #555;
+    text-align: center;
+    box-shadow: inset 1px 1px #fff;
+    flex-shrink: 0;
+  }
+  .about__badge img {
+    width: 22px;
+    height: 22px;
+  }
+  .about__badge b {
     color: #003399;
   }
+  .about__nav {
+    padding: 5px 10px;
+    background: #003399;
+    color: #fff;
+    font: bold 10px Tahoma, sans-serif;
+    letter-spacing: .2px;
+  }
+  .about__nav a {
+    color: #fff;
+    text-decoration: none;
+    margin: 0 6px;
+  }
+  .about__nav a:hover {
+    color: #ffff00;
+    text-decoration: underline;
+  }
+  .about__welcome {
+    margin: 12px 14px 0;
+    padding: 6px 8px;
+    border: 1px dashed #999;
+    background: #ffffe1;
+    color: #444;
+    font: 10px Verdana, sans-serif;
+  }
+  .about__welcome span {
+    color: #cc0000;
+    font-weight: bold;
+  }
+  .about__section {
+    margin: 12px 14px 0;
+    padding: 0 0 12px;
+    border-bottom: 1px dotted #aaa;
+  }
+  .about__section:last-child {
+    border-bottom: 0;
+    padding-bottom: 18px;
+  }
+  .about__section-title {
+    color: #fff;
+    background: linear-gradient(#5d9bd3, #2d6fa8);
+    border: 1px solid #174f80;
+    box-shadow: inset 1px 1px rgba(255,255,255,.45);
+    padding: 3px 6px;
+    margin-bottom: 8px;
+    font: bold 11px Tahoma, sans-serif;
+  }
+  .about__section-title span {
+    color: #d9edff;
+    margin-right: 8px;
+    font-family: "Courier New", monospace;
+  }
   .about__text {
-    font-family: "Courier New", Courier, monospace;
-    font-size: 12px;
-    line-height: 1.45;
+    font: 12px/1.5 "Courier New", Courier, monospace;
     white-space: pre-wrap;
     margin: 0;
-    color: #000;
+    color: #111;
   }
   .about__lain-line {
-    font-family: "Courier New", Courier, monospace;
-    font-size: 12px;
+    font: 11px "Courier New", Courier, monospace;
     margin: 8px 0 0;
+    padding: 5px 7px;
+    background: #f1f5f9;
+    border-left: 3px solid #7f9db9;
   }
   .about__lain {
     color: #0066cc;
@@ -434,11 +552,13 @@ const Div = styled.div`
     color: #cc0000;
   }
   .links {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    font-family: Tahoma, sans-serif;
-    font-size: 12px;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 5px 12px;
+    padding: 7px;
+    border: 1px solid #c4c4c4;
+    background: #f5f5f5;
+    font: 11px Tahoma, sans-serif;
   }
   .links a {
     color: #0066cc;
@@ -448,6 +568,14 @@ const Div = styled.div`
   .links a:hover {
     color: #cc0000;
   }
+  @media (max-width: 620px) {
+    .about__site-header__top { align-items: flex-start; }
+    .about__title { font-size: 18px; }
+    .about__badge { display: none; }
+    .links { grid-template-columns: 1fr; }
+    .ie__content__inner { padding: 10px; }
+  }
+
   .ie__footer {
     height: 22px;
     display: flex;
