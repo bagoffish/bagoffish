@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = window.RENDERER_API_BASE || "https://winxp-backend.onrender.com";
+  var API_BASE = window.RENDERER_API_BASE || "https://winxp-backend-live.onrender.com";
   var RETRY_LIMIT = 60;
 
   function text(value) {
