@@ -6,13 +6,15 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Worker } from "worker_threads";
+import multer from "multer";
+import { transcribeAudioBuffer, ROBLOXIFY_LIMITS } from "./robloxify.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-06-worker-path-fix";
+const BACKEND_VERSION = "2026-10-06-robloxify-backend";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -30,7 +32,7 @@ function applyCorsHeaders(req, res, next) {
   if (origin && allowedOrigins.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
   }
   next();
@@ -46,7 +48,7 @@ app.use(cors({
     if (!origin || allowedOrigins.has(origin)) return callback(null, true);
     return callback(null, false);
   },
-  methods: ["GET", "OPTIONS"],
+  methods: ["GET", "POST", "OPTIONS"],
   allowedHeaders: ["Accept", "Content-Type"],
   optionsSuccessStatus: 204,
 }));
@@ -69,9 +71,6 @@ app.get("/health", (req, res) => {
 /* ---------- avatar index ---------- */
 const avatarIndex = new Map();
 
-// Cheap fingerprint of the chunks directory (file count + total bytes +
-// summed mtimes) so we can tell whether thumbnail_chunks changed since the
-// cache was last built, without re-reading a single byte of file content.
 function fingerprintChunks(dir, files) {
   let totalSize = 0;
   let totalMtime = 0;
@@ -109,11 +108,6 @@ function saveToCache(fingerprint) {
   }
 }
 
-// Merges a freshly-parsed avatar list into whatever is already in the
-// index for this id, instead of overwriting it. A given Roblox id can
-// legitimately appear in more than one chunk file (scraped at different
-// times), and every one of those sightings should be kept — the old
-// behavior silently dropped whichever chunk didn't process last.
 function mergeAvatars(id, avatars) {
   const existing = avatarIndex.get(id);
   if (!existing) {
@@ -146,8 +140,6 @@ function parseFilesInWorker(files) {
   });
 }
 
-// Splits the chunk files across one worker thread per CPU core and parses
-// them all in parallel, instead of the old one-file-at-a-time readline loop.
 async function buildFromChunksParallel(files) {
   const workerCount = Math.max(1, Math.min(os.cpus().length, files.length));
   const buckets = Array.from({ length: workerCount }, () => []);
@@ -181,8 +173,6 @@ async function buildAvatarIndex() {
 
   const fingerprint = fingerprintChunks(THUMBNAIL_CHUNKS_PATH, files);
 
-  // Fast path: chunks haven't changed since we last built the index, so
-  // just load the small precomputed cache instead of re-scanning 8+ GB.
   const t0 = Date.now();
   if (loadFromCache(fingerprint)) {
     console.log(
@@ -191,8 +181,6 @@ async function buildAvatarIndex() {
     return;
   }
 
-  // Slow path (first boot, or thumbnail_chunks changed): parallel build,
-  // then cache the result so every future boot takes the fast path above.
   await buildFromChunksParallel(files);
   saveToCache(fingerprint);
 }
@@ -270,6 +258,47 @@ app.get("/proxy-roblox", async (req, res) => {
     res.json(payload);
   } catch {
     res.status(500).json({ error: "Internal error" });
+  }
+});
+
+/* ---------- API: robloxify (server-side Basic Pitch) ---------- */
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
+});
+
+let robloxifyBusy = false;
+
+app.post("/robloxify", upload.single("audio"), async (req, res) => {
+  if (robloxifyBusy) {
+    return res.status(503).json({
+      error: "Robloxify is busy processing another file. Try again in a moment.",
+    });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "Audio file required (field name: audio)" });
+  }
+
+  robloxifyBusy = true;
+  const t0 = Date.now();
+  try {
+    const result = await transcribeAudioBuffer(req.file.buffer);
+    res.json({
+      ok: true,
+      notes: result.notes,
+      duration: result.duration,
+      sampleRate: result.sampleRate,
+      noteCount: result.noteCount,
+      ms: Date.now() - t0,
+      version: BACKEND_VERSION,
+    });
+  } catch (err) {
+    console.error("Robloxify failed:", err);
+    const msg = err && err.message ? err.message : "Transcription failed";
+    const status = /too large|shorter|Empty/i.test(msg) ? 400 : 500;
+    res.status(status).json({ error: msg });
+  } finally {
+    robloxifyBusy = false;
   }
 });
 
