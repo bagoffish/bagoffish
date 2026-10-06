@@ -183,6 +183,8 @@ function MusicAI({ onClose }) {
   }
   const synthRef = useRef(null);
   const contextRef = useRef(null);
+  const basicPitchRef = useRef(null);
+  const demucsRef = useRef(null);
   const [file, setFile] = useState(null);
   const [midiBlob, setMidiBlob] = useState(null);
   const [notes, setNotes] = useState([]);
