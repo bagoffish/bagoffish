@@ -8,7 +8,6 @@ import dropDownData from "./dropDownData";
 import ie from "assets/windowsIcons/ie-paper.png";
 import printer from "assets/windowsIcons/17(32x32).png";
 import go from "assets/windowsIcons/290.png";
-import links from "assets/windowsIcons/links.png";
 import search from "assets/windowsIcons/299(32x32).png";
 import favorite from "assets/windowsIcons/744(32x32).png";
 import back from "assets/windowsIcons/back.png";
@@ -54,16 +53,11 @@ function AboutMe({ onClose }) {
       </section>
 
       <section className="ie__function_bar">
-        <button
-          type="button"
-          className={showLain ? "ie__function_bar__button" : "ie__function_bar__button--disable"}
-          onClick={goBack}
-          disabled={!showLain}
-        >
+        <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={back} alt="" />
           <span className="ie__function_bar__text">Back</span>
           <div className="ie__function_bar__arrow" />
-        </button>
+        </div>
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={forward} alt="" />
           <div className="ie__function_bar__arrow" />
@@ -117,16 +111,16 @@ function AboutMe({ onClose }) {
           <span className="ie__address_bar__go__text">Go</span>
         </div>
         <div className="ie__address_bar__separate" />
-        <div className="ie__address_bar__links">
-          <img src={links} alt="links" className="ie__address_bar__links__img" />
-          <div className="ie__address_bar__links__text">Links</div>
-        </div>
       </section>
 
       <div className="ie__content">
         {showLain ? (
           <div className="ie__lain-page">
             <img src="/images/lain.gif" alt="serial experiments lain" />
+            <button type="button" className="ie__lain-back" onClick={goBack}>
+              <img src={back} alt="" />
+              <span>Back</span>
+            </button>
           </div>
         ) : (
         <div className="ie__content__inner">
@@ -403,18 +397,6 @@ const Div = styled.div`
     width: 1px;
     background: rgba(0, 0, 0, 0.15);
   }
-  .ie__address_bar__links {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-  }
-  .ie__address_bar__links__img {
-    width: 16px;
-    height: 16px;
-  }
-  .ie__address_bar__links__text {
-    font-size: 11px;
-  }
   .ie__content {
     flex: 1;
     overflow: auto;
@@ -434,6 +416,37 @@ const Div = styled.div`
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
+    position: relative;
+    overflow: auto;
+  }
+  .ie__lain-back {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    height: 24px;
+    padding: 1px 7px 1px 4px;
+    border: 1px solid #7f9db9;
+    border-radius: 2px;
+    background: linear-gradient(#fff, #d9e7f5);
+    color: #003399;
+    font: bold 11px Tahoma, sans-serif;
+    box-shadow: 1px 1px 0 rgba(0,0,0,.2);
+    cursor: pointer;
+  }
+  .ie__lain-back:hover {
+    background: linear-gradient(#fff, #c7dcef);
+  }
+  .ie__lain-back:active {
+    background: #d5e3f0;
+    box-shadow: inset 1px 1px 0 rgba(0,0,0,.18);
+  }
+  .ie__lain-back img {
+    width: 18px;
+    height: 18px;
   }
   .ie__lain-page img {
     display: block;
@@ -634,8 +647,6 @@ const Div = styled.div`
   }
 `;
 
-export default AboutMe;
-
 @media (max-width: 700px) {
   .ie__toolbar {
     min-height: 24px;
@@ -666,7 +677,6 @@ export default AboutMe;
     white-space: nowrap;
     text-overflow: ellipsis;
   }
-  .ie__address_bar__links,
   .ie__address_bar__go {
     flex-shrink: 0;
   }
@@ -690,3 +700,5 @@ export default AboutMe;
     -webkit-overflow-scrolling: touch;
   }
 }
+
+export default AboutMe;
