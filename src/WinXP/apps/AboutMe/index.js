@@ -168,7 +168,16 @@ function AboutMe({ onClose, onOpenApp }) {
 
             <section className="about__section" id="recs">
               <div className="about__section-title"><span>03</span> RECOMMENDATIONS</div>
-              <pre className="about__text">{RECS_TEXT.split("Serial Experiments Lain").map((part, index, parts) => (\n                <React.Fragment key={index}>\n                  {part}\n                  {index < parts.length - 1 && (\n                    <a className="about__lain" href="#lain" onClick={(event) => { event.preventDefault(); openLain(); }}>\n                      Serial Experiments Lain\n                    </a>\n                  )}\n                </React.Fragment>\n              ))}</pre>
+              <pre className="about__text">{RECS_TEXT.split("Serial Experiments Lain").map((part, index, parts) => (
+                <React.Fragment key={index}>
+                  {part}
+                  {index < parts.length - 1 && (
+                    <a className="about__lain" href="#lain" onClick={(event) => { event.preventDefault(); openLain(); }}>
+                      Serial Experiments Lain
+                    </a>
+                  )}
+                </React.Fragment>
+              ))}</pre>
             </section>
 
             <section className="about__section about__links-section" id="links">
