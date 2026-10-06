@@ -1,6 +1,5 @@
 import AboutMe from "./AboutMe";
 import Renderer from "./Renderer";
-import Lain from "./Lain";
 import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
 import Paint from "./Paint";
@@ -175,26 +174,6 @@ export const appSettings = {
     multiInstance: true,
   },
 
-  Lain: {
-    header: {
-      icon: socialsIconSmall,
-      title: "Lain",
-    },
-    component: Lain,
-    defaultSize: {
-      width: 640,
-      height: 500,
-    },
-    defaultOffset: {
-      x: 180,
-      y: 55,
-    },
-    resizable: true,
-    minimized: false,
-    maximized: window.innerWidth < 800,
-    multiInstance: false,
-  },
-
   Renderer: {
     header: {
       icon: RendererIconSmall,
@@ -327,5 +306,4 @@ export {
   Paint,
   Winamp,
   Robloxify,
-  Lain,
 };
