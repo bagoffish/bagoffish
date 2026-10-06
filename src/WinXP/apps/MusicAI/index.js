@@ -8,17 +8,20 @@ import {
 } from '@spotify/basic-pitch';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
+import * as ort from 'onnxruntime-web';
+import { DemucsProcessor } from 'demucs-web';
 
 const ROBLOX_SF2_URL =
   '/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2';
 const BASIC_PITCH_MODEL_URL = '/basic-pitch-model/model.json';
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
+const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
 
 const roles = [
-  { id: 'bass', label: 'BASS', channel: 0, program: 32 },
-  { id: 'rhythm', label: 'RHYTHM', channel: 1, program: 0 },
-  { id: 'lead', label: 'LEAD', channel: 2, program: 80 },
-  { id: 'texture', label: 'TEXTURE', channel: 3, program: 48 },
+  { id: 'drums', label: 'DRUMS', channel: 9, program: 0, stem: 'drums', percussion: true },
+  { id: 'bass', label: 'BASS', channel: 0, program: 34, stem: 'bass' },
+  { id: 'guitar', label: 'GUITAR', channel: 1, program: 30, stem: 'other' },
+  { id: 'vocals', label: 'VOCALS', channel: 2, program: 86, stem: 'vocals' },
 ];
 
 const buttonStyle = {
@@ -31,31 +34,87 @@ const buttonStyle = {
   cursor: 'pointer',
 };
 
-function chooseRole(note, density) {
-  const pitch = note.pitchMidi;
-  const duration = note.durationSeconds;
-  const short = duration < 0.18;
-  const long = duration > 0.65;
-
-  const scores = {
-    bass: (pitch < 52 ? 5 : 0) + (pitch < 45 ? 3 : 0) + (short ? -1 : 1),
-    rhythm:
-      (pitch >= 45 && pitch <= 78 ? 4 : 0) +
-      (short ? 2 : 0) +
-      (density > 8 ? 2 : 0),
-    lead:
-      (pitch >= 68 ? 5 : 0) +
-      (pitch >= 82 ? 3 : 0) +
-      (long ? 2 : 0),
-    texture:
-      (long ? 4 : 0) +
-      (pitch >= 55 && pitch <= 90 ? 2 : 0) +
-      (density < 6 ? 2 : 0),
-  };
-
-  return Object.keys(scores).sort((a, b) => scores[b] - scores[a])[0];
+function cleanDetectedNotes(notes, options = {}) {
+  const {
+    minDuration = 0.08,
+    minAmplitude = 0.3,
+    minPitch = 0,
+    maxPitch = 127,
+  } = options;
+  const sorted = notes
+    .filter(note =>
+      Number.isFinite(note.startTimeSeconds) &&
+      Number.isFinite(note.durationSeconds) &&
+      Number.isFinite(note.pitchMidi) &&
+      note.durationSeconds >= minDuration &&
+      note.amplitude >= minAmplitude &&
+      note.pitchMidi >= minPitch &&
+      note.pitchMidi <= maxPitch
+    )
+    .sort((x, y) =>
+      x.startTimeSeconds - y.startTimeSeconds || x.pitchMidi - y.pitchMidi
+    );
+  const result = [];
+  const lastByPitch = new Map();
+  sorted.forEach(note => {
+    const previous = lastByPitch.get(note.pitchMidi);
+    if (
+      previous &&
+      note.startTimeSeconds <=
+        previous.startTimeSeconds + previous.durationSeconds + 0.035
+    ) {
+      const previousEnd =
+        previous.startTimeSeconds + previous.durationSeconds;
+      const noteEnd = note.startTimeSeconds + note.durationSeconds;
+      previous.durationSeconds = Math.max(previousEnd, noteEnd) - previous.startTimeSeconds;
+      previous.amplitude = Math.max(previous.amplitude, note.amplitude);
+      return;
+    }
+    const clean = {
+      ...note,
+      startTimeSeconds: Math.max(0, note.startTimeSeconds),
+      durationSeconds: Math.max(minDuration, note.durationSeconds),
+    };
+    result.push(clean);
+    lastByPitch.set(clean.pitchMidi, clean);
+  });
+  return result;
 }
 
+function makeMidi(notes, roleFilter) {
+  const midi = new Midi();
+  midi.name = 'Robloxify Arrangement';
+  midi.header.setTempo(120);
+  const selectedRoles = roleFilter
+    ? roles.filter(role => role.id === roleFilter)
+    : roles;
+  selectedRoles.forEach(role => {
+    const track = midi.addTrack();
+    track.name = role.label;
+    track.channel = role.channel;
+    track.instrument.number = role.program;
+    notes.filter(note => note.role === role.id).forEach(note => {
+      track.addNote({
+        midi: note.pitchMidi,
+        time: note.startTimeSeconds,
+        duration: Math.max(0.04, note.durationSeconds),
+        velocity: Math.max(0.01, Math.min(1, note.amplitude || 0.8)),
+      });
+    });
+  });
+  return new Blob([midi.toArray()], { type: 'audio/midi' });
+}
+
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
 function makeMidi(notes) {
   const midi = new Midi();
   midi.header.setTempo(120);
