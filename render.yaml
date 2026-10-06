@@ -15,7 +15,7 @@ services:
       sizeGB: 1
     envVars:
       - key: NODE_VERSION
-        value: "22"
+        value: "20"
 
   # Frontend static site
   - type: web
