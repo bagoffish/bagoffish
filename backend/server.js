@@ -6,15 +6,13 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Worker } from "worker_threads";
-import multer from "multer";
-import { transcribeAudioBuffer, ROBLOXIFY_LIMITS } from "./robloxify.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-06-robloxify-backend";
+const BACKEND_VERSION = "2026-10-06-cors-resilient";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -27,39 +25,41 @@ const allowedOrigins = new Set([
   "http://localhost:3001",
 ]);
 
-function applyCorsHeaders(req, res, next) {
+function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin && allowedOrigins.has(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Vary", "Origin");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-    res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
   }
-  next();
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+  res.setHeader("Access-Control-Max-Age", "86400");
 }
 
-app.use(applyCorsHeaders);
+// CORS first — every response must carry it (even 404 / 500)
 app.use((req, res, next) => {
+  setCors(req, res);
   res.setHeader("X-WinXP-Backend", BACKEND_VERSION);
+  if (req.method === "OPTIONS") {
+    return res.status(204).end();
+  }
   next();
 });
-app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
-    return callback(null, false);
-  },
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Accept", "Content-Type"],
-  optionsSuccessStatus: 204,
-}));
 
-app.options("*", (req, res) => {
-  res.sendStatus(204);
-});
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+      return callback(null, false);
+    },
+    methods: ["GET", "POST", "OPTIONS"],
+    allowedHeaders: ["Accept", "Content-Type"],
+    optionsSuccessStatus: 204,
+  })
+);
 
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
-// health check / root
 app.get("/", (req, res) => {
   res.type("text").send("ok");
 });
@@ -84,12 +84,10 @@ function fingerprintChunks(dir, files) {
 
 function loadFromCache(fingerprint) {
   if (!fs.existsSync(CACHE_PATH)) return false;
-
   try {
     const raw = fs.readFileSync(CACHE_PATH, "utf8");
     const parsed = JSON.parse(raw);
     if (parsed.fingerprint !== fingerprint) return false;
-
     for (const [id, avatars] of parsed.entries) {
       avatarIndex.set(id, avatars);
     }
@@ -127,13 +125,9 @@ function parseFilesInWorker(files) {
   return new Promise((resolve, reject) => {
     const worker = new Worker(WORKER_PATH, { workerData: { files } });
     const collected = [];
-
     worker.on("message", (msg) => {
-      if (msg.warn) {
-        console.warn(msg.warn);
-      } else if (msg.done) {
-        collected.push(...msg.done);
-      }
+      if (msg.warn) console.warn(msg.warn);
+      else if (msg.done) collected.push(...msg.done);
     });
     worker.once("error", reject);
     worker.once("exit", () => resolve(collected));
@@ -146,18 +140,13 @@ async function buildFromChunksParallel(files) {
   files.forEach((f, i) =>
     buckets[i % workerCount].push(path.join(THUMBNAIL_CHUNKS_PATH, f))
   );
-
   const t0 = Date.now();
   const results = await Promise.all(
     buckets.filter((b) => b.length).map(parseFilesInWorker)
   );
-
   for (const entries of results) {
-    for (const [id, avatars] of entries) {
-      mergeAvatars(id, avatars);
-    }
+    for (const [id, avatars] of entries) mergeAvatars(id, avatars);
   }
-
   console.log(
     `Avatar index built from ${files.length} chunk files across ${workerCount} workers in ${Date.now() - t0}ms (${avatarIndex.size} users)`
   );
@@ -165,14 +154,11 @@ async function buildFromChunksParallel(files) {
 
 async function buildAvatarIndex() {
   if (!fs.existsSync(THUMBNAIL_CHUNKS_PATH)) return;
-
   const files = (await fs.promises.readdir(THUMBNAIL_CHUNKS_PATH)).filter((f) =>
     f.endsWith(".jsonl")
   );
   if (!files.length) return;
-
   const fingerprint = fingerprintChunks(THUMBNAIL_CHUNKS_PATH, files);
-
   const t0 = Date.now();
   if (loadFromCache(fingerprint)) {
     console.log(
@@ -180,12 +166,13 @@ async function buildAvatarIndex() {
     );
     return;
   }
-
   await buildFromChunksParallel(files);
   saveToCache(fingerprint);
 }
 
-buildAvatarIndex().catch((err) => console.error("Avatar index build failed:", err));
+buildAvatarIndex().catch((err) =>
+  console.error("Avatar index build failed:", err)
+);
 
 /* ---------- cache ---------- */
 const cache = new Map();
@@ -193,6 +180,7 @@ const CACHE_TTL = 10 * 60 * 1000;
 
 /* ---------- API: proxy-roblox ---------- */
 app.get("/proxy-roblox", async (req, res) => {
+  setCors(req, res);
   const username = req.query.username;
   if (!username) return res.status(400).json({ error: "Username required" });
 
@@ -210,7 +198,9 @@ app.get("/proxy-roblox", async (req, res) => {
     const id = userRes?.data?.[0]?.id;
     if (!id) return res.status(404).json({ error: "Not found" });
 
-    const profile = await fetch(`https://users.roblox.com/v1/users/${id}`).then((r) => r.json());
+    const profile = await fetch(`https://users.roblox.com/v1/users/${id}`).then(
+      (r) => r.json()
+    );
 
     const avatarRes = await fetch(
       `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`
@@ -218,7 +208,9 @@ app.get("/proxy-roblox", async (req, res) => {
 
     let pastUsernames = [];
     try {
-      const pastRes = await fetch(`https://users.roblox.com/v1/users/${id}/username-history`);
+      const pastRes = await fetch(
+        `https://users.roblox.com/v1/users/${id}/username-history`
+      );
       if (pastRes.ok) {
         const pastData = await pastRes.json();
         pastUsernames = pastData.data?.map((x) => x.name) || [];
@@ -227,7 +219,9 @@ app.get("/proxy-roblox", async (req, res) => {
 
     let roli = {};
     try {
-      const r = await fetch(`https://api.rolimons.com/players/v1/playerinfo/${id}`);
+      const r = await fetch(
+        `https://api.rolimons.com/players/v1/playerinfo/${id}`
+      );
       if (r.ok) {
         const j = await r.json();
         roli = {
@@ -246,7 +240,9 @@ app.get("/proxy-roblox", async (req, res) => {
         id,
         username: profile.name,
         displayName: profile.displayName,
-        joinDate: profile.created ? new Date(profile.created).toUTCString().replace(" GMT", "") : "Unknown",
+        joinDate: profile.created
+          ? new Date(profile.created).toUTCString().replace(" GMT", "")
+          : "Unknown",
         avatarUrl: avatarRes?.data?.[0]?.imageUrl,
         oldAvatars: avatarIndex.get(String(id))?.slice(0, 100) || [],
         pastUsernames,
@@ -256,73 +252,99 @@ app.get("/proxy-roblox", async (req, res) => {
 
     cache.set(key, { d: payload, t: Date.now() });
     res.json(payload);
-  } catch {
+  } catch (err) {
+    console.error("proxy-roblox error:", err);
+    setCors(req, res);
     res.status(500).json({ error: "Internal error" });
   }
 });
 
-/* ---------- API: robloxify (server-side Basic Pitch) ---------- */
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
-});
-
+/* ---------- API: robloxify (lazy-loaded so missing deps do not kill the server) ---------- */
 let robloxifyBusy = false;
+let robloxifyModulePromise = null;
 
-app.post("/robloxify", upload.single("audio"), async (req, res) => {
-  if (robloxifyBusy) {
-    return res.status(503).json({
-      error: "Robloxify is busy processing another file. Try again in a moment.",
+async function loadRobloxify() {
+  if (!robloxifyModulePromise) {
+    robloxifyModulePromise = (async () => {
+      const multer = (await import("multer")).default;
+      const { transcribeAudioBuffer, ROBLOXIFY_LIMITS } = await import(
+        "./robloxify.js"
+      );
+      return { multer, transcribeAudioBuffer, ROBLOXIFY_LIMITS };
+    })().catch((err) => {
+      robloxifyModulePromise = null;
+      throw err;
     });
   }
-  if (!req.file) {
-    return res.status(400).json({ error: "Audio file required (field name: audio)" });
-  }
+  return robloxifyModulePromise;
+}
 
-  robloxifyBusy = true;
-  const t0 = Date.now();
+app.post("/robloxify", async (req, res) => {
+  setCors(req, res);
   try {
-    const result = await transcribeAudioBuffer(req.file.buffer);
-    res.json({
-      ok: true,
-      notes: result.notes,
-      duration: result.duration,
-      sampleRate: result.sampleRate,
-      noteCount: result.noteCount,
-      ms: Date.now() - t0,
-      version: BACKEND_VERSION,
+    const { multer, transcribeAudioBuffer, ROBLOXIFY_LIMITS } =
+      await loadRobloxify();
+    const upload = multer({
+      storage: multer.memoryStorage(),
+      limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
+    }).single("audio");
+
+    await new Promise((resolve, reject) => {
+      upload(req, res, (err) => (err ? reject(err) : resolve()));
     });
+
+    if (robloxifyBusy) {
+      return res.status(503).json({
+        error:
+          "Robloxify is busy processing another file. Try again in a moment.",
+      });
+    }
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ error: "Audio file required (field name: audio)" });
+    }
+
+    robloxifyBusy = true;
+    const t0 = Date.now();
+    try {
+      const result = await transcribeAudioBuffer(req.file.buffer);
+      res.json({
+        ok: true,
+        notes: result.notes,
+        duration: result.duration,
+        sampleRate: result.sampleRate,
+        noteCount: result.noteCount,
+        ms: Date.now() - t0,
+        version: BACKEND_VERSION,
+      });
+    } finally {
+      robloxifyBusy = false;
+    }
   } catch (err) {
     console.error("Robloxify failed:", err);
+    setCors(req, res);
     const msg = err && err.message ? err.message : "Transcription failed";
-    const status = /too large|shorter|Empty/i.test(msg) ? 400 : 500;
+    const status = /too large|shorter|Empty|busy/i.test(msg) ? 400 : 500;
     res.status(status).json({ error: msg });
-  } finally {
-    robloxifyBusy = false;
   }
 });
 
-// API 404 (optional, but nice)
 app.use((req, res) => {
+  setCors(req, res);
   res.status(404).json({ error: "Not found" });
 });
 
-// Keep CORS headers on unexpected API failures as well.
 app.use((err, req, res, next) => {
   console.error("Unhandled API error:", err);
   if (!res.headersSent) {
-    const origin = req.headers.origin;
-    if (origin && allowedOrigins.has(origin)) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Vary", "Origin");
-    }
+    setCors(req, res);
     res.status(500).json({ error: "Internal error" });
   } else {
     next(err);
   }
 });
 
-/* ---------- start server ---------- */
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server running on port ${PORT} (${BACKEND_VERSION})`);
 });
