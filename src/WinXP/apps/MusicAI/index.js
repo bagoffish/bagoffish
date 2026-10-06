@@ -69,11 +69,134 @@ function pickClassicRobloxPlan(notes, duration) {
 }
 
 const roles = [
-  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070' },
-  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0' },
-  { id: 'guitar', label: 'MELODY', channel: 1, color: '#70e070' },
-  { id: 'vocals', label: 'LEAD', channel: 2, color: '#e0e070' },
+  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
+  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 33 },
+  { id: 'guitar', label: 'RHYTHM GUITAR', channel: 1, color: '#70e070', program: 29 },
+  { id: 'vocals', label: 'LEAD', channel: 2, color: '#e0e070', program: 80 },
+  { id: 'keys', label: 'KEYS', channel: 3, color: '#c080e0', program: 4 },
+  { id: 'pad', label: 'PAD', channel: 4, color: '#70d0d0', program: 89 },
+  { id: 'strings', label: 'STRINGS', channel: 5, color: '#e0a070', program: 48 },
+  { id: 'arp', label: 'ARP', channel: 6, color: '#d0d070', program: 81 },
 ];
+
+const STEM_ORDER = roles.map(role => role.id);
+
+function clampMidi(value) {
+  return Math.max(24, Math.min(108, Math.round(value)));
+}
+
+function pushNote(target, role, pitchMidi, startTimeSeconds, durationSeconds, amplitude = 0.65) {
+  if (!Number.isFinite(startTimeSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
+  target.push({
+    id: 0,
+    role,
+    pitchMidi: clampMidi(pitchMidi),
+    startTimeSeconds: Math.max(0, startTimeSeconds),
+    durationSeconds: Math.max(0.05, durationSeconds),
+    amplitude: Math.max(0.12, Math.min(0.95, amplitude)),
+  });
+}
+
+function buildFullArrangement(rawNotes, duration) {
+  const source = cleanDetectedNotes(rawNotes || []);
+  if (!source.length) return [];
+
+  const pitches = source.map(n => n.pitchMidi).sort((a, b) => a - b);
+  const median = pitches[Math.floor(pitches.length / 2)] || 60;
+  const end = Math.max(duration || 0, ...source.map(n => n.startTimeSeconds + n.durationSeconds));
+  const out = [];
+
+  // Keep the detected performance, but split it into a lead and rhythm layer.
+  source.forEach(note => {
+    const high = note.pitchMidi >= median + 3;
+    const long = note.durationSeconds >= 0.28;
+    const role = high || long ? 'vocals' : 'guitar';
+    pushNote(out, role, note.pitchMidi, note.startTimeSeconds, note.durationSeconds, Math.min(0.9, note.amplitude || 0.72));
+  });
+
+  // Build chord snapshots from the detected material. This creates musical accompaniment
+  // instead of simply cloning the same melody into four MIDI tracks.
+  const chordStep = 0.5;
+  const chordMap = new Map();
+  source.forEach(note => {
+    const slot = Math.floor(note.startTimeSeconds / chordStep) * chordStep;
+    const list = chordMap.get(slot) || [];
+    list.push(note.pitchMidi);
+    chordMap.set(slot, list);
+  });
+
+  const chordEvents = [];
+  [...chordMap.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
+    const root = clampMidi(Math.min(...values));
+    const rootPc = ((root % 12) + 12) % 12;
+    const third = values.some(p => (((p % 12) + 12) % 12) === ((rootPc + 3) % 12)) ? 3 : 4;
+    const chord = [rootPc, (rootPc + third) % 12, (rootPc + 7) % 12];
+    chordEvents.push({ time, root, chord });
+  });
+
+  const chordAt = time => {
+    if (!chordEvents.length) return { time: 0, root: 60, chord: [0, 4, 7] };
+    let current = chordEvents[0];
+    for (const event of chordEvents) {
+      if (event.time > time) break;
+      current = event;
+    }
+    return current;
+  };
+
+  // Eight-bar-ish harmonic bed: bass, keys, pad, strings and an arpeggiator.
+  for (let t = 0; t < end; t += chordStep) {
+    const chord = chordAt(t);
+    const rootPc = chord.chord[0];
+    const root = clampMidi(36 + ((rootPc - 0 + 12) % 12));
+    pushNote(out, 'bass', root, t, Math.min(0.42, chordStep * 0.9), 0.72);
+
+    if (Math.round(t / chordStep) % 2 === 0) {
+      chord.chord.forEach((pc, index) => {
+        const pitch = clampMidi(60 + ((pc - rootPc + 12) % 12) + (index === 2 ? 12 : 0));
+        pushNote(out, 'keys', pitch, t, Math.min(0.48, chordStep * 0.92), 0.42);
+        pushNote(out, 'pad', pitch - 12, t, Math.min(1.0, chordStep * 1.95), 0.22);
+      });
+      pushNote(out, 'strings', clampMidi(48 + ((rootPc - 0 + 12) % 12)), t, Math.min(1.0, chordStep * 1.9), 0.28);
+    }
+
+    const arpPc = chord.chord[Math.round(t / chordStep) % chord.chord.length];
+    pushNote(out, 'arp', clampMidi(72 + ((arpPc - rootPc + 12) % 12)), t, Math.min(0.22, chordStep * 0.42), 0.35);
+  }
+
+  // Deterministic drum groove: kick/snare on quarters, hats on eighths.
+  const beat = 0.5;
+  for (let t = 0; t < end; t += beat) {
+    const beatIndex = Math.round(t / beat);
+    pushNote(out, 'drums', 36, t, 0.12, beatIndex % 4 === 0 ? 0.9 : 0.62);
+    if (beatIndex % 4 === 2) pushNote(out, 'drums', 38, t, 0.10, 0.72);
+    pushNote(out, 'drums', 42, t + 0.25, 0.06, 0.38);
+  }
+
+  return out
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
+    .map((note, index) => ({ ...note, id: index + 1 }));
+}
+
+function makeStemMidi(notes, roleId, programs) {
+  const role = roles.find(r => r.id === roleId);
+  const midi = new Midi();
+  midi.name = 'Robloxify ' + (role ? role.label : roleId);
+  midi.header.setTempo(120);
+  const track = midi.addTrack();
+  track.name = role ? role.label : roleId.toUpperCase();
+  track.channel = role ? role.channel : 0;
+  track.instrument.number = programs && programs[roleId] != null ? programs[roleId] : (role ? role.program : 0);
+  notes.filter(note => note.role === roleId).forEach(note => {
+    track.addNote({
+      midi: note.pitchMidi,
+      time: note.startTimeSeconds,
+      duration: Math.max(0.04, note.durationSeconds),
+      velocity: Math.max(0.15, Math.min(1, note.amplitude || 0.8)),
+    });
+  });
+  return new Blob([midi.toArray()], { type: 'audio/midi' });
+}
 
 const rbx = { blue: '#6e99c9', yellow: '#f5cd2f', healthBg: '#1a1a1a', panel: 'rgba(255,255,255,0.92)', font: 'Verdana, Geneva, Tahoma, sans-serif', text: '#000' };
 const btn = { background: rbx.yellow, border: '2px solid #000', color: '#000', fontFamily: rbx.font, fontSize: 11, fontWeight: 'bold', padding: '3px 8px', cursor: 'url("/images/Link%20Select.cur") 3 3, pointer', borderRadius: 0, boxShadow: 'inset 1px 1px 0 #fff6a0, inset -1px -1px 0 #c9a600' };
@@ -211,11 +334,140 @@ function lightQuantize(notes, step = 0.0625) {
 
 function makeMidi(notes, programs) {
   const midi = new Midi(); midi.name = 'Robloxify'; midi.header.setTempo(120);
-  [{ id: 'drums', label: 'DRUMS', channel: 9, program: (programs && programs.drums) || 0 }, { id: 'bass', label: 'BASS', channel: 0, program: (programs && programs.bass) || 33 }, { id: 'guitar', label: 'MELODY', channel: 1, program: (programs && programs.guitar) || 0 }, { id: 'vocals', label: 'LEAD', channel: 2, program: (programs && programs.vocals) || 80 }].forEach(role => {
-    const track = midi.addTrack(); track.name = role.label; track.channel = role.channel; track.instrument.number = role.program;
-    notes.filter(note => note.role === role.id).forEach(note => { track.addNote({ midi: note.pitchMidi, time: note.startTimeSeconds, duration: Math.max(0.04, note.durationSeconds), velocity: Math.max(0.15, Math.min(1, note.amplitude || 0.8)) }); });
+  roles.forEach(role => {
+    const track = midi.addTrack();
+    track.name = role.label;
+    track.channel = role.channel;
+    track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
+    notes.filter(note => note.role === role.id).forEach(note => {
+      track.addNote({
+        midi: note.pitchMidi,
+        time: note.startTimeSeconds,
+        duration: Math.max(0.04, note.durationSeconds),
+        velocity: Math.max(0.15, Math.min(1, note.amplitude || 0.8)),
+      });
+    });
   });
   return new Blob([midi.toArray()], { type: 'audio/midi' });
+}
+
+function encodeWav(audioBuffer) {
+  const channels = Math.min(2, audioBuffer.numberOfChannels);
+  const sampleRate = audioBuffer.sampleRate;
+  const frames = audioBuffer.length;
+  const bytesPerSample = 2;
+  const buffer = new ArrayBuffer(44 + frames * channels * bytesPerSample);
+  const view = new DataView(buffer);
+  const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
+  write(0, 'RIFF'); view.setUint32(4, 36 + frames * channels * bytesPerSample, true);
+  write(8, 'WAVE'); write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, channels, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * channels * bytesPerSample, true);
+  view.setUint16(32, channels * bytesPerSample); view.setUint16(34, 16, true);
+  write(36, 'data'); view.setUint32(40, frames * channels * bytesPerSample, true);
+  let offset = 44;
+  for (let i = 0; i < frames; i++) {
+    for (let ch = 0; ch < channels; ch++) {
+      const sample = Math.max(-1, Math.min(1, audioBuffer.getChannelData(ch)[i] || 0));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
+async function renderCombinedWav(notes, duration, onProgress) {
+  const renderDuration = Math.max(0.25, Math.min(MAX_SECONDS, duration || 0));
+  const sampleRate = 22050;
+  const context = new OfflineAudioContext(2, Math.ceil(renderDuration * sampleRate), sampleRate);
+  const master = context.createGain();
+  master.gain.value = 0.72;
+  const compressor = context.createDynamicsCompressor();
+  compressor.threshold.value = -18;
+  compressor.knee.value = 16;
+  compressor.ratio.value = 4;
+  compressor.attack.value = 0.005;
+  compressor.release.value = 0.18;
+  master.connect(compressor).connect(context.destination);
+
+  const roleConfig = {
+    vocals: { wave: 'sawtooth', gain: 0.075, attack: 0.018, release: 0.10, detune: 0, pan: 0.02 },
+    guitar: { wave: 'triangle', gain: 0.06, attack: 0.008, release: 0.08, detune: -5, pan: -0.22 },
+    bass: { wave: 'square', gain: 0.11, attack: 0.012, release: 0.08, detune: -2, pan: 0 },
+    keys: { wave: 'sine', gain: 0.045, attack: 0.012, release: 0.16, detune: 0, pan: 0.18 },
+    pad: { wave: 'triangle', gain: 0.025, attack: 0.12, release: 0.32, detune: 7, pan: -0.10 },
+    strings: { wave: 'sawtooth', gain: 0.025, attack: 0.08, release: 0.22, detune: -7, pan: 0.12 },
+    arp: { wave: 'square', gain: 0.035, attack: 0.004, release: 0.06, detune: 4, pan: 0.30 },
+  };
+
+  const panNode = (role, destination) => {
+    const cfg = roleConfig[role] || roleConfig.keys;
+    const p = context.createStereoPanner();
+    p.pan.value = cfg.pan || 0;
+    p.connect(destination);
+    return p;
+  };
+
+  const scheduleTone = (note, role) => {
+    const cfg = roleConfig[role];
+    if (!cfg) return;
+    const start = Math.max(0, Math.min(renderDuration - 0.001, note.startTimeSeconds));
+    const dur = Math.max(0.025, Math.min(note.durationSeconds, renderDuration - start));
+    if (dur <= 0) return;
+    const osc = context.createOscillator();
+    const gain = context.createGain();
+    osc.type = cfg.wave;
+    osc.frequency.value = 440 * Math.pow(2, (note.pitchMidi - 69) / 12);
+    osc.detune.value = cfg.detune || 0;
+    const amp = cfg.gain * Math.max(0.25, Math.min(1, note.amplitude || 0.7));
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.linearRampToValueAtTime(amp, start + Math.min(cfg.attack, dur * 0.45));
+    const releaseStart = Math.max(start + Math.min(dur * 0.72, dur - 0.01), start + 0.01);
+    gain.gain.setValueAtTime(amp, releaseStart);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+    osc.connect(gain).connect(panNode(role, master));
+    osc.start(start);
+    osc.stop(start + dur + 0.02);
+  };
+
+  const noiseBuffer = context.createBuffer(1, sampleRate, sampleRate);
+  const noiseData = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
+
+  const scheduleDrum = note => {
+    const start = Math.max(0, Math.min(renderDuration - 0.001, note.startTimeSeconds));
+    const dur = Math.max(0.025, Math.min(note.durationSeconds, renderDuration - start));
+    const gain = context.createGain();
+    const panner = context.createStereoPanner();
+    panner.pan.value = note.pitchMidi === 36 ? 0 : note.pitchMidi === 38 ? -0.05 : 0.25;
+    gain.connect(panner).connect(master);
+    const amp = 0.08 * Math.max(0.3, note.amplitude || 0.6);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(amp, start + 0.002);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
+
+    if (note.pitchMidi === 42) {
+      const src = context.createBufferSource();
+      src.buffer = noiseBuffer;
+      src.connect(gain);
+      src.start(start);
+      src.stop(start + dur);
+    } else {
+      const osc = context.createOscillator();
+      osc.type = note.pitchMidi === 36 ? 'sine' : 'triangle';
+      osc.frequency.setValueAtTime(note.pitchMidi === 36 ? 110 : 180, start);
+      if (note.pitchMidi === 36) osc.frequency.exponentialRampToValueAtTime(48, start + dur);
+      else osc.frequency.exponentialRampToValueAtTime(90, start + dur);
+      osc.connect(gain);
+      osc.start(start);
+      osc.stop(start + dur + 0.01);
+    }
+  };
+
+  notes.forEach(note => note.role === 'drums' ? scheduleDrum(note) : scheduleTone(note, note.role));
+  onProgress && onProgress(55);
+  const rendered = await context.startRendering();
+  onProgress && onProgress(100);
+  return encodeWav(rendered);
 }
 
 function downloadBlob(blob, filename) {
@@ -279,6 +531,7 @@ function MusicAI() {
 
   const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null);
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
+  const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place');
@@ -324,7 +577,7 @@ function MusicAI() {
         rawNotes = result.notes; duration = result.duration || 0;
       }
       setStatus('Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
-      let fitted = assignRoles(rawNotes);
+      let fitted = buildFullArrangement(rawNotes, duration);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = lightQuantize(fitted, 0.0625);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
@@ -350,7 +603,34 @@ function MusicAI() {
     setArrangement(cleaned);
     const programs = (planRef.current && planRef.current.programs) || STYLE_PLANS.mule.programs;
     setMidiBlob(makeMidi(cleaned, programs));
+    setWavBlob(null);
     setPlaybackDuration(cleaned.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
+  };
+
+  const downloadStem = roleId => {
+    if (!arrangement.length) return;
+    const programs = (planRef.current && planRef.current.programs) || STYLE_PLANS.mule.programs;
+    const role = roles.find(r => r.id === roleId);
+    const blob = makeStemMidi(arrangement, roleId, programs);
+    downloadBlob(blob, 'robloxify-' + roleId + '.mid');
+  };
+
+  const renderAndDownloadWav = async () => {
+    if (!arrangement.length || renderingWav) return;
+    setRenderingWav(true);
+    setStatus('Rendering combined WAV…');
+    try {
+      const duration = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
+      const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)));
+      setWavBlob(blob);
+      downloadBlob(blob, 'robloxify-combined.wav');
+      setStatus('Combined WAV ready · ' + Math.round(duration * 10) / 10 + 's');
+    } catch (error) {
+      console.error(error);
+      setStatus('WAV render failed — ' + (error.message || 'unknown'));
+    } finally {
+      setRenderingWav(false);
+    }
   };
 
   const selectedNote = arrangement.find(n => n.id === selectedNoteId) || arrangement[0] || null;
@@ -368,7 +648,7 @@ function MusicAI() {
     const loaded = (project.arrangement || []).map((n, i) => ({ ...n, id: n.id || i + 1 }));
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
     const plan = project.plan && STYLE_PLANS[project.plan.style] ? { ...pickClassicRobloxPlan(loaded, 1), style: project.plan.style, label: project.plan.label, programs: project.plan.programs || STYLE_PLANS[project.plan.style].programs } : pickClassicRobloxPlan(loaded, 1);
-    planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); writeCookie(COOKIE_KEY, project.name);
+    planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
@@ -467,6 +747,8 @@ function MusicAI() {
         <span style={{ fontWeight: 'bold', fontSize: 13, color: '#fff', textShadow: '1px 1px 0 #000' }}>ROBLOX<span style={{ color: rbx.yellow }}>ify</span></span>
         <label style={{ ...btn, display: 'inline-block' }}>Open<input type="file" accept="audio/*" onChange={onFileInput} disabled={working} style={{ display: 'none' }} /></label>
         <button type="button" style={btn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')}>Save MIDI</button>
+        <button type="button" style={btnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => downloadStem(roleId))}>Save Stems</button>
+        <button type="button" style={btnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
         <button type="button" style={btn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={btnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
         <button type="button" style={btnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
@@ -504,6 +786,7 @@ function MusicAI() {
           <div style={{ ...panel, padding: 8, flexShrink: 0 }}>
             <div style={{ background: rbx.blue, color: '#fff', fontWeight: 'bold', fontSize: 11, padding: '2px 6px', margin: '-8px -8px 6px', borderBottom: '2px solid #000' }}>Status</div>
             <div style={{ fontSize: 11, marginBottom: 4 }}>{status}</div>
+            <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
             <HealthBar value={progress} max={100} label="Loading" width="100%" height={14} />
             {activePlan && <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>{activePlan.label}</b> — {activePlan.reason}</div>}
           </div>
