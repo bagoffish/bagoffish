@@ -3,7 +3,9 @@ import {
   addPitchBendsToNoteEvents,
   noteFramesToTime,
   outputToNotesPoly,
+  BasicPitch,
 } from '@spotify/basic-pitch';
+import * as tf from '@tensorflow/tfjs';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
 
@@ -203,6 +205,36 @@ function MusicAI({ onClose }) {
     }
   });
 
+  const transcribeInMainThread = async (samples, sampleRate, onProgress) => {
+    await tf.setBackend('cpu');
+    await tf.ready();
+    const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
+    const basicPitch = new BasicPitch(model);
+    const frames = [];
+    const onsets = [];
+    const contours = [];
+
+    await basicPitch.evaluateModel(
+      {
+        sampleRate,
+        length: samples.length,
+        duration: samples.length / sampleRate,
+        numberOfChannels: 1,
+        getChannelData: () => samples,
+      },
+      (frameBatch, onsetBatch, contourBatch) => {
+        frames.push(...frameBatch);
+        onsets.push(...onsetBatch);
+        contours.push(...contourBatch);
+      },
+      value => {
+        if (onProgress) onProgress(Math.max(0, Math.min(1, value)));
+      }
+    );
+
+    return { frames, onsets, contours };
+  };
+
   const convert = async inputFile => {
     if (!inputFile || !inputFile.type.startsWith('audio/')) {
       setStatus('CHOOSE AN AUDIO FILE');
@@ -272,51 +304,74 @@ function MusicAI({ onClose }) {
       const worker = new Worker(new URL('./robloxify.worker.js', import.meta.url));
       transcriptionWorkerRef.current = worker;
 
-      const result = await new Promise((resolve, reject) => {
-        let settled = false;
+      let result;
+      try {
+        result = await new Promise((resolve, reject) => {
+          let settled = false;
 
-        const finish = (callback, value) => {
-          if (settled) return;
-          settled = true;
-          worker.onmessage = null;
-          worker.onerror = null;
-          callback(value);
-        };
+          const finish = (callback, value) => {
+            if (settled) return;
+            settled = true;
+            worker.onmessage = null;
+            worker.onerror = null;
+            callback(value);
+          };
 
-        worker.onmessage = event => {
-          const message = event.data || {};
-          if (message.type === 'progress') {
-            if (conversionId !== conversionIdRef.current) return;
-            const percent = Math.round(message.value * 100);
-            setProgress(Math.round(10 + message.value * 75));
-            setStatus('TRANSCRIBING ' + percent + '%');
-            return;
-          }
+          worker.onmessage = event => {
+            const message = event.data || {};
+            if (message.type === 'progress') {
+              if (conversionId !== conversionIdRef.current) return;
+              const percent = Math.round(message.value * 100);
+              setProgress(Math.round(10 + message.value * 75));
+              setStatus('TRANSCRIBING ' + percent + '%');
+              return;
+            }
 
-          if (message.type === 'result') {
-            finish(resolve, message);
-            return;
-          }
+            if (message.type === 'result') {
+              finish(resolve, message);
+              return;
+            }
 
-          if (message.type === 'error') {
-            finish(reject, new Error(message.message || 'Background transcription failed.'));
-          }
-        };
+            if (message.type === 'error') {
+              finish(reject, new Error(message.message || 'Background transcription failed.'));
+            }
+          };
 
-        worker.onerror = error => {
-          finish(reject, new Error(error.message || 'Background transcription failed.'));
-        };
+          worker.onerror = error => {
+            finish(reject, new Error(error.message || 'Background transcription worker could not load.'));
+          };
 
-        worker.postMessage({
-          type: 'transcribe',
-          samples: audioBuffer.getChannelData(0).slice(),
-          sampleRate: audioBuffer.sampleRate,
+          worker.postMessage({
+            type: 'transcribe',
+            samples: audioBuffer.getChannelData(0).slice(),
+            sampleRate: audioBuffer.sampleRate,
+          });
         });
-      });
+      } catch (workerError) {
+        // A stale/mismatched production deployment can leave the worker's
+        // hashed dependency chunk unavailable. Do not make conversion fail
+        // completely in that case: use the same Basic Pitch model directly.
+        console.warn('Robloxify worker unavailable; using compatibility mode.', workerError);
+        if (conversionId !== conversionIdRef.current) return;
+        setStatus('WORKER UNAVAILABLE — USING COMPATIBILITY MODE...');
+        setProgress(10);
+        await yieldToBrowser();
 
-      worker.terminate();
-      if (transcriptionWorkerRef.current === worker) {
-        transcriptionWorkerRef.current = null;
+        result = await transcribeInMainThread(
+          audioBuffer.getChannelData(0).slice(),
+          audioBuffer.sampleRate,
+          value => {
+            if (conversionId !== conversionIdRef.current) return;
+            const percent = Math.round(value * 100);
+            setProgress(Math.round(10 + value * 75));
+            setStatus('COMPATIBILITY TRANSCRIBING ' + percent + '%');
+          }
+        );
+      } finally {
+        worker.terminate();
+        if (transcriptionWorkerRef.current === worker) {
+          transcriptionWorkerRef.current = null;
+        }
       }
 
       if (conversionId !== conversionIdRef.current) return;
