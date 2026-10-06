@@ -658,6 +658,26 @@ const Div = styled.div`
     border-left: 1px solid rgba(0, 0, 0, 0.15);
     box-shadow: inset 1px 0 rgba(255, 255, 255, 0.7);
   }
+  @media (max-width: 700px) {
+    .rendererRoot { padding: 4px; }
+    .rendererMenu { gap: 4px; overflow-x: auto; }
+    .rendererContent { padding: 6px; }
+    .rendererContainer { max-width: none; }
+    .inputRow { flex-direction: column; gap: 6px; }
+    .xpInput, .xpButton { width: 100%; min-height: 36px; height: 36px; font-size: 13px; }
+    #oldAvatars {
+      grid-template-columns: repeat(2, minmax(80px, 1fr));
+      width: 100%;
+    }
+    .avatar-container img, .old-avatar-thumb {
+      width: 84px;
+      height: 84px;
+    }
+    .info-box { overflow-wrap: anywhere; }
+    .statusbar span:last-child { display: none; }
+    .ie__function_bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  }
+
   .ie__footer__right {
     display: flex;
     align-items: center;
@@ -693,22 +713,3 @@ const Div = styled.div`
 
 export default Renderer;
 
-@media (max-width: 700px) {
-  .rendererRoot { padding: 4px; }
-  .rendererMenu { gap: 4px; overflow-x: auto; }
-  .rendererContent { padding: 6px; }
-  .rendererContainer { max-width: none; }
-  .inputRow { flex-direction: column; gap: 6px; }
-  .xpInput, .xpButton { width: 100%; min-height: 36px; height: 36px; font-size: 13px; }
-  #oldAvatars {
-    grid-template-columns: repeat(2, minmax(80px, 1fr));
-    width: 100%;
-  }
-  .avatar-container img, .old-avatar-thumb {
-    width: 84px;
-    height: 84px;
-  }
-  .info-box { overflow-wrap: anywhere; }
-  .statusbar span:last-child { display: none; }
-  .ie__function_bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-}
