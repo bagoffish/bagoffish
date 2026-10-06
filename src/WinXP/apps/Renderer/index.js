@@ -8,7 +8,6 @@ import dropDownData from "./dropDownData";
 import ie from "assets/windowsIcons/ie-paper.png";
 import printer from "assets/windowsIcons/17(32x32).png";
 import go from "assets/windowsIcons/290.png";
-import links from "assets/windowsIcons/links.png";
 import search from "assets/windowsIcons/299(32x32).png";
 import favorite from "assets/windowsIcons/744(32x32).png";
 import back from "assets/windowsIcons/back.png";
@@ -67,7 +66,6 @@ function Renderer({ onClose }) {
       <section className="ie__function_bar">
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={back} alt="" />
-          <span className="ie__function_bar__text">Back</span>
           <div className="ie__function_bar__arrow" />
         </div>
 
@@ -156,14 +154,6 @@ function Renderer({ onClose }) {
 
         <div className="ie__address_bar__separate" />
 
-        <div className="ie__address_bar__links">
-          <span className="ie__address_bar__links__text">Links</span>
-          <img
-            className="ie__address_bar__links__img"
-            src={links}
-            alt="links"
-          />
-        </div>
       </section>
 
       <div className="ie__content">
@@ -588,23 +578,6 @@ const Div = styled.div`
       height: 95%;
       border: 1px solid rgba(255, 255, 255, 0.2);
       margin-right: 3px;
-    }
-  }
-  .ie__address_bar__links {
-    display: flex;
-    align-items: center;
-    padding: 0 18px 0 5px;
-    height: 100%;
-    position: relative;
-    &__img {
-      position: absolute;
-      right: 2px;
-      top: 3px;
-      height: 5px;
-      width: 8px;
-    }
-    &__text {
-      color: rgba(0, 0, 0, 0.5);
     }
   }
   .ie__address_bar__separate {
