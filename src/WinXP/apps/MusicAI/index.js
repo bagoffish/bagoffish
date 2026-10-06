@@ -564,6 +564,30 @@ function MusicAI({ onClose }) {
     setStatus('NOTE INSERTED');
   };
 
+  const setVolumeFromPointer = event => {
+    const bar = event.currentTarget;
+    const rect = bar.getBoundingClientRect();
+    const y = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    setVolume(Math.round((1 - y / rect.height) * 20) / 20);
+  };
+
+  const startVolumeDrag = event => {
+    event.preventDefault();
+    const bar = event.currentTarget;
+    const update = moveEvent => {
+      const rect = bar.getBoundingClientRect();
+      const y = Math.max(0, Math.min(rect.height, moveEvent.clientY - rect.top));
+      setVolume(Math.round((1 - y / rect.height) * 20) / 20);
+    };
+    const stop = () => {
+      window.removeEventListener('mousemove', update);
+      window.removeEventListener('mouseup', stop);
+    };
+    window.addEventListener('mousemove', update);
+    window.addEventListener('mouseup', stop);
+    setVolumeFromPointer(event);
+  };
+
   const formatTime = seconds => {
     const safe = Math.max(0, Math.floor(seconds || 0));
     const minutes = Math.floor(safe / 60);
@@ -974,23 +998,65 @@ function MusicAI({ onClose }) {
 
         <div style={{
           position: 'absolute',
-          right: 10,
-          bottom: 8,
+          right: 12,
+          bottom: 58,
+          width: 46,
           display: 'flex',
-          gap: 3,
+          flexDirection: 'column',
           alignItems: 'center',
+          userSelect: 'none',
         }}>
-          <span>VOL</span>
-          <input
+          <div
+            role="slider"
             aria-label="Volume"
-            type="range"
-            min="0"
-            max="1"
-            step="0.05"
-            value={volume}
-            onChange={event => setVolume(Number(event.target.value))}
-            style={{ width: 90, cursor: 'pointer' }}
-          />
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(volume * 100)}
+            tabIndex={0}
+            onMouseDown={startVolumeDrag}
+            onClick={setVolumeFromPointer}
+            onKeyDown={event => {
+              if (event.key === 'ArrowUp' || event.key === 'ArrowRight') {
+                event.preventDefault();
+                setVolume(value => Math.min(1, value + 0.05));
+              } else if (event.key === 'ArrowDown' || event.key === 'ArrowLeft') {
+                event.preventDefault();
+                setVolume(value => Math.max(0, value - 0.05));
+              }
+            }}
+            style={{
+              position: 'relative',
+              width: 16,
+              height: 104,
+              background: '#c51d1d',
+              border: '2px solid #222',
+              boxShadow: 'inset 1px 1px rgba(255,255,255,.35), 1px 1px 2px rgba(0,0,0,.7)',
+              boxSizing: 'border-box',
+              cursor: 'ns-resize',
+              overflow: 'hidden',
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              left: 2,
+              right: 2,
+              bottom: 2,
+              height: Math.max(0, volume * 100) + '%',
+              background: '#19ed24',
+              boxShadow: 'inset 1px 0 rgba(255,255,255,.45)',
+            }} />
+          </div>
+          <div style={{
+            marginTop: 2,
+            color: '#0019cc',
+            fontFamily: 'Arial, Tahoma, sans-serif',
+            fontSize: 16,
+            lineHeight: '16px',
+            fontWeight: 'normal',
+            textShadow: '1px 1px rgba(255,255,255,.35)',
+          }}>
+            Vol
+          </div>
         </div>
 
         {showProjects && (
