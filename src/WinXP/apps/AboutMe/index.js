@@ -80,8 +80,8 @@ if (!cancelled) setVisitorCount(0);
           aria-label="Back"
         >
           <img className="ie__function_bar__icon" src={back} alt="" />
-          <div className="ie__function_bar__arrow" />
         </button>
+        <div className="ie__function_bar__back-arrow" aria-hidden="true" />
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={forward} alt="" />
           <div className="ie__function_bar__arrow" />
@@ -341,6 +341,14 @@ const Div = styled.div`
   .ie__function_bar__text {
     margin-left: 3px;
   }
+  .ie__function_bar__back-arrow {
+    width: 0;
+    height: 0;
+    border-left: 3px solid transparent;
+    border-right: 3px solid transparent;
+    border-top: 3px solid #000;
+    margin: 0 5px 0 0;
+  }
   .ie__function_bar__arrow {
     width: 0;
     height: 0;
@@ -430,19 +438,29 @@ const Div = styled.div`
     padding: 18px 22px 28px;
   }
   .ie__lain-page {
-    min-height: 100%;
+    height: 100%;
+    min-height: 0;
     width: 100%;
     background: #fff;
     display: flex;
     align-items: flex-start;
     justify-content: flex-start;
     position: relative;
-    overflow: auto;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: none;
   }
   .ie__lain-page img {
     display: block;
     max-width: 100%;
+    max-height: 100%;
+    width: auto;
     height: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+    user-select: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
   }
   .about {
     width: min(760px, 100%);
@@ -685,8 +703,9 @@ const Div = styled.div`
     overflow-wrap: anywhere;
   }
   .ie__lain-page {
-    overflow: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow: hidden;
+    touch-action: none;
+    overscroll-behavior: none;
   }
 }
 
