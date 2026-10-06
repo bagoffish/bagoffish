@@ -2,7 +2,7 @@ services:
   # Node API (proxy-roblox, health, robloxify)
   # Must stay a Web Service — NOT a Static Site.
   - type: web
-    name: winxp-7yes
+    name: winxp-backend-live
     runtime: node
     rootDir: backend
     buildCommand: npm install
