@@ -132,15 +132,35 @@ export async function transcribeAudioBuffer(fileBuffer, onProgress) {
     }
   );
 
-  const notes = noteFramesToTime(
+  // Use a conservative pass plus a more sensitive pass from the same model output.
+  // The conservative pass keeps clean notes; the sensitive pass recovers quieter/shorter
+  // notes that would otherwise disappear. Near-identical events are merged below.
+  const primary = noteFramesToTime(
     addPitchBendsToNoteEvents(
       contours,
-      outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
+      outputToNotesPoly(frames, onsets, 0.32, 0.38, 8)
+    )
+  );
+  const sensitive = noteFramesToTime(
+    addPitchBendsToNoteEvents(
+      contours,
+      outputToNotesPoly(frames, onsets, 0.22, 0.30, 6)
     )
   );
 
+  const merged = [...(primary || [])];
+  (sensitive || []).forEach(note => {
+    const duplicate = merged.some(existing =>
+      existing.pitchMidi === note.pitchMidi &&
+      Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
+      Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
+    );
+    if (!duplicate) merged.push(note);
+  });
+  merged.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
+
   return {
-    notes,
+    notes: merged,
     duration,
     sampleRate,
     noteCount: notes.length,
