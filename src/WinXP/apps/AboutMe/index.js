@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import styled from "styled-components";
 
 import { WindowDropDowns } from "components";
@@ -25,7 +25,7 @@ import windows from "assets/windowsIcons/windows.png";
 import dropdown from "assets/windowsIcons/dropdown.png";
 
 function AboutMe({ onClose }) {
-  const [showLain, setShowLain] = useState(false);
+  const [showLain, setShowLain] = useState(false);\n  const [visitorCount, setVisitorCount] = useState(0);\n\n  useEffect(() => {\n    let cancelled = false;\n    fetch("https://winxp-7yes.onrender.com/visitor-count", { cache: "no-store" })\n      .then((response) => {\n        if (!response.ok) throw new Error("Visitor counter unavailable");\n        return response.json();\n      })\n      .then((data) => {\n        if (!cancelled && Number.isFinite(Number(data.count))) {\n          setVisitorCount(Number(data.count));\n        }\n      })\n      .catch(() => {\n        if (!cancelled) setVisitorCount(0);\n      });\n    return () => { cancelled = true; };\n  }, []);
   const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
 
   const functionMap = useMemo(
@@ -140,7 +140,7 @@ function AboutMe({ onClose }) {
                 </div>
                 <div className="about__badge">
                   <img src={earth} alt="" />
-                  <span>YOU ARE<br /><b>VISITOR #000142</b></span>
+                  <span>YOU ARE<br /><b>VISITOR #{String(visitorCount).padStart(6, "0")}</b></span>
                 </div>
               </div>
               <div className="about__nav">
@@ -182,6 +182,9 @@ function AboutMe({ onClose }) {
             <section className="about__section about__links-section" id="links">
               <div className="about__section-title"><span>04</span> LINKS / ELSEWHERE</div>
               <div className="links">
+                <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">
+                  GitHub
+                </a>
                 <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
                   Spotify
                 </a>
@@ -201,9 +204,6 @@ function AboutMe({ onClose }) {
                   Music Project - Bandcamp
                 </a>
                 <a href="mailto:fossils@gmail.com">Email - fossils@gmail.com</a>
-                <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">
-                  GitHub
-                </a>
               </div>
             </section>
           </div>
