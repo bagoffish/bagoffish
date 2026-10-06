@@ -469,7 +469,7 @@ function MusicAI({ onClose }) {
           <div style={{ height: '100%', width: Math.max(0, Math.min(100, progress)) + '%', background: working ? 'repeating-linear-gradient(90deg, #6e99c9 0 8px, #8eb4d8 8px 16px)' : '#6e99c9', transition: 'width 0.15s linear' }} />
         </div>
         <div style={{ marginTop: 6, fontSize: 10, color: '#555' }}>
-          Max {MAX_SECONDS}s / 25 MB. Drag & drop audio into this window. Server does the heavy work so the desktop stays smooth.
+          Max {MAX_SECONDS}s / 25 MB. Drag &amp; drop audio into this window. Server does the heavy work so the desktop stays smooth.
         </div>
       </div>
 
