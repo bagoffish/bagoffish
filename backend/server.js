@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-06-cors-resilient";
+const BACKEND_VERSION = "2026-10-06-robloxify-web-ai";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -287,10 +287,10 @@ async function loadRobloxify() {
   if (!robloxifyModulePromise) {
     robloxifyModulePromise = (async () => {
       const multer = (await import("multer")).default;
-      const { transcribeAudioBuffer, ROBLOXIFY_LIMITS } = await import(
+      const { transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await import(
         "./robloxify.js"
       );
-      return { multer, transcribeAudioBuffer, ROBLOXIFY_LIMITS };
+      return { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS };
     })().catch((err) => {
       robloxifyModulePromise = null;
       throw err;
@@ -302,7 +302,7 @@ async function loadRobloxify() {
 app.post("/robloxify", async (req, res) => {
   setCors(req, res);
   try {
-    const { multer, transcribeAudioBuffer, ROBLOXIFY_LIMITS } =
+    const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
       await loadRobloxify();
     const upload = multer({
       storage: multer.memoryStorage(),
@@ -329,12 +329,17 @@ app.post("/robloxify", async (req, res) => {
     const t0 = Date.now();
     try {
       const result = await transcribeAudioBuffer(req.file.buffer);
+      // The AI sees compact musical statistics plus live web research, not the
+      // uploaded audio itself. It creates a style/arrangement blueprint that
+      // the frontend applies to the actual detected notes.
+      const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
       res.json({
         ok: true,
         notes: result.notes,
         duration: result.duration,
         sampleRate: result.sampleRate,
         noteCount: result.noteCount,
+        aiPlan,
         ms: Date.now() - t0,
         version: BACKEND_VERSION,
       });
