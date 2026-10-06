@@ -172,454 +172,7 @@ function MusicAI({ onClose }) {
   const conversionIdRef = useRef(0);
 
   useEffect(() => {
-    return () => {
-      if (playbackTimerRef.current) {
-        window.clearInterval(playbackTimerRef.current);
-        playbackTimerRef.current = null;
-      }
-      if (playbackStopTimerRef.current) {
-        window.clearTimeout(playbackStopTimerRef.current);
-        playbackStopTimerRef.current = null;
-      }
-      if (synthRef.current) {
-        try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
-        synthRef.current = null;
-      }
-      if (contextRef.current) {
-        contextRef.current.close().catch(() => {});
-        contextRef.current = null;
-      }
-    };
-  }, []);
-
-
-  const yieldToBrowser = () => new Promise(resolve => {
-    if (typeof window !== 'undefined' && window.requestAnimationFrame) {
-      window.requestAnimationFrame(() => setTimeout(resolve, 0));
-    } else {
-      setTimeout(resolve, 0);
-    }
-  });
-
-  const getBasicPitch = async () => {
-    if (basicPitchRef.current) return basicPitchRef.current;
-    setStatus('LOADING NOTE MODEL...');
-    await tf.setBackend('cpu');
-    await tf.ready();
-    const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
-    basicPitchRef.current = new BasicPitch(model);
-    return basicPitchRef.current;
-  };
-
-  const convert = async inputFile => {
-    if (!inputFile || !inputFile.type.startsWith('audio/')) {
-      setStatus('CHOOSE AN AUDIO FILE');
-      return;
-    }
-
-    const conversionId = ++conversionIdRef.current;
-    if (working) {
-      setStatus('ALREADY CONVERTING — PLEASE WAIT');
-      return;
-    }
-
-    setFile(inputFile);
-    setWorking(true);
-    setProgress(0);
-    setStatus('PREPARING AUDIO...');
-
-    let decodeContext = null;
-
-    try {
-      // Keep the UI alive: decode once, down-mix/resample once, then run one
-      // transcription pass. Basic Pitch itself is designed to accept arbitrary
-      // sample rates and mono input; 22050 Hz is its processing rate.
-      const bytes = await inputFile.arrayBuffer();
-      await yieldToBrowser();
-
-      decodeContext = new AudioContext();
-      const sourceBuffer = await decodeContext.decodeAudioData(bytes);
-      if (conversionId !== conversionIdRef.current) return;
-
-      setInputSampleRate(sourceBuffer.sampleRate);
-      const duration = sourceBuffer.duration;
-
-      // Extremely long browser-side inference is a common cause of tabs becoming
-      // unusable. Keep conversion predictable and fail gracefully.
-      if (duration > 180) {
-        throw new Error('Audio is longer than 3 minutes. Trim it before converting.');
-      }
-
-      await decodeContext.close();
-      decodeContext = null;
-
-      setStatus('CONVERTING AUDIO TO MONO...');
-      await yieldToBrowser();
-
-      const targetRate = 22050;
-      const targetLength = Math.ceil(duration * targetRate);
-      const offlineContext = new OfflineAudioContext(1, targetLength, targetRate);
-      const source = offlineContext.createBufferSource();
-      source.buffer = sourceBuffer;
-      source.connect(offlineContext.destination);
-      source.start(0);
-      const audioBuffer = await offlineContext.startRendering();
-
-      if (conversionId !== conversionIdRef.current) return;
-
-      setProgress(8);
-      setStatus('LOADING NOTE MODEL...');
-      await yieldToBrowser();
-
-      const basicPitch = await getBasicPitch();
-      if (conversionId !== conversionIdRef.current) return;
-
-      const frames = [];
-      const onsets = [];
-      const contours = [];
-
-      setStatus('TRANSCRIBING 0%');
-      await basicPitch.evaluateModel(
-        audioBuffer,
-        (frameBatch, onsetBatch, contourBatch) => {
-          frames.push(...frameBatch);
-          onsets.push(...onsetBatch);
-          contours.push(...contourBatch);
-        },
-        value => {
-          if (conversionId !== conversionIdRef.current) return;
-          setProgress(Math.round(10 + value * 75));
-          setStatus('TRANSCRIBING ' + Math.round(value * 100) + '%');
-        }
-      );
-
-      if (conversionId !== conversionIdRef.current) return;
-
-      await yieldToBrowser();
-      setStatus('CLEANING NOTES...');
-
-      const detected = noteFramesToTime(
-        addPitchBendsToNoteEvents(
-          contours,
-          outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
-        )
-      );
-
-      // Split the clean transcription into useful Roblox tracks. This is much
-      // more stable than four consecutive neural-network passes over stems.
-      const density = detected.length / Math.max(duration, 1);
-      const fitted = cleanDetectedNotes(detected, {
-        minDuration: 0.075,
-        minAmplitude: 0.34,
-      }).map((note, index) => {
-        const pitch = note.pitchMidi;
-        const short = note.durationSeconds < 0.18;
-        const long = note.durationSeconds > 0.65;
-        let role = 'guitar';
-
-        if (pitch < 52 && !short) {
-          role = 'bass';
-        } else if (short && pitch >= 38 && pitch <= 84 && density > 5) {
-          role = 'drums';
-        } else if (pitch >= 68 && (long || pitch >= 82)) {
-          role = 'vocals';
-        }
-
-        if (role === 'drums') {
-          return {
-            ...note,
-            id: index + 1,
-            role,
-            pitchMidi:
-              pitch < 48 ? 36 :
-              pitch < 62 ? 38 :
-              pitch < 76 ? 42 : 46,
-          };
-        }
-
-        return { ...note, id: index + 1, role };
-      });
-
-      if (!fitted.length) {
-        throw new Error('No musical notes were detected.');
-      }
-
-      fitted.sort((a, b) =>
-        a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
-      );
-
-      setNotes(fitted);
-      setArrangement(fitted);
-      setSelectedNoteId(fitted[0] ? fitted[0].id : null);
-      setMidiBlob(makeMidi(fitted));
-      setProgress(100);
-      setStatus('DONE — ' + fitted.length + ' NOTES · 4 TRACKS READY');
-    } catch (error) {
-      console.error(error);
-      setStatus(
-        'CONVERSION FAILED — ' +
-        (error && error.message ? error.message : 'UNKNOWN ERROR')
-      );
-    } finally {
-      if (decodeContext) {
-        try { await decodeContext.close(); } catch (error) { /* cleanup */ }
-      }
-      if (conversionId === conversionIdRef.current) {
-        setWorking(false);
-      }
-    }
-  };
-
-  const saveProject = () => {
-    if (!arrangement.length) {
-      setStatus('CONVERT AUDIO FIRST');
-      return;
-    }
-
-    const project = {
-      id: Date.now(),
-      name: projectName.trim() || 'Untitled Robloxify Project',
-      sourceName: file ? file.name : 'Unknown audio',
-      notes,
-      arrangement,
-      savedAt: new Date().toISOString(),
-    };
-
-    const next = [project, ...projects.filter(item => item.name !== project.name)].slice(0, 25);
-    setProjects(next);
-    persistProjects(next);
-    writeCookie(COOKIE_KEY, project.name);
-    setStatus('PROJECT SAVED');
-  };
-
-  const loadProject = project => {
-    setProjectName(project.name);
-    setNotes(project.notes || []);
-    const loadedArrangement = (project.arrangement || []).map((note, index) => ({
-      ...note,
-      id: note.id || index + 1,
-    }));
-    setArrangement(loadedArrangement);
-    setSelectedNoteId(loadedArrangement[0] ? loadedArrangement[0].id : null);
-    setMidiBlob(makeMidi(loadedArrangement));
-    writeCookie(COOKIE_KEY, project.name);
-    setShowProjects(false);
-    setStatus('PROJECT LOADED — ' + project.name);
-  };
-
-  const deleteProject = project => {
-    const next = projects.filter(item => item.id !== project.id);
-    setProjects(next);
-    persistProjects(next);
-    setStatus('PROJECT DELETED');
-  };
-
-  const updateArrangement = next => {
-    setArrangement(next);
-    setMidiBlob(makeMidi(next));
-  };
-
-  const selectedNote =
-    arrangement.find(note => note.id === selectedNoteId) || arrangement[0] || null;
-
-  const editSelected = changes => {
-    if (!selectedNote) return;
-    const next = arrangement.map(note =>
-      note.id === selectedNote.id ? { ...note, ...changes } : note
-    );
-    updateArrangement(next);
-  };
-
-  const removeSelected = () => {
-    if (!selectedNote) return;
-    const next = arrangement.filter(note => note.id !== selectedNote.id);
-    updateArrangement(next);
-    setSelectedNoteId(next[0] ? next[0].id : null);
-    setStatus('NOTE DELETED');
-  };
-
-  const quantizeArrangement = () => {
-    const next = arrangement.map(note => ({
-      ...note,
-      startTimeSeconds: Math.max(0, Math.round(note.startTimeSeconds * 4) / 4),
-      durationSeconds: Math.max(0.05, Math.round(note.durationSeconds * 4) / 4),
-    }));
-    updateArrangement(next);
-    setStatus('NOTES QUANTIZED');
-  };
-
-  const downloadStemMidi = roleId => {
-    if (!arrangement.length) return;
-    const role = roles.find(item => item.id === roleId);
-    if (!role) return;
-    const blob = makeMidi(arrangement, roleId);
-    const base = file
-      ? file.name.replace(/\\.[^.]+$/, '')
-      : 'robloxify';
-    downloadBlob(blob, base + '-' + role.id + '.mid');
-  };
-
-  const transposeArrangement = amount => {
-    const next = arrangement.map(note => ({
-      ...note,
-      pitchMidi: Math.max(0, Math.min(127, note.pitchMidi + amount)),
-    }));
-    updateArrangement(next);
-    setStatus((amount > 0 ? 'UP ' : 'DOWN ') + Math.abs(amount) + ' SEMITONES');
-  };
-
-
-
-  const insertNote = () => {
-    const end = arrangement.reduce(
-      (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
-      0
-    );
-    const newNote = {
-      id: Date.now(),
-      pitchMidi: selectedNote ? selectedNote.pitchMidi : 60,
-      startTimeSeconds: end,
-      durationSeconds: 0.25,
-      amplitude: 0.8,
-      role: selectedNote ? selectedNote.role : 'guitar',
-    };
-    const next = [...arrangement, newNote];
-    updateArrangement(next);
-    setSelectedNoteId(newNote.id);
-    setStatus('NOTE INSERTED');
-  };
-
-  const formatTime = seconds => {
-    const safe = Math.max(0, Math.floor(seconds || 0));
-    const minutes = Math.floor(safe / 60);
-    const secs = safe % 60;
-    return minutes + ':' + String(secs).padStart(2, '0');
-  };
-
-  const setBarFromPointer = (event, setter) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const value = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-    setter(value);
-  };
-
-  const stopPlayback = () => {
-    if (playbackTimerRef.current) {
-      window.clearInterval(playbackTimerRef.current);
-      playbackTimerRef.current = null;
-    }
-    if (playbackStopTimerRef.current) {
-      window.clearTimeout(playbackStopTimerRef.current);
-      playbackStopTimerRef.current = null;
-    }
-    if (synthRef.current) {
-      try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
-      synthRef.current = null;
-    }
-    if (contextRef.current) {
-      contextRef.current.close().catch(() => {});
-      contextRef.current = null;
-    }
-    setPlaying(false);
-    setPlaybackTime(0);
-    setStatus('PLAYBACK STOPPED');
-  };
-
-  const playArrangement = async () => {
-    if (!arrangement.length) {
-      setStatus('CONVERT AUDIO FIRST');
-      return;
-    }
-
-    setWorking(true);
-    setPlaying(false);
-    setStatus('LOADING ROBLOX SOUNDFONT...');
-
-    try {
-      if (synthRef.current) {
-        try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
-        synthRef.current = null;
-      }
-      if (contextRef.current) {
-        await contextRef.current.close();
-      }
-
-      const context = new AudioContext();
-      contextRef.current = context;
-
-      await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
-
-      const synth = new WorkletSynthesizer(context);
-      synthRef.current = synth;
-
-      const soundfontResponse = await fetch(ROBLOX_SF2_URL);
-      if (!soundfontResponse.ok) {
-        throw new Error('Roblox SoundFont could not be loaded.');
-      }
-
-      const soundfont = await soundfontResponse.arrayBuffer();
-      await synth.soundBankManager.addSoundBank(soundfont, 'roblox');
-      await synth.isReady;
-      await context.resume();
-
-      roles.forEach(role => {
-        synth.programChange(role.channel, role.program);
-      });
-
-      const startTime = context.currentTime + 0.15;
-
-      arrangement.forEach(note => {
-        const role = roles.find(item => item.id === note.role) || roles[1];
-        const velocity = Math.max(
-          1,
-          Math.min(127, Math.round((note.amplitude || 0.8) * 127 * volume))
-        );
-
-        const onTime = startTime + note.startTimeSeconds;
-        const offTime =
-          onTime + Math.max(0.04, note.durationSeconds);
-
-        synth.noteOn(role.channel, note.pitchMidi, velocity, onTime);
-        synth.noteOff(role.channel, note.pitchMidi, offTime);
-      });
-
-      const duration = arrangement.reduce(
-        (max, note) =>
-          Math.max(max, note.startTimeSeconds + note.durationSeconds),
-        0
-      );
-
-      setPlaybackDuration(duration);
-      setPlaybackTime(0);
-      setPlaying(true);
-      setStatus('PLAYING WITH ROBLOX SOUNDFONT');
-
-      const playbackStartedAt = performance.now();
-      playbackTimerRef.current = window.setInterval(() => {
-        const elapsed = Math.min(duration, (performance.now() - playbackStartedAt) / 1000);
-        setPlaybackTime(elapsed);
-      }, 50);
-
-      playbackStopTimerRef.current = window.setTimeout(() => {
-        if (playbackTimerRef.current) {
-          window.clearInterval(playbackTimerRef.current);
-          playbackTimerRef.current = null;
-        }
-        setPlaybackTime(duration);
-        setPlaying(false);
-        setStatus('PLAYBACK FINISHED');
-      }, Math.ceil((duration + 0.7) * 1000));
-    } catch (error) {
-      console.error(error);
-      setStatus(
-        'SOUNDFONT PLAYBACK FAILED — ' +
-          (error && error.message ? error.message : 'UNKNOWN ERROR')
-      );
-    } finally {
-      setWorking(false);
-    }
-  };
-
-  return (
+    return (
     <div
       style={{
         height: '100%',
@@ -629,9 +182,7 @@ function MusicAI({ onClose }) {
         color: '#fff',
         fontFamily: 'Tahoma, Arial, sans-serif',
         fontSize: 11,
-        boxSizing: 'border-box',
         position: 'relative',
-        textShadow: '1px 1px #333',
       }}
     >
       <div style={{
@@ -648,184 +199,292 @@ function MusicAI({ onClose }) {
         display: 'flex',
         flexDirection: 'column',
       }}>
-        {/* Classic Roblox-style top HUD with real app controls */}
         <div style={{
-          height: 25,
-          flex: '0 0 25px',
+          height: 28,
+          flex: '0 0 28px',
           display: 'flex',
           alignItems: 'stretch',
-          background: 'rgba(40,40,40,.72)',
-          borderBottom: '1px solid rgba(0,0,0,.95)',
-          boxShadow: '0 1px 3px rgba(0,0,0,.45)',
+          background: 'rgba(45,45,45,.88)',
+          borderBottom: '1px solid #111',
         }}>
           <div style={{
-            width: 25,
+            width: 28,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(90,90,90,.9)',
-            color: '#fff',
+            background: '#666',
             fontSize: 15,
             fontWeight: 'bold',
-            textShadow: '1px 1px #000',
           }}>R</div>
 
-          <button type="button" onClick={() => setShowTools(value => !value)} style={{
-            border: 0,
-            borderRight: '1px solid rgba(80,80,80,.25)',
-            background: showTools ? 'rgba(90,90,90,.95)' : 'rgba(55,55,55,.8)',
-            color: '#fff',
-            padding: '0 12px',
-            fontFamily: 'Tahoma, Arial, sans-serif',
-            fontSize: 10,
-            textShadow: '1px 1px #000',
-          }}>Tools</button>
+          <button type="button" onClick={() => setShowTools(value => !value)} style={buttonStyle}>Tools</button>
+          <button type="button" onClick={() => document.querySelector('[data-robloxify-file]').click()} disabled={working} style={buttonStyle}>Open Audio</button>
+          <button type="button" onClick={playArrangement} disabled={working || !arrangement.length} style={buttonStyle}>Play</button>
+          <button type="button" onClick={stopPlayback} disabled={!playing} style={buttonStyle}>Stop</button>
+          <button type="button" onClick={saveProject} disabled={!arrangement.length} style={buttonStyle}>Save</button>
+          <button type="button" onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')} disabled={!midiBlob} style={buttonStyle}>Export MIDI</button>
+          <button type="button" onClick={() => setShowHelp(value => !value)} style={buttonStyle}>Help</button>
+        </div>
 
-          <button type="button" onClick={insertNote} disabled={working} style={{
-            border: 0,
-            borderRight: '1px solid rgba(80,80,80,.25)',
-            background: 'rgba(55,55,55,.8)',
-            color: '#fff',
-            padding: '0 14px',
-            fontFamily: 'Tahoma, Arial, sans-serif',
-            fontSize: 10,
-            cursor: working ? 'default' : 'pointer',
-            textShadow: '1px 1px #555',
-            opacity: working ? .6 : 1,
-          }}>Insert</button>
-
-
-            ))}
-            <input
-              data-robloxify-file
-              type="file"
-              accept="audio/*"
-              onChange={event => convert(event.target.files && event.target.files[0])}
-              style={{ display: 'none' }}
-            />
-          </div>
-
-          {/* Bottom-right classic HUD controls */}
+        {showTools && (
           <div style={{
             position: 'absolute',
-            right: 10,
-            bottom: 10,
-            width: 74,
-            textAlign: 'center',
+            top: 31,
+            left: 28,
+            zIndex: 20,
+            background: '#777',
+            border: '2px solid #333',
+            padding: 6,
+            display: 'flex',
+            gap: 4,
+            boxShadow: '2px 2px 5px rgba(0,0,0,.6)',
           }}>
-            <button
-              type="button"
-              onClick={() => setShowProjects(value => !value)}
-              style={{
-                width: 64,
-                height: 22,
-                background: 'rgba(210,210,210,.75)',
-                border: '1px solid #555',
-                color: '#111',
-                fontFamily: 'Tahoma, Arial, sans-serif',
-                fontSize: 10,
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                textShadow: 'none',
-              }}
-            >{showProjects ? 'CLOSE' : 'PROJECTS'}</button>
+            <button type="button" style={buttonStyle} onClick={insertNote}>Insert Note</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-12)}>Oct -</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-1)}>Note -</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(1)}>Note +</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(12)}>Oct +</button>
+            <button type="button" style={buttonStyle} onClick={quantizeArrangement}>Quantize</button>
+          </div>
+        )}
+
+        <input
+          data-robloxify-file
+          type="file"
+          accept="audio/*"
+          onChange={event => convert(event.target.files && event.target.files[0])}
+          style={{ display: 'none' }}
+        />
+
+        <div style={{
+          flex: 1,
+          minHeight: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          padding: '12px 18px 70px',
+          boxSizing: 'border-box',
+        }}>
+          <div style={{
+            width: 'min(860px, 100%)',
+            flex: 1,
+            minHeight: 0,
+            background: 'rgba(70,70,70,.72)',
+            border: '2px solid #222',
+            boxShadow: 'inset 0 0 0 1px rgba(255,255,255,.12), 3px 3px 8px rgba(0,0,0,.45)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }}>
             <div style={{
-              marginTop: 3,
-              display: 'grid',
-              gridTemplateColumns: '1fr 1fr',
-              gap: 2,
+              padding: '6px 8px',
+              background: 'rgba(35,35,35,.82)',
+              borderBottom: '1px solid #222',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
             }}>
-              <button type="button" onClick={() => setVolume(Math.min(1, volume + .1))} style={buttonStyle}>+</button>
-              <button type="button" onClick={() => setVolume(Math.max(0, volume - .1))} style={buttonStyle}>−</button>
+              <span style={{ fontWeight: 'bold' }}>{projectName}</span>
+              <span>{status}</span>
+            </div>
+
+            <div style={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              padding: 12,
+              background: 'rgba(20,20,20,.55)',
+            }}>
+              {!arrangement.length ? (
+                <div style={{
+                  height: '100%',
+                  minHeight: 180,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px dashed #888',
+                  color: '#ddd',
+                  textAlign: 'center',
+                }}>
+                  OPEN AN AUDIO FILE TO CREATE A ROBLOX MIDI ARRANGEMENT
+                </div>
+              ) : (
+                <div>
+                  {roles.map(role => {
+                    const trackNotes = arrangement.filter(note => note.role === role.id);
+                    return (
+                      <div key={role.id} style={{
+                        marginBottom: 8,
+                        border: '1px solid #555',
+                        background: 'rgba(100,100,100,.45)',
+                      }}>
+                        <div style={{
+                          padding: '4px 6px',
+                          background: 'rgba(55,55,55,.8)',
+                          fontWeight: 'bold',
+                        }}>
+                          {role.label} · {trackNotes.length} NOTES
+                        </div>
+                        <div style={{
+                          position: 'relative',
+                          height: 58,
+                          minWidth: Math.max(500, playbackDuration * 55),
+                          backgroundImage: 'linear-gradient(to right, rgba(255,255,255,.12) 1px, transparent 1px)',
+                          backgroundSize: '55px 100%',
+                        }}>
+                          {trackNotes.map(note => {
+                            const duration = Math.max(playbackDuration, arrangement.reduce(
+                              (max, item) => Math.max(max, item.startTimeSeconds + item.durationSeconds), 0
+                            ), 1);
+                            const left = note.startTimeSeconds / duration * 100;
+                            const width = Math.max(.7, note.durationSeconds / duration * 100);
+                            const selected = note.id === selectedNoteId;
+                            return (
+                              <button
+                                type="button"
+                                key={note.id}
+                                title={'MIDI ' + note.pitchMidi}
+                                onClick={() => setSelectedNoteId(note.id)}
+                                style={{
+                                  position: 'absolute',
+                                  left: left + '%',
+                                  width: width + '%',
+                                  minWidth: 5,
+                                  top: 8 + (127 - note.pitchMidi) % 40,
+                                  height: 10,
+                                  padding: 0,
+                                  border: selected ? '2px solid #fff' : '1px solid #222',
+                                  background: selected ? '#35c83a' : '#999',
+                                }}
+                              />
+                            );
+                          })}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              padding: 6,
+              borderTop: '1px solid #222',
+              background: 'rgba(55,55,55,.8)',
+              display: 'flex',
+              gap: 5,
+              alignItems: 'center',
+            }}>
+              <input
+                value={projectName}
+                onChange={event => setProjectName(event.target.value)}
+                style={{
+                  flex: 1,
+                  minWidth: 100,
+                  background: '#ddd',
+                  color: '#111',
+                  border: '1px solid #333',
+                  padding: '3px 5px',
+                  fontFamily: 'Tahoma, Arial, sans-serif',
+                  fontSize: 11,
+                }}
+              />
+              {selectedNote && (
+                <>
+                  <button type="button" style={buttonStyle} onClick={() => editSelected({ startTimeSeconds: Math.max(0, selectedNote.startTimeSeconds - .1) })}>◀</button>
+                  <button type="button" style={buttonStyle} onClick={() => editSelected({ startTimeSeconds: selectedNote.startTimeSeconds + .1 })}>▶</button>
+                  <button type="button" style={buttonStyle} onClick={() => editSelected({ durationSeconds: Math.max(.05, selectedNote.durationSeconds + .1) })}>Length +</button>
+                  <button type="button" style={buttonStyle} onClick={removeSelected}>Delete</button>
+                </>
+              )}
             </div>
           </div>
+        </div>
 
-          {/* Playback bar: green/red like classic Health */}
-          <div style={{
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            bottom: 12,
-            width: 'min(340px, 45%)',
-            height: 14,
-            background: '#b51e1e',
-            border: '2px solid #555',
-            boxSizing: 'border-box',
-            cursor: 'pointer',
-          }}
-            onClick={event => {
-              if (!playbackDuration) return;
-              const rect = event.currentTarget.getBoundingClientRect();
-              const next = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-              setPlaybackTime(next * playbackDuration);
-            }}
-          >
-            <div style={{
+        <div style={{
+          position: 'absolute',
+          left: '50%',
+          bottom: 10,
+          transform: 'translateX(-50%)',
+          width: 'min(360px, 45%)',
+          height: 15,
+          background: '#b51e1e',
+          border: '2px solid #555',
+          boxSizing: 'border-box',
+        }}>
+          <div
+            style={{
               width: playbackDuration ? Math.min(100, playbackTime / playbackDuration * 100) + '%' : '0%',
               height: '100%',
               background: '#28c52f',
-            }} />
-          </div>
-
-          {selectedNote && (
-            <div style={{
-              position: 'absolute',
-              left: '50%',
-              transform: 'translateX(-50%)',
-              bottom: 45,
-              background: 'rgba(80,80,80,.7)',
-              border: '1px solid rgba(255,255,255,.25)',
-              padding: 4,
-              display: 'flex',
-              gap: 3,
-              alignItems: 'center',
-              justifyContent: 'center',
-              whiteSpace: 'nowrap',
-            }}>
-              <span>NOTE {selectedNote.pitchMidi} · {selectedNote.role.toUpperCase()}</span>
-              <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.max(0, selectedNote.pitchMidi - 1) })}>−</button>
-              <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.min(127, selectedNote.pitchMidi + 1) })}>+</button>
-              <button type="button" style={buttonStyle} onClick={removeSelected}>X</button>
-            </div>
-          )}
-
-          {showProjects && (
-            <div style={{
-              position: 'absolute',
-              right: 90,
-              bottom: 45,
-              width: 250,
-              maxHeight: 190,
-              overflow: 'auto',
-              background: 'rgba(100,100,100,.82)',
-              border: '1px solid #333',
-              padding: 7,
-              boxSizing: 'border-box',
-              textAlign: 'center',
-            }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PROJECTS</div>
-              {projects.length === 0 && <div>No saved projects.</div>}
-              {projects.map(project => (
-                <div key={project.id} style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 4,
-                  justifyContent: 'center',
-                  marginBottom: 3,
-                }}>
-                  <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>LOAD</button>
-                  <span style={{ flex: 1 }}>{project.name}</span>
-                  <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>X</button>
-                </div>
-              ))}
-            </div>
-          )}
+            }}
+          />
         </div>
+
+        <div style={{
+          position: 'absolute',
+          right: 10,
+          bottom: 8,
+          display: 'flex',
+          gap: 3,
+          alignItems: 'center',
+        }}>
+          <span>VOL</span>
+          <button type="button" style={buttonStyle} onClick={() => setVolume(Math.min(1, volume + .1))}>+</button>
+          <button type="button" style={buttonStyle} onClick={() => setVolume(Math.max(0, volume - .1))}>−</button>
+          <button type="button" style={buttonStyle} onClick={() => setShowProjects(value => !value)}>Projects</button>
+        </div>
+
+        {showProjects && (
+          <div style={{
+            position: 'absolute',
+            right: 10,
+            bottom: 42,
+            width: 280,
+            maxHeight: 190,
+            overflow: 'auto',
+            background: 'rgba(100,100,100,.95)',
+            border: '2px solid #333',
+            padding: 7,
+            zIndex: 30,
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PROJECTS</div>
+            {projects.length === 0 && <div>No saved projects.</div>}
+            {projects.map(project => (
+              <div key={project.id} style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 3 }}>
+                <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>Load</button>
+                <span style={{ flex: 1 }}>{project.name}</span>
+                <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>X</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {showHelp && (
+          <div style={{
+            position: 'absolute',
+            top: 38,
+            right: 12,
+            width: 300,
+            background: '#bdbdbd',
+            color: '#111',
+            border: '2px solid #333',
+            zIndex: 40,
+            textShadow: 'none',
+            boxShadow: '3px 3px 7px rgba(0,0,0,.6)',
+          }}>
+            <div style={{ background: '#555', color: '#fff', padding: '4px 6px', fontWeight: 'bold' }}>ROBLOXIFY HELP</div>
+            <div style={{ padding: 8, lineHeight: 1.4 }}>
+              Open audio, let Robloxify create the MIDI tracks, then select notes in the editor to move, transpose, quantize, or delete them. Use Export MIDI to save the edited arrangement.
+            </div>
+            <div style={{ textAlign: 'right', padding: '0 8px 8px' }}>
+              <button type="button" style={buttonStyle} onClick={() => setShowHelp(false)}>OK</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
-
-
 
 }
 
