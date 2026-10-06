@@ -6,6 +6,7 @@ import Paint from "./Paint";
 import Poems from "./Poems";
 import Socials from "./Socials";
 import Winamp from "./Winamp";
+import Shoegaze from "./Shoegaze";
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -127,6 +128,13 @@ export const defaultIconState = [
     icon: winamp,
     title: "Shoegazefy",
     component: Winamp,
+    isFocus: false,
+  },
+  {
+    id: 7,
+    icon: winamp,
+    title: "Shoegazefier",
+    component: Shoegaze,
     isFocus: false,
   },
 ];
@@ -295,6 +303,26 @@ export const appSettings = {
     maximized: false,
     multiInstance: false,
   },
+
+  Shoegazefier: {
+    header: {
+      icon: winamp,
+      title: "Shoegazefier",
+    },
+    component: Shoegaze,
+    defaultSize: {
+      width: 380,
+      height: 530,
+    },
+    defaultOffset: {
+      x: 150,
+      y: 20,
+    },
+    resizable: false,
+    minimized: false,
+    maximized: false,
+    multiInstance: false,
+  },
 };
 
 /* export list */
@@ -307,4 +335,5 @@ export {
   ErrorBox,
   Paint,
   Winamp,
+  Shoegaze,
 };

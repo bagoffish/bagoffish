@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SHOEGAZE-AMP</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;background:#0b0b10;display:flex;justify-content:center;padding:12px 0;font-family:Arial,Helvetica,sans-serif;overflow-x:hidden}
+#wa{width:275px;zoom:1.35;display:flex;flex-direction:column}
+.win{background:linear-gradient(#4a4a5e,#2b2b3a);border:1px solid #6c6c82;border-right-color:#14141c;border-bottom-color:#14141c;margin-bottom:2px}
+.tb{height:14px;background:repeating-linear-gradient(90deg,#5a4f78 0 2px,#39314f 2px 4px);color:#d9d4ea;font:bold 9px Arial;letter-spacing:1px;display:flex;justify-content:space-between;align-items:center;padding:0 4px;user-select:none}
+.tb span{background:#39314f;padding:0 4px}
+.bd{padding:5px}
+.lcd{background:#000;border:1px solid #14141c;border-bottom-color:#7a7a90;border-right-color:#7a7a90;padding:3px 4px;display:flex;gap:6px;align-items:center;height:36px}
+.time{font:bold 24px "Courier New",monospace;color:#0f0;text-shadow:0 0 4px #0a0;width:78px;letter-spacing:1px}
+canvas{width:76px;height:26px;image-rendering:pixelated;margin-left:auto}
+.mq{background:#000;border:1px solid #14141c;border-bottom-color:#7a7a90;border-right-color:#7a7a90;margin-top:4px;height:14px;overflow:hidden;white-space:nowrap;color:#0f0;font:10px "Courier New",monospace;line-height:13px}
+.mq span{display:inline-block;padding-left:100%;animation:mq 12s linear infinite}
+@keyframes mq{to{transform:translateX(-100%)}}
+.kb{color:#0c0;font:8px "Courier New",monospace;margin-top:3px;display:flex;gap:8px}
+.row{display:flex;align-items:center;gap:6px;margin-top:4px}
+input[type=range]{-webkit-appearance:none;appearance:none;background:#000;height:7px;border:1px solid #14141c;border-bottom-color:#7a7a90;border-right-color:#7a7a90;margin:0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:9px;background:linear-gradient(#bbb,#666);border:1px solid #eee;border-right-color:#333;border-bottom-color:#333}
+input[type=range]::-moz-range-thumb{width:12px;height:7px;background:#999;border:1px solid #ddd;border-radius:0}
+#seek{flex:1;height:9px}#vol{width:68px}
+button{font:bold 9px Arial;color:#ddd;background:linear-gradient(#6b6b80,#3a3a4a);border:1px solid #9a9ab0;border-right-color:#15151d;border-bottom-color:#15151d;height:16px;min-width:23px;padding:0 4px;cursor:pointer}
+button:active{border-color:#15151d #9a9ab0 #9a9ab0 #15151d}
+button.on{color:#0f0;text-shadow:0 0 3px #0a0}
+.eq{display:flex;justify-content:space-between;background:#000;border:1px solid #14141c;border-bottom-color:#7a7a90;border-right-color:#7a7a90;padding:5px 3px 3px}
+.eq label{display:flex;flex-direction:column;align-items:center;gap:3px;color:#0c0;font:7px "Courier New",monospace}
+.eq input{writing-mode:vertical-lr;direction:rtl;width:7px;height:56px;border:0;background:linear-gradient(#0f0,#fa0 50%,#f20)}
+.eq input::-webkit-slider-thumb{width:11px;height:6px}
+.pl{background:#000;border:1px solid #14141c;border-bottom-color:#7a7a90;border-right-color:#7a7a90;height:62px;padding:3px;color:#0f0;font:9px "Courier New",monospace;overflow:hidden}
+.pl div.cur{color:#fff}
+.btns{display:flex;gap:2px;margin-top:4px;justify-content:space-between}
+</style></head><body>
+<div id="wa">
+ <div class="win"><div class="tb"><span>WINAMP</span><span>_ ▫ ×</span></div><div class="bd">
+  <div class="lcd"><div class="time" id="tm">00:00</div><canvas id="vis" width="38" height="13"></canvas></div>
+  <div class="mq"><span id="mq">*** SHOEGAZE-AMP *** drop an mp3 / wav / flac on me, or hit eject ***</span></div>
+  <div class="kb"><span id="kb">---</span><span>kbps</span><span id="hz">--</span><span>khz</span><span id="st">stereo</span></div>
+  <div class="row"><input type="range" id="vol" min="0" max="100" value="80"><input type="range" id="seek" min="0" max="1000" value="0"></div>
+  <div class="btns"><div style="display:flex;gap:2px"><button id="bp">⏮</button><button id="bpl">▶</button><button id="bpa">⏸</button><button id="bs">⏹</button><button id="bn">⏭</button></div><button id="be">⏏ OPEN</button></div>
+ </div></div>
+ <div class="win"><div class="tb"><span>WINAMP EQUALIZER</span><span>× ▫</span></div><div class="bd">
+  <div class="eq" id="eq"></div>
+  <div class="btns"><button id="tv" class="on">VOX</button><button id="tg" class="on">GTR</button><span style="color:#0c0;font:8px 'Courier New';align-self:center">stem solo / mute</span></div>
+ </div></div>
+ <div class="win"><div class="tb"><span>WINAMP PLAYLIST EDITOR</span><span>× ▫</span></div><div class="bd">
+  <div class="pl" id="pl">1. (empty)</div>
+  <div class="btns"><button id="ba">+ ADD</button><button id="br">RENDER .WAV ZIP</button><span id="msg" style="color:#0c0;font:8px 'Courier New';align-self:center"></span></div>
+ </div></div>
+</div>
+<input type="file" id="f" accept="audio/*" hidden>
+<script>
+const $=i=>document.getElementById(i);
+let ctx,an,vol,buf,live,pos=0,t0=0,playing=false,drag=false,name='';
+const on={vox:true,gtr:true};
+const SL=[['blur','BLUR',70],['verb','VERB',60],['det','WOBL',40],['fuzz','FUZZ',65],['wash','WASH',55],['vox','VOX',80],['gtr','GTR',90],['out','OUT',80]];
+$('eq').innerHTML=SL.map(([k,l,v])=>`<label><input type="range" id="${k}" min="0" max="100" value="${v}">${l}</label>`).join('');
+const P=()=>{const o={};SL.forEach(([k])=>o[k]=$(k).value/100);o.von=on.vox;o.gon=on.gtr;return o};
+const fmt=s=>{s=Math.max(0,s|0);return String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0')};
+const curve=k=>{const n=2048,c=new Float32Array(n),b=Math.tanh(.25);for(let i=0;i<n;i++){const x=i*2/n-1;c[i]=Math.tanh(k*x+.25)-b}return c};
+function ir(c,sec){const sr=c.sampleRate,n=sr*sec|0,b=c.createBuffer(2,n,sr);for(let ch=0;ch<2;ch++){const d=b.getChannelData(ch);let y=0;for(let i=0;i<n;i++){y+=((Math.random()*2-1)-y)*.35;d[i]=y*Math.pow(1-i/n,2.6)}}return b}
+const G=(c,v)=>{const g=c.createGain();g.gain.value=v;return g};
+function F(c,t,f,q){const x=c.createBiquadFilter();x.type=t;x.frequency.value=f;if(q)x.Q.value=q;return x}
+function apply(n,p,c,imm){const T=(a,v)=>{if(imm)a.value=v;else a.setTargetAtTime(v,c.currentTime,.03)};
+ T(n.vlp.frequency,6000*Math.pow(.15,p.blur));T(n.vwet.gain,p.verb*1.8);T(n.dep.gain,.0005+p.det*.007);
+ T(n.wash.gain,p.wash*1.5);T(n.vo.gain,p.von?p.vox*1.5:0);T(n.io.gain,p.gon?p.gtr*1.5:0);T(n.out.gain,.9);
+ const d=1+p.fuzz*35;if(n.k!==d){n.k=d;n.sh.curve=curve(d)}}
+function build(c,b,p,dest){
+ const n={},src=c.createBufferSource();src.buffer=b;const st=b.numberOfChannels>1;
+ const sp=c.createChannelSplitter(2);src.connect(sp);
+ const mid=G(c,1),side=G(c,1);
+ const a=G(c,st?.5:1),bb=G(c,st?.5:0),s1=G(c,st?.5:0),s2=G(c,st?-.5:0);
+ sp.connect(a,0);sp.connect(bb,1);sp.connect(s1,0);sp.connect(s2,1);
+ a.connect(mid);bb.connect(mid);s1.connect(side);s2.connect(side);
+ // vocal stem approx: centre-panned content, 220Hz-5kHz
+ const vhp=F(c,'highpass',220),vlp=F(c,'lowpass',3000);mid.connect(vhp);vhp.connect(vlp);
+ const vd=G(c,.5),vwet=G(c,1),vo=G(c,1),conv=c.createConvolver();conv.buffer=ir(c,4.5);
+ const del=c.createDelay(.1);del.delayTime.value=.025;const lfo=c.createOscillator();lfo.frequency.value=.45;const dep=G(c,.003);lfo.connect(dep);dep.connect(del.delayTime);lfo.start();
+ vlp.connect(vd);vlp.connect(del);del.connect(vd);vlp.connect(conv);conv.connect(vwet);vd.connect(vo);vwet.connect(vo);
+ // guitar/instrument stem approx: sides + everything outside vocal band
+ const lo=F(c,'lowpass',220),hi=F(c,'highpass',5000),rest=G(c,1);mid.connect(lo);mid.connect(hi);lo.connect(rest);hi.connect(rest);
+ const iL=G(c,1),iR=G(c,-1),mg=c.createChannelMerger(2),sd=G(c,1);
+ side.connect(iL);side.connect(iR);const mL=G(c,1),mR=G(c,1);rest.connect(mL);rest.connect(mR);
+ const L=G(c,1),R=G(c,1);iL.connect(L);mL.connect(L);iR.connect(R);mR.connect(R);L.connect(mg,0,0);R.connect(mg,0,1);
+ const sh=c.createWaveShaper();sh.oversample='4x';const dc=F(c,'highpass',40),plp=F(c,'lowpass',5500),dd=G(c,.8),wash=G(c,1),gc=c.createConvolver();gc.buffer=ir(c,4);
+ const io=G(c,1);mg.connect(sh);sh.connect(dc);dc.connect(plp);plp.connect(dd);plp.connect(gc);gc.connect(wash);dd.connect(io);wash.connect(io);
+ const out=G(c,1);vo.connect(out);io.connect(out);out.connect(dest);
+ Object.assign(n,{src,vlp,vwet,dep,sh,wash,vo,io,out,k:0});apply(n,p,c,1);return n}
+function init(){if(ctx){ctx.resume();return}ctx=new (window.AudioContext||window.webkitAudioContext)();an=ctx.createAnalyser();an.fftSize=64;vol=ctx.createGain();vol.gain.value=$('vol').value/100;an.connect(vol);vol.connect(ctx.destination)}
+function kill(){if(!live)return;const l=live;live=null;l.src.onended=null;try{l.src.stop()}catch(e){}l.out.gain.setTargetAtTime(0,ctx.currentTime,.05);setTimeout(()=>{try{l.out.disconnect()}catch(e){}},500)}
+async function play(){if(!buf)return;init();await ctx.resume();kill();live=build(ctx,buf,P(),an);live.src.start(0,pos);t0=ctx.currentTime-pos;playing=true;
+ const me=live;me.src.onended=()=>{if(live===me&&ctx.currentTime-t0>=buf.duration-.1)stop()}}
+function pause(){if(!playing)return;pos=ctx.currentTime-t0;playing=false;kill()}
+function stop(){playing=false;pos=0;kill();$('seek').value=0}
+function msg(t){$('mq').textContent=t;const e=$('mq');e.style.animation='none';e.offsetHeight;e.style.animation=''}
+async function load(file){init();msg('LOADING '+file.name+' ...');try{buf=await ctx.decodeAudioData(await file.arrayBuffer())}catch(e){msg('*** COULD NOT DECODE THAT FILE ***');return}
+ name=file.name.replace(/\.[^.]+$/,'');stop();$('hz').textContent=(buf.sampleRate/1000).toFixed(0);$('kb').textContent=Math.round(file.size*8/buf.duration/1000);$('st').textContent=buf.numberOfChannels>1?'stereo':'mono';
+ $('pl').innerHTML=`<div class="cur">1. ${name.replace(/[<>&]/g,'')} (${fmt(buf.duration)})</div>`;if(ctx.state==='running'){msg('1. '+name+' ('+fmt(buf.duration)+') *** SHOEGAZE MODE ***');play()}else msg('1. '+name+' ('+fmt(buf.duration)+') *** PRESS PLAY ***')}
+$('be').onclick=$('ba').onclick=()=>$('f').click();$('f').onchange=e=>e.target.files[0]&&load(e.target.files[0]);
+addEventListener('dragover',e=>e.preventDefault());addEventListener('drop',e=>{e.preventDefault();e.dataTransfer.files[0]&&load(e.dataTransfer.files[0])});
+$('bpl').onclick=()=>{if(!playing)play()};$('bpa').onclick=pause;$('bs').onclick=stop;
+$('bp').onclick=()=>{pos=0;playing&&play()};$('bn').onclick=()=>{if(!buf)return;pos=Math.min(buf.duration-.5,(playing?ctx.currentTime-t0:pos)+10);playing&&play()};
+$('vol').oninput=e=>{if(vol)vol.gain.value=e.target.value/100};
+const sk=$('seek');sk.onpointerdown=()=>drag=true;addEventListener('pointerup',()=>drag=false);sk.oninput=()=>{if(!buf)return;pos=sk.value/1000*buf.duration;if(playing)play()};
+const live_=()=>{if(live)apply(live,P(),ctx)};SL.forEach(([k])=>$(k).oninput=live_);
+$('tv').onclick=e=>{on.vox=!on.vox;e.target.classList.toggle('on',on.vox);live_()};$('tg').onclick=e=>{on.gtr=!on.gtr;e.target.classList.toggle('on',on.gtr);live_()};
+// visualizer + clock
+const cv=$('vis'),g=cv.getContext('2d'),fd=new Uint8Array(32);
+(function loop(){requestAnimationFrame(loop);let cur=pos;if(buf&&playing){cur=ctx.currentTime-t0;if(cur>buf.duration)cur=buf.duration}
+ $('tm').textContent=fmt(cur);if(buf&&!drag)sk.value=cur/buf.duration*1000;
+ g.clearRect(0,0,38,13);if(an&&playing){an.getByteFrequencyData(fd);for(let i=0;i<12;i++){const h=Math.round(fd[i+1]/255*13);g.fillStyle='#0f0';g.fillRect(i*3,13-h,2,h);g.fillStyle='#fa0';g.fillRect(i*3,13-h,2,Math.min(h,2))}}})();
+// render offline -> zip(wav) since the viewer only allows certain download types
+function wav(b,peak){const n=b.length,d=new DataView(new ArrayBuffer(44+n*4)),w=(o,s)=>[...s].forEach((c,i)=>d.setUint8(o+i,c.charCodeAt(0)));
+ w(0,'RIFF');d.setUint32(4,36+n*4,true);w(8,'WAVEfmt ');d.setUint32(16,16,true);d.setUint16(20,1,true);d.setUint16(22,2,true);d.setUint32(24,b.sampleRate,true);d.setUint32(28,b.sampleRate*4,true);d.setUint16(32,4,true);d.setUint16(34,16,true);w(36,'data');d.setUint32(40,n*4,true);
+ const l=b.getChannelData(0),r=b.getChannelData(1),k=.95/peak;for(let i=0;i<n;i++){d.setInt16(44+i*4,Math.max(-1,Math.min(1,l[i]*k))*32767,true);d.setInt16(46+i*4,Math.max(-1,Math.min(1,r[i]*k))*32767,true)}return new Uint8Array(d.buffer)}
+const T=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc=u=>{let c=-1;for(let i=0;i<u.length;i++)c=T[(c^u[i])&255]^(c>>>8);return(c^-1)>>>0};
+function zip(fn,u){const nb=new TextEncoder().encode(fn),c=crc(u),h=new DataView(new ArrayBuffer(30)),z=new DataView(new ArrayBuffer(46)),e=new DataView(new ArrayBuffer(22));
+ h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(12,0x21,true);h.setUint32(14,c,true);h.setUint32(18,u.length,true);h.setUint32(22,u.length,true);h.setUint16(26,nb.length,true);
+ z.setUint32(0,0x02014b50,true);z.setUint16(14,0x21,true);z.setUint16(4,20,true);z.setUint16(6,20,true);z.setUint32(16,c,true);z.setUint32(20,u.length,true);z.setUint32(24,u.length,true);z.setUint16(28,nb.length,true);
+ const off=30+nb.length+u.length,sz=46+nb.length;e.setUint32(0,0x06054b50,true);e.setUint16(8,1,true);e.setUint16(10,1,true);e.setUint32(12,sz,true);e.setUint32(16,off,true);
+ return new Blob([h,nb,u,z,nb,e])}
+$('br').onclick=async()=>{if(!buf){msg('*** LOAD A TRACK FIRST ***');return}
+ let dl=null;try{dl=await claude.use('downloads')}catch(e){}
+ msg('RENDERING '+name+' ... please wait');$('msg').textContent='...';
+ const sr=buf.sampleRate,off=new OfflineAudioContext(2,buf.length+sr*4,sr),l=build(off,buf,P(),off.destination);l.src.start();
+ const r=await off.startRendering();let pk=.001;for(let c=0;c<2;c++){const d=r.getChannelData(c);for(let i=0;i<d.length;i++){const a=Math.abs(d[i]);if(a>pk)pk=a}}
+ const tag=on.vox&&on.gtr?'full':on.vox?'vox':on.gtr?'gtr':'silent';const fn=name+'_shoegaze_'+tag+'.wav';
+ try{if(dl){await dl.save({filename:name+'_shoegaze_'+tag+'.zip',data:zip(fn,wav(r,pk))});msg('*** SAVED '+fn+' (zipped) ***')}
+ else{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([wav(r,pk)],{type:'audio/wav'}));a.download=fn;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),6e3);msg('*** RENDERED '+fn+' ***')}}
+ catch(e){msg('*** SAVE '+(e&&e.code||'FAILED').toUpperCase()+' ***')}$('msg').textContent=''};
+if(typeof claude==='undefined')$('br').textContent='RENDER .WAV';
+</script></body></html>

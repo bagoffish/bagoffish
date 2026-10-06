@@ -57,7 +57,8 @@ function FooterMenu({ className, onClick }) {
             onClick={onClick}
             items={[
               { icon: mine, text: 'Minesweeper' },
-              { icon: winamp, text: 'Shoegazefy' },
+              { icon: winamp, text: 'Winamp' },
+              { icon: winamp, text: 'Shoegazefier' },
               { icon: paint, text: 'Paint' },
               { icon: mediaPlayer, text: 'Windows Media Player' },
               { icon: messenger, text: 'Windows Messenger' },
