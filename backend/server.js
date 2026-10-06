@@ -427,8 +427,10 @@ app.post("/community/tracks", async (req, res) => {
       storage: multer.memoryStorage(),
       limits: { fileSize: 30 * 1024 * 1024, files: 1 },
       fileFilter: (request, file, callback) => {
-        const allowed = new Set(["audio/wav", "audio/x-wav", "audio/wave", "audio/mpeg", "audio/ogg", "audio/webm"]);
-        callback(null, allowed.has(file.mimetype));
+        const mime = String(file.mimetype || "").toLowerCase();
+        const ext = path.extname(file.originalname || "").toLowerCase();
+        const allowedExt = new Set([".wav", ".mp3", ".ogg", ".webm"]);
+        callback(null, mime.startsWith("audio/") || allowedExt.has(ext));
       },
     }).single("audio");
 
@@ -447,7 +449,8 @@ app.post("/community/tracks", async (req, res) => {
     }
 
     const id = crypto.randomUUID();
-    const ext = req.file.mimetype === "audio/mpeg" ? ".mp3" : req.file.mimetype === "audio/ogg" ? ".ogg" : ".wav";
+    const originalExt = path.extname(req.file.originalname || "").toLowerCase();
+    const ext = [".mp3", ".ogg", ".webm", ".wav"].includes(originalExt) ? originalExt : (req.file.mimetype === "audio/mpeg" ? ".mp3" : req.file.mimetype === "audio/ogg" ? ".ogg" : ".wav");
     const file = id + ext;
     await fs.promises.writeFile(path.join(COMMUNITY_AUDIO_DIR, file), req.file.buffer);
 
