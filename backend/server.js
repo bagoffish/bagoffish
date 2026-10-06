@@ -591,6 +591,23 @@ app.get("/proxy-roblox", async (req, res) => {
 let robloxifyBusy = false;
 let robloxifyModulePromise = null;
 
+// Keep recent conversions in memory so re-uploading the same file is immediate.
+// This also avoids running Basic Pitch and the arrangement planner repeatedly.
+const robloxifyCache = new Map();
+const ROBLOXIFY_CACHE_LIMIT = 6;
+
+function getRobloxifyCacheKey(buffer) {
+  return crypto.createHash("sha1").update(buffer).digest("hex");
+}
+
+function rememberRobloxifyResult(key, result) {
+  robloxifyCache.delete(key);
+  robloxifyCache.set(key, result);
+  while (robloxifyCache.size > ROBLOXIFY_CACHE_LIMIT) {
+    robloxifyCache.delete(robloxifyCache.keys().next().value);
+  }
+}
+
 async function loadRobloxify() {
   if (!robloxifyModulePromise) {
     robloxifyModulePromise = (async () => {
@@ -633,18 +650,31 @@ app.post("/robloxify", async (req, res) => {
         .json({ error: "Audio file required (field name: audio)" });
     }
 
+    const cacheKey = getRobloxifyCacheKey(req.file.buffer);
+    const cachedResult = robloxifyCache.get(cacheKey);
+    if (cachedResult) {
+      robloxifyCache.delete(cacheKey);
+      robloxifyCache.set(cacheKey, cachedResult);
+      return res.json({ ...cachedResult, cached: true, ms: 0, version: BACKEND_VERSION });
+    }
+
     robloxifyBusy = true;
     const t0 = Date.now();
     try {
       const result = await transcribeAudioBuffer(req.file.buffer);
       const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
-      res.json({
+      const response = {
         ok: true,
         notes: result.notes,
         duration: result.duration,
         sampleRate: result.sampleRate,
         noteCount: result.noteCount,
         aiPlan,
+      };
+      rememberRobloxifyResult(cacheKey, response);
+      res.json({
+        ...response,
+        cached: false,
         ms: Date.now() - t0,
         version: BACKEND_VERSION,
       });
