@@ -585,9 +585,20 @@ async function transcribeLocally(file, onStatus, onProgress) {
     if (performance.now() - lastYield > 80) { lastYield = performance.now(); await yieldToBrowser(); }
   });
   await yieldToBrowser(); onStatus('Extracting notes...');
-  const notes = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.25, 0.35, 11)));
+  const primary = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.32, 0.38, 8)));
+  const sensitive = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.22, 0.30, 6)));
+  const notes = [...(primary || [])];
+  (sensitive || []).forEach(note => {
+    const duplicate = notes.some(existing =>
+      existing.pitchMidi === note.pitchMidi &&
+      Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
+      Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
+    );
+    if (!duplicate) notes.push(note);
+  });
+  notes.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   try { model.dispose(); } catch (e) {}
-  return { notes: notes || [], duration };
+  return { notes, duration };
 }
 
 function MusicAI() {
