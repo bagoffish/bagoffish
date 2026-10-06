@@ -506,7 +506,7 @@ app.get("/proxy-roblox", async (req, res) => {
     const chunkAvatars = avatarIndex.get(String(id)) || [];
     const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
     const liveAvatarUrl = avatarRes?.data?.[0]?.imageUrl || "";
-    const avatarSourceUrl = chunkAvatarUrl || liveAvatarUrl;
+    const avatarSourceUrl = liveAvatarUrl || chunkAvatarUrl;
     const avatarUrl = avatarSourceUrl
       ? `https://winxp-backend-live.onrender.com/proxy-roblox-avatar?url=${encodeURIComponent(avatarSourceUrl)}`
       : "";
