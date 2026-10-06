@@ -650,7 +650,8 @@ function MusicAI() {
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place');
-  const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);\n  const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
+  const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
+  const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null); const [manualStyle, setManualStyle] = useState('auto');
