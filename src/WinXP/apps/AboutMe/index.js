@@ -645,9 +645,7 @@ const Div = styled.div`
   .ie__footer__right__dots {
     width: 20px;
   }
-`;
-
-@media (max-width: 700px) {
+{
   .ie__toolbar {
     min-height: 24px;
   }
@@ -700,5 +698,7 @@ const Div = styled.div`
     -webkit-overflow-scrolling: touch;
   }
 }
+
+`;
 
 export default AboutMe;
