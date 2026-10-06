@@ -78,43 +78,75 @@ function parseVisitorCookie(req) {
   return match ? decodeURIComponent(match[1]) : "";
 }
 
-app.get("/visitor-count", async (req, res) => {
-  const visitorId = String(req.query.visitor || req.headers["x-visitor-id"] || parseVisitorCookie(req) || "").trim();
+async function getVisitorState() {
+  let count = memoryVisitorCount;
+  let seen = memoryVisitorIds;
+
+  try {
+    const visitorDir = path.dirname(VISITOR_COUNT_PATH);
+    await fs.promises.mkdir(visitorDir, { recursive: true });
+
+    try {
+      const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
+      const parsed = JSON.parse(raw);
+      count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+      seen = new Set(Array.isArray(parsed.visitors) ? parsed.visitors.map(String) : []);
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
+    }
+  } catch (err) {
+    console.warn("Visitor counter persistence unavailable:", err.message);
+  }
+
+  memoryVisitorCount = count;
+  memoryVisitorIds.clear();
+  seen.forEach(id => memoryVisitorIds.add(id));
+
+  return { count, seen };
+}
+
+app.get("/visitor-count/current", async (req, res) => {
+  try {
+    const { count } = await getVisitorState();
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.json({ count });
+  } catch (err) {
+    console.error("Visitor counter read error:", err);
+    res.status(500).json({ error: "Visitor counter unavailable" });
+  }
+});
+
+app.get("/visitor-count/visit", async (req, res) => {
+  const visitorId = String(
+    req.query.visitor ||
+    req.headers["x-visitor-id"] ||
+    parseVisitorCookie(req) ||
+    ""
+  ).trim();
+
   if (!visitorId || visitorId.length > 200) {
     return res.status(400).json({ error: "Visitor cookie required" });
   }
 
   visitorCountQueue = visitorCountQueue.then(async () => {
-    let count = memoryVisitorCount;
-    let seen = memoryVisitorIds;
+    let { count, seen } = await getVisitorState();
 
-    try {
-      const visitorDir = path.dirname(VISITOR_COUNT_PATH);
-      await fs.promises.mkdir(visitorDir, { recursive: true });
+    if (!seen.has(visitorId)) {
+      seen.add(visitorId);
+      count += 1;
 
       try {
-        const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
-        const parsed = JSON.parse(raw);
-        count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
-        seen = new Set(Array.isArray(parsed.visitors) ? parsed.visitors.map(String) : []);
-      } catch (err) {
-        if (err.code !== "ENOENT") throw err;
-      }
-
-      if (!seen.has(visitorId)) {
-        seen.add(visitorId);
-        count += 1;
+        await fs.promises.mkdir(path.dirname(VISITOR_COUNT_PATH), { recursive: true });
         await fs.promises.writeFile(
           VISITOR_COUNT_PATH,
-          JSON.stringify({ count, visitors: Array.from(seen).slice(-100000) }),
+          JSON.stringify({
+            count,
+            visitors: Array.from(seen).slice(-100000),
+          }),
           "utf8"
         );
-      }
-    } catch (err) {
-      console.warn("Visitor counter persistence unavailable:", err.message);
-      if (!seen.has(visitorId)) {
-        seen.add(visitorId);
-        count += 1;
+      } catch (err) {
+        console.warn("Visitor counter persistence unavailable:", err.message);
       }
     }
 
@@ -133,6 +165,7 @@ app.get("/visitor-count", async (req, res) => {
     res.status(500).json({ error: "Visitor counter unavailable" });
   }
 });
+
 
 /* ---------- avatar index ---------- */
 const avatarIndex = new Map();
