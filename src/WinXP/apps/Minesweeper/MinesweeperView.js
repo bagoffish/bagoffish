@@ -100,6 +100,9 @@ function MineSweeperView({
   const face = useRef(null);
   const [mouseDownContent, setMouseDownContent] = useState(false);
   const [openBehavior, setOpenBehavior] = useState({ index: -1, behavior: '' });
+  const touchTimer = useRef(null);
+  const touchHandled = useRef(false);
+  const touchIndex = useRef(-1);
   function remainMines() {
     return (
       mines -
@@ -140,7 +143,42 @@ function MineSweeperView({
     }
     // eslint-disable-next-line
   }, [openBehavior.index, openBehavior.behavior]);
+  function getCeilIndex(target, container) {
+    const ceil = target.closest('.mine__ceil');
+    return ceil ? Array.prototype.indexOf.call(container.children, ceil) : -1;
+  }
+  function onTouchStartCeils(e) {
+    if (e.touches.length !== 1 || ['won', 'died'].includes(status)) return;
+    const index = getCeilIndex(e.target, e.currentTarget);
+    if (index === -1) return;
+    touchHandled.current = false;
+    touchIndex.current = index;
+    clearTimeout(touchTimer.current);
+    touchTimer.current = setTimeout(() => {
+      touchHandled.current = true;
+      changeCeilState(index);
+      setMouseDownContent(false);
+    }, 420);
+    setMouseDownContent(true);
+  }
+  function onTouchEndCeils(e) {
+    if (touchIndex.current === -1) return;
+    e.preventDefault();
+    clearTimeout(touchTimer.current);
+    const index = touchIndex.current;
+    touchIndex.current = -1;
+    setMouseDownContent(false);
+    if (!touchHandled.current) openCeil(index);
+    touchHandled.current = true;
+  }
+  function onTouchCancelCeils() {
+    clearTimeout(touchTimer.current);
+    touchIndex.current = -1;
+    touchHandled.current = true;
+    setMouseDownContent(false);
+  }
   function onMouseDownCeils(e) {
+    if (touchHandled.current) return;
     const index = Array.prototype.indexOf.call(
       e.currentTarget.children,
       e.target.closest('.mine__ceil'),
@@ -170,6 +208,10 @@ function MineSweeperView({
     });
   }
   function onMouseUpCeils() {
+    if (touchHandled.current) {
+      touchHandled.current = false;
+      return;
+    }
     const { behavior, index } = openBehavior;
     if (index === -1) return;
     if (behavior === 'single') {
@@ -236,6 +278,9 @@ function MineSweeperView({
           onMouseDown={onMouseDownCeils}
           onMouseOver={onMouseOverCeils}
           onMouseUp={onMouseUpCeils}
+          onTouchStart={onTouchStartCeils}
+          onTouchEnd={onTouchEndCeils}
+          onTouchCancel={onTouchCancelCeils}
         >
           <Ceils ceils={ceils} />
         </div>
@@ -343,6 +388,11 @@ export default styled(MineSweeperView)`
     background: rgb(236, 233, 216);
   }
   .mine__content {
+    max-width: 100%;
+    box-sizing: border-box;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
     border-left: rgb(245, 245, 245) solid 3px;
     border-top: rgb(245, 245, 245) solid 3px;
     background-color: rgb(192, 192, 192);
@@ -408,6 +458,11 @@ export default styled(MineSweeperView)`
     }
   }
   .mine__content__inner {
+    flex: 0 0 auto;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
     display: grid;
     grid-template-columns: repeat(${({ columns }) => columns}, 16px);
     grid-template-rows: repeat(${({ rows }) => rows}, 16px);
@@ -418,6 +473,7 @@ export default styled(MineSweeperView)`
   }
   .mine__ceil {
     position: relative;
+    touch-action: manipulation;
     img {
       position: absolute;
       width: 16px;
