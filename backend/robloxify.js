@@ -290,6 +290,15 @@ function sanitizeStylePlan(plan, fallback) {
   if (!out.styleMix.length) out.styleMix = [{ style: out.style, weight: 1 }];
   const totalStyleWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
   out.styleMix = out.styleMix.map(x => ({ ...x, weight: Number((x.weight / totalStyleWeight).toFixed(3)) }));
+  // Always expose the complete house palette to the arranger. Missing styles get a
+  // quieter influence so the model's preferred styles still lead the arrangement.
+  const existingStyleWeights = new Map(out.styleMix.map(x => [x.style, x.weight]));
+  out.styleMix = [...styles].map(style => ({
+    style,
+    weight: existingStyleWeights.has(style) ? existingStyleWeights.get(style) : 0.35
+  }));
+  const fullWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
+  out.styleMix = out.styleMix.map(x => ({ ...x, weight: Number((x.weight / fullWeight).toFixed(3)) }));
   out.primaryRole = roles.has(out.primaryRole) ? out.primaryRole : fallback.primaryRole;
   out.supportRoles = Array.isArray(out.supportRoles)
     ? [...new Set(out.supportRoles.filter(x => roles.has(x)).slice(0, 4))]
