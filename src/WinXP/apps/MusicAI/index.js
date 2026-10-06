@@ -166,6 +166,9 @@ function MusicAI({ onClose }) {
   const [projects, setProjects] = useState(() => loadProjects());
   const [showProjects, setShowProjects] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null);
+  const [showTools, setShowTools] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [volume, setVolume] = useState(0.8);
   const [playbackTime, setPlaybackTime] = useState(0);
   const [playbackDuration, setPlaybackDuration] = useState(0);
@@ -505,6 +508,45 @@ function MusicAI({ onClose }) {
     setStatus((amount > 0 ? 'UP ' : 'DOWN ') + Math.abs(amount) + ' SEMITONES');
   };
 
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      setIsFullscreen(value => !value);
+    }
+  };
+
+  useEffect(() => {
+    const onFullscreenChange = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
+  const insertNote = () => {
+    const end = arrangement.reduce(
+      (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
+      0
+    );
+    const newNote = {
+      id: Date.now(),
+      pitchMidi: selectedNote ? selectedNote.pitchMidi : 60,
+      startTimeSeconds: end,
+      durationSeconds: 0.25,
+      amplitude: 0.8,
+      role: selectedNote ? selectedNote.role : 'guitar',
+    };
+    const next = [...arrangement, newNote];
+    updateArrangement(next);
+    setSelectedNoteId(newNote.id);
+    setStatus('NOTE INSERTED');
+  };
+
   const formatTime = seconds => {
     const safe = Math.max(0, Math.floor(seconds || 0));
     const minutes = Math.floor(safe / 60);
@@ -664,45 +706,89 @@ function MusicAI({ onClose }) {
         display: 'flex',
         flexDirection: 'column',
       }}>
-        {/* Classic Roblox top HUD */}
+        {/* Classic Roblox-style top HUD with real app controls */}
         <div style={{
-          height: 27,
-          flex: '0 0 27px',
+          height: 25,
+          flex: '0 0 25px',
           display: 'flex',
           alignItems: 'stretch',
-          background: 'rgba(190,190,190,.58)',
-          borderBottom: '1px solid rgba(40,40,40,.7)',
+          background: 'rgba(185,185,185,.58)',
+          borderBottom: '1px solid rgba(40,40,40,.75)',
           boxShadow: '0 1px 3px rgba(0,0,0,.45)',
         }}>
           <div style={{
-            width: 31,
+            width: 25,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            background: 'rgba(220,220,220,.65)',
-            color: '#b40000',
-            fontSize: 17,
+            background: 'rgba(220,220,220,.68)',
+            color: '#c40000',
+            fontSize: 15,
             fontWeight: 'bold',
             textShadow: '1px 1px #fff',
           }}>R</div>
-          {['Tools', 'Insert', '× Fullscreen', 'Help...', 'Exit'].map(item => (
-            <button
-              key={item}
-              type="button"
-              onClick={item === 'Exit' ? onClose : undefined}
-              style={{
-                border: 0,
-                borderRight: '1px solid rgba(80,80,80,.28)',
-                background: 'rgba(210,210,210,.28)',
-                color: '#fff',
-                padding: '0 17px',
-                fontFamily: 'Tahoma, Arial, sans-serif',
-                fontSize: 11,
-                cursor: item === 'Exit' ? 'pointer' : 'default',
-                textShadow: '1px 1px #555',
-              }}
-            >{item}</button>
-          ))}
+
+          <button type="button" onClick={() => setShowTools(value => !value)} style={{
+            border: 0,
+            borderRight: '1px solid rgba(80,80,80,.25)',
+            background: showTools ? 'rgba(255,255,255,.38)' : 'rgba(210,210,210,.22)',
+            color: '#fff',
+            padding: '0 14px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            cursor: 'pointer',
+            textShadow: '1px 1px #555',
+          }}>Tools</button>
+
+          <button type="button" onClick={insertNote} disabled={working} style={{
+            border: 0,
+            borderRight: '1px solid rgba(80,80,80,.25)',
+            background: 'rgba(210,210,210,.22)',
+            color: '#fff',
+            padding: '0 14px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            cursor: working ? 'default' : 'pointer',
+            textShadow: '1px 1px #555',
+            opacity: working ? .6 : 1,
+          }}>Insert</button>
+
+          <button type="button" onClick={toggleFullscreen} style={{
+            border: 0,
+            borderRight: '1px solid rgba(80,80,80,.25)',
+            background: isFullscreen ? 'rgba(255,255,255,.38)' : 'rgba(210,210,210,.22)',
+            color: '#fff',
+            padding: '0 14px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            cursor: 'pointer',
+            textShadow: '1px 1px #555',
+          }}>{isFullscreen ? '× Window' : 'Fullscreen'}</button>
+
+          <button type="button" onClick={() => setShowHelp(value => !value)} style={{
+            border: 0,
+            borderRight: '1px solid rgba(80,80,80,.25)',
+            background: showHelp ? 'rgba(255,255,255,.38)' : 'rgba(210,210,210,.22)',
+            color: '#fff',
+            padding: '0 14px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            cursor: 'pointer',
+            textShadow: '1px 1px #555',
+          }}>Help...</button>
+
+          <div style={{ flex: 1 }} />
+
+          <button type="button" onClick={onClose} style={{
+            border: 0,
+            background: 'rgba(180,180,180,.34)',
+            color: '#fff',
+            padding: '0 17px',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            cursor: 'pointer',
+            textShadow: '1px 1px #555',
+          }}>Exit</button>
         </div>
 
         <div style={{
@@ -805,10 +891,10 @@ function MusicAI({ onClose }) {
           {/* Main MIDI editor */}
           <div style={{
             position: 'absolute',
-            left: 215,
-            right: 170,
-            top: 48,
-            bottom: 76,
+            left: 155,
+            right: 155,
+            top: 44,
+            bottom: 78,
             display: 'flex',
             flexDirection: 'column',
             minWidth: 220,
@@ -987,6 +1073,55 @@ function MusicAI({ onClose }) {
               <span>{status}</span>
             </div>
           </div>
+
+          {showTools && (
+            <div style={{
+              position: 'absolute',
+              left: 10,
+              top: 42,
+              zIndex: 8,
+              width: 205,
+              background: 'rgba(110,110,110,.88)',
+              border: '1px solid #333',
+              boxShadow: '2px 2px 5px rgba(0,0,0,.55)',
+              padding: 6,
+              boxSizing: 'border-box',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 5 }}>TOOLS</div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 3 }}>
+                <button type="button" style={buttonStyle} onClick={() => quantizeArrangement()}>QUANTIZE</button>
+                <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-12)}>OCT −</button>
+                <button type="button" style={buttonStyle} onClick={() => transposeArrangement(12)}>OCT +</button>
+                <button type="button" style={buttonStyle} onClick={removeSelected}>DELETE NOTE</button>
+              </div>
+            </div>
+          )}
+
+          {showHelp && (
+            <div style={{
+              position: 'absolute',
+              left: '50%',
+              top: 42,
+              transform: 'translateX(-50%)',
+              zIndex: 9,
+              width: 300,
+              background: 'rgba(90,90,90,.92)',
+              border: '1px solid #333',
+              boxShadow: '2px 2px 6px rgba(0,0,0,.55)',
+              padding: 8,
+              boxSizing: 'border-box',
+              textAlign: 'center',
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 6 }}>ROBLOXIFY HELP</div>
+              <div>CLICK A NOTE TO SELECT IT</div>
+              <div>INSERT ADDS A NOTE</div>
+              <div>DRAG THE MIDI AREA TO SCROLL</div>
+              <div>TOOLS HAS EDITING COMMANDS</div>
+              <div>GREEN = SELECTED / PLAYBACK</div>
+              <div>RED = NOTE / EMPTY HEALTH</div>
+            </div>
+          )}
 
           {/* Bottom-left Roblox-style tools */}
           <div style={{
