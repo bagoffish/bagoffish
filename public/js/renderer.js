@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://winxp-7yes.onrender.com";
-  var RETRY_LIMIT = 30;
+  var RETRY_LIMIT = 60;
 
   function text(value) {
     return value == null ? "" : String(value);
@@ -46,6 +46,7 @@
     var loadingIndicator = document.getElementById("loadingIndicator");
     var spinner = document.getElementById("spinner");
     var centerPanel = document.getElementById("centerPanel");
+    var boundKey = "data-renderer-key-bound";
 
     if (!usernameInput || !checkBtn || !messageBox ||
         !loadingIndicator || !spinner || !centerPanel) {
@@ -57,6 +58,7 @@
     }
 
     checkBtn.setAttribute("data-renderer-bound", "1");
+    usernameInput.setAttribute(boundKey, "1");
 
     var frames = ["-", "/", "|", "\\"];
     var frameIndex = 0;
@@ -140,9 +142,8 @@
       });
     }
 
-    checkBtn.addEventListener("click", function () {
+    function runLookup() {
       var username = usernameInput.value.trim();
-
       if (!username) {
         centerPanel.innerHTML = "";
         showError("Enter a username, dumbass!");
@@ -237,6 +238,13 @@
               : "User not found (◞‸◟；)"
           );
         });
+    });
+
+    usernameInput.addEventListener("keydown", function (event) {
+      if (event.key === "Enter" || event.keyCode === 13) {
+        event.preventDefault();
+        runLookup();
+      }
     });
 
     var observer = new MutationObserver(function () {
