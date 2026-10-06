@@ -639,192 +639,447 @@ function MusicAI({ onClose }) {
     <div
       style={{
         height: '100%',
-        overflow: 'auto',
-        backgroundImage: "url('/images/sky.png')",
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed',
+        width: '100%',
+        overflow: 'hidden',
+        background: '#1b1b1b',
         color: '#fff',
         fontFamily: 'Tahoma, Arial, sans-serif',
         fontSize: 11,
         boxSizing: 'border-box',
         position: 'relative',
+        textShadow: '1px 1px #333',
       }}
     >
       <div style={{
-        height: 29,
-        background: 'rgba(90, 90, 90, 0.78)',
-        borderBottom: '1px solid #333',
-        display: 'flex',
-        alignItems: 'stretch',
-        justifyContent: 'center',
-        boxSizing: 'border-box',
-        position: 'sticky',
-        top: 0,
-        zIndex: 10,
-      }}>
-        <div style={{
-          width: 31,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#c8c8c8',
-          color: '#c00',
-          fontWeight: 'bold',
-          fontSize: 17,
-          textShadow: '1px 1px #fff',
-        }}>R</div>
-        {['Tools', 'Insert', '× Fullscreen', 'Help...'].map(item => (
-          <div key={item} style={{
-            minWidth: item === '× Fullscreen' ? 92 : 74,
-            padding: '7px 10px',
-            boxSizing: 'border-box',
-            background: 'rgba(210, 210, 210, 0.28)',
-            borderRight: '1px solid rgba(40, 40, 40, 0.35)',
-            color: '#eee',
-            textShadow: '1px 1px #555',
-            textAlign: 'center',
-          }}>{item}</div>
-        ))}
-        {onClose && (
-          <button type="button" onClick={onClose} style={{
-            border: 0,
-            borderLeft: '1px solid rgba(40,40,40,.35)',
-            background: 'rgba(120,120,120,.45)',
-            color: '#fff',
-            padding: '0 17px',
-            fontFamily: 'Tahoma, Arial, sans-serif',
-            fontSize: 11,
-            cursor: 'pointer',
-          }}>Exit</button>
-        )}
-      </div>
+        position: 'absolute',
+        inset: 0,
+        background: "url('/images/bliss.png') center / cover no-repeat",
+        opacity: 0.18,
+      }} />
 
-      <div style={{ padding: 8, maxWidth: 760, margin: '0 auto', boxSizing: 'border-box', textAlign: 'center' }}>
+      <div style={{
+        position: 'relative',
+        zIndex: 2,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
+        {/* Classic Roblox top HUD */}
         <div style={{
-          background: 'rgba(75, 45, 39, .72)',
-          border: '1px solid rgba(35, 25, 25, .8)',
-          boxShadow: 'inset 0 1px rgba(255,255,255,.14)',
-          padding: 7,
-          marginBottom: 7,
-          textAlign: 'center',
+          height: 27,
+          flex: '0 0 27px',
+          display: 'flex',
+          alignItems: 'stretch',
+          background: 'rgba(190,190,190,.58)',
+          borderBottom: '1px solid rgba(40,40,40,.7)',
+          boxShadow: '0 1px 3px rgba(0,0,0,.45)',
         }}>
-          <div style={{ fontSize: 18, fontWeight: 'bold', letterSpacing: 1, textShadow: '1px 1px #333' }}>
-            ROBLOXIFY
-          </div>
-          <div style={{ color: '#ddd', marginTop: 2 }}>
-            AUDIO → ROBLOX MIDI
-          </div>
+          <div style={{
+            width: 31,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(220,220,220,.65)',
+            color: '#b40000',
+            fontSize: 17,
+            fontWeight: 'bold',
+            textShadow: '1px 1px #fff',
+          }}>R</div>
+          {['Tools', 'Insert', '× Fullscreen', 'Help...', 'Exit'].map(item => (
+            <button
+              key={item}
+              type="button"
+              onClick={item === 'Exit' ? onClose : undefined}
+              style={{
+                border: 0,
+                borderRight: '1px solid rgba(80,80,80,.28)',
+                background: 'rgba(210,210,210,.28)',
+                color: '#fff',
+                padding: '0 17px',
+                fontFamily: 'Tahoma, Arial, sans-serif',
+                fontSize: 11,
+                cursor: item === 'Exit' ? 'pointer' : 'default',
+                textShadow: '1px 1px #555',
+              }}
+            >{item}</button>
+          ))}
         </div>
 
-        <div
-          onDragOver={event => event.preventDefault()}
-          onDrop={event => {
-            event.preventDefault();
-            convert(event.dataTransfer.files && event.dataTransfer.files[0]);
-          }}
-          style={{
-            background: 'rgba(60, 43, 39, .72)',
-            border: '1px solid rgba(30,25,25,.9)',
-            padding: 9,
-            marginBottom: 7,
-            textAlign: 'center',
-          }}
-        >
-          <div style={{ marginBottom: 6, fontWeight: 'bold' }}>AUDIO</div>
-          <label style={{
-            display: 'inline-block',
-            background: '#b7b7b7',
-            border: '1px solid #333',
-            color: '#111',
-            padding: '5px 12px',
-            boxShadow: 'inset 0 1px #eee',
-            cursor: 'pointer',
-            textShadow: '0 1px #eee',
+        <div style={{
+          position: 'relative',
+          flex: 1,
+          minHeight: 0,
+        }}>
+          {/* Classic chat panel */}
+          <div style={{
+            position: 'absolute',
+            left: 10,
+            top: 8,
+            width: 190,
+            maxHeight: 90,
+            overflow: 'hidden',
+            background: 'rgba(80,80,80,.38)',
+            border: '1px solid rgba(255,255,255,.18)',
+            padding: 5,
+            boxSizing: 'border-box',
+            textAlign: 'left',
           }}>
-            CHOOSE AUDIO
+            <div style={{ color: '#ddd' }}>ROBLOXIFY CHAT</div>
+            <div style={{ color: '#ffea00' }}>System: Audio ready.</div>
+            <div style={{ color: '#fff' }}>{status}</div>
+          </div>
+
+          {/* Player list / track list */}
+          <div style={{
+            position: 'absolute',
+            right: 10,
+            top: 8,
+            width: 145,
+            background: 'rgba(170,170,170,.48)',
+            border: '1px solid rgba(255,255,255,.2)',
+            padding: 6,
+            boxSizing: 'border-box',
+            textAlign: 'left',
+          }}>
+            <div style={{ color: '#fff', marginBottom: 4 }}>TRACKS</div>
+            {roles.map(role => {
+              const count = arrangement.filter(note => note.role === role.id).length;
+              return (
+                <div
+                  key={role.id}
+                  style={{
+                    color: role.id === 'drums' ? '#ffff00' : '#fff',
+                    lineHeight: '15px',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => {
+                    const first = arrangement.find(note => note.role === role.id);
+                    if (first) setSelectedNoteId(first.id);
+                  }}
+                >
+                  {role.label} {count}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Health-style vertical volume meter */}
+          <div style={{
+            position: 'absolute',
+            right: 13,
+            top: 108,
+            width: 16,
+            height: 170,
+            background: 'rgba(80,80,80,.5)',
+            border: '1px solid rgba(255,255,255,.35)',
+            boxSizing: 'border-box',
+            cursor: 'pointer',
+          }}
+            onClick={event => {
+              const rect = event.currentTarget.getBoundingClientRect();
+              const value = 1 - Math.max(0, Math.min(1, (event.clientY - rect.top) / rect.height));
+              setVolume(value);
+            }}
+            title="Volume"
+          >
+            <div style={{
+              position: 'absolute',
+              left: 2,
+              right: 2,
+              bottom: 2,
+              height: Math.round(volume * 164),
+              background: '#27c52f',
+              boxShadow: '0 0 2px #fff',
+            }} />
+            <div style={{
+              position: 'absolute',
+              left: 20,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#00f',
+              whiteSpace: 'nowrap',
+              textShadow: '1px 1px #fff',
+            }}>Volume</div>
+          </div>
+
+          {/* Main MIDI editor */}
+          <div style={{
+            position: 'absolute',
+            left: 215,
+            right: 170,
+            top: 48,
+            bottom: 76,
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 220,
+            background: 'rgba(30,30,30,.58)',
+            border: '1px solid rgba(255,255,255,.28)',
+            boxShadow: '0 2px 8px rgba(0,0,0,.45)',
+          }}>
+            <div style={{
+              height: 28,
+              flex: '0 0 28px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              background: 'rgba(190,190,190,.48)',
+              borderBottom: '1px solid rgba(0,0,0,.5)',
+              fontWeight: 'bold',
+            }}>
+              ROBLOXIFY · MIDI EDITOR
+            </div>
+
+            <div style={{
+              padding: 5,
+              display: 'flex',
+              justifyContent: 'center',
+              gap: 3,
+              flexWrap: 'wrap',
+              background: 'rgba(70,70,70,.4)',
+            }}>
+              {[
+                ['OCT -', () => transposeArrangement(-12)],
+                ['NOTE -', () => transposeArrangement(-1)],
+                ['NOTE +', () => transposeArrangement(1)],
+                ['OCT +', () => transposeArrangement(12)],
+                ['QUANTIZE', quantizeArrangement],
+              ].map(([label, action]) => (
+                <button key={label} type="button" onClick={action} style={buttonStyle}>{label}</button>
+              ))}
+            </div>
+
+            <div style={{
+              flex: 1,
+              minHeight: 0,
+              overflow: 'auto',
+              background: 'rgba(10,25,10,.86)',
+              borderTop: '1px solid rgba(255,255,255,.2)',
+            }}>
+              {!arrangement.length ? (
+                <div
+                  onDragOver={event => event.preventDefault()}
+                  onDrop={event => {
+                    event.preventDefault();
+                    convert(event.dataTransfer.files && event.dataTransfer.files[0]);
+                  }}
+                  style={{
+                    height: '100%',
+                    minHeight: 260,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexDirection: 'column',
+                    color: '#ddd',
+                  }}
+                >
+                  <div style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 8 }}>ROBLOXIFY</div>
+                  <div style={{ marginBottom: 10 }}>DROP AUDIO HERE</div>
+                  <label style={{
+                    background: '#aaa',
+                    color: '#111',
+                    border: '1px solid #333',
+                    padding: '5px 12px',
+                    cursor: 'pointer',
+                    boxShadow: 'inset 0 1px #eee',
+                  }}>
+                    CHOOSE AUDIO
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      onChange={event => convert(event.target.files && event.target.files[0])}
+                      style={{ display: 'none' }}
+                    />
+                  </label>
+                </div>
+              ) : (
+                <div style={{
+                  position: 'relative',
+                  height: 390,
+                  minWidth: Math.max(700, Math.ceil(
+                    arrangement.reduce(
+                      (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
+                      0
+                    ) * 70 + 100
+                  )),
+                }}>
+                  {Array.from({ length: 25 }).map((_, row) => {
+                    const pitch = 96 - row * 2;
+                    return (
+                      <div key={pitch} style={{
+                        position: 'absolute',
+                        left: 0,
+                        right: 0,
+                        top: row * 16,
+                        height: 16,
+                        borderBottom: '1px solid rgba(255,255,255,.1)',
+                        background: row % 2 ? 'rgba(255,255,255,.025)' : 'transparent',
+                        color: '#aaa',
+                        fontSize: 9,
+                        textAlign: 'left',
+                        paddingLeft: 3,
+                        boxSizing: 'border-box',
+                      }}>
+                        {pitch}
+                      </div>
+                    );
+                  })}
+
+                  {Array.from({
+                    length: Math.ceil(
+                      arrangement.reduce(
+                        (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
+                        0
+                      )
+                    ) + 1,
+                  }).map((_, second) => (
+                    <div key={second} style={{
+                      position: 'absolute',
+                      left: second * 70 + 28,
+                      top: 0,
+                      bottom: 0,
+                      width: 1,
+                      background: 'rgba(255,255,255,.18)',
+                    }} />
+                  ))}
+
+                  {arrangement.map(note => {
+                    const top = Math.max(0, Math.min(374, (96 - note.pitchMidi) * 8));
+                    const left = note.startTimeSeconds * 70 + 28;
+                    const width = Math.max(5, note.durationSeconds * 70);
+                    const selected = note.id === selectedNoteId;
+                    return (
+                      <button
+                        key={note.id}
+                        type="button"
+                        title={note.role.toUpperCase() + ' ' + note.pitchMidi}
+                        onClick={() => setSelectedNoteId(note.id)}
+                        style={{
+                          position: 'absolute',
+                          left,
+                          top,
+                          width,
+                          height: 13,
+                          padding: 0,
+                          margin: 0,
+                          background: selected ? '#28c52f' : '#d22',
+                          border: selected ? '1px solid #fff' : '1px solid #900',
+                          cursor: 'pointer',
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div style={{
+              height: 22,
+              flex: '0 0 22px',
+              background: 'rgba(190,190,190,.38)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 10,
+            }}>
+              <span>{formatTime(playbackTime)}</span>
+              <span>/</span>
+              <span>{formatTime(playbackDuration)}</span>
+              <span>{status}</span>
+            </div>
+          </div>
+
+          {/* Bottom-left Roblox-style tools */}
+          <div style={{
+            position: 'absolute',
+            left: 10,
+            bottom: 10,
+            display: 'flex',
+            gap: 3,
+            background: 'rgba(150,150,150,.34)',
+            padding: 3,
+          }}>
+            {[
+              ['AUDIO', () => document.querySelector('[data-robloxify-file]')?.click()],
+              ['PLAY', playArrangement],
+              ['STOP', stopPlayback],
+              ['SAVE', saveProject],
+            ].map(([label, action], index) => (
+              <button
+                key={label}
+                type="button"
+                onClick={action}
+                style={{
+                  width: 52,
+                  height: 42,
+                  background: index === 1 ? '#28c52f' : '#aaa',
+                  color: '#111',
+                  border: '2px solid #333',
+                  boxShadow: 'inset 1px 1px #eee',
+                  fontFamily: 'Tahoma, Arial, sans-serif',
+                  fontSize: 9,
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  textShadow: 'none',
+                }}
+              >
+                <div style={{ fontSize: 14, marginBottom: 2 }}>{index + 1}</div>
+                {label}
+              </button>
+            ))}
             <input
+              data-robloxify-file
               type="file"
               accept="audio/*"
               onChange={event => convert(event.target.files && event.target.files[0])}
               style={{ display: 'none' }}
             />
-          </label>
-          {file && (
-            <div style={{ marginTop: 6, color: '#eee', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-              {file.name}
-            </div>
-          )}
-        </div>
-
-        <div style={{
-          background: 'rgba(65, 45, 40, .74)',
-          border: '1px solid rgba(30,25,25,.9)',
-          padding: 8,
-          marginBottom: 7,
-        }}>
-          <div style={{ textAlign: 'center', marginBottom: 6 }}>{status}</div>
-          <div style={{
-            height: 13,
-            background: '#8b1e1e',
-            border: '2px solid #555',
-            boxShadow: 'inset 0 1px #222',
-            cursor: 'pointer',
-          }}
-            onClick={event => setProgress(Math.max(0, Math.min(100, ((event.clientX - event.currentTarget.getBoundingClientRect().left) / event.currentTarget.getBoundingClientRect().width) * 100)))}
-          >
-            <div style={{
-              width: progress + '%',
-              height: '100%',
-              background: '#24a52b',
-              boxShadow: 'inset 0 1px rgba(255,255,255,.35)',
-            }} />
           </div>
-        </div>
 
-        <div style={{
-          background: 'rgba(50, 40, 39, .76)',
-          border: '1px solid rgba(30,25,25,.9)',
-          padding: 8,
-          marginBottom: 7,
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PLAYER</div>
-
+          {/* Bottom-right classic HUD controls */}
           <div style={{
-            background: '#6f1f1f',
-            border: '2px solid #555',
-            height: 16,
-            position: 'relative',
-            boxSizing: 'border-box',
-            marginBottom: 4,
-            cursor: 'pointer',
-          }}
-            onClick={event => setBarFromPointer(event, value => setVolume(value))}
-            title="Click to set volume"
-          >
+            position: 'absolute',
+            right: 10,
+            bottom: 10,
+            width: 74,
+            textAlign: 'center',
+          }}>
+            <button
+              type="button"
+              onClick={() => setShowProjects(value => !value)}
+              style={{
+                width: 64,
+                height: 22,
+                background: 'rgba(210,210,210,.75)',
+                border: '1px solid #555',
+                color: '#111',
+                fontFamily: 'Tahoma, Arial, sans-serif',
+                fontSize: 10,
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                textShadow: 'none',
+              }}
+            >{showProjects ? 'CLOSE' : 'PROJECTS'}</button>
             <div style={{
-              width: Math.round(volume * 100) + '%',
-              height: '100%',
-              background: '#24a52b',
-              boxShadow: 'inset 0 1px rgba(255,255,255,.45)',
-            }} />
-            <div style={{
-              position: 'absolute',
-              inset: 0,
-              textAlign: 'center',
-              lineHeight: '12px',
-              color: '#fff',
-              textShadow: '1px 1px #222',
+              marginTop: 3,
+              display: 'grid',
+              gridTemplateColumns: '1fr 1fr',
+              gap: 2,
             }}>
-              VOLUME {Math.round(volume * 100)}%
+              <button type="button" onClick={() => setVolume(Math.min(1, volume + .1))} style={buttonStyle}>+</button>
+              <button type="button" onClick={() => setVolume(Math.max(0, volume - .1))} style={buttonStyle}>−</button>
             </div>
           </div>
 
+          {/* Playback bar: green/red like classic Health */}
           <div style={{
-            background: '#6f1f1f',
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: 12,
+            width: 'min(340px, 45%)',
+            height: 14,
+            background: '#b51e1e',
             border: '2px solid #555',
-            height: 16,
-            position: 'relative',
             boxSizing: 'border-box',
             cursor: 'pointer',
           }}
@@ -834,313 +1089,73 @@ function MusicAI({ onClose }) {
               const next = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
               setPlaybackTime(next * playbackDuration);
             }}
-            title="Playback time"
           >
             <div style={{
-              width: playbackDuration ? Math.min(100, (playbackTime / playbackDuration) * 100) + '%' : '0%',
+              width: playbackDuration ? Math.min(100, playbackTime / playbackDuration * 100) + '%' : '0%',
               height: '100%',
-              background: '#24a52b',
-              boxShadow: 'inset 0 1px rgba(255,255,255,.45)',
+              background: '#28c52f',
             }} />
+          </div>
+
+          {selectedNote && (
             <div style={{
               position: 'absolute',
-              inset: 0,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              bottom: 45,
+              background: 'rgba(80,80,80,.7)',
+              border: '1px solid rgba(255,255,255,.25)',
+              padding: 4,
               display: 'flex',
+              gap: 3,
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#fff',
-              textShadow: '1px 1px #222',
+              whiteSpace: 'nowrap',
             }}>
-              {formatTime(playbackTime)} / {formatTime(playbackDuration)}
+              <span>NOTE {selectedNote.pitchMidi} · {selectedNote.role.toUpperCase()}</span>
+              <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.max(0, selectedNote.pitchMidi - 1) })}>−</button>
+              <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.min(127, selectedNote.pitchMidi + 1) })}>+</button>
+              <button type="button" style={buttonStyle} onClick={removeSelected}>X</button>
             </div>
-          </div>
-        </div>
+          )}
 
-        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', justifyContent: 'center', marginBottom: 7 }}>
-          <button
-            type="button"
-            disabled={working || !arrangement.length}
-            onClick={playArrangement}
-            style={buttonStyle}
-          >
-            {playing ? 'PLAYING...' : 'PLAY'}
-          </button>
-          <button
-            type="button"
-            disabled={!playing}
-            onClick={stopPlayback}
-            style={buttonStyle}
-          >
-            STOP
-          </button>
-          <button
-            type="button"
-            disabled={working || !arrangement.length}
-            onClick={saveProject}
-            style={buttonStyle}
-          >
-            SAVE PROJECT
-          </button>
-          <button
-            type="button"
-            disabled={!midiBlob || working}
-            onClick={() => downloadBlob(
-              midiBlob,
-              (file ? file.name.replace(/\.[^.]+$/, '') : 'converted') + '.mid'
-            )}
-            style={buttonStyle}
-          >
-            SAVE MIDI
-          </button>
-          <button
-            type="button"
-            onClick={() => setShowProjects(value => !value)}
-            style={buttonStyle}
-          >
-            {showProjects ? 'HIDE PROJECTS' : 'PROJECTS'}
-          </button>
-        </div>
-
-        <div style={{
-          background: 'rgba(58, 43, 39, .76)',
-          border: '1px solid rgba(30,25,25,.9)',
-          padding: 8,
-          marginBottom: 7,
-        }}>
-          <div style={{ fontWeight: 'bold', marginBottom: 5, textAlign: 'center' }}>PROJECT</div>
-          <input
-            value={projectName}
-            onChange={event => {
-              setProjectName(event.target.value);
-              writeCookie(COOKIE_KEY, event.target.value);
-            }}
-            maxLength={80}
-            style={{
-              width: '100%',
+          {showProjects && (
+            <div style={{
+              position: 'absolute',
+              right: 90,
+              bottom: 45,
+              width: 250,
+              maxHeight: 190,
+              overflow: 'auto',
+              background: 'rgba(100,100,100,.82)',
+              border: '1px solid #333',
+              padding: 7,
               boxSizing: 'border-box',
-              background: '#eee',
-              color: '#111',
-              border: '1px solid #444',
-              padding: '4px',
-              fontFamily: 'Tahoma, Arial, sans-serif',
-              fontSize: 11,
               textAlign: 'center',
-            }}
-          />
-        </div>
-
-        {arrangement.length > 0 && (
-          <div style={{
-            background: 'rgba(55, 42, 39, .78)',
-            border: '1px solid rgba(30,25,25,.9)',
-            padding: 8,
-            marginBottom: 7,
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 6 }}>INSTRUMENTS</div>
-            {roles.map(role => {
-              const count = arrangement.filter(note => note.role === role.id).length;
-              return (
-                <div key={role.id} style={{
+            }}>
+              <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PROJECTS</div>
+              {projects.length === 0 && <div>No saved projects.</div>}
+              {projects.map(project => (
+                <div key={project.id} style={{
                   display: 'flex',
                   alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 6,
-                  background: 'rgba(185,185,185,.12)',
-                  borderTop: '1px solid rgba(255,255,255,.12)',
-                  padding: 5,
+                  gap: 4,
+                  justifyContent: 'center',
                   marginBottom: 3,
                 }}>
-                  <span style={{ minWidth: 60, textAlign: 'center' }}>{role.label}</span>
-                  <span style={{ flex: 1, color: '#ddd', textAlign: 'center' }}>{count} notes</span>
-                  <button
-                    type="button"
-                    disabled={!count || working}
-                    onClick={() => downloadStemMidi(role.id)}
-                    style={buttonStyle}
-                  >
-                    SAVE
-                  </button>
+                  <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>LOAD</button>
+                  <span style={{ flex: 1 }}>{project.name}</span>
+                  <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>X</button>
                 </div>
-              );
-            })}
-          </div>
-        )}
-
-        {arrangement.length > 0 && (
-          <div style={{
-            background: 'rgba(45, 35, 35, .78)',
-            border: '1px solid #222',
-            padding: 10,
-            marginBottom: 7,
-            minHeight: 460,
-            boxSizing: 'border-box',
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 2 }}>MIDI EDITOR</div>
-            <div style={{ color: '#ccc', marginBottom: 7 }}>DRUMS · BASS · GUITAR · VOCALS</div>
-
-            <div style={{
-              display: 'flex',
-              justifyContent: 'center',
-              flexWrap: 'wrap',
-              gap: 4,
-              marginBottom: 7,
-            }}>
-              <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-12)}>OCT -</button>
-              <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-1)}>NOTE -</button>
-              <button type="button" style={buttonStyle} onClick={() => transposeArrangement(1)}>NOTE +</button>
-              <button type="button" style={buttonStyle} onClick={() => transposeArrangement(12)}>OCT +</button>
-              <button type="button" style={buttonStyle} onClick={quantizeArrangement}>QUANTIZE</button>
+              ))}
             </div>
-
-            {selectedNote && (
-              <div style={{
-                background: 'rgba(180,180,180,.1)',
-                border: '1px solid #555',
-                padding: 6,
-                marginBottom: 7,
-              }}>
-                <div style={{ marginBottom: 5 }}>
-                  NOTE {selectedNote.pitchMidi} · {selectedNote.role.toUpperCase()}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 4 }}>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.max(0, selectedNote.pitchMidi - 1) })}>PITCH -</button>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ pitchMidi: Math.min(127, selectedNote.pitchMidi + 1) })}>PITCH +</button>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ startTimeSeconds: Math.max(0, selectedNote.startTimeSeconds - 0.1) })}>START -</button>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ startTimeSeconds: selectedNote.startTimeSeconds + 0.1 })}>START +</button>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ durationSeconds: Math.max(0.05, selectedNote.durationSeconds - 0.1) })}>LENGTH -</button>
-                  <button type="button" style={buttonStyle} onClick={() => editSelected({ durationSeconds: selectedNote.durationSeconds + 0.1 })}>LENGTH +</button>
-                  <select
-                    value={selectedNote.role}
-                    onChange={event => editSelected({ role: event.target.value })}
-                    style={{
-                      background: '#eee',
-                      color: '#111',
-                      border: '1px solid #444',
-                      fontFamily: 'Tahoma, Arial, sans-serif',
-                      fontSize: 11,
-                    }}
-                  >
-                    {roles.map(role => (
-                      <option key={role.id} value={role.id}>{role.label}</option>
-                    ))}
-                  </select>
-                  <button type="button" style={buttonStyle} onClick={removeSelected}>DELETE</button>
-                </div>
-              </div>
-            )}
-
-            <div style={{
-              overflowX: 'auto',
-              overflowY: 'auto',
-              border: '2px solid #555',
-              background: 'rgba(20,20,20,.88)',
-              flex: 1,
-              minHeight: 390,
-            }}>
-              <div style={{
-                position: 'relative',
-                height: 390,
-                minWidth: Math.max(650, Math.ceil(
-                  arrangement.reduce(
-                    (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
-                    0
-                  ) * 70 + 120
-                )),
-              }}>
-                {Array.from({ length: 13 }).map((_, row) => {
-                  const pitch = 84 - row * 3;
-                  return (
-                    <div key={pitch} style={{
-                      position: 'absolute',
-                      left: 0,
-                      right: 0,
-                      top: row * 20,
-                      height: 20,
-                      borderBottom: '1px solid #4b3030',
-                      color: '#aaa',
-                      fontSize: 9,
-                      textAlign: 'left',
-                      paddingLeft: 3,
-                      boxSizing: 'border-box',
-                    }}>
-                      {pitch}
-                    </div>
-                  );
-                })}
-
-                {arrangement.map(note => {
-                  const top = Math.max(0, Math.min(360, (84 - note.pitchMidi) * 10));
-                  const left = note.startTimeSeconds * 70 + 28;
-                  const width = Math.max(5, note.durationSeconds * 70);
-                  const selected = note.id === selectedNoteId;
-                  return (
-                    <button
-                      key={note.id}
-                      type="button"
-                      title={note.role.toUpperCase() + ' ' + note.pitchMidi}
-                      onClick={() => setSelectedNoteId(note.id)}
-                      style={{
-                        position: 'absolute',
-                        left,
-                        top,
-                        width,
-                        height: 16,
-                        padding: 0,
-                        margin: 0,
-                        background: selected ? '#24a52b' : '#a52a2a',
-                        border: selected ? '1px solid #8cff8c' : '1px solid #ff6666',
-                        cursor: 'pointer',
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </div>
-            <div style={{ color: '#bbb', marginTop: 5 }}>
-              CLICK A NOTE TO EDIT · THE MIDI EDITOR USES THE WHOLE WORKSPACE
-            </div>
-          </div>
-        )}
-
-        {showProjects && (
-          <div style={{
-            background: 'rgba(55,42,39,.8)',
-            border: '1px solid rgba(30,25,25,.9)',
-            padding: 8,
-          }}>
-            <div style={{ fontWeight: 'bold', marginBottom: 5 }}>PROJECTS</div>
-            {projects.length === 0 && (
-              <div style={{ color: '#ccc' }}>No saved Robloxify projects.</div>
-            )}
-            {projects.map(project => (
-              <div key={project.id} style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 5,
-                borderTop: '1px solid rgba(255,255,255,.12)',
-                padding: '5px 0',
-              }}>
-                <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>LOAD</button>
-                <span style={{ flex: 1, color: '#fff', textAlign: 'center' }}>
-                  {project.name}
-                  <span style={{ color: '#bbb', marginLeft: 5 }}>({project.sourceName})</span>
-                </span>
-                <button type="button" style={buttonStyle} onClick={() => deleteProject(project)}>X</button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {notes.length > 0 && (
-          <div style={{ marginTop: 7, textAlign: 'center', color: '#ddd' }}>
-            {notes.length} NOTES
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
+
+
 
 }
 
