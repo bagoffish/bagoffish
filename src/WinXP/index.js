@@ -188,6 +188,7 @@ function injectXpCursors() {
     'html, body, #root, #root * { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     '#root a, #root a *, #root button, #root button *, #root [role="button"], #root [role="button"] *, #root label, #root label *, #root summary, #root summary *, #root select, #root option, #root .xpButton, #root .xpButton *, #root .ie__function_bar__button, #root .ie__function_bar__button *, #root .inline-link, #root .inline-link *, #root [onclick], #root [onclick] *, #root [data-clickable], #root [data-clickable] *, #root input[type="button"], #root input[type="submit"], #root input[type="reset"], #root input[type="checkbox"], #root input[type="radio"], #root input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .app__header { cursor: url("/images/Move.cur") 8 8, move !important; }',
+    '#root .app__header button, #root .app__header [role="button"], #root .app__header [onclick] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-move { cursor: url("/images/Move.cur") 8 8, move !important; }',
     '#root .xp-cursor-horizontal { cursor: url("/images/Horizontal%20Resize.cur") 8 8, ew-resize !important; }',
     '#root .xp-cursor-vertical { cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important; }',
