@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: winxp-avatar-api
+    name: winxp-7yes
     runtime: node
     rootDir: backend
     buildCommand: npm install
