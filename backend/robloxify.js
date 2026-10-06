@@ -8,8 +8,8 @@ import {
 import decodeAudio from "audio-decode";
 
 const TARGET_RATE = 22050;
-const MAX_SECONDS = 180; // 3 minutes hard cap
-const MAX_BYTES = 25 * 1024 * 1024;
+const MAX_SECONDS = 600; // 10 minutes
+const MAX_BYTES = 50 * 1024 * 1024; // 50 MB for longer tracks
 
 let basicPitchPromise = null;
 
@@ -90,17 +90,20 @@ export async function transcribeAudioBuffer(fileBuffer, onProgress) {
     throw new Error("Empty audio file");
   }
   if (fileBuffer.length > MAX_BYTES) {
-    throw new Error("Audio file too large (max 25 MB)");
+    throw new Error("Audio file too large (max 50 MB)");
   }
 
-  const audioBuffer = await decodeAudio(fileBuffer.buffer.slice(
-    fileBuffer.byteOffset,
-    fileBuffer.byteOffset + fileBuffer.byteLength
-  ));
+  const audioBuffer = await decodeAudio(
+    fileBuffer.buffer.slice(
+      fileBuffer.byteOffset,
+      fileBuffer.byteOffset + fileBuffer.byteLength
+    )
+  );
 
-  const duration = audioBuffer.duration || audioBuffer.length / audioBuffer.sampleRate;
+  const duration =
+    audioBuffer.duration || audioBuffer.length / audioBuffer.sampleRate;
   if (duration > MAX_SECONDS) {
-    throw new Error(`Audio must be ${MAX_SECONDS} seconds or shorter`);
+    throw new Error(`Audio must be ${MAX_SECONDS} seconds or shorter (10 minutes)`);
   }
 
   let { samples, sampleRate } = toMonoFloat32(audioBuffer);
