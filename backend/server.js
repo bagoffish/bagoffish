@@ -31,6 +31,18 @@ app.use(cors({
   },
   methods: ["GET", "OPTIONS"],
   allowedHeaders: ["Accept", "Content-Type"],
+  optionsSuccessStatus: 204,
+}));
+
+// Handle browser preflight requests explicitly.
+app.options("*", cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.has(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ["GET", "OPTIONS"],
+  allowedHeaders: ["Accept", "Content-Type"],
+  optionsSuccessStatus: 204,
 }));
 app.use(express.json());
 
