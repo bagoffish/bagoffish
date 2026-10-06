@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = "https://bagoffish-f4qd.onrender.com";
+  var API_BASE = window.RENDERER_API_BASE || "https://bagoffish-f4qd.onrender.com";
   var RETRY_LIMIT = 100;
 
   function text(value) {
@@ -99,7 +99,6 @@
       loadingIndicator.style.display = "flex";
 
       fetch(API_BASE + "/proxy-roblox?username=" + encodeURIComponent(username), {
-        credentials: "include",
         headers: {
           "Accept": "application/json"
         }
@@ -187,7 +186,11 @@
         })
         .catch(function (error) {
           console.error("Renderer request failed:", error);
-          showError("User not found (◞‸◟；)");
+          showError(
+            error && error.message && error.message.indexOf("Failed to fetch") !== -1
+              ? "Renderer service unavailable. Try again in a moment."
+              : "User not found (◞‸◟；)"
+          );
         });
     });
 
