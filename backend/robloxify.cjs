@@ -330,12 +330,13 @@ function sanitizeStylePlan(plan, fallback) {
 async function createRobloxifyStylePlan(notes, duration) {
   const fallback = fallbackStylePlan(notes, duration);
   const analysis = summarizeForStyleAI(notes, duration);
-  if (!process.env.OPENAI_API_KEY) {
-    return { ...fallback, ai: false, analysis, webResearch: [] };
-  }
+  try {
+    if (!process.env.OPENAI_API_KEY) {
+      return { ...fallback, ai: false, analysis, webResearch: [] };
+    }
 
-  const model = process.env.ROBLOXIFY_AI_MODEL || 'gpt-6-luna';
-  const prompt = [
+    const model = process.env.ROBLOXIFY_AI_MODEL || 'gpt-6-luna';
+    const prompt = [
     'You are the persistent musical director and reference brain for Robloxify.',
     'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
     'Treat the reference library as learned arrangement knowledge and combine the complete palette into one coherent original orchestral arrangement. There is no single style choice.',
@@ -368,9 +369,8 @@ async function createRobloxifyStylePlan(notes, duration) {
         webResearch: [{ title: 'source title', url: 'source url', takeaway: 'style takeaway' }]
       }
     })
-  ].join('\n\n');
+    ].join('\n\n');
 
-  try {
     const response = await fetch('https://api.openai.com/v1/responses', {
       method: 'POST',
       headers: {
@@ -396,8 +396,10 @@ async function createRobloxifyStylePlan(notes, duration) {
     const plan = sanitizeStylePlan(parseAIJson(text), fallback);
     return { ...plan, ai: true, model, analysis };
   } catch (error) {
-    console.warn('Robloxify AI planner unavailable:', error.message);
-    return { ...fallback, ai: false, aiError: error.message, analysis, webResearch: [] };
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn('Robloxify AI planner unavailable:', message);
+    console.warn(error?.stack || 'No planner stack available');
+    return { ...fallback, ai: false, aiError: message, analysis, webResearch: [] };
   }
 }
 const ROBLOXIFY_LIMITS = { MAX_SECONDS, MAX_BYTES };
