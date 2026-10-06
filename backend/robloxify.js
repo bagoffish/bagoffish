@@ -322,7 +322,7 @@ export async function createRobloxifyStylePlan(notes, duration) {
     'Return JSON only. Do not write prose outside the JSON.',
     JSON.stringify({
       task: 'Create an original Roblox-soundfont arrangement plan',
-      availableStyles: ['mule','fjords-midi','strategy','roblox-sf','gamehero','classic-days','party','monster','horror','stealth','chip','classic'],
+      palette: 'complete Roblox soundfont library',
       analysis,
       outputSchema: {
         primaryRole: 'bass|guitar|vocals|keys|pad|strings|arp',
