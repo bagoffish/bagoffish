@@ -65,29 +65,42 @@ function AboutMe({ onClose }) {
     // the backend was restarted and its ephemeral file cache was lost.
     const endpoint = "/visitor-count/visit";
 
-    fetch(
-      "https://winxp-backend-live.onrender.com" +
-        endpoint +
-        "?visitor=" +
-        encodeURIComponent(visitorId),
-      { cache: "no-store" }
-    )
-      .then((response) => {
-        if (!response.ok) throw new Error("Visitor counter unavailable");
-        return response.json();
-      })
-      .then((data) => {
-        if (!cancelled && Number.isFinite(Number(data.count))) {
-          const count = Number(data.count);
-          setVisitorCount(count);
-          try {
-            window.localStorage.setItem("bagof-fish-visitor-count", String(count));
-          } catch (e) {}
-        }
-      })
-      .catch(() => {});
+    let retryTimer = null;
+    let attempt = 0;
+    const fetchVisitorCount = () => {
+      if (cancelled) return;
+      fetch(
+        "https://winxp-backend-live.onrender.com" +
+          endpoint +
+          "?visitor=" +
+          encodeURIComponent(visitorId),
+        { cache: "no-store" }
+      )
+        .then((response) => {
+          if (!response.ok) throw new Error("Visitor counter unavailable");
+          return response.json();
+        })
+        .then((data) => {
+          if (!cancelled && Number.isFinite(Number(data.count))) {
+            const count = Number(data.count);
+            setVisitorCount(count);
+            try {
+              window.localStorage.setItem("bagof-fish-visitor-count", String(count));
+            } catch (e) {}
+          }
+        })
+        .catch(() => {
+          if (cancelled || attempt >= 4) return;
+          const delay = [1000, 2500, 5000, 10000][attempt++];
+          retryTimer = window.setTimeout(fetchVisitorCount, delay);
+        });
+    };
+    fetchVisitorCount();
 
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      if (retryTimer) window.clearTimeout(retryTimer);
+    };
   }, []);
   const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
 
