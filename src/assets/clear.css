@@ -11,3 +11,34 @@ body {
   padding: 0;
   margin: 0;
 }
+
+/* Site-wide classic Roblox cursors. The !important rules intentionally override
+   app-specific inline cursor styles so every WinXP app uses the same pointers. */
+html,
+body,
+#root,
+#root * {
+  cursor: url('/images/Normal%20Select.cur') 0 0, default !important;
+}
+
+#root button,
+#root a,
+#root [role='button'],
+#root label,
+#root select,
+#root summary,
+#root input[type='button'],
+#root input[type='submit'],
+#root input[type='file'] {
+  cursor: url('/images/Link%20Select.cur') 0 0, pointer !important;
+}
+
+#root input[type='text'],
+#root input[type='search'],
+#root input[type='number'],
+#root input[type='email'],
+#root input[type='password'],
+#root textarea,
+#root [contenteditable='true'] {
+  cursor: url('/images/Normal%20Select.cur') 0 0, text !important;
+}
