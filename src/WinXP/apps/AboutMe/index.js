@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import styled from "styled-components";
 
 import { WindowDropDowns } from "components";
@@ -25,12 +25,7 @@ import windows from "assets/windowsIcons/windows.png";
 import dropdown from "assets/windowsIcons/dropdown.png";
 
 function AboutMe({ onClose }) {
-  const [route, setRoute] = useState("about"); // "about" | "lain"
-
-  const addressText = useMemo(() => {
-    if (route === "lain") return "https://bagof.fish/lain";
-    return "https://bagof.fish/about";
-  }, [route]);
+  const addressText = useMemo(() => "https://bagof.fish/about", []);
 
   const functionMap = useMemo(
     () => ({
@@ -65,58 +60,37 @@ function AboutMe({ onClose }) {
           <div className="ie__function_bar__arrow" />
         </div>
         <div className="ie__function_bar__button--disable">
-          <img className="ie__function_bar__icon" src={stop} alt="" />
+          <img className="ie__function_bar__icon--margin-1" src={stop} alt="" />
         </div>
         <div className="ie__function_bar__button--disable">
-          <img className="ie__function_bar__icon" src={refresh} alt="" />
+          <img className="ie__function_bar__icon--margin-1" src={refresh} alt="" />
         </div>
         <div className="ie__function_bar__button--disable" title="Home">
           <img className="ie__function_bar__icon--margin-1" src={home} alt="" />
         </div>
-
         <div className="ie__function_bar__separate" />
-
         <div className="ie__function_bar__button--disable">
-          <img
-            className="ie__function_bar__icon--normalize"
-            src={search}
-            alt=""
-          />
+          <img className="ie__function_bar__icon--normalize" src={search} alt="" />
           <span className="ie__function_bar__text">Search</span>
         </div>
-
         <div className="ie__function_bar__button--disable">
-          <img
-            className="ie__function_bar__icon--normalize"
-            src={favorite}
-            alt=""
-          />
+          <img className="ie__function_bar__icon--normalize" src={favorite} alt="" />
           <span className="ie__function_bar__text">Favorites</span>
         </div>
-
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={history} alt="" />
         </div>
-
         <div className="ie__function_bar__separate" />
-
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon--margin-1" src={mail} alt="" />
           <div className="ie__function_bar__arrow--margin-11" />
         </div>
-
         <div className="ie__function_bar__button--disable">
-          <img
-            className="ie__function_bar__icon--margin12"
-            src={printer}
-            alt=""
-          />
+          <img className="ie__function_bar__icon--margin12" src={printer} alt="" />
         </div>
-
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={edit} alt="" />
         </div>
-
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon--margin12" src={msn} alt="" />
         </div>
@@ -124,30 +98,18 @@ function AboutMe({ onClose }) {
 
       <section className="ie__address_bar">
         <div className="ie__address_bar__title">Address</div>
-
         <div className="ie__address_bar__content" title={addressText}>
           <img src={ie} alt="ie" className="ie__address_bar__content__img" />
           <div className="ie__address_bar__content__text">{addressText}</div>
-          <img
-            src={dropdown}
-            alt="dropdown"
-            className="ie__address_bar__content__img"
-          />
+          <img src={dropdown} alt="dropdown" className="ie__address_bar__content__img" />
         </div>
-
         <div className="ie__address_bar__go">
           <img className="ie__address_bar__go__img" src={go} alt="go" />
           <span className="ie__address_bar__go__text">Go</span>
         </div>
-
         <div className="ie__address_bar__separate" />
-
         <div className="ie__address_bar__links">
-          <img
-            src={links}
-            alt="links"
-            className="ie__address_bar__links__img"
-          />
+          <img src={links} alt="links" className="ie__address_bar__links__img" />
           <div className="ie__address_bar__links__text">Links</div>
         </div>
       </section>
@@ -155,91 +117,118 @@ function AboutMe({ onClose }) {
       <div className="ie__content">
         <div className="ie__content__inner">
           <div className="about">
-            <div className="about__header">
-              <button
-                type="button"
-                className={route === "about" ? "about__tab about__tab--active" : "about__tab"}
-                onClick={() => setRoute("about")}
-              >
-                About
-              </button>
-              <button
-                type="button"
-                className={route === "lain" ? "about__tab about__tab--active" : "about__tab"}
-                onClick={() => setRoute("lain")}
-              >
-                Lain
-              </button>
-            </div>
+            <h1 className="about__title">About Me</h1>
 
-            {route === "about" && (
-              <pre className="about__text">
-                {ABOUT_TEXT_BEFORE}
-              </pre>
-            )}
+            <section className="about__section">
+              <pre className="about__text">{ABOUT_TEXT}</pre>
+              <p className="about__lain-line">
+               {" "}Also:{" "}
+                <a
+                  className="about__lain"
+                  href="/vn/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Serial Experiments Lain
+                </a>
+                {" "}(present day, present time…)
+              </p>
+            </section>
 
-            {route === "lain" && (
-              <div className="about__lain">
-                <p>
-                  present day, present time.
-                </p>
-                <p>
-                  ha ha ha ha ha ha ha ha...
-                </p>
+            <section className="about__section">
+              <h2 className="about__heading">INTERESTS</h2>
+              <pre className="about__text">{INTERESTS_TEXT}</pre>
+            </section>
+
+            <section className="about__section">
+              <h2 className="about__heading">RECOMMENDATIONS</h2>
+              <pre className="about__text">{RECS_TEXT}</pre>
+            </section>
+
+            <section className="about__section about__links-section">
+              <h2 className="about__heading">LINKS</h2>
+              <div className="links">
+                <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
+                  Spotify
+                </a>
+                <a href="https://www.last.fm/user/drum" target="_blank" rel="noopener noreferrer">
+                  Last.fm
+                </a>
+                <a href="https://soundcloud.com/coral" target="_blank" rel="noopener noreferrer">
+                  SoundCloud
+                </a>
+                <a href="https://rateyourmusic.com/~bagoffish" target="_blank" rel="noopener noreferrer">
+                  Rate Your Music
+                </a>
+                <a href="https://open.spotify.com/artist/567cGc3PvmxiZFQCwjcaRq" target="_blank" rel="noopener noreferrer">
+                  Music Project - Spotify
+                </a>
+                <a href="https://bagoffish.bandcamp.com" target="_blank" rel="noopener noreferrer">
+                  Music Project - Bandcamp
+                </a>
+                <a href="mailto:fossils@gmail.com">Email - fossils@gmail.com</a>
+                <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">
+                  GitHub
+                </a>
+                <a
+                  className="about__lain"
+                  href="/vn/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Lain
+                </a>
               </div>
-            )}
-
-            {route === "about" && ABOUT_TEXT_AFTER ? (
-              <pre className="about__text">{ABOUT_TEXT_AFTER}</pre>
-            ) : null}
+            </section>
           </div>
         </div>
       </div>
 
-      <footer className="ie__status">
-        <div className="ie__status__left">
-          <img src={ie} alt="" width={14} height={14} />
-          <span>Done</span>
+      <footer className="ie__footer">
+        <div className="ie__footer__status">
+          <img className="ie__footer__status__img" src={ie} alt="" />
+          <span className="ie__footer__status__text">Done</span>
         </div>
-        <div className="ie__status__right">
-          <img src={earth} alt="" width={14} height={14} />
-          <span>Internet</span>
+        <div className="ie__footer__block" />
+        <div className="ie__footer__block" />
+        <div className="ie__footer__block" />
+        <div className="ie__footer__block" />
+        <div className="ie__footer__right">
+          <img className="ie__footer__right__img" src={earth} alt="" />
+          <span className="ie__footer__right__text">Internet</span>
+          <div className="ie__footer__right__dots" />
         </div>
       </footer>
     </Div>
   );
 }
 
-const ABOUT_TEXT_BEFORE = `My name is Coy
+const ABOUT_TEXT = `My name is Coy
 
 I'm deeply into philosophy; I'm an optimistic nihilist & an antinatalist.
 Favorite philosophers: Nietzsche, Schopenhauer, Camus & Sartre. (In order)
 
-I like feminine terms, but still call me a he. 
-i.e "Ms/Queen/whateverthehell Coy wow, he's so pretty" 
+I like feminine terms, but still call me a he.
+i.e "Ms/Queen/whateverthehell Coy wow, he's so pretty"
 but don't glaze me like that unjokingly, I think that's a little weird.
 
 I'm fine with adults interacting with me if you aren't a creep.
-That's all I'll say due to limited space, just talk to me if you're interested. 
-If normal, there's 0 biting.
+That's all I'll say due to limited space, just talk to me if you're interested.
+If normal, there's 0 biting.`;
 
-INTERESTS —
-Hobbies: Playing guitar, writing, photographing, illustrating & dissecting
+const INTERESTS_TEXT = `Hobbies: Playing guitar, writing, photographing, illustrating & dissecting
 Genres: Philosophy, horror eroge, ero guro, body horror,
         psychological horror, speculative evolution,
-        post-apocalyptic sci-fi
+        post-apocalyptic sci-fi`;
 
-RECOMMENDATIONS —
-TV Shows: Mr. Robot & American Gods
+const RECS_TEXT = `TV Shows: Mr. Robot & American Gods
 Visual Novels: Saya no Uta, Steins;Gate, Katawa Shoujo,
                Teaching Feeling, Higurashi & SubaHibi
 Mangas: Tokyo Akazukin, Null-Meta, Sayonara Zetsubou Sensei, Ashizuri Suizokukan,
-        Shadow Star, Made in Abyss, Mai-chan’s Daily Life & Shimeji Simulation
+        Shadow Star, Made in Abyss, Mai-chan's Daily Life & Shimeji Simulation
 Animes: A Silent Voice, Monster, Inuyashiki, Bungo Stray Dogs,
-        Alien Nine, Evangelion, Parasyte, Nichijou, 
-        Girls Last Tour, Haibane Renmei & `;
-
-const ABOUT_TEXT_AFTER = ``;
+        Alien Nine, Evangelion, Parasyte, Nichijou,
+        Girls Last Tour, Haibane Renmei & Serial Experiments Lain`;
 
 const Div = styled.div`
   height: 100%;
@@ -250,7 +239,6 @@ const Div = styled.div`
   flex-direction: column;
   background: linear-gradient(to right, #edede5 0%, #ede8cd 100%);
 
-  /* ---- IE chrome (same layout as Socials) ---- */
   .ie__toolbar {
     position: relative;
     display: flex;
@@ -290,20 +278,6 @@ const Div = styled.div`
   }
   .ie__function_bar__button--disable > * {
     pointer-events: none;
-  }
-  .ie__function_bar__button {
-    display: flex;
-    height: 100%;
-    align-items: center;
-    border: 1px solid rgba(0, 0, 0, 0);
-    border-radius: 3px;
-    padding: 0 4px;
-    margin-right: 2px;
-    cursor: url("/images/Link%20Select.cur") 3 3, pointer;
-  }
-  .ie__function_bar__button:hover {
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    box-shadow: inset 0 -1px 1px rgba(0, 0, 0, 0.1);
   }
   .ie__function_bar__icon {
     height: 22px;
@@ -388,8 +362,6 @@ const Div = styled.div`
     align-items: center;
     height: 20px;
     padding: 0 4px;
-    border: 1px solid transparent;
-    border-radius: 2px;
   }
   .ie__address_bar__go__img {
     width: 16px;
@@ -424,24 +396,21 @@ const Div = styled.div`
   }
   .ie__content__inner {
     min-height: 100%;
-    padding: 12px 16px;
+    padding: 12px 16px 20px;
   }
-  .about__header {
-    display: flex;
-    gap: 4px;
-    margin-bottom: 12px;
-  }
-  .about__tab {
+  .about__title {
     font-family: Tahoma, sans-serif;
-    font-size: 11px;
-    padding: 2px 10px;
-    border: 1px solid #7f9db9;
-    background: #ece9d8;
-    cursor: url("/images/Link%20Select.cur") 3 3, pointer;
+    font-size: 16px;
+    margin: 0 0 10px;
   }
-  .about__tab--active {
-    background: #fff;
-    border-bottom-color: #fff;
+  .about__section {
+    margin-bottom: 14px;
+  }
+  .about__heading {
+    font-family: Tahoma, sans-serif;
+    font-size: 12px;
+    margin: 0 0 6px;
+    color: #003399;
   }
   .about__text {
     font-family: "Courier New", Courier, monospace;
@@ -451,27 +420,72 @@ const Div = styled.div`
     margin: 0;
     color: #000;
   }
-  .about__lain {
+  .about__lain-line {
     font-family: "Courier New", Courier, monospace;
-    font-size: 13px;
-    line-height: 1.6;
+    font-size: 12px;
+    margin: 8px 0 0;
   }
-  .ie__status {
+  .about__lain {
+    color: #0066cc;
+    text-decoration: underline;
+    cursor: url("/images/Link%20Select.cur") 3 3, pointer;
+  }
+  .about__lain:hover {
+    color: #cc0000;
+  }
+  .links {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-family: Tahoma, sans-serif;
+    font-size: 12px;
+  }
+  .links a {
+    color: #0066cc;
+    text-decoration: underline;
+    cursor: url("/images/Link%20Select.cur") 3 3, pointer;
+  }
+  .links a:hover {
+    color: #cc0000;
+  }
+  .ie__footer {
     height: 22px;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 0 6px;
+    padding: 0 2px;
     border-top: 1px solid #fff;
     background: #ece9d8;
     font-size: 11px;
     flex-shrink: 0;
   }
-  .ie__status__left,
-  .ie__status__right {
+  .ie__footer__status {
     display: flex;
     align-items: center;
     gap: 4px;
+    padding: 0 6px;
+    min-width: 120px;
+  }
+  .ie__footer__status__img {
+    width: 14px;
+    height: 14px;
+  }
+  .ie__footer__block {
+    flex: 1;
+    height: 16px;
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+  }
+  .ie__footer__right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0 6px;
+  }
+  .ie__footer__right__img {
+    width: 14px;
+    height: 14px;
+  }
+  .ie__footer__right__dots {
+    width: 20px;
   }
 `;
 
