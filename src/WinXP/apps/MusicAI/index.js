@@ -22,7 +22,7 @@ const roles = [
 ];
 
 const buttonStyle = {
-  background: 'linear-gradient(#4f4f4f, #171717)',
+  background: '#202020',
   border: '1px solid #8b8b8b',
   borderRightColor: '#111',
   borderBottomColor: '#111',
@@ -161,16 +161,36 @@ function MusicAI({ onClose }) {
     setFile(inputFile);
     setWorking(true);
     setProgress(0);
-    setStatus('LOADING SPOTIFY BASIC PITCH AI...');
+    setStatus('LOADING ROBLOXIFY ENGINE...');
 
     try {
       const bytes = await inputFile.arrayBuffer();
       const decodeContext = new AudioContext();
-      const audioBuffer = await decodeContext.decodeAudioData(bytes);
-      setInputSampleRate(audioBuffer.sampleRate);
+      const sourceBuffer = await decodeContext.decodeAudioData(bytes);
+      setInputSampleRate(sourceBuffer.sampleRate);
       await decodeContext.close();
 
-      setStatus('LOADING AI MODEL...');
+      // Basic Pitch evaluates audio at 22050 Hz. Browser decoding can produce
+      // 44100/48000/96000 Hz buffers, so explicitly resample any input here.
+      const targetSampleRate = 22050;
+      let audioBuffer = sourceBuffer;
+      if (sourceBuffer.sampleRate !== targetSampleRate) {
+        const targetLength = Math.ceil(
+          sourceBuffer.duration * targetSampleRate
+        );
+        const offlineContext = new OfflineAudioContext(
+          sourceBuffer.numberOfChannels,
+          targetLength,
+          targetSampleRate
+        );
+        const source = offlineContext.createBufferSource();
+        source.buffer = sourceBuffer;
+        source.connect(offlineContext.destination);
+        source.start(0);
+        audioBuffer = await offlineContext.startRendering();
+      }
+
+      setStatus('LOADING ROBLOXIFY MODEL...');
       const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
       const basicPitch = new BasicPitch(model);
 
@@ -187,7 +207,7 @@ function MusicAI({ onClose }) {
         },
         value => {
           setProgress(Math.round(value * 85));
-          setStatus('AI TRANSCRIBING ' + Math.round(value * 100) + '%');
+          setStatus('TRANSCRIBING ' + Math.round(value * 100) + '%');
         }
       );
 
@@ -211,7 +231,7 @@ function MusicAI({ onClose }) {
       );
       const density = detected.length / Math.max(1, duration);
 
-      setStatus('AI FITTING NOTES TO ROBLOX INSTRUMENTS...');
+      setStatus('FITTING NOTES TO ROBLOX INSTRUMENTS...');
       const fitted = detected.map(note => ({
         ...note,
         role: chooseRole(note, density),
@@ -412,7 +432,9 @@ function MusicAI({ onClose }) {
           />
         </label>
         {file && (
-          <div style={{ marginTop: 7, color: '#aaa' }}>{file.name}</div>
+          <div style={{ marginTop: 7, color: '#aaa' }}>
+            {file.name}{inputSampleRate ? ' · ' + inputSampleRate + ' Hz input → 22050 Hz transcription' : ''}
+          </div>
         )}
       </div>
 
@@ -525,7 +547,7 @@ function MusicAI({ onClose }) {
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
-                  borderBottom: '1px solid ' + red,
+                  borderBottom: '1px solid #ff0000',
                   padding: '3px 0',
                 }}
               >
@@ -561,7 +583,7 @@ function MusicAI({ onClose }) {
               <button type="button" style={buttonStyle} onClick={() => loadProject(project)}>
                 LOAD
               </button>
-              <span style={{ flex: 1, color: white }}>
+              <span style={{ flex: 1, color: '#fff' }}>
                 {project.name}
                 <span style={{ color: '#aaa', marginLeft: 5 }}>({project.sourceName})</span>
               </span>
