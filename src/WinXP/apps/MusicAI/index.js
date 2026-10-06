@@ -382,6 +382,7 @@ function MusicAI({ onClose }) {
         fontFamily: 'Tahoma, Arial, sans-serif',
         fontSize: 11,
         padding: 10,
+        textAlign: 'center',
         boxSizing: 'border-box',
       }}
     >
@@ -396,7 +397,7 @@ function MusicAI({ onClose }) {
           marginBottom: 8,
         }}
       >
-        ROBLOXIFY // ROBLOX MUSIC LAB
+        ROBLOXIFY
       </div>
 
       <div
@@ -413,12 +414,9 @@ function MusicAI({ onClose }) {
           marginBottom: 8,
         }}
       >
-        <div style={{ color: '#8bdcff', marginBottom: 6 }}>ROBLOXIFY AUDIO</div>
+        <div style={{ color: '#8bdcff', marginBottom: 6 }}>AUDIO</div>
         <div style={{ marginBottom: 8 }}>
-          TURN AUDIO INTO A ROBLOX-READY MIDI ARRANGEMENT
-          <div style={{ marginTop: 4, color: '#aaa', fontSize: 10 }}>
-            ANY INPUT SAMPLE RATE · TRANSCRIPTION NORMALIZES INTERNALLY
-          </div>
+          AUDIO TO MIDI
         </div>
         <label style={buttonStyle}>
           CHOOSE AUDIO
@@ -433,7 +431,7 @@ function MusicAI({ onClose }) {
         </label>
         {file && (
           <div style={{ marginTop: 7, color: '#aaa' }}>
-            {file.name}{inputSampleRate ? ' · ' + inputSampleRate + ' Hz input → 22050 Hz transcription' : ''}
+            {file.name}
           </div>
         )}
       </div>
@@ -482,6 +480,7 @@ function MusicAI({ onClose }) {
             padding: '4px',
             fontFamily: 'Tahoma, Arial, sans-serif',
             fontSize: 11,
+            textAlign: 'center',
           }}
         />
       </div>
@@ -536,9 +535,7 @@ function MusicAI({ onClose }) {
 
       {arrangement.length > 0 && (
         <div style={{ marginTop: 8, borderTop: '1px solid #555', paddingTop: 7 }}>
-          <div style={{ color: '#ffcf70', marginBottom: 5 }}>
-            ROBLOXIFY INSTRUMENT FIT
-          </div>
+          <div style={{ color: '#ffcf70', marginBottom: 5 }}>INSTRUMENTS</div>
           {roles.map(role => {
             const count = arrangement.filter(note => note.role === role.id).length;
             return (
@@ -549,6 +546,7 @@ function MusicAI({ onClose }) {
                   justifyContent: 'space-between',
                   borderBottom: '1px solid #ff0000',
                   padding: '3px 0',
+                  textAlign: 'center',
                 }}
               >
                 <span>{role.label}</span>
@@ -568,7 +566,7 @@ function MusicAI({ onClose }) {
           background: '#080808',
           padding: 7,
         }}>
-          <div style={{ color: '#ffcf70', marginBottom: 5 }}>SAVED PROJECTS</div>
+          <div style={{ color: '#ffcf70', marginBottom: 5 }}>PROJECTS</div>
           {projects.length === 0 && (
             <div style={{ color: '#aaa' }}>No saved Robloxify projects.</div>
           )}
@@ -596,11 +594,8 @@ function MusicAI({ onClose }) {
       )}
 
       {notes.length > 0 && (
-        <div style={{ marginTop: 8, color: '#888', lineHeight: '15px' }}>
-          {notes.length} notes detected. Spotify Basic Pitch performs the
-          audio-to-MIDI machine-learning transcription locally in the browser.
-          The arrangement stage then fits the detected notes into Roblox
-          General MIDI-style programs before SpessaSynth renders the Roblox SF2.
+        <div style={{ marginTop: 8, color: '#888' }}>
+          {notes.length} notes
         </div>
       )}
     </div>
