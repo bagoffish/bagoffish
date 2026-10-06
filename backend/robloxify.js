@@ -285,7 +285,7 @@ function sanitizeStylePlan(plan, fallback) {
         .filter(x => styles.has(x?.style) && Number.isFinite(Number(x?.weight)))
         .map(x => ({ style: x.style, weight: Math.max(0, Math.min(1, Number(x.weight))) }))
         .sort((a, b) => b.weight - a.weight)
-        .slice(0, 4)
+        .slice(0, styles.size)
     : [];
   if (!out.styleMix.length) out.styleMix = [{ style: out.style, weight: 1 }];
   const totalStyleWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
@@ -326,7 +326,7 @@ export async function createRobloxifyStylePlan(notes, duration) {
     'You are the persistent musical director and reference brain for Robloxify.',
     'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
     'Treat the reference library as learned arrangement knowledge: compare the input against its traits, select several compatible musical vocabularies, and combine them into one coherent original arrangement. Do NOT force the song into one style.',
-    'Prefer a deliberate blend of 2 to 4 styles when that improves the music. Assign different influences to different musical functions: one may guide harmony, another rhythm, another instrumentation, another melodic phrasing. Make the blend feel intentional rather than like random genre switching.',
+    'Use ALL available styles together as one unified orchestral palette. Do not choose only a few styles. Assign each style a useful musical function (melody, counter-melody, bass, harmony, rhythm, pad, strings, arpeggio, accents, or transitions) and make their influences overlap smoothly. The result should feel like one coherent, polished Roblox orchestral arrangement, not 12 unrelated layers playing the same notes. Preserve the original song's melody, timing, contour, and recognizable structure above all else.',
     'Use web search as optional fresh research and corroboration, not as the only source of musical knowledge.',
     'Study broad traits such as instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
     'Do NOT copy a specific song, melody, lyric, chord progression, or distinctive rhythmic phrase. Produce an original style-level plan.',
@@ -339,7 +339,7 @@ export async function createRobloxifyStylePlan(notes, duration) {
       analysis,
       outputSchema: {
         style: 'dominant available style (keep for backward compatibility)',
-        styleMix: [{ style: 'available style', weight: '0 to 1' }, { style: 'optional second style', weight: '0 to 1' }],
+        styleMix: [{ style: 'EVERY available style exactly once', weight: 'relative influence 0 to 1' }],
         primaryRole: 'bass|guitar|vocals|keys|pad|strings|arp',
         supportRoles: ['up to four roles'],
         drums: true,
