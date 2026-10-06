@@ -235,7 +235,9 @@ function parseFilesInWorker(files) {
 }
 
 async function buildFromChunksParallel(files) {
-  const workerCount = Math.max(1, Math.min(os.cpus().length, files.length));
+  // Render's free backend has a 512 MB memory limit. Spawning one parser
+  // worker per CPU can exhaust memory during startup, so keep this bounded.
+  const workerCount = Math.max(1, Math.min(2, files.length));
   const buckets = Array.from({ length: workerCount }, () => []);
   files.forEach((f, i) =>
     buckets[i % workerCount].push(path.join(THUMBNAIL_CHUNKS_PATH, f))
