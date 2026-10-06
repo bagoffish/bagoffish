@@ -150,13 +150,31 @@ export async function transcribeAudioBuffer(fileBuffer, onProgress) {
   );
 
   const merged = [...(primary || [])];
-  (sensitive || []).forEach(note => {
-    const duplicate = merged.some(existing =>
-      existing.pitchMidi === note.pitchMidi &&
-      Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
-      Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
+  const noteBuckets = new Map();
+  merged.forEach(note => {
+    noteBuckets.set(
+      Math.round(note.startTimeSeconds / 0.045) + ":" + Math.round(note.pitchMidi),
+      note
     );
-    if (!duplicate) merged.push(note);
+  });
+  (sensitive || []).forEach(note => {
+    const timeBucket = Math.round(note.startTimeSeconds / 0.045);
+    const pitch = Math.round(note.pitchMidi);
+    let duplicate = false;
+    for (let bucket = timeBucket - 1; bucket <= timeBucket + 1 && !duplicate; bucket++) {
+      const existing = noteBuckets.get(bucket + ":" + pitch);
+      if (
+        existing &&
+        Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
+        Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
+      ) {
+        duplicate = true;
+      }
+    }
+    if (!duplicate) {
+      merged.push(note);
+      noteBuckets.set(timeBucket + ":" + pitch, note);
+    }
   });
   merged.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
 
@@ -277,9 +295,10 @@ function parseAIJson(text) {
 
 function sanitizeStylePlan(plan, fallback) {
   const out = { ...fallback, ...(plan || {}) };
-  out.primaryRole = roles.has(out.primaryRole) ? out.primaryRole : fallback.primaryRole;
+  const validRole = role => roles.some(r => r.id === role);
+  out.primaryRole = validRole(out.primaryRole) ? out.primaryRole : fallback.primaryRole;
   out.supportRoles = Array.isArray(out.supportRoles)
-    ? [...new Set(out.supportRoles.filter(x => roles.has(x)).slice(0, 4))]
+    ? [...new Set(out.supportRoles.filter(validRole).slice(0, 4))]
     : fallback.supportRoles;
   out.drums = !!out.drums;
   out.density = Math.max(0.25, Math.min(1, Number(out.density) || fallback.density));
