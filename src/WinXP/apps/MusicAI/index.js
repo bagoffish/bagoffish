@@ -673,7 +673,7 @@ function MusicAI() {
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes; duration = result.duration || 0;
       }
-      setStatus(aiPlan && aiPlan.ai ? 'AI studied Roblox soundfont music — building an original arrangement…' : 'Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
+      setStatus(aiPlan && aiPlan.ai ? 'Studying Roblox soundfont styles — building an original arrangement…' : 'Mapping to Roblox instruments (keeping your melody)…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
@@ -695,7 +695,7 @@ function MusicAI() {
       setMidiBlob(makeMidi(fitted, plan.programs));
       setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + plan.label + (aiPlan && aiPlan.ai ? ' · AI web research' : '') + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
+      setStatus('Done — ' + fitted.length + ' notes · ' + plan.label + (aiPlan && aiPlan.ai ? ' · web research' : '') + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -868,7 +868,7 @@ function MusicAI() {
               setStatus('Style set to ' + forced.label + ' — press Play to load soundfont');
             }
           }} style={{ fontFamily: rbx.font, fontSize: 10, border: '2px solid #000', maxWidth: 160 }} title="Pick any soundfont style">
-          <option value="auto">Style: Auto (AI)</option>
+          <option value="auto">Style: Auto</option>
           <option value="mule">Wind of Fjords (M.U.L.E.)</option>
           <option value="fjords-midi">Wind of Fjords MIDI</option>
           <option value="strategy">Great Strategy</option>
