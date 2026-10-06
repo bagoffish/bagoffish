@@ -331,7 +331,6 @@ function WinXP() {
         apps={state.apps}
         onMouseDownApp={onMouseDownFooterApp}
         focusedAppId={focusedAppId}
-        onMouseDown={onMouseDownFooter}
         onClickMenuItem={onClickMenuItem}
       />
       {state.powerState !== POWER_STATE.START && (
@@ -363,10 +362,10 @@ const animation = {
   [POWER_STATE.LOG_OFF]: powerOffAnimation,
 };
 
-/* XP custom cursors — use !important so app-level "cursor: pointer/default"
-   styles cannot wipe them out. Resize cursors are left alone. */
-const CURSOR_NORMAL = `url("/images/Normal Select.cur") 3 3, default`;
-const CURSOR_LINK = `url("/images/Link Select.cur") 3 3, pointer`;
+/* XP custom cursors — forced with !important so every app (inline styles,
+   styled-components, etc.) still shows Normal Select / Link Select. */
+const CURSOR_NORMAL = `url("/images/Normal%20Select.cur") 3 3, default`;
+const CURSOR_LINK = `url("/images/Link%20Select.cur") 3 3, pointer`;
 
 const Container = styled.div`
   @import url('https://fonts.googleapis.com/css?family=Noto+Sans');
@@ -382,35 +381,62 @@ const Container = styled.div`
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
+  /* Base arrow on the desktop shell */
   cursor: ${CURSOR_NORMAL} !important;
 
   *:not(input):not(textarea):not(select) {
     user-select: none;
   }
 
-  /* Default arrow everywhere except text fields and resize handles */
-  * {
-    cursor: inherit;
+  /* Force Normal Select on EVERY node (beats inline cursor:pointer without !important) */
+  *,
+  *::before,
+  *::after {
+    cursor: ${CURSOR_NORMAL} !important;
   }
 
+  /* Link Select on anything clickable */
   a,
+  a *,
   button,
+  button *,
   [role='button'],
+  [role='button'] *,
   label,
+  label *,
   summary,
   select,
+  option,
   .xpButton,
+  .xpButton *,
   .ie__function_bar__button,
-  .inline-link {
+  .ie__function_bar__button *,
+  .inline-link,
+  .inline-link *,
+  [onclick],
+  [onclick] *,
+  [tabindex]:not([tabindex='-1']),
+  [tabindex]:not([tabindex='-1']) *,
+  [style*='cursor: pointer'],
+  [style*='cursor:pointer'],
+  [style*="cursor: 'pointer'"],
+  [style*="cursor: \"pointer\""],
+  [style*='cursor: url'],
+  [style*='cursor:url'] {
     cursor: ${CURSOR_LINK} !important;
   }
 
+  /* Text fields keep an I-beam */
   input,
-  textarea {
+  textarea,
+  input *,
+  textarea *,
+  [contenteditable='true'],
+  [contenteditable='true'] * {
     cursor: text !important;
   }
 
-  /* Keep system resize cursors for window edges / splitters */
+  /* Window resize handles — allow native resize cursors */
   [style*='n-resize'],
   [style*='s-resize'],
   [style*='e-resize'],
@@ -420,8 +446,10 @@ const Container = styled.div`
   [style*='se-resize'],
   [style*='sw-resize'],
   [style*='ns-resize'],
-  [style*='ew-resize'] {
-    cursor: auto;
+  [style*='ew-resize'],
+  [style*='col-resize'],
+  [style*='row-resize'] {
+    cursor: auto !important;
   }
 `;
 
