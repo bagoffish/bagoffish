@@ -1,5 +1,6 @@
 import AboutMe from "./AboutMe";
 import Renderer from "./Renderer";
+import Lain from "./Lain";
 import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
 import Paint from "./Paint";
@@ -174,25 +175,24 @@ export const appSettings = {
     multiInstance: true,
   },
 
-  /* Socials opens the combined About Me app */
-  Socials: {
+  Lain: {
     header: {
       icon: socialsIconSmall,
-      title: "About Me",
+      title: "Lain",
     },
-    component: AboutMe,
+    component: Lain,
     defaultSize: {
-      width: 700,
+      width: 640,
       height: 500,
     },
     defaultOffset: {
-      x: 140,
-      y: 30,
+      x: 180,
+      y: 55,
     },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Renderer: {
@@ -327,4 +327,5 @@ export {
   Paint,
   Winamp,
   Robloxify,
+  Lain,
 };
