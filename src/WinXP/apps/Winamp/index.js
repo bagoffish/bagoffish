@@ -31,8 +31,6 @@ function Winamp({ onClose, onMinimize }) {
       target.classList.remove('winamp-host');
       return undefined;
     }
-      return undefined;
-    }
 
     const webamp = new Webamp({
       initialTracks,
