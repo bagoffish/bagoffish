@@ -79,6 +79,7 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
   const melodyOctave = [-1, 0, 1].includes(Number(ai.melodyOctave)) ? Number(ai.melodyOctave) : 0;
 
   const clusters = [];
+  const clusterForNote = new Map();
   ordered.forEach(note => {
     let cluster = clusters[clusters.length - 1];
     if (!cluster || note.startTimeSeconds - cluster.time > 0.09) {
@@ -86,11 +87,12 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
       clusters.push(cluster);
     }
     cluster.notes.push(note);
+    clusterForNote.set(note, cluster);
   });
 
   const medianPitch = ordered.map(n => n.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
   ordered.forEach(note => {
-    const cluster = clusters.find(c => c.notes.includes(note));
+    const cluster = clusterForNote.get(note);
     const chordLike = cluster && cluster.notes.length >= 3;
     let role = primaryRole;
 
@@ -675,13 +677,27 @@ async function transcribeLocally(file, onStatus, onProgress) {
   const primary = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.32, 0.38, 8)));
   const sensitive = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.22, 0.30, 6)));
   const notes = [...(primary || [])];
+  const noteBuckets = new Map();
+  notes.forEach(note => {
+    const key = Math.round(note.startTimeSeconds / 0.045) + ':' + Math.round(note.pitchMidi);
+    noteBuckets.set(key, note);
+  });
   (sensitive || []).forEach(note => {
-    const duplicate = notes.some(existing =>
-      existing.pitchMidi === note.pitchMidi &&
-      Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
-      Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
-    );
-    if (!duplicate) notes.push(note);
+    const timeBucket = Math.round(note.startTimeSeconds / 0.045);
+    const pitch = Math.round(note.pitchMidi);
+    let duplicate = false;
+    for (let bucket = timeBucket - 1; bucket <= timeBucket + 1 && !duplicate; bucket++) {
+      const existing = noteBuckets.get(bucket + ':' + pitch);
+      if (existing &&
+          Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
+          Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12) {
+        duplicate = true;
+      }
+    }
+    if (!duplicate) {
+      notes.push(note);
+      noteBuckets.set(timeBucket + ':' + pitch, note);
+    }
   });
   notes.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   try { model.dispose(); } catch (e) {}
@@ -885,11 +901,9 @@ function MusicAI() {
     if (typeof synth.connect === 'function') synth.connect(context.destination);
     synthRef.current = synth; planRef.current = usePlan;
 
-    // Continue loading the full orchestra without blocking playback.
-    Promise.all(background.map(async bank => {
-      setStatus('');
-      await loadBank(bank);
-    })).catch(err => console.warn('Background soundfont loading failed:', err));
+    // Do not parse every SF2 file in parallel here. Large soundfonts can
+    // consume enough memory/CPU to freeze the XP window. Extra banks are
+    // loaded only when they are actually needed.
     return synth;
   };
 
