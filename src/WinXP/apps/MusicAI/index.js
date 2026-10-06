@@ -1,7 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as tf from '@tensorflow/tfjs';
 import {
-  BasicPitch,
   addPitchBendsToNoteEvents,
   noteFramesToTime,
   outputToNotesPoly,
@@ -148,7 +146,7 @@ function MusicAI({ onClose }) {
   }
   const synthRef = useRef(null);
   const contextRef = useRef(null);
-  const basicPitchRef = useRef(null);
+  const transcriptionWorkerRef = useRef(null);
   const [file, setFile] = useState(null);
   const [midiBlob, setMidiBlob] = useState(null);
   const [notes, setNotes] = useState([]);
@@ -189,6 +187,10 @@ function MusicAI({ onClose }) {
         contextRef.current.close().catch(() => {});
         contextRef.current = null;
       }
+      if (transcriptionWorkerRef.current) {
+        transcriptionWorkerRef.current.terminate();
+        transcriptionWorkerRef.current = null;
+      }
     };
   }, []);
 
@@ -200,16 +202,6 @@ function MusicAI({ onClose }) {
       setTimeout(resolve, 0);
     }
   });
-
-  const getBasicPitch = async () => {
-    if (basicPitchRef.current) return basicPitchRef.current;
-    setStatus('LOADING NOTE MODEL...');
-    await tf.setBackend('cpu');
-    await tf.ready();
-    const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
-    basicPitchRef.current = new BasicPitch(model);
-    return basicPitchRef.current;
-  };
 
   const convert = async inputFile => {
     if (!inputFile || !inputFile.type.startsWith('audio/')) {
@@ -270,30 +262,62 @@ function MusicAI({ onClose }) {
       if (conversionId !== conversionIdRef.current) return;
 
       setProgress(8);
-      setStatus('LOADING NOTE MODEL...');
+      setStatus('STARTING BACKGROUND TRANSCRIPTION...');
       await yieldToBrowser();
 
-      const basicPitch = await getBasicPitch();
-      if (conversionId !== conversionIdRef.current) return;
+      if (transcriptionWorkerRef.current) {
+        transcriptionWorkerRef.current.terminate();
+      }
 
-      const frames = [];
-      const onsets = [];
-      const contours = [];
+      const worker = new Worker(new URL('./robloxify.worker.js', import.meta.url));
+      transcriptionWorkerRef.current = worker;
 
-      setStatus('TRANSCRIBING 0%');
-      await basicPitch.evaluateModel(
-        audioBuffer,
-        (frameBatch, onsetBatch, contourBatch) => {
-          frames.push(...frameBatch);
-          onsets.push(...onsetBatch);
-          contours.push(...contourBatch);
-        },
-        value => {
-          if (conversionId !== conversionIdRef.current) return;
-          setProgress(Math.round(10 + value * 75));
-          setStatus('TRANSCRIBING ' + Math.round(value * 100) + '%');
-        }
-      );
+      const result = await new Promise((resolve, reject) => {
+        let settled = false;
+
+        const finish = (callback, value) => {
+          if (settled) return;
+          settled = true;
+          worker.onmessage = null;
+          worker.onerror = null;
+          callback(value);
+        };
+
+        worker.onmessage = event => {
+          const message = event.data || {};
+          if (message.type === 'progress') {
+            if (conversionId !== conversionIdRef.current) return;
+            const percent = Math.round(message.value * 100);
+            setProgress(Math.round(10 + message.value * 75));
+            setStatus('TRANSCRIBING ' + percent + '%');
+            return;
+          }
+
+          if (message.type === 'result') {
+            finish(resolve, message);
+            return;
+          }
+
+          if (message.type === 'error') {
+            finish(reject, new Error(message.message || 'Background transcription failed.'));
+          }
+        };
+
+        worker.onerror = error => {
+          finish(reject, new Error(error.message || 'Background transcription failed.'));
+        };
+
+        worker.postMessage({
+          type: 'transcribe',
+          samples: audioBuffer.getChannelData(0).slice(),
+          sampleRate: audioBuffer.sampleRate,
+        });
+      });
+
+      worker.terminate();
+      if (transcriptionWorkerRef.current === worker) {
+        transcriptionWorkerRef.current = null;
+      }
 
       if (conversionId !== conversionIdRef.current) return;
 
@@ -302,8 +326,8 @@ function MusicAI({ onClose }) {
 
       const detected = noteFramesToTime(
         addPitchBendsToNoteEvents(
-          contours,
-          outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
+          result.contours,
+          outputToNotesPoly(result.frames, result.onsets, 0.34, 0.42, 8)
         )
       );
 
@@ -365,6 +389,10 @@ function MusicAI({ onClose }) {
     } finally {
       if (decodeContext) {
         try { await decodeContext.close(); } catch (error) { /* cleanup */ }
+      }
+      if (conversionId === conversionIdRef.current && transcriptionWorkerRef.current) {
+        transcriptionWorkerRef.current.terminate();
+        transcriptionWorkerRef.current = null;
       }
       if (conversionId === conversionIdRef.current) {
         setWorking(false);
