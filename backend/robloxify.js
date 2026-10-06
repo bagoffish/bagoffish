@@ -266,7 +266,7 @@ function fallbackStylePlan(notes, duration) {
 
 function parseAIJson(text) {
   const raw = String(text || '').trim();
-  const fenced = raw.match(/\`\`\`(?:json)?\\s*([\\s\\S]*?)\`\`\`/i);
+  const fenced = raw.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/i);
   const candidate = fenced ? fenced[1] : raw;
   const first = candidate.indexOf('{');
   const last = candidate.lastIndexOf('}');
