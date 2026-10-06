@@ -377,7 +377,7 @@ const Container = styled.div`
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
-  cursor: url('${process.env.PUBLIC_URL || '.'}/images/Normal%20Select.cur'), default;
+  cursor: url('/images/Normal Select.cur') 3 3, default;
 
   *:not(input):not(textarea) {
     user-select: none;
@@ -389,12 +389,12 @@ const Container = styled.div`
   label,
   summary,
   select {
-    cursor: url('${process.env.PUBLIC_URL || '.'}/images/Link%20Select.cur'), pointer;
+    cursor: url('/images/Link Select.cur') 3 3, pointer;
   }
 
   input,
   textarea {
-    cursor: url('${process.env.PUBLIC_URL || '.'}/images/Normal%20Select.cur'), text;
+    cursor: text;
   }
 `;
 
