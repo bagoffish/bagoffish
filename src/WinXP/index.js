@@ -370,6 +370,7 @@ function WinXP() {
       <Footer
         apps={state.apps}
         onMouseDownApp={onMouseDownFooterApp}
+        onMouseDown={onMouseDownFooter}
         focusedAppId={focusedAppId}
         onClickMenuItem={onClickMenuItem}
       />
