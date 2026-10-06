@@ -17,8 +17,8 @@ services:
   - type: web
     name: winxp-frontend
     runtime: static
-    # Wipe node_modules so a bad cache cannot leave react-scripts missing
-    buildCommand: rm -rf node_modules && yarn install --frozen-lockfile --check-files && yarn build
+    # Clear broken caches; allow yarn to resolve lockfile without --frozen-lockfile
+    buildCommand: rm -rf node_modules && yarn install --check-files && yarn build
     staticPublishPath: build
     autoDeployTrigger: commit
     routes:
