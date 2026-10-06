@@ -29,7 +29,7 @@ function AboutMe({ onClose }) {
 
 useEffect(() => {
 let cancelled = false;
-    fetch("https://winxp-7yes.onrender.com/visitor-count", { cache: "no-store" })
+    fetch("https://winxp-backend.onrender.com/visitor-count", { cache: "no-store" })
 .then((response) => {
 if (!response.ok) throw new Error("Visitor counter unavailable");
         return response.json();
@@ -72,11 +72,17 @@ if (!cancelled) setVisitorCount(0);
       </section>
 
       <section className="ie__function_bar">
-        <div className="ie__function_bar__button--disable">
+        <button
+          type="button"
+          className={showLain ? "ie__function_bar__button" : "ie__function_bar__button--disable"}
+          onClick={showLain ? goBack : undefined}
+          disabled={!showLain}
+          aria-label="Back"
+        >
           <img className="ie__function_bar__icon" src={back} alt="" />
           <span className="ie__function_bar__text">Back</span>
           <div className="ie__function_bar__arrow" />
-        </div>
+        </button>
         <div className="ie__function_bar__button--disable">
           <img className="ie__function_bar__icon" src={forward} alt="" />
           <div className="ie__function_bar__arrow" />
@@ -136,10 +142,6 @@ if (!cancelled) setVisitorCount(0);
         {showLain ? (
           <div className="ie__lain-page">
             <img src="/images/lain.gif" alt="serial experiments lain" />
-            <button type="button" className="ie__lain-back" onClick={goBack}>
-              <img src={back} alt="" />
-              <span>Back</span>
-            </button>
           </div>
         ) : (
         <div className="ie__content__inner">
@@ -437,35 +439,6 @@ const Div = styled.div`
     justify-content: flex-start;
     position: relative;
     overflow: auto;
-  }
-  .ie__lain-back {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    z-index: 2;
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    height: 24px;
-    padding: 1px 7px 1px 4px;
-    border: 1px solid #7f9db9;
-    border-radius: 2px;
-    background: linear-gradient(#fff, #d9e7f5);
-    color: #003399;
-    font: bold 11px Tahoma, sans-serif;
-    box-shadow: 1px 1px 0 rgba(0,0,0,.2);
-    cursor: pointer;
-  }
-  .ie__lain-back:hover {
-    background: linear-gradient(#fff, #c7dcef);
-  }
-  .ie__lain-back:active {
-    background: #d5e3f0;
-    box-shadow: inset 1px 1px 0 rgba(0,0,0,.18);
-  }
-  .ie__lain-back img {
-    width: 18px;
-    height: 18px;
   }
   .ie__lain-page img {
     display: block;
