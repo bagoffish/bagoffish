@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   addPitchBendsToNoteEvents,
   noteFramesToTime,
@@ -169,6 +169,10 @@ function MusicAI({ onClose }) {
   const [playbackDuration, setPlaybackDuration] = useState(0);
   const playbackTimerRef = useRef(null);
   const playbackStopTimerRef = useRef(null);
+  const playbackRafRef = useRef(null);
+  const progressFillRef = useRef(null);
+  const playbackCurrentRef = useRef(null);
+  const playbackDurationRef = useRef(null);
   const conversionIdRef = useRef(0);
 
   useEffect(() => {
@@ -180,6 +184,10 @@ function MusicAI({ onClose }) {
       if (playbackStopTimerRef.current) {
         window.clearTimeout(playbackStopTimerRef.current);
         playbackStopTimerRef.current = null;
+      }
+      if (playbackRafRef.current) {
+        window.cancelAnimationFrame(playbackRafRef.current);
+        playbackRafRef.current = null;
       }
       if (synthRef.current) {
         try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
@@ -604,6 +612,10 @@ function MusicAI({ onClose }) {
       window.clearTimeout(playbackStopTimerRef.current);
       playbackStopTimerRef.current = null;
     }
+    if (playbackRafRef.current) {
+      window.cancelAnimationFrame(playbackRafRef.current);
+      playbackRafRef.current = null;
+    }
     if (synthRef.current) {
       try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
       synthRef.current = null;
@@ -616,6 +628,24 @@ function MusicAI({ onClose }) {
     setPlaybackTime(0);
     setStatus('PLAYBACK STOPPED');
   };
+
+  const arrangementDuration = useMemo(() => arrangement.reduce(
+    (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
+    0
+  ), [arrangement]);
+
+  const notesByRole = useMemo(() => {
+    const grouped = {};
+    roles.forEach(role => {
+      grouped[role.id] = [];
+    });
+    arrangement.forEach(note => {
+      if (grouped[note.role]) {
+        grouped[note.role].push(note);
+      }
+    });
+    return grouped;
+  }, [arrangement]);
 
   const playArrangement = async () => {
     if (!arrangement.length) {
@@ -687,15 +717,30 @@ function MusicAI({ onClose }) {
       setStatus('PLAYING WITH ROBLOX SOUNDFONT');
 
       const playbackStartedAt = performance.now();
-      playbackTimerRef.current = window.setInterval(() => {
+      const updatePlaybackDisplay = () => {
         const elapsed = Math.min(duration, (performance.now() - playbackStartedAt) / 1000);
-        setPlaybackTime(elapsed);
-      }, 50);
+        const ratio = duration > 0 ? Math.min(1, elapsed / duration) : 0;
+
+        if (progressFillRef.current) {
+          progressFillRef.current.style.width = (ratio * 100) + '%';
+        }
+        if (playbackCurrentRef.current) {
+          playbackCurrentRef.current.textContent = formatTime(elapsed);
+        }
+        if (playbackDurationRef.current) {
+          playbackDurationRef.current.textContent = formatTime(duration);
+        }
+
+        if (elapsed < duration && playing !== false) {
+          playbackRafRef.current = window.requestAnimationFrame(updatePlaybackDisplay);
+        }
+      };
+      playbackRafRef.current = window.requestAnimationFrame(updatePlaybackDisplay);
 
       playbackStopTimerRef.current = window.setTimeout(() => {
-        if (playbackTimerRef.current) {
-          window.clearInterval(playbackTimerRef.current);
-          playbackTimerRef.current = null;
+        if (playbackRafRef.current) {
+          window.cancelAnimationFrame(playbackRafRef.current);
+          playbackRafRef.current = null;
         }
         if (synthRef.current) {
           try { synthRef.current.destroy(); } catch (error) { /* cleanup */ }
@@ -860,7 +905,7 @@ function MusicAI({ onClose }) {
               ) : (
                 <div>
                   {roles.map(role => {
-                    const trackNotes = arrangement.filter(note => note.role === role.id);
+                    const trackNotes = notesByRole[role.id] || [];
                     return (
                       <div key={role.id} style={{
                         marginBottom: 8,
@@ -882,9 +927,7 @@ function MusicAI({ onClose }) {
                           backgroundSize: '55px 100%',
                         }}>
                           {trackNotes.map(note => {
-                            const duration = Math.max(playbackDuration, arrangement.reduce(
-                              (max, item) => Math.max(max, item.startTimeSeconds + item.durationSeconds), 0
-                            ), 1);
+                            const duration = Math.max(playbackDuration, arrangementDuration, 1);
                             const left = note.startTimeSeconds / duration * 100;
                             const width = Math.max(.7, note.durationSeconds / duration * 100);
                             const selected = note.id === selectedNoteId;
@@ -969,8 +1012,8 @@ function MusicAI({ onClose }) {
             fontWeight: 'bold',
             textShadow: '1px 1px #111',
           }}>
-            <span>{formatTime(playbackTime)}</span>
-            <span>{formatTime(playbackDuration)}</span>
+            <span ref={playbackCurrentRef}>{formatTime(playbackTime)}</span>
+            <span ref={playbackDurationRef}>{formatTime(playbackDuration)}</span>
           </div>
           <div
             role="progressbar"
@@ -987,6 +1030,7 @@ function MusicAI({ onClose }) {
             }}
           >
             <div
+              ref={progressFillRef}
               style={{
                 width: playbackDuration ? Math.min(100, playbackTime / playbackDuration * 100) + '%' : '0%',
                 height: '100%',
