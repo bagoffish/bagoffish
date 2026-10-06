@@ -397,7 +397,7 @@ function Shoegazefy({ onClose, onMinimize }) {
     }
   };
 
-  const runEffects = async () => {
+  const playProcessedInWinamp = (blob, name) => {\n    if (!webamp.current) {\n      setStatus('WINAMP IS NOT READY YET');\n      return;\n    }\n\n    webamp.current.setTracksToPlay([\n      {\n        blob,\n        defaultName: name + '.wav',\n        metaData: { title: name, artist: 'Shoegazefy' },\n      },\n    ]);\n    setStatus(name.toUpperCase() + ' PLAYING IN WINAMP');\n  };\n\n  const runEffects = async () => {
     if (!audioBuffer) {
       setStatus('LOAD AUDIO FIRST');
       return;
