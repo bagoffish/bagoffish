@@ -705,11 +705,7 @@ function MusicAI({ onClose }) {
         synth.noteOff(role.channel, note.pitchMidi, offTime);
       });
 
-      const duration = arrangement.reduce(
-        (max, note) =>
-          Math.max(max, note.startTimeSeconds + note.durationSeconds),
-        0
-      );
+      const duration = arrangementDuration;
 
       setPlaybackDuration(duration);
       setPlaybackTime(0);
@@ -731,7 +727,7 @@ function MusicAI({ onClose }) {
           playbackDurationRef.current.textContent = formatTime(duration);
         }
 
-        if (elapsed < duration && playing !== false) {
+        if (elapsed < duration) {
           playbackRafRef.current = window.requestAnimationFrame(updatePlaybackDisplay);
         }
       };
