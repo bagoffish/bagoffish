@@ -394,19 +394,19 @@ function getCursorStyle(pos) {
     case 'top':
       return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
     case 'topRight':
-      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
+      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
     case 'right':
       return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
     case 'bottomRight':
-      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nwse-resize';
+      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
     case 'bottom':
       return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
     case 'bottomLeft':
-      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nesw-resize';
+      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
     case 'left':
       return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
     case 'topLeft':
-      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nwse-resize';
+      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
     default:
       return 'url("/images/Normal%20Select.cur") 3 3, default';
   }
