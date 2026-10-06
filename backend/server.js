@@ -17,19 +17,18 @@ const BACKEND_VERSION = "2026-10-06-robloxify-web-ai";
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
 const WORKER_PATH = path.join(__dirname, "chunkparser.js");
+const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || "/var/data/visitor-count.json";
 
-const allowedOrigins = new Set([
+const allowedOrigins = [
   "https://bagof.fish",
   "https://www.bagof.fish",
   "http://localhost:3000",
   "http://localhost:3001",
-]);
+];
 
 function setCors(req, res) {
   const origin = req.headers.origin;
   if (origin) {
-    // Public API: the frontend never sends credentials, so wildcard CORS is safe
-    // and also supports bagof.fish/www/preview origins without deployment drift.
     res.setHeader("Access-Control-Allow-Origin", "*");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
@@ -37,7 +36,6 @@ function setCors(req, res) {
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
-// CORS first — every response must carry it (even 404 / 500)
 app.use((req, res, next) => {
   setCors(req, res);
   res.setHeader("X-WinXP-Backend", BACKEND_VERSION);
@@ -66,21 +64,35 @@ app.get("/health", (req, res) => {
   res.json({ ok: true, service: "winxp-7yes", version: BACKEND_VERSION });
 });
 
+let visitorCountQueue = Promise.resolve();
+
 app.get("/visitor-count", async (req, res) => {
-  const visitorPath = path.join(__dirname, "visitor-count.json");
-  try {
+  visitorCountQueue = visitorCountQueue.then(async () => {
+    const visitorDir = path.dirname(VISITOR_COUNT_PATH);
+    await fs.promises.mkdir(visitorDir, { recursive: true });
+
     let count = 0;
-    if (fs.existsSync(visitorPath)) {
-      const raw = await fs.promises.readFile(visitorPath, "utf8");
+    try {
+      const raw = await fs.promises.readFile(VISITOR_COUNT_PATH, "utf8");
       const parsed = JSON.parse(raw);
       count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+    } catch (err) {
+      if (err.code !== "ENOENT") throw err;
     }
+
     count += 1;
     await fs.promises.writeFile(
-      visitorPath,
+      VISITOR_COUNT_PATH,
       JSON.stringify({ count }),
       "utf8"
     );
+
+    return count;
+  });
+
+  try {
+    const count = await visitorCountQueue;
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.json({ count });
   } catch (err) {
     console.error("Visitor counter error:", err);
@@ -329,9 +341,6 @@ app.post("/robloxify", async (req, res) => {
     const t0 = Date.now();
     try {
       const result = await transcribeAudioBuffer(req.file.buffer);
-      // The AI sees compact musical statistics plus live web research, not the
-      // uploaded audio itself. It creates a style/arrangement blueprint that
-      // the frontend applies to the actual detected notes.
       const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
       res.json({
         ok: true,
