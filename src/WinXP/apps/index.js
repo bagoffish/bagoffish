@@ -222,8 +222,8 @@ export const appSettings = {
     },
     component: Robloxify,
     defaultSize: {
-      width: 520,
-      height: 600,
+      width: 800,
+      height: 520,
     },
     defaultOffset: {
       x: 220,
