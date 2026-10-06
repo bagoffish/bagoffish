@@ -363,6 +363,11 @@ const animation = {
   [POWER_STATE.LOG_OFF]: powerOffAnimation,
 };
 
+/* XP custom cursors — use !important so app-level "cursor: pointer/default"
+   styles cannot wipe them out. Resize cursors are left alone. */
+const CURSOR_NORMAL = `url("/images/Normal Select.cur") 3 3, default`;
+const CURSOR_LINK = `url("/images/Link Select.cur") 3 3, pointer`;
+
 const Container = styled.div`
   @import url('https://fonts.googleapis.com/css?family=Noto+Sans');
   font-family: Tahoma, 'Noto Sans', sans-serif;
@@ -377,10 +382,15 @@ const Container = styled.div`
   background-size: cover;
   animation: ${({ state }) => animation[state]} 5s forwards;
 
-  cursor: url('/images/Normal Select.cur') 3 3, default;
+  cursor: ${CURSOR_NORMAL} !important;
 
-  *:not(input):not(textarea) {
+  *:not(input):not(textarea):not(select) {
     user-select: none;
+  }
+
+  /* Default arrow everywhere except text fields and resize handles */
+  * {
+    cursor: inherit;
   }
 
   a,
@@ -388,13 +398,30 @@ const Container = styled.div`
   [role='button'],
   label,
   summary,
-  select {
-    cursor: url('/images/Link Select.cur') 3 3, pointer;
+  select,
+  .xpButton,
+  .ie__function_bar__button,
+  .inline-link {
+    cursor: ${CURSOR_LINK} !important;
   }
 
   input,
   textarea {
-    cursor: text;
+    cursor: text !important;
+  }
+
+  /* Keep system resize cursors for window edges / splitters */
+  [style*='n-resize'],
+  [style*='s-resize'],
+  [style*='e-resize'],
+  [style*='w-resize'],
+  [style*='ne-resize'],
+  [style*='nw-resize'],
+  [style*='se-resize'],
+  [style*='sw-resize'],
+  [style*='ns-resize'],
+  [style*='ew-resize'] {
+    cursor: auto;
   }
 `;
 
