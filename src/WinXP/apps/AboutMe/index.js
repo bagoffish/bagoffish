@@ -181,7 +181,7 @@ function AboutMe({ onClose, onOpenApp }) {
             </section>
 
             <section className="about__section about__links-section" id="links">
-              <div className="about__section-title"><span>04</span> LINKS / ELSEWHERE
+              <div className="about__section-title"><span>04</span> LINKS / ELSEWHERE</div>
               <div className="links">
                 <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
                   Spotify
