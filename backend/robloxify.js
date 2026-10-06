@@ -235,7 +235,7 @@ function fallbackStylePlan(notes, duration) {
   const s = summarizeForStyleAI(notes, duration);
   if (s.notesPerSecond > 12 && s.shortNoteRatio > 0.5) {
     return {
-      style: 'party', primaryRole: 'vocals',
+      primaryRole: 'vocals',
       supportRoles: ['bass','guitar','keys'], drums: true,
       density: 0.9, swing: 0, quantizeGrid: 0.125,
       preserveMelody: true, reason: 'Fallback: dense short-note performance'
@@ -243,7 +243,7 @@ function fallbackStylePlan(notes, duration) {
   }
   if (s.lowRatio > 0.45 && s.notesPerSecond < 5) {
     return {
-      style: 'strategy', primaryRole: 'bass',
+      primaryRole: 'bass',
       supportRoles: ['keys','strings'], drums: true,
       density: 0.55, swing: 0, quantizeGrid: 0.25,
       preserveMelody: true, reason: 'Fallback: bass-heavy sparse performance'
@@ -251,14 +251,14 @@ function fallbackStylePlan(notes, duration) {
   }
   if (s.highRatio > 0.4 && s.notesPerSecond > 7) {
     return {
-      style: 'chip', primaryRole: 'vocals',
+      primaryRole: 'vocals',
       supportRoles: ['bass','guitar','arp'], drums: true,
       density: 0.8, swing: 0, quantizeGrid: 0.125,
       preserveMelody: true, reason: 'Fallback: bright high-register performance'
     };
   }
   return {
-    style: 'mule', primaryRole: 'guitar',
+    primaryRole: 'guitar',
     supportRoles: ['bass','keys'], drums: false,
     density: 0.6, swing: 0, quantizeGrid: 0.25,
     preserveMelody: true, reason: 'Fallback: balanced Roblox-style arrangement'
@@ -276,29 +276,7 @@ function parseAIJson(text) {
 }
 
 function sanitizeStylePlan(plan, fallback) {
-  const styles = new Set(['mule','fjords-midi','strategy','roblox-sf','gamehero','classic-days','party','monster','horror','stealth','chip','classic']);
-  const roles = new Set(['bass','guitar','vocals','keys','pad','strings','arp']);
   const out = { ...fallback, ...(plan || {}) };
-  out.style = styles.has(out.style) ? out.style : fallback.style;
-  out.styleMix = Array.isArray(out.styleMix)
-    ? out.styleMix
-        .filter(x => styles.has(x?.style) && Number.isFinite(Number(x?.weight)))
-        .map(x => ({ style: x.style, weight: Math.max(0, Math.min(1, Number(x.weight))) }))
-        .sort((a, b) => b.weight - a.weight)
-        .slice(0, styles.size)
-    : [];
-  if (!out.styleMix.length) out.styleMix = [{ style: out.style, weight: 1 }];
-  const totalStyleWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
-  out.styleMix = out.styleMix.map(x => ({ ...x, weight: Number((x.weight / totalStyleWeight).toFixed(3)) }));
-  // Always expose the complete house palette to the arranger. Missing styles get a
-  // quieter influence so the model's preferred styles still lead the arrangement.
-  const existingStyleWeights = new Map(out.styleMix.map(x => [x.style, x.weight]));
-  out.styleMix = [...styles].map(style => ({
-    style,
-    weight: existingStyleWeights.has(style) ? existingStyleWeights.get(style) : 0.35
-  }));
-  const fullWeight = out.styleMix.reduce((sum, x) => sum + x.weight, 0) || 1;
-  out.styleMix = out.styleMix.map(x => ({ ...x, weight: Number((x.weight / fullWeight).toFixed(3)) }));
   out.primaryRole = roles.has(out.primaryRole) ? out.primaryRole : fallback.primaryRole;
   out.supportRoles = Array.isArray(out.supportRoles)
     ? [...new Set(out.supportRoles.filter(x => roles.has(x)).slice(0, 4))]
@@ -334,8 +312,8 @@ export async function createRobloxifyStylePlan(notes, duration) {
   const prompt = [
     'You are the persistent musical director and reference brain for Robloxify.',
     'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
-    'Treat the reference library as learned arrangement knowledge: compare the input against its traits, select several compatible musical vocabularies, and combine them into one coherent original arrangement. Do NOT force the song into one style.',
-    'Use ALL available styles together as one unified orchestral palette. Do not choose only a few styles. Assign each style a useful musical function (melody, counter-melody, bass, harmony, rhythm, pad, strings, arpeggio, accents, or transitions) and make their influences overlap smoothly. The result should feel like one coherent, polished Roblox orchestral arrangement, not 12 unrelated layers playing the same notes. Preserve the original song's melody, timing, contour, and recognizable structure above all else.',
+    'Treat the reference library as learned arrangement knowledge and combine the complete palette into one coherent original orchestral arrangement. There is no single style choice.',
+    'Use the complete Roblox soundfont palette as one orchestra. Assign sound families to useful musical functions, make their influences overlap smoothly, and preserve the original song's melody, timing, contour, and recognizable structure above all else.',
     'Use web search as optional fresh research and corroboration, not as the only source of musical knowledge.',
     'Study broad traits such as instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
     'Do NOT copy a specific song, melody, lyric, chord progression, or distinctive rhythmic phrase. Produce an original style-level plan.',
@@ -347,8 +325,6 @@ export async function createRobloxifyStylePlan(notes, duration) {
       availableStyles: ['mule','fjords-midi','strategy','roblox-sf','gamehero','classic-days','party','monster','horror','stealth','chip','classic'],
       analysis,
       outputSchema: {
-        style: 'dominant available style (keep for backward compatibility)',
-        styleMix: [{ style: 'EVERY available style exactly once', weight: 'relative influence 0 to 1' }],
         primaryRole: 'bass|guitar|vocals|keys|pad|strings|arp',
         supportRoles: ['up to four roles'],
         drums: true,
