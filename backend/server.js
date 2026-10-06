@@ -74,7 +74,7 @@ const memoryVisitorIds = new Set();
 
 function parseVisitorCookie(req) {
   const raw = String(req.headers.cookie || "");
-  const match = raw.match(/(?:^|;\\s*)bagof-fish-visitor=([^;]+)/);
+  const match = raw.match(/(?:^|;\s*)bagof-fish-visitor=([^;]+)/);
   return match ? decodeURIComponent(match[1]) : "";
 }
 
