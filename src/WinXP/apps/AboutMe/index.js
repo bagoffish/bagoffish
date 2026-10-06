@@ -37,22 +37,40 @@ function AboutMe({ onClose }) {
   useEffect(() => {
     let cancelled = false;
     let visitorId = "";
+    let isNewVisitor = false;
+
     try {
       const cookieName = "bagof-fish-visitor";
-      const existing = document.cookie.split("; ").find(v => v.startsWith(cookieName + "="));
+      const existing = document.cookie
+        .split("; ")
+        .find(v => v.startsWith(cookieName + "="));
+
       if (existing) {
         visitorId = decodeURIComponent(existing.slice(cookieName.length + 1));
       } else {
         visitorId = (window.crypto && window.crypto.randomUUID)
           ? window.crypto.randomUUID()
           : Date.now().toString(36) + Math.random().toString(36).slice(2);
-        document.cookie = cookieName + "=" + encodeURIComponent(visitorId) + "; max-age=31536000; path=/; SameSite=Lax";
+        document.cookie =
+          cookieName +
+          "=" +
+          encodeURIComponent(visitorId) +
+          "; max-age=31536000; path=/; SameSite=Lax";
+        isNewVisitor = true;
       }
     } catch (e) {}
 
     if (!visitorId) return () => { cancelled = true; };
 
-    fetch("https://winxp-backend-live.onrender.com/visitor-count?visitor=" + encodeURIComponent(visitorId), { cache: "no-store" })
+    const endpoint = isNewVisitor ? "/visitor-count/visit" : "/visitor-count/current";
+
+    fetch(
+      "https://winxp-backend-live.onrender.com" +
+        endpoint +
+        "?visitor=" +
+        encodeURIComponent(visitorId),
+      { cache: "no-store" }
+    )
       .then((response) => {
         if (!response.ok) throw new Error("Visitor counter unavailable");
         return response.json();
@@ -61,10 +79,13 @@ function AboutMe({ onClose }) {
         if (!cancelled && Number.isFinite(Number(data.count))) {
           const count = Number(data.count);
           setVisitorCount(count);
-          try { window.localStorage.setItem("bagof-fish-visitor-count", String(count)); } catch (e) {}
+          try {
+            window.localStorage.setItem("bagof-fish-visitor-count", String(count));
+          } catch (e) {}
         }
       })
       .catch(() => {});
+
     return () => { cancelled = true; };
   }, []);
   const addressText = showLain ? "https://bagof.fish/lain" : "https://bagof.fish/about";
