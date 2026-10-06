@@ -138,13 +138,6 @@ export const defaultIconState = [
     component: Winamp,
     isFocus: false,
   },
-  {
-    id: 7,
-    icon: musicIcon,
-    title: "Robloxify",
-    component: Robloxify,
-    isFocus: false,
-  },
 ];
 
 /* start menu / openApp settings */
@@ -330,27 +323,6 @@ export const appSettings = {
     maximized: false,
     multiInstance: false,
   },
-
-  Robloxify: {
-    header: {
-      icon: musicIcon,
-      title: "Robloxify",
-    },
-    component: Robloxify,
-    defaultSize: {
-      width: 520,
-      height: 600,
-    },
-    defaultOffset: {
-      x: 220,
-      y: 70,
-    },
-    resizable: true,
-    minimized: false,
-    maximized: window.innerWidth < 800,
-    multiInstance: true,
-  },
-
 };
 
 /* export list */
