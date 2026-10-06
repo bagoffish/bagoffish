@@ -66,6 +66,28 @@ app.get("/health", (req, res) => {
   res.json({ ok: true, service: "winxp-7yes", version: BACKEND_VERSION });
 });
 
+app.get("/visitor-count", async (req, res) => {
+  const visitorPath = path.join(__dirname, "visitor-count.json");
+  try {
+    let count = 0;
+    if (fs.existsSync(visitorPath)) {
+      const raw = await fs.promises.readFile(visitorPath, "utf8");
+      const parsed = JSON.parse(raw);
+      count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+    }
+    count += 1;
+    await fs.promises.writeFile(
+      visitorPath,
+      JSON.stringify({ count }),
+      "utf8"
+    );
+    res.json({ count });
+  } catch (err) {
+    console.error("Visitor counter error:", err);
+    res.status(500).json({ error: "Visitor counter unavailable" });
+  }
+});
+
 /* ---------- avatar index ---------- */
 const avatarIndex = new Map();
 
