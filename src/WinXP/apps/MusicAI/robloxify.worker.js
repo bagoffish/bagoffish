@@ -1,3 +1,13 @@
+// CRA/webpack workers resolve chunks relative to the worker URL under
+// /static/js/, which produces broken /static/js/static/js/*.chunk.js paths.
+// Force absolute site root so importScripts finds the real chunks.
+try {
+  // eslint-disable-next-line no-undef
+  __webpack_public_path__ = self.location.origin + '/';
+} catch (e) {
+  /* ignore if not a webpack build */
+}
+
 import * as tf from '@tensorflow/tfjs';
 import {
   addPitchBendsToNoteEvents,
