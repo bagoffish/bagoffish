@@ -1,14 +1,15 @@
 import * as tf from "@tensorflow/tfjs";
-import {
-  addPitchBendsToNoteEvents,
-  noteFramesToTime,
-  outputToNotesPoly,
-  BasicPitch,
-} from "@spotify/basic-pitch";
 import decodeAudio from "audio-decode";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const basicPitchPackage = require("@spotify/basic-pitch");
+const {
+  addPitchBendsToNoteEvents,
+  noteFramesToTime,
+  outputToNotesPoly,
+  BasicPitch,
+} = basicPitchPackage;
 const brain = require("./robloxify-knowledge.json");
 
 const TARGET_RATE = 22050;
