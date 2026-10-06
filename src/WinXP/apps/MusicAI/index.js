@@ -3,7 +3,7 @@ import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
-const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend.onrender.com';
+const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
 const MAX_SECONDS = 600;
 const MAX_BYTES = 50 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
