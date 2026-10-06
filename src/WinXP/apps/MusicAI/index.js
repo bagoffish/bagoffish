@@ -240,7 +240,14 @@ function MusicAI({ onClose }) {
       }
     );
 
-    return { frames, onsets, contours };
+    return {
+      notes: noteFramesToTime(
+        addPitchBendsToNoteEvents(
+          contours,
+          outputToNotesPoly(frames, onsets, 0.34, 0.42, 8)
+        )
+      ),
+    };
   };
 
   const convert = async inputFile => {
@@ -349,11 +356,12 @@ function MusicAI({ onClose }) {
             finish(reject, new Error(error.message || 'Background transcription worker could not load.'));
           };
 
+          const workerSamples = audioBuffer.getChannelData(0).slice();
           worker.postMessage({
             type: 'transcribe',
-            samples: audioBuffer.getChannelData(0).slice(),
+            samples: workerSamples,
             sampleRate: audioBuffer.sampleRate,
-          });
+          }, [workerSamples.buffer]);
         });
       } catch (workerError) {
         // A stale/mismatched production deployment can leave the worker's
@@ -387,12 +395,7 @@ function MusicAI({ onClose }) {
       await yieldToBrowser();
       setStatus('CLEANING NOTES...');
 
-      const detected = noteFramesToTime(
-        addPitchBendsToNoteEvents(
-          result.contours,
-          outputToNotesPoly(result.frames, result.onsets, 0.34, 0.42, 8)
-        )
-      );
+      const detected = Array.isArray(result.notes) ? result.notes : [];
 
       // Split the clean transcription into useful Roblox tracks. This is much
       // more stable than four consecutive neural-network passes over stems.
