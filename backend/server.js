@@ -206,9 +206,9 @@ async function buildAvatarIndex() {
   saveToCache(fingerprint);
 }
 
-buildAvatarIndex().catch((err) =>
-  console.error("Avatar index build failed:", err)
-);
+const avatarIndexReady = buildAvatarIndex().catch((err) => {
+  console.error("Avatar index build failed:", err);
+});
 
 /* ---------- cache ---------- */
 const cache = new Map();
@@ -305,6 +305,11 @@ app.post("/community/tracks", async (req, res) => {
 /* ---------- API: proxy-roblox ---------- */
 app.get("/proxy-roblox", async (req, res) => {
   setCors(req, res);
+
+  // The thumbnail index is built from the bundled .jsonl chunks at startup.
+  // Always wait for it before serving a lookup so the first request cannot
+  // cache an incomplete avatar result.
+  await avatarIndexReady;
   const username = req.query.username;
   if (!username) return res.status(400).json({ error: "Username required" });
 
@@ -359,6 +364,10 @@ app.get("/proxy-roblox", async (req, res) => {
       }
     } catch {}
 
+    const chunkAvatars = avatarIndex.get(String(id)) || [];
+    const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
+    const liveAvatarUrl = avatarRes?.data?.[0]?.imageUrl || "";
+
     const payload = {
       roblox: {
         id,
@@ -367,8 +376,10 @@ app.get("/proxy-roblox", async (req, res) => {
         joinDate: profile.created
           ? new Date(profile.created).toUTCString().replace(" GMT", "")
           : "Unknown",
-        avatarUrl: avatarRes?.data?.[0]?.imageUrl,
-        oldAvatars: avatarIndex.get(String(id))?.slice(0, 100) || [],
+        // Prefer the avatar captured in the thumbnail chunks. Roblox's live
+        // thumbnail endpoint remains a fallback for users absent from the chunks.
+        avatarUrl: chunkAvatarUrl || liveAvatarUrl,
+        oldAvatars: chunkAvatars.slice(0, 100),
         pastUsernames,
       },
       rolimons: roli,
