@@ -374,12 +374,15 @@ function MusicAI({ onClose }) {
     if (synthRef.current && contextRef.current) return synthRef.current;
     const context = new AudioContext();
     contextRef.current = context;
-    const synth = new WorkletSynthesizer(context);
+    // Worklet module MUST be loaded before constructing WorkletSynthesizer
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
-    await synth.addNewDefaultChannelGroup();
+    const synth = new WorkletSynthesizer(context);
     const sf2 = await fetch(ROBLOX_SF2_URL).then(r => r.arrayBuffer());
     await synth.soundBankManager.addSoundBank(sf2, 'roblox');
-    synth.connect(context.destination);
+    if (synth.isReady) await synth.isReady;
+    if (typeof synth.connect === 'function') {
+      synth.connect(context.destination);
+    }
     synthRef.current = synth;
     return synth;
   };
@@ -397,9 +400,9 @@ function MusicAI({ onClose }) {
       stopPlayback();
       const synth = await ensureSynth();
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
-      synth.systemReset();
+      if (typeof synth.systemReset === 'function') synth.systemReset();
       roles.forEach(role => { synth.programChange(role.channel, role.program); });
-      synth.setMainVolume(volume);
+      if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
       const startAt = contextRef.current.currentTime + 0.05;
       let maxEnd = 0;
       arrangement.forEach(note => {
