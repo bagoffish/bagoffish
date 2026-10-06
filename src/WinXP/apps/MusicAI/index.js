@@ -333,7 +333,7 @@ function MusicAI({ onClose }) {
     setFile(inputFile);
     setWorking(true);
     setProgress(0);
-    setStatus('LOADING ROBLOXIFY ENGINE...');
+    setStatus('PREPARING AUDIO...');
 
     try {
       const bytes = await inputFile.arrayBuffer();
@@ -342,78 +342,71 @@ function MusicAI({ onClose }) {
       setInputSampleRate(sourceBuffer.sampleRate);
       await decodeContext.close();
 
-      // Basic Pitch expects a mono 22050 Hz buffer.
-      const targetSampleRate = 22050;
-      const targetLength = Math.ceil(sourceBuffer.duration * targetSampleRate);
-      const offlineContext = new OfflineAudioContext(
-        1,
-        targetLength,
-        targetSampleRate
-      );
+      // Demucs works on 44.1 kHz stereo and separates the mix before transcription.
+      const targetRate = 44100;
+      const targetLength = Math.ceil(sourceBuffer.duration * targetRate);
+      const offlineContext = new OfflineAudioContext(2, targetLength, targetRate);
       const source = offlineContext.createBufferSource();
       source.buffer = sourceBuffer;
       source.connect(offlineContext.destination);
       source.start(0);
-      const audioBuffer = await offlineContext.startRendering();
-      setStatus('LOADING ROBLOXIFY MODEL...');
-      await tf.setBackend('cpu');
-      await tf.ready();
-      const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
-      const basicPitch = new BasicPitch(model);
+      const stereoBuffer = await offlineContext.startRendering();
 
-      const frames = [];
-      const onsets = [];
-      const contours = [];
+      const demucs = await getDemucs();
+      setStatus('SEPARATING DRUMS / BASS / GUITAR / VOCALS...');
 
-      await basicPitch.evaluateModel(
-        audioBuffer,
-        (frameBatch, onsetBatch, contourBatch) => {
-          frames.push(...frameBatch);
-          onsets.push(...onsetBatch);
-          contours.push(...contourBatch);
-        },
-        value => {
-          setProgress(Math.round(value * 85));
-          setStatus('TRANSCRIBING ' + Math.round(value * 100) + '%');
-        }
+      const separation = await demucs.separate(
+        stereoBuffer.getChannelData(0),
+        stereoBuffer.getChannelData(stereoBuffer.numberOfChannels > 1 ? 1 : 0)
       );
 
-      const detected = noteFramesToTime(
-        addPitchBendsToNoteEvents(
-          contours,
-          outputToNotesPoly(frames, onsets, 0.25, 0.25, 5)
-        )
-      );
+      const stemOrder = [
+        { id: 'drums', label: 'DRUMS', data: separation.drums },
+        { id: 'bass', label: 'BASS', data: separation.bass },
+        { id: 'guitar', label: 'GUITAR', data: separation.other },
+        { id: 'vocals', label: 'VOCALS', data: separation.vocals },
+      ];
 
-      if (!detected.length) {
+      const allNotes = [];
+
+      for (let index = 0; index < stemOrder.length; index++) {
+        const stem = stemOrder[index];
+        setStatus('READING ' + stem.label + ' STEM...');
+        const role = roles.find(item => item.id === stem.id);
+        const stemNotes = await transcribeStem(
+          stem.data,
+          role,
+          index,
+          stemOrder.length
+        );
+        allNotes.push(...stemNotes);
+      }
+
+      if (!allNotes.length) {
         throw new Error('No musical notes were detected.');
       }
 
-      setNotes(detected);
-
-      const duration = detected.reduce(
-        (max, note) =>
-          Math.max(max, note.startTimeSeconds + note.durationSeconds),
-        0
+      allNotes.sort((x, y) =>
+        x.startTimeSeconds - y.startTimeSeconds ||
+        x.pitchMidi - y.pitchMidi
       );
-      const density = detected.length / Math.max(1, duration);
 
-      setStatus('FITTING NOTES TO ROBLOX INSTRUMENTS...');
-      const fitted = detected.map((note, index) => ({
+      const fitted = allNotes.map((note, index) => ({
         ...note,
         id: index + 1,
-        role: chooseRole(note, density),
       }));
-      setSelectedNoteId(fitted[0] ? fitted[0].id : null);
 
+      setNotes(fitted);
       setArrangement(fitted);
+      setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted));
       setProgress(100);
-      setStatus('DONE — ROBLOXIFY ARRANGEMENT READY');
+      setStatus('DONE — ' + fitted.length + ' NOTES · 4 TRACKS READY');
     } catch (error) {
       console.error(error);
       setStatus(
-        'CONVERSION FAILED — ' + (error && error.message ? error.message : 'UNKNOWN ERROR')
+        'CONVERSION FAILED — ' +
+        (error && error.message ? error.message : 'UNKNOWN ERROR')
       );
     } finally {
       setWorking(false);
