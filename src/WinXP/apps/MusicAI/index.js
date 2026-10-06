@@ -136,6 +136,7 @@ function MusicAI({ onClose }) {
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Robloxify Project');
   const [projects, setProjects] = useState(() => loadProjects());
   const [showProjects, setShowProjects] = useState(false);
+  const [selectedNoteId, setSelectedNoteId] = useState(null);
 
   useEffect(() => {
     return () => {
@@ -182,6 +183,8 @@ function MusicAI({ onClose }) {
       source.start(0);
       const audioBuffer = await offlineContext.startRendering();
       setStatus('LOADING ROBLOXIFY MODEL...');
+      await tf.setBackend('cpu');
+      await tf.ready();
       const model = await tf.loadGraphModel(BASIC_PITCH_MODEL_URL);
       const basicPitch = new BasicPitch(model);
 
@@ -223,10 +226,12 @@ function MusicAI({ onClose }) {
       const density = detected.length / Math.max(1, duration);
 
       setStatus('FITTING NOTES TO ROBLOX INSTRUMENTS...');
-      const fitted = detected.map(note => ({
+      const fitted = detected.map((note, index) => ({
         ...note,
+        id: index + 1,
         role: chooseRole(note, density),
       }));
+      setSelectedNoteId(fitted[0] ? fitted[0].id : null);
 
       setArrangement(fitted);
       setMidiBlob(makeMidi(fitted));
@@ -267,8 +272,13 @@ function MusicAI({ onClose }) {
   const loadProject = project => {
     setProjectName(project.name);
     setNotes(project.notes || []);
-    setArrangement(project.arrangement || []);
-    setMidiBlob(makeMidi(project.arrangement || []));
+    const loadedArrangement = (project.arrangement || []).map((note, index) => ({
+      ...note,
+      id: note.id || index + 1,
+    }));
+    setArrangement(loadedArrangement);
+    setSelectedNoteId(loadedArrangement[0] ? loadedArrangement[0].id : null);
+    setMidiBlob(makeMidi(loadedArrangement));
     writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false);
     setStatus('PROJECT LOADED — ' + project.name);
@@ -279,6 +289,49 @@ function MusicAI({ onClose }) {
     setProjects(next);
     persistProjects(next);
     setStatus('PROJECT DELETED');
+  };
+
+  const updateArrangement = next => {
+    setArrangement(next);
+    setMidiBlob(makeMidi(next));
+  };
+
+  const selectedNote =
+    arrangement.find(note => note.id === selectedNoteId) || arrangement[0] || null;
+
+  const editSelected = changes => {
+    if (!selectedNote) return;
+    const next = arrangement.map(note =>
+      note.id === selectedNote.id ? { ...note, ...changes } : note
+    );
+    updateArrangement(next);
+  };
+
+  const removeSelected = () => {
+    if (!selectedNote) return;
+    const next = arrangement.filter(note => note.id !== selectedNote.id);
+    updateArrangement(next);
+    setSelectedNoteId(next[0] ? next[0].id : null);
+    setStatus('NOTE DELETED');
+  };
+
+  const quantizeArrangement = () => {
+    const next = arrangement.map(note => ({
+      ...note,
+      startTimeSeconds: Math.max(0, Math.round(note.startTimeSeconds * 4) / 4),
+      durationSeconds: Math.max(0.05, Math.round(note.durationSeconds * 4) / 4),
+    }));
+    updateArrangement(next);
+    setStatus('NOTES QUANTIZED');
+  };
+
+  const transposeArrangement = amount => {
+    const next = arrangement.map(note => ({
+      ...note,
+      pitchMidi: Math.max(0, Math.min(127, note.pitchMidi + amount)),
+    }));
+    updateArrangement(next);
+    setStatus((amount > 0 ? 'UP ' : 'DOWN ') + Math.abs(amount) + ' SEMITONES');
   };
 
   const playArrangement = async () => {
@@ -547,6 +600,171 @@ function MusicAI({ onClose }) {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {arrangement.length > 0 && (
+        <div style={{
+          marginTop: 8,
+          border: '1px solid #ff0000',
+          background: '#000',
+          padding: 7,
+          textAlign: 'center',
+        }}>
+          <div style={{ color: '#ff0000', marginBottom: 6 }}>MIDI EDITOR</div>
+
+          <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            flexWrap: 'wrap',
+            gap: 4,
+            marginBottom: 7,
+          }}>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-12)}>OCT -</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(-1)}>NOTE -</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(1)}>NOTE +</button>
+            <button type="button" style={buttonStyle} onClick={() => transposeArrangement(12)}>OCT +</button>
+            <button type="button" style={buttonStyle} onClick={quantizeArrangement}>QUANTIZE</button>
+          </div>
+
+          {selectedNote && (
+            <div style={{
+              border: '1px solid #ff0000',
+              padding: 6,
+              marginBottom: 7,
+              color: '#fff',
+            }}>
+              <div style={{ marginBottom: 5 }}>
+                NOTE {selectedNote.pitchMidi} · {selectedNote.role.toUpperCase()}
+              </div>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                flexWrap: 'wrap',
+                gap: 4,
+              }}>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({ pitchMidi: Math.max(0, selectedNote.pitchMidi - 1) })}>
+                  PITCH -
+                </button>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({ pitchMidi: Math.min(127, selectedNote.pitchMidi + 1) })}>
+                  PITCH +
+                </button>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({
+                    startTimeSeconds: Math.max(0, selectedNote.startTimeSeconds - 0.1),
+                  })}>
+                  START -
+                </button>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({
+                    startTimeSeconds: selectedNote.startTimeSeconds + 0.1,
+                  })}>
+                  START +
+                </button>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({
+                    durationSeconds: Math.max(0.05, selectedNote.durationSeconds - 0.1),
+                  })}>
+                  LENGTH -
+                </button>
+                <button type="button" style={buttonStyle}
+                  onClick={() => editSelected({
+                    durationSeconds: selectedNote.durationSeconds + 0.1,
+                  })}>
+                  LENGTH +
+                </button>
+                <select
+                  value={selectedNote.role}
+                  onChange={event => editSelected({ role: event.target.value })}
+                  style={{
+                    background: '#000',
+                    color: '#fff',
+                    border: '1px solid #ff0000',
+                    fontFamily: 'Tahoma, Arial, sans-serif',
+                    fontSize: 11,
+                  }}
+                >
+                  {roles.map(role => (
+                    <option key={role.id} value={role.id}>{role.label}</option>
+                  ))}
+                </select>
+                <button type="button" style={buttonStyle} onClick={removeSelected}>
+                  DELETE
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div style={{
+            overflowX: 'auto',
+            overflowY: 'hidden',
+            border: '1px solid #ff0000',
+            background: '#050505',
+          }}>
+            <div style={{
+              position: 'relative',
+              height: 260,
+              minWidth: Math.max(650, Math.ceil(
+                arrangement.reduce(
+                  (max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds),
+                  0
+                ) * 70 + 120
+              )),
+            }}>
+              {Array.from({ length: 13 }).map((_, row) => {
+                const pitch = 84 - row * 3;
+                return (
+                  <div key={pitch} style={{
+                    position: 'absolute',
+                    left: 0,
+                    right: 0,
+                    top: row * 20,
+                    height: 20,
+                    borderBottom: '1px solid #550000',
+                    color: '#777',
+                    fontSize: 9,
+                    textAlign: 'left',
+                    paddingLeft: 3,
+                    boxSizing: 'border-box',
+                  }}>
+                    {pitch}
+                  </div>
+                );
+              })}
+
+              {arrangement.map(note => {
+                const top = Math.max(0, Math.min(240, (84 - note.pitchMidi) * 6.67));
+                const left = note.startTimeSeconds * 70 + 28;
+                const width = Math.max(5, note.durationSeconds * 70);
+                const selected = note.id === selectedNoteId;
+                return (
+                  <button
+                    key={note.id}
+                    type="button"
+                    title={note.role.toUpperCase() + ' ' + note.pitchMidi}
+                    onClick={() => setSelectedNoteId(note.id)}
+                    style={{
+                      position: 'absolute',
+                      left,
+                      top,
+                      width,
+                      height: 16,
+                      padding: 0,
+                      margin: 0,
+                      background: selected ? '#ff0000' : '#550000',
+                      border: '1px solid #ff0000',
+                      cursor: 'pointer',
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+          <div style={{ color: '#aaa', marginTop: 5 }}>
+            CLICK A NOTE TO EDIT
+          </div>
         </div>
       )}
 
