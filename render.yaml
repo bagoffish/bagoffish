@@ -4,7 +4,9 @@ services:
     runtime: node
     rootDir: backend
     buildCommand: npm install
-    startCommand: npm start
+    startCommand: node server.js
+    healthCheckPath: /health
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_VERSION
         value: "22"
