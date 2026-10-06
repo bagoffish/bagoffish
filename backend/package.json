@@ -10,8 +10,12 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "@spotify/basic-pitch": "1.0.1",
+    "@tensorflow/tfjs": "^4.22.0",
+    "audio-decode": "^2.2.2",
     "cors": "^2.8.5",
     "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
     "node-fetch": "^3.3.2"
   }
 }
