@@ -1,8 +1,9 @@
-import * as tf from "@tensorflow/tfjs";
-import decodeAudio from "audio-decode";
 import { createRequire } from "module";
 
 const require = createRequire(import.meta.url);
+const tf = require("@tensorflow/tfjs");
+const decodeAudioPackage = require("audio-decode");
+const decodeAudio = decodeAudioPackage?.default || decodeAudioPackage;
 const basicPitchPackage = require("@spotify/basic-pitch");
 const {
   addPitchBendsToNoteEvents,
