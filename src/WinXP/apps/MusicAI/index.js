@@ -226,6 +226,8 @@ function MusicAI({ onClose }) {
     setFile(inputFile);
     setWorking(true);
     setProgress(0);
+    setPlaybackTime(0);
+    setPlaybackDuration(0);
     setStatus('PREPARING AUDIO...');
 
     let decodeContext = null;
@@ -496,12 +498,6 @@ function MusicAI({ onClose }) {
     return minutes + ':' + String(secs).padStart(2, '0');
   };
 
-  const setBarFromPointer = (event, setter) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const value = Math.max(0, Math.min(1, (event.clientX - rect.left) / rect.width));
-    setter(value);
-  };
-
   const stopPlayback = () => {
     if (playbackTimerRef.current) {
       window.clearInterval(playbackTimerRef.current);
@@ -664,12 +660,12 @@ function MusicAI({ onClose }) {
             fontWeight: 'bold',
           }}>R</div>
 
-          <button type="button" onClick={() => setShowTools(value => !value)} style={buttonStyle}>Tools</button>
-          <button type="button" onClick={() => document.querySelector('[data-robloxify-file]').click()} disabled={working} style={buttonStyle}>Open Audio</button>
-          <button type="button" onClick={playArrangement} disabled={working || !arrangement.length} style={buttonStyle}>Play</button>
-          <button type="button" onClick={stopPlayback} disabled={!playing} style={buttonStyle}>Stop</button>
+          <button type="button" onClick={() => setShowTools(value => !value)} style={buttonStyle}>Edit</button>
+          <button type="button" onClick={() => document.querySelector('[data-robloxify-file]').click()} disabled={working} style={buttonStyle}>Open</button>
+          <button type="button" onClick={playing ? stopPlayback : playArrangement} disabled={working || (!playing && !arrangement.length)} style={buttonStyle}>{playing ? 'Stop' : 'Play'}</button>
           <button type="button" onClick={saveProject} disabled={!arrangement.length} style={buttonStyle}>Save</button>
-          <button type="button" onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')} disabled={!midiBlob} style={buttonStyle}>Export MIDI</button>
+          <button type="button" onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')} disabled={!midiBlob} style={buttonStyle}>Export</button>
+          <button type="button" onClick={() => setShowProjects(value => !value)} style={buttonStyle}>Projects</button>
           <button type="button" onClick={() => setShowHelp(value => !value)} style={buttonStyle}>Help</button>
         </div>
 
@@ -851,21 +847,47 @@ function MusicAI({ onClose }) {
         <div style={{
           position: 'absolute',
           left: '50%',
-          bottom: 10,
+          bottom: 8,
           transform: 'translateX(-50%)',
-          width: 'min(360px, 45%)',
-          height: 15,
-          background: '#b51e1e',
-          border: '2px solid #555',
-          boxSizing: 'border-box',
+          width: 'min(420px, 48%)',
+          minWidth: 220,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 2,
         }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontFamily: 'Tahoma, Arial, sans-serif',
+            fontSize: 10,
+            fontWeight: 'bold',
+            textShadow: '1px 1px #111',
+          }}>
+            <span>{formatTime(playbackTime)}</span>
+            <span>{formatTime(playbackDuration)}</span>
+          </div>
           <div
+            role="progressbar"
+            aria-label="Playback progress"
+            aria-valuemin={0}
+            aria-valuemax={playbackDuration || 0}
+            aria-valuenow={Math.min(playbackTime, playbackDuration || 0)}
             style={{
-              width: playbackDuration ? Math.min(100, playbackTime / playbackDuration * 100) + '%' : '0%',
-              height: '100%',
-              background: '#28c52f',
+              height: 15,
+              background: '#b51e1e',
+              border: '2px solid #555',
+              boxSizing: 'border-box',
+              overflow: 'hidden',
             }}
-          />
+          >
+            <div
+              style={{
+                width: playbackDuration ? Math.min(100, playbackTime / playbackDuration * 100) + '%' : '0%',
+                height: '100%',
+                background: '#28c52f',
+              }}
+            />
+          </div>
         </div>
 
         <div style={{
@@ -877,9 +899,16 @@ function MusicAI({ onClose }) {
           alignItems: 'center',
         }}>
           <span>VOL</span>
-          <button type="button" style={buttonStyle} onClick={() => setVolume(Math.min(1, volume + .1))}>+</button>
-          <button type="button" style={buttonStyle} onClick={() => setVolume(Math.max(0, volume - .1))}>−</button>
-          <button type="button" style={buttonStyle} onClick={() => setShowProjects(value => !value)}>Projects</button>
+          <input
+            aria-label="Volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value={volume}
+            onChange={event => setVolume(Number(event.target.value))}
+            style={{ width: 90, cursor: 'pointer' }}
+          />
         </div>
 
         {showProjects && (
