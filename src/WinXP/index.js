@@ -194,6 +194,7 @@ function injectXpCursors() {
     '#root .xp-cursor-vertical { cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important; }',
     '#root .xp-cursor-diagonal-1 { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
     '#root .xp-cursor-diagonal-2 { cursor: url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize !important; }',
+    '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: text !important; }',
   ].join('\n');
@@ -459,7 +460,7 @@ const Container = styled.div`
   [style*='n-resize'], [style*='s-resize'], [style*='e-resize'], [style*='w-resize'],
   [style*='ne-resize'], [style*='nw-resize'], [style*='se-resize'], [style*='sw-resize'],
   [style*='ns-resize'], [style*='ew-resize'], [style*='col-resize'], [style*='row-resize'] {
-    cursor: auto !important;
+    cursor: inherit !important;
   }
 `;
 
