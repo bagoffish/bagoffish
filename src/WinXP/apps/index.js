@@ -1,11 +1,12 @@
+import React, { lazy, Suspense } from "react";
 import AboutMe from "./AboutMe";
-import Renderer from "./Renderer";
+const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
-import Paint from "./Paint";
-import Poems from "./Poems";
-import Winamp from "./Winamp";
-import Robloxify from "./MusicAI";
+const Paint = lazyApp(() => import("./Paint"));
+const Poems = lazyApp(() => import("./Poems"));
+const Winamp = lazyApp(() => import("./Winamp"));
+const Robloxify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -22,6 +23,20 @@ import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
+
+// Heavy apps are loaded only when opened. This keeps the XP desktop fast
+// without changing how the window manager invokes app components.
+function lazyApp(loader) {
+  const LazyComponent = lazy(loader);
+  return function LazyApp(props) {
+    return (
+      <Suspense fallback={<div style={{ padding: 16, fontFamily: 'Tahoma, sans-serif', fontSize: 12 }}>Loading…</div>}>
+        <LazyComponent {...props} />
+      </Suspense>
+    );
+  };
+}
+
 import RendererIconSmall from "assets/windowsIcons/299(32x32).png";
 
 const gen = () => {
