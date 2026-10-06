@@ -309,13 +309,25 @@ const Div = styled.div`
     padding: 1px 3px 0;
     border-bottom: 1px solid rgba(0, 0, 0, 0.1);
   }
+  .ie__function_bar__button,
   .ie__function_bar__button--disable {
-    filter: grayscale(1);
-    opacity: 0.7;
     display: flex;
     height: 100%;
     align-items: center;
+    justify-content: center;
     border: 1px solid rgba(0, 0, 0, 0);
+    box-sizing: border-box;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+  }
+  .ie__function_bar__button--disable {
+    filter: grayscale(1);
+    opacity: 0.7;
+  }
+  .ie__function_bar__button:not(:disabled):hover {
+    border-color: #7f9db9;
+    background: rgba(255, 255, 255, 0.35);
   }
   .ie__function_bar__button--disable > * {
     pointer-events: none;
@@ -347,7 +359,9 @@ const Div = styled.div`
     border-left: 3px solid transparent;
     border-right: 3px solid transparent;
     border-top: 3px solid #000;
-    margin: 0 5px 0 0;
+    margin: 0 5px 0 1px;
+    align-self: center;
+    flex-shrink: 0;
   }
   .ie__function_bar__arrow {
     width: 0;
