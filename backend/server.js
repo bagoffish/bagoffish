@@ -518,32 +518,30 @@ app.get("/proxy-roblox", async (req, res) => {
     const id = userRes?.data?.[0]?.id;
     if (!id) return res.status(404).json({ error: "Not found" });
 
-    const profile = await fetch(`https://users.roblox.com/v1/users/${id}`).then(
-      (r) => r.json()
-    );
+    const [profileRes, avatarRes, pastRes, roliRes] = await Promise.all([
+      fetch(`https://users.roblox.com/v1/users/${id}`),
+      fetch(
+        `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`
+      ),
+      fetch(`https://users.roblox.com/v1/users/${id}/username-history`).catch(() => null),
+      fetch(`https://api.rolimons.com/players/v1/playerinfo/${id}`).catch(() => null),
+    ]);
 
-    const avatarRes = await fetch(
-      `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`
-    ).then((r) => r.json());
+    const profile = await profileRes.json();
+    const avatarResData = await avatarRes.json();
 
     let pastUsernames = [];
-    try {
-      const pastRes = await fetch(
-        `https://users.roblox.com/v1/users/${id}/username-history`
-      );
-      if (pastRes.ok) {
+    if (pastRes && pastRes.ok) {
+      try {
         const pastData = await pastRes.json();
         pastUsernames = pastData.data?.map((x) => x.name) || [];
-      }
-    } catch {}
+      } catch {}
+    }
 
     let roli = {};
-    try {
-      const r = await fetch(
-        `https://api.rolimons.com/players/v1/playerinfo/${id}`
-      );
-      if (r.ok) {
-        const j = await r.json();
+    if (roliRes && roliRes.ok) {
+      try {
+        const j = await roliRes.json();
         roli = {
           rap: j.rap ?? "Unknown",
           value: j.value ?? "Unknown",
@@ -552,12 +550,12 @@ app.get("/proxy-roblox", async (req, res) => {
             ? new Date(j.last_online * 1000).toUTCString().replace(" GMT", "")
             : "Unknown",
         };
-      }
-    } catch {}
+      } catch {}
+    }
 
     const chunkAvatars = avatarIndex.get(String(id)) || [];
     const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
-    const liveAvatarUrl = avatarRes?.data?.[0]?.imageUrl || "";
+    const liveAvatarUrl = avatarResData?.data?.[0]?.imageUrl || "";
     const avatarSourceUrl = liveAvatarUrl || chunkAvatarUrl;
     const avatarUrl = avatarSourceUrl
       ? `https://winxp-backend-live.onrender.com/proxy-roblox-avatar?url=${encodeURIComponent(avatarSourceUrl)}`
