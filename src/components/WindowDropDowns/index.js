@@ -32,8 +32,10 @@ export function WindowDropDowns({
         <div className="drop-down" key={name}>
           <div
             key={name}
-            onClick={() => {
-              setOpenOption(name);
+            onClick={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpenOption(current => (current === name ? '' : name));
             }}
             onMouseEnter={() => hoverOption(name)}
             className={`drop-down__label ${
