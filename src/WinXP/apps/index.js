@@ -280,11 +280,12 @@ export const appSettings = {
     header: {
       icon: winamp,
       title: "Winamp",
+      invisible: true,
     },
     component: Winamp,
     defaultSize: {
-      width: 320,
-      height: 120,
+      width: 300,
+      height: 390,
     },
     defaultOffset: {
       x: 90,
