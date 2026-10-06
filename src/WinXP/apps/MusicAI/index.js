@@ -692,7 +692,7 @@ function MusicAI() {
       const response = await fetch(API_BASE + '/players/' + encodeURIComponent(clean), { cache: 'no-store' });
       if (!response.ok) return false;
       const data = await response.json();
-      setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(Array.isArray(data.projects) ? data.projects : []); setPlayerTracks(Array.isArray(data.tracks) ? data.tracks : []); savePlayerLocal(data.player.name); return true;
+      setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(Array.isArray(data.projects) ? data.projects : []); setProjects(prev => { const merged = [...(data.projects || []), ...prev.filter(p => !(data.projects || []).some(q => String(q.id) === String(p.id)))]; return merged.slice(0, 100); }); setPlayerTracks(Array.isArray(data.tracks) ? data.tracks : []); savePlayerLocal(data.player.name); return true;
     } catch (e) { return false; } finally { setPlayerBusy(false); }
   }, []);
   const registerPlayer = useCallback(async () => {
@@ -709,7 +709,9 @@ function MusicAI() {
       if (!response.ok) throw new Error(data.error || 'Could not save player name.');
       setPlayerName(data.player.name); setPlayerInput(data.player.name); setPlayerProjects(data.projects || []); savePlayerLocal(data.player.name);
     } catch (e) { setStatus(e.message || 'Could not save player name.'); } finally { setPlayerBusy(false); }
-  }, [playerInput, loadPlayer]);
+  }, [playerInput, loadPlayer])
+  useEffect(() => { if (playerName) loadPlayer(playerName); }, []);
+;
 
   const playbackStopTimerRef = useRef(null); const playbackRafRef = useRef(null); const conversionIdRef = useRef(0);
   const scheduledTimersRef = useRef([]); const playStartRef = useRef(0); const seekOffsetRef = useRef(0);
