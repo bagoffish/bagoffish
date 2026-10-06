@@ -238,7 +238,9 @@
               : "User not found (◞‸◟；)"
           );
         });
-    });
+    }
+
+    checkBtn.addEventListener("click", runLookup);
 
     usernameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter" || event.keyCode === 13) {
