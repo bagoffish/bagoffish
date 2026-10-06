@@ -638,7 +638,7 @@ async function transcribeLocally(file, onStatus, onProgress) {
   onStatus('Loading model...'); await yieldToBrowser();
   const tf = await import('@tensorflow/tfjs'); await yieldToBrowser();
   const { BasicPitch, addPitchBendsToNoteEvents, noteFramesToTime, outputToNotesPoly } = await import('@spotify/basic-pitch'); await yieldToBrowser();
-  await tf.setBackend('webgl').catch(() => tf.setBackend('cpu')); await tf.ready(); await yieldToBrowser();
+  await tf.setBackend('cpu'); await tf.ready(); await yieldToBrowser();
   const model = await tf.loadGraphModel(MODEL_URL); const basicPitch = new BasicPitch(model); await yieldToBrowser();
   onStatus('Transcribing...');
   const frames = []; const onsets = []; const contours = [];
