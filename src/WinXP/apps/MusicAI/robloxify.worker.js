@@ -40,6 +40,8 @@ self.onmessage = async event => {
     const frames = [];
     const onsets = [];
     const contours = [];
+    let lastProgressPost = -1;
+    let lastProgressAt = 0;
 
     await basicPitch.evaluateModel(
       audioBuffer,
@@ -49,10 +51,16 @@ self.onmessage = async event => {
         contours.push(...contourBatch);
       },
       value => {
-        self.postMessage({
-          type: 'progress',
-          value: Math.max(0, Math.min(1, value)),
-        });
+        const progress = Math.max(0, Math.min(1, value));
+        const now = performance.now();
+        if (progress >= 1 || progress - lastProgressPost >= 0.02 || now - lastProgressAt >= 150) {
+          lastProgressPost = progress;
+          lastProgressAt = now;
+          self.postMessage({
+            type: 'progress',
+            value: progress,
+          });
+        }
       }
     );
 
