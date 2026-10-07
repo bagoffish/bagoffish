@@ -183,7 +183,6 @@ function Renderer({ onClose }) {
                   <div id="loadingIndicator" className="loadingIndicator">
                     <span>ACCESSING DATABASE</span>
                     <span id="spinner" className="spinner">-</span>
-                    <span id="renderElapsedTime" className="renderElapsedTime">0s</span>
                   </div>
 
                   <div id="centerPanel" className="centerPanel" />
@@ -317,12 +316,6 @@ const legacyCss = `
   display: inline-block;
   width: 14px;
   text-align: center;
-}
-.renderElapsedTime{
-  min-width: 28px;
-  text-align: right;
-  font-weight: normal;
-  font-variant-numeric: tabular-nums;
 }
 .centerPanel{
   width: 100%;
