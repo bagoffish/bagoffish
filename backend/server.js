@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-robloxify-cors-fixed";
+const BACKEND_VERSION = "2026-10-07-robloxify-backend-stems";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -692,9 +692,9 @@ async function loadRobloxify() {
     robloxifyModulePromise = (async () => {
       const multer = (await import("multer")).default;
       const loaded = await import("./robloxify.cjs");
-      const { transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
+      const { separateToInstrumental, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
         loaded.default || loaded;
-      return { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS };
+      return { multer, separateToInstrumental, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS };
     })().catch((err) => {
       robloxifyModulePromise = null;
       throw err;
@@ -706,7 +706,7 @@ async function loadRobloxify() {
 app.post("/robloxify", async (req, res) => {
   setCors(req, res);
   try {
-    const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
+    const { multer, separateToInstrumental, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } =
       await loadRobloxify();
     const upload = multer({
       storage: multer.memoryStorage(),
@@ -741,7 +741,10 @@ app.post("/robloxify", async (req, res) => {
     const t0 = Date.now();
     try {
       const transcriptionStartedAt = Date.now();
-      const result = await transcribeAudioBuffer(req.file.buffer, req.file.mimetype);
+      console.log("Robloxify: backend stem separation starting");
+      const instrumental = await separateToInstrumental(req.file.buffer, req.file.mimetype);
+      console.log("Robloxify: backend stem separation complete");
+      const result = await transcribeAudioBuffer(instrumental.buffer, instrumental.mimeType);
       console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
 
       const plannerStartedAt = Date.now();
