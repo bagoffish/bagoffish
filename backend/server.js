@@ -743,6 +743,7 @@ app.post("/robloxify", async (req, res) => {
       const transcriptionStartedAt = Date.now();
       let transcriptionBuffer = req.file.buffer;
       let transcriptionMime = req.file.mimetype;
+      let stemSeparation = "browser-fallback";
       const totalMemoryMb = Math.round((os.totalmem() / 1024 / 1024) * 10) / 10;
 
       // HT-Demucs needs substantially more memory than Render's free 512 MB
@@ -754,6 +755,7 @@ app.post("/robloxify", async (req, res) => {
         const instrumental = await separateToInstrumental(req.file.buffer, req.file.mimetype);
         transcriptionBuffer = instrumental.buffer;
         transcriptionMime = instrumental.mimeType;
+        stemSeparation = "backend";
         console.log("Robloxify: backend stem separation complete");
       } else {
         console.warn(`Robloxify: skipping backend Demucs on low-memory instance (${totalMemoryMb} MB RAM)`);
@@ -772,6 +774,7 @@ app.post("/robloxify", async (req, res) => {
         sampleRate: result.sampleRate,
         noteCount: result.noteCount,
         aiPlan,
+        stemSeparation,
       };
       rememberRobloxifyResult(cacheKey, response);
       res.json({
