@@ -13,7 +13,7 @@ function isAvatar(url = "") {
   return url.includes("avatar") || url.includes("headshot") || url.includes("bodyshot");
 }
 
-async function parseFile(filePath) {
+async function parseFile(filePath, targetId = "") {
   const entries = [];
 
   const rl = readline.createInterface({
@@ -32,6 +32,7 @@ async function parseFile(filePath) {
     }
 
     if (obj.type !== "user" || !obj.id || !Array.isArray(obj.images)) continue;
+    if (targetId && String(obj.id) !== String(targetId)) continue;
 
     const avatars = [];
     for (const img of obj.images) {
@@ -54,12 +55,12 @@ async function parseFile(filePath) {
 }
 
 (async () => {
-  const { files } = workerData;
+  const { files, targetId = "" } = workerData;
   const out = [];
 
   for (const file of files) {
     try {
-      const entries = await parseFile(file);
+      const entries = await parseFile(file, targetId);
       out.push(...entries);
     } catch (err) {
       // one bad/corrupt chunk file shouldn't kill the whole build
