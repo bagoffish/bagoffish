@@ -496,97 +496,112 @@ function encodeWav(audioBuffer) {
 
 async function renderCombinedWav(notes, duration, onProgress) {
   const renderDuration = Math.max(0.25, Math.min(MAX_SECONDS, duration || 0));
-  const sampleRate = 22050;
-  const context = new OfflineAudioContext(2, Math.ceil(renderDuration * sampleRate), sampleRate);
-  const master = context.createGain();
-  master.gain.value = 0.72;
-  const compressor = context.createDynamicsCompressor();
-  compressor.threshold.value = -18;
-  compressor.knee.value = 16;
-  compressor.ratio.value = 4;
-  compressor.attack.value = 0.005;
-  compressor.release.value = 0.18;
-  master.connect(compressor).connect(context.destination);
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error('Web Audio is unavailable in this browser.');
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('This browser cannot export SoundFont audio as WAV.');
+  }
 
-  const roleConfig = {
-    vocals: { wave: 'sawtooth', gain: 0.075, attack: 0.018, release: 0.10, detune: 0, pan: 0.02 },
-    guitar: { wave: 'triangle', gain: 0.06, attack: 0.008, release: 0.08, detune: -5, pan: -0.22 },
-    bass: { wave: 'square', gain: 0.11, attack: 0.012, release: 0.08, detune: -2, pan: 0 },
-    keys: { wave: 'sine', gain: 0.045, attack: 0.012, release: 0.16, detune: 0, pan: 0.18 },
-    pad: { wave: 'triangle', gain: 0.025, attack: 0.12, release: 0.32, detune: 7, pan: -0.10 },
-    strings: { wave: 'sawtooth', gain: 0.025, attack: 0.08, release: 0.22, detune: -7, pan: 0.12 },
-    arp: { wave: 'square', gain: 0.035, attack: 0.004, release: 0.06, detune: 4, pan: 0.30 },
-  };
+  const context = new AudioContextClass({ sampleRate: 44100 });
+  let synth = null;
+  let recorder = null;
 
-  const panNode = (role, destination) => {
-    const cfg = roleConfig[role] || roleConfig.keys;
-    const p = context.createStereoPanner();
-    p.pan.value = cfg.pan || 0;
-    p.connect(destination);
-    return p;
-  };
+  try {
+    await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
+    synth = new WorkletSynthesizer(context);
 
-  const scheduleTone = (note, role) => {
-    const cfg = roleConfig[role];
-    if (!cfg) return;
-    const start = Math.max(0, Math.min(renderDuration - 0.001, note.startTimeSeconds));
-    const dur = Math.max(0.025, Math.min(note.durationSeconds, renderDuration - start));
-    if (dur <= 0) return;
-    const osc = context.createOscillator();
-    const gain = context.createGain();
-    osc.type = cfg.wave;
-    osc.frequency.value = 440 * Math.pow(2, (note.pitchMidi - 69) / 12);
-    osc.detune.value = cfg.detune || 0;
-    const amp = cfg.gain * Math.max(0.25, Math.min(1, note.amplitude || 0.7));
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.linearRampToValueAtTime(amp, start + Math.min(cfg.attack, dur * 0.45));
-    const releaseStart = Math.max(start + Math.min(dur * 0.72, dur - 0.01), start + 0.01);
-    gain.gain.setValueAtTime(amp, releaseStart);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-    osc.connect(gain).connect(panNode(role, master));
-    osc.start(start);
-    osc.stop(start + dur + 0.02);
-  };
-
-  const noiseBuffer = context.createBuffer(1, sampleRate, sampleRate);
-  const noiseData = noiseBuffer.getChannelData(0);
-  for (let i = 0; i < noiseData.length; i++) noiseData[i] = Math.random() * 2 - 1;
-
-  const scheduleDrum = note => {
-    const start = Math.max(0, Math.min(renderDuration - 0.001, note.startTimeSeconds));
-    const dur = Math.max(0.025, Math.min(note.durationSeconds, renderDuration - start));
-    const gain = context.createGain();
-    const panner = context.createStereoPanner();
-    panner.pan.value = note.pitchMidi === 36 ? 0 : note.pitchMidi === 38 ? -0.05 : 0.25;
-    gain.connect(panner).connect(master);
-    const amp = 0.08 * Math.max(0.3, note.amplitude || 0.6);
-    gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(amp, start + 0.002);
-    gain.gain.exponentialRampToValueAtTime(0.0001, start + dur);
-
-    if (note.pitchMidi === 42) {
-      const src = context.createBufferSource();
-      src.buffer = noiseBuffer;
-      src.connect(gain);
-      src.start(start);
-      src.stop(start + dur);
-    } else {
-      const osc = context.createOscillator();
-      osc.type = note.pitchMidi === 36 ? 'sine' : 'triangle';
-      osc.frequency.setValueAtTime(note.pitchMidi === 36 ? 110 : 180, start);
-      if (note.pitchMidi === 36) osc.frequency.exponentialRampToValueAtTime(48, start + dur);
-      else osc.frequency.exponentialRampToValueAtTime(90, start + dur);
-      osc.connect(gain);
-      osc.start(start);
-      osc.stop(start + dur + 0.01);
+    const bank = SOUNDFONT_LIBRARY[0];
+    let bankPromise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
+    if (!bankPromise) {
+      bankPromise = fetch(bank.url, { cache: 'force-cache' }).then(response => {
+        if (!response.ok) throw new Error('SoundFont HTTP ' + response.status);
+        return response.arrayBuffer();
+      });
+      SOUNDFONT_LOAD_PROMISES.set(bank.id, bankPromise);
     }
-  };
+    const bankBuffer = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await bankPromise;
+    SOUNDFONT_BUFFER_CACHE.set(bank.id, bankBuffer);
 
-  notes.forEach(note => note.role === 'drums' ? scheduleDrum(note) : scheduleTone(note, note.role));
-  onProgress && onProgress(55);
-  const rendered = await context.startRendering();
-  onProgress && onProgress(100);
-  return encodeWav(rendered);
+    await synth.soundBankManager.addSoundBank(bankBuffer.slice(0), bank.id);
+    await synth.isReady;
+
+    const destination = context.createMediaStreamDestination();
+    synth.connect(destination);
+
+    const mimeTypes = [
+      'audio/webm;codecs=opus',
+      'audio/webm',
+      'audio/ogg;codecs=opus',
+      'audio/mp4',
+    ];
+    const mimeType = mimeTypes.find(type => MediaRecorder.isTypeSupported(type)) || '';
+    recorder = new MediaRecorder(destination.stream, mimeType ? { mimeType } : undefined);
+
+    const chunks = [];
+    const recordingDone = new Promise((resolve, reject) => {
+      recorder.ondataavailable = event => {
+        if (event.data && event.data.size) chunks.push(event.data);
+      };
+      recorder.onerror = event => reject(event.error || new Error('SoundFont recording failed.'));
+      recorder.onstop = () => resolve();
+    });
+
+    if (typeof synth.systemReset === 'function') synth.systemReset();
+    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
+    synth.programChange(9, programs.drums || 0);
+    synth.programChange(0, programs.bass || 33);
+    synth.programChange(1, programs.guitar || 29);
+    synth.programChange(2, programs.vocals || 80);
+    synth.programChange(3, programs.keys || 4);
+    synth.programChange(4, programs.pad || 89);
+    synth.programChange(5, programs.strings || 48);
+    synth.programChange(6, programs.arp || 81);
+
+    await context.resume();
+    const baseTime = context.currentTime + 0.08;
+
+    recorder.start();
+    const total = Math.max(1, notes.length);
+    notes.forEach((note, index) => {
+      const channel = note.role === 'drums' ? 9
+        : note.role === 'bass' ? 0
+        : note.role === 'guitar' ? 1
+        : note.role === 'vocals' ? 2
+        : note.role === 'keys' ? 3
+        : note.role === 'pad' ? 4
+        : note.role === 'strings' ? 5
+        : 6;
+      const startTime = Math.max(0, Math.min(renderDuration - 0.001, Number(note.startTimeSeconds) || 0));
+      const durationSeconds = Math.max(
+        0.025,
+        Math.min(Number(note.durationSeconds) || 0.05, renderDuration - startTime)
+      );
+      const velocity = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
+
+      synth.noteOn(channel, note.pitchMidi, velocity, { time: baseTime + startTime });
+      synth.noteOff(channel, note.pitchMidi, { time: baseTime + startTime + durationSeconds });
+
+      if (index % Math.max(1, Math.floor(total / 20)) === 0) {
+        onProgress && onProgress(10 + Math.round((index / total) * 70));
+      }
+    });
+
+    await new Promise(resolve => window.setTimeout(resolve, Math.ceil((renderDuration + 0.5) * 1000)));
+    onProgress && onProgress(85);
+    recorder.stop();
+    await recordingDone;
+
+    const recorded = new Blob(chunks, { type: recorder.mimeType || mimeType || 'audio/webm' });
+    const buffer = await recorded.arrayBuffer();
+    const decoded = await context.decodeAudioData(buffer.slice(0));
+    onProgress && onProgress(95);
+    return encodeWav(decoded);
+  } finally {
+    try { if (recorder && recorder.state !== 'inactive') recorder.stop(); } catch (e) {}
+    try { if (synth) synth.destroy(); } catch (e) {}
+    try { await context.close(); } catch (e) {}
+    onProgress && onProgress(100);
+  }
 }
 
 function downloadBlob(blob, filename) {
