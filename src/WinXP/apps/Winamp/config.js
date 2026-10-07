@@ -1,95 +1,125 @@
 // from Webamp demo
 
-const album = 'One Hell of a Paradise';
+const album = 'netBloc Vol. 24: tiuqottigeloot';
 
 export const initialTracks = [
   {
     url:
-      '/music/1.mp3',
-    duration: 303.600,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Diablo_Swing_Orchestra_-_01_-_Heroines.mp3',
+    duration: 322.612245,
     metaData: {
-      title: 'Daijokay',
-      artist: 'Pacific Purgatory',
+      title: 'Heroines',
+      artist: 'Diablo Swing Orchestra',
       album,
     },
   },
   {
     url:
-      '/music/2.mp3',
-    duration: 115.963,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Eclectek_-_02_-_We_Are_Going_To_Eclecfunk_Your_Ass.mp3',
+    duration: 190.093061,
     metaData: {
-      title: "Haole Don't Surf",
-      artist: 'Pacific Purgatory',
+      title: 'We Are Going To Eclecfunk Your Ass',
+      artist: 'Eclectek',
       album,
     },
   },
   {
     url:
-      '/music/3.mp3',
-    duration: 127.279,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Auto-Pilot_-_03_-_Seventeen.mp3',
+    duration: 214.622041,
     metaData: {
-      title: 'The Fool and Friends',
-      artist: 'Pacific Purgatory',
+      title: 'Seventeen',
+      artist: 'Auto-Pilot',
       album,
     },
   },
   {
     url:
-      '/music/4.mp3',
-    duration: 165.489,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Muha_-_04_-_Microphone.mp3',
+    duration: 181.838367,
     metaData: {
-      title: 'Gills',
-      artist: 'Pacific Purgatory',
+      title: 'Microphone',
+      artist: 'Muha',
       album,
     },
   },
   {
     url:
-      '/music/5.mp3',
-    duration: 239.687,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Just_Plain_Ant_-_05_-_Stumble.mp3',
+    duration: 86.047347,
     metaData: {
-      title: 'Hawaiian Helios/Sunslayer',
-      artist: 'Pacific Purgatory',
+      title: 'Stumble',
+      artist: 'Just Plain Ant',
       album,
     },
   },
   {
     url:
-      '/music/6.mp3',
-    duration: 209.304,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Sleaze_-_06_-_God_Damn.mp3',
+    duration: 226.795102,
     metaData: {
-      title: 'October Usagi',
-      artist: 'Pacific Purgatory',
+      title: 'God Damn',
+      artist: 'Sleaze',
       album,
     },
   },
   {
     url:
-      '/music/7.mp3',
-    duration: 264.987,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Juanitos_-_07_-_Hola_Hola_Bossa_Nova.mp3',
+    duration: 207.072653,
     metaData: {
-      title: 'Knife Fight Battle Theme',
-      artist: 'Pacific Purgatory',
+      title: 'Hola Hola Bossa Nova',
+      artist: 'Juanitos',
       album,
     },
   },
   {
     url:
-      '/music/8.mp3',
-    duration: 227.473,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Entertainment_for_the_Braindead_-_08_-_Resolutions_Chris_Summer_Remix.mp3',
+    duration: 314.331429,
     metaData: {
-      title: 'Valkyrie Hunting',
-      artist: 'Pacific Purgatory',
+      title: 'Resolutions (Chris Summer Remix)',
+      artist: 'Entertainment for the Braindead',
       album,
     },
   },
   {
     url:
-      '/music/9.mp3',
-    duration: 328.344,
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Nobara_Hayakawa_-_09_-_Trail.mp3',
+    duration: 204.042449,
     metaData: {
-      title: 'One Hell of a Paradise',
-      artist: 'Pacific Purgatory',
+      title: 'Trail',
+      artist: 'Nobara Hayakawa',
+      album,
+    },
+  },
+  {
+    url:
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/Paper_Navy_-_10_-_Tongue_Tied.mp3',
+    duration: 201.116735,
+    metaData: {
+      title: 'Tongue Tied',
+      artist: 'Paper Navy',
+      album,
+    },
+  },
+  {
+    url:
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/60_Tigres_-_11_-_Garage.mp3',
+    duration: 245.394286,
+    metaData: {
+      title: 'Garage',
+      artist: '60 Tigres',
+      album,
+    },
+  },
+  {
+    url:
+      'https://raw.githubusercontent.com/captbaritone/webamp-music/4b556fbf/CM_aka_Creative_-_12_-_The_Cycle_Featuring_Mista_Mista.mp3',
+    duration: 221.44,
+    metaData: {
+      title: 'The Cycle (Featuring Mista Mista)',
+      artist: 'CM aka Creative',
       album,
     },
   },
