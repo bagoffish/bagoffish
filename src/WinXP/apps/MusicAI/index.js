@@ -884,24 +884,25 @@ function MusicAI() {
         if (conversionId === conversionIdRef.current) setProgress(displayedProgress);
       }, 350);
       try {
-        setStatus('Server is separating vocals / drums / bass / other…');
+        setStatus('Removing vocals in your browser…');
         setProgress(Math.max(displayedProgress, 15));
-        let result = await transcribeOnBackend(inputFile, msg => {
+        let analysisFile = inputFile;
+        try {
+          analysisFile = await separateVocalsAndBuildInstrumental(
+            inputFile,
+            msg => { if (conversionId === conversionIdRef.current) setStatus(msg); },
+            p => { if (conversionId === conversionIdRef.current) setProgress(Math.max(displayedProgress, p)); }
+          );
+        } catch (stemError) {
+          console.warn('Browser stem separation failed; using original audio:', stemError);
+          if (conversionId === conversionIdRef.current) setStatus('Vocal removal unavailable — transcribing original audio…');
+        }
+        let result = await transcribeOnBackend(analysisFile, msg => {
           if (conversionId === conversionIdRef.current) {
             setStatus(msg);
             setProgress(Math.max(displayedProgress, 30));
           }
         });
-        if (result.stemSeparation === 'browser-fallback') {
-          const analysisFile = await separateVocalsAndBuildInstrumental(
-            inputFile,
-            msg => { if (conversionId === conversionIdRef.current) setStatus(msg); },
-            p => { if (conversionId === conversionIdRef.current) setProgress(Math.max(displayedProgress, p)); }
-          );
-          result = await transcribeOnBackend(analysisFile, msg => {
-            if (conversionId === conversionIdRef.current) setStatus(msg);
-          });
-        }
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes;
         duration = result.duration || 0;
