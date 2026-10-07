@@ -1,0 +1,21 @@
+{
+  "purpose": "Robloxify musical reference library",
+  "rules": [
+    "Use these references as broad arrangement knowledge, never to copy a particular song.",
+    "Preserve the user's detected melody and timing unless an intentional style transformation improves it.",
+    "Favor MIDI-era simplicity, memorable melodies, compact instrumentation, and soundfont-friendly voicings.",
+    "Do not reproduce copyrighted melodies, lyrics, or distinctive arrangements from reference songs."
+  ],
+  "styles": [
+    {"id":"classic-roblox","traits":["simple memorable lead","bright GM timbres","short motifs","light accompaniment","sparse drums"]},
+    {"id":"wind-of-fjords","traits":["M.U.L.E.-like MIDI palette","clear lead","steady bass","compact chord support","mechanical but musical pulse"]},
+    {"id":"classic-game-midi","traits":["General MIDI instruments","quantized timing","octave doubling","simple triads","clear melodic contour"]},
+    {"id":"strategy","traits":["bass-forward writing","measured tempo","minor or modal color","short harmonic cells","restrained percussion"]},
+    {"id":"chip","traits":["high-register lead","short notes","octave motion","arpeggios","simple bass pulse"]},
+    {"id":"horror","traits":["low register","minor/modal harmony","long sustained tones","sparse percussion","uneasy intervals"]},
+    {"id":"party","traits":["strong pulse","short rhythmic phrases","repeating bass","bright lead","regular percussion"]},
+    {"id":"stealth","traits":["repeating ostinatos","lower dynamics","narrow melodic range","syncopated accents","dark timbres"]},
+    {"id":"orchestral-midi","traits":["strings and brass support","octave layers","block harmony","clear cadence points","moderate density"]},
+    {"id":"retro-game","traits":["loop-friendly motifs","clear bass roots","compact chord cycles","bright synthetic timbres","strong rhythmic identity"]}
+  ]
+}

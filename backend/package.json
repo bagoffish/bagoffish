@@ -1,0 +1,22 @@
+{
+  "name": "winxp-avatar-backend",
+  "version": "1.0.3",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "node-fetch": "^3.3.2",
+    "multer": "^2.0.2",
+    "@spotify/basic-pitch": "1.0.1",
+    "@audio/decode": "^4.0.0",
+    "music-metadata": "^10.9.1",
+    "@tensorflow/tfjs-node": "^4.22.0"
+  }
+}
