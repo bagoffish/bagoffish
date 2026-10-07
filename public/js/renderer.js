@@ -63,6 +63,8 @@
 
     var frames = ["-", "/", "|", "\\"];
     var frameIndex = 0;
+    var elapsedTimer = null;
+    var renderStartedAt = 0;
     var spinTimer = setInterval(function () {
       if (loadingIndicator.style.display === "flex") {
         spinner.textContent = frames[frameIndex % frames.length];
@@ -70,12 +72,34 @@
       }
     }, 120);
 
+    function stopElapsedTimer() {
+      if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+      }
+    }
+
+    function updateElapsedTime() {
+      var elapsed = Math.max(0, Math.floor((Date.now() - renderStartedAt) / 1000));
+      var elapsedNode = document.getElementById("renderElapsedTime");
+      if (elapsedNode) elapsedNode.textContent = elapsed + "s";
+    }
+
+    function startElapsedTimer() {
+      stopElapsedTimer();
+      renderStartedAt = Date.now();
+      updateElapsedTime();
+      elapsedTimer = setInterval(updateElapsedTime, 1000);
+    }
+
     function cleanup() {
       clearInterval(spinTimer);
+      stopElapsedTimer();
     }
 
     function showError(message) {
       loadingIndicator.style.display = "none";
+      stopElapsedTimer();
       messageBox.textContent = message;
       messageBox.style.display = "flex";
       messageBox.classList.remove("shake");
@@ -109,6 +133,7 @@
       messageBox.style.display = "none";
       centerPanel.innerHTML = "";
       loadingIndicator.style.display = "flex";
+      startElapsedTimer();
 
       fetchRendererData(username)
         .then(function (data) {
@@ -200,6 +225,7 @@
             }
 
             loadingIndicator.style.display = "none";
+            stopElapsedTimer();
           });
         })
         .catch(function (error) {
