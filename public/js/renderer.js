@@ -3,6 +3,7 @@
 
   var API_BASE = window.RENDERER_API_BASE || "https://winxp-backend-live.onrender.com";
   var RETRY_LIMIT = 60;
+  var OLD_AVATAR_PAGE_SIZE = 12;
 
   function text(value) {
     return value == null ? "" : String(value);
@@ -154,6 +155,22 @@
 
             centerPanel.innerHTML = html;
 
+            function appendOldAvatar(container, url) {
+              if (!url) return;
+              var thumb = document.createElement("img");
+              thumb.src = url;
+              thumb.alt = "";
+              thumb.loading = "lazy";
+              thumb.decoding = "async";
+              thumb.className = "old-avatar-thumb";
+              thumb.title = "Open archived avatar";
+              thumb.addEventListener("error", function () { thumb.style.display = "none"; });
+              thumb.addEventListener("click", function () {
+                window.open(url, "_blank", "noopener,noreferrer");
+              });
+              container.appendChild(thumb);
+            }
+
             var oldContainer = document.getElementById("oldAvatars");
             if (oldContainer) {
               for (i = 0; i < oldAvatars.length; i += 1) {
@@ -161,18 +178,24 @@
                   continue;
                 }
 
-                var thumb = document.createElement("img");
-                thumb.src = oldAvatars[i].wayback;
-                thumb.alt = "";
-                thumb.loading = "lazy";
-                thumb.className = "old-avatar-thumb";
-                thumb.title = "Open archived avatar";
-                (function (url) {
-                  thumb.addEventListener("click", function () {
-                    window.open(url, "_blank", "noopener,noreferrer");
-                  });
-                }(oldAvatars[i].wayback));
-                oldContainer.appendChild(thumb);
+                if (i >= OLD_AVATAR_PAGE_SIZE) break;
+                appendOldAvatar(oldContainer, oldAvatars[i].wayback);
+              }
+              if (oldAvatars.length > OLD_AVATAR_PAGE_SIZE) {
+                var more = document.createElement("button");
+                more.type = "button";
+                more.textContent = "Load more archived renders (" + (oldAvatars.length - OLD_AVATAR_PAGE_SIZE) + " more)";
+                more.style.marginTop = "8px";
+                more.style.cursor = "pointer";
+                var shown = OLD_AVATAR_PAGE_SIZE;
+                more.addEventListener("click", function () {
+                  var end = Math.min(shown + OLD_AVATAR_PAGE_SIZE, oldAvatars.length);
+                  for (var j = shown; j < end; j += 1) appendOldAvatar(oldContainer, oldAvatars[j].wayback);
+                  shown = end;
+                  if (shown >= oldAvatars.length) more.remove();
+                  else more.textContent = "Load more archived renders (" + (oldAvatars.length - shown) + " more)";
+                });
+                oldContainer.appendChild(more);
               }
             }
 
