@@ -7,16 +7,36 @@ const MAX_BYTES = 50 * 1024 * 1024;
 let modelPromise = null;
 
 const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "arp"];
+
+// Robloxify has one permanent musical reference. The reference is learned once
+// and represented here as a fixed style profile; uploads must not cause the AI
+// to invent a new genre, instrumentation, or arrangement direction.
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
-const ROBLOX_SOUNDFONTS = [
-  { id: "nokia", name: "Nokia Tongbao", character: "small, bright, lo-fi mobile-game timbres" },
-  { id: "roblox-sf", name: "Roblox Soundfont", character: "classic Roblox/general MIDI palette" },
-  { id: "gamehero", name: "GameHero", character: "arcade/game-style tones" },
-  { id: "classic-days", name: "Classic Days", character: "retro game/keyboard colors" },
-  { id: "stealth", name: "StealthPilot", character: "digital synth colors" },
-  { id: "drums", name: "StealthPilot Drums", character: "compact game percussion" },
-  { id: "fjords-midi", name: "Wind of Fjords MIDI", character: "MIDI-era melodic/harmonic colors" },
-];
+const REFERENCE_STYLE = {
+  name: "Robloxify Reference Style",
+  traits: [
+    "MIDI-era Roblox/game-music character",
+    "bright synthetic lead",
+    "compact repeating motifs",
+    "clear root-driven bass",
+    "simple triadic harmony",
+    "short quantized notes",
+    "small arpeggio accents",
+    "restrained game percussion",
+    "lo-fi crunchy SoundFont character",
+  ],
+  arrangement: "Keep the uploaded melody and timing recognizable, then express it through a compact Roblox/game-MIDI arrangement.",
+  instrumentation: "Use only the fixed Wind of Fjords MIDI SoundFont from the repository.",
+};
+
+// This is intentionally the ONLY SoundFont used by Robloxify.
+const FIXED_SOUNDFONT = {
+  id: "fjords-midi",
+  name: "Wind of Fjords MIDI",
+  url: "/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2",
+  character: "MIDI-era melodic/harmonic colors",
+};
+const ROBLOX_SOUNDFONTS = [FIXED_SOUNDFONT];
 
 function clamp(value, min, max, fallback) {
   const n = Number(value);
@@ -313,251 +333,56 @@ function summarize(notes, duration) {
 }
 
 function fallbackPlan(notes, duration) {
-  const analysis = summarize(notes, duration);
-
-  if (analysis.notesPerSecond > 12 && analysis.shortNoteRatio > 0.5) {
-    return {
-      primaryRole: "vocals",
-      supportRoles: ["bass", "guitar", "keys"],
-      drums: true,
-      density: 0.9,
-      swing: 0,
-      quantizeGrid: 0.125,
-      preserveMelody: true,
-      tempoBpm: 120,
-      harmonicComplexity: 0.5,
-      bassPattern: "pulse",
-      chordRhythm: "quarter",
-      melodyOctave: 0,
-      drumPattern: "basic",
-      reason: "Dense melodic performance.",
-    };
-  }
-
-  if (analysis.lowRatio > 0.45 && analysis.notesPerSecond < 5) {
-    return {
-      primaryRole: "bass",
-      supportRoles: ["keys", "strings"],
-      drums: true,
-      density: 0.55,
-      swing: 0,
-      quantizeGrid: 0.25,
-      preserveMelody: true,
-      tempoBpm: 120,
-      harmonicComplexity: 0.5,
-      bassPattern: "root",
-      chordRhythm: "half",
-      melodyOctave: 0,
-      drumPattern: "basic",
-      reason: "Sparse bass-heavy performance.",
-    };
-  }
-
-  if (analysis.highRatio > 0.4 && analysis.notesPerSecond > 7) {
-    return {
-      primaryRole: "vocals",
-      supportRoles: ["bass", "guitar", "arp"],
-      drums: true,
-      density: 0.8,
-      swing: 0,
-      quantizeGrid: 0.125,
-      preserveMelody: true,
-      tempoBpm: 120,
-      harmonicComplexity: 0.6,
-      bassPattern: "pulse",
-      chordRhythm: "quarter",
-      melodyOctave: 0,
-      drumPattern: "basic",
-      reason: "Bright high-register performance.",
-    };
-  }
-
   return {
-    primaryRole: "guitar",
-    supportRoles: ["bass", "keys", "strings"],
-    drums: false,
-    density: 0.65,
+    primaryRole: "vocals",
+    supportRoles: ["bass", "keys", "arp"],
+    drums: true,
+    density: 0.72,
     swing: 0,
-    quantizeGrid: 0.25,
+    quantizeGrid: 0.125,
     preserveMelody: true,
     tempoBpm: 120,
-    harmonicComplexity: 0.55,
+    harmonicComplexity: 0.45,
     bassPattern: "root",
     chordRhythm: "half",
     melodyOctave: 0,
-    drumPattern: "none",
-    reason: "Balanced arrangement.",
+    drumPattern: "basic",
+    referenceUrl: REFERENCE_URL,
+    referenceStyle: REFERENCE_STYLE,
+    soundfontRoles: {
+      lead: FIXED_SOUNDFONT.id,
+      bass: FIXED_SOUNDFONT.id,
+      harmony: FIXED_SOUNDFONT.id,
+      arp: FIXED_SOUNDFONT.id,
+      drums: FIXED_SOUNDFONT.id,
+    },
+    reason: "Permanent Robloxify reference style using the repository SoundFont.",
   };
 }
 
-function parseJson(text) {
-  const raw = String(text || "").trim();
-  const fenced = raw.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/i);
-  const candidate = fenced ? fenced[1] : raw;
-  const start = candidate.indexOf("{");
-  const end = candidate.lastIndexOf("}");
-
-  if (start < 0 || end <= start) {
-    throw new Error("Planner did not return a JSON object");
-  }
-
-  return JSON.parse(candidate.slice(start, end + 1));
-}
-
-function sanitizePlan(plan, fallback) {
-  const source = plan && typeof plan === "object" ? plan : {};
-  const result = { ...fallback, ...source };
-
-  if (!ROLES.includes(result.primaryRole)) result.primaryRole = fallback.primaryRole;
-
-  result.supportRoles = Array.isArray(result.supportRoles)
-    ? [...new Set(result.supportRoles.filter(role => ROLES.includes(role)))].slice(0, 4)
-    : fallback.supportRoles;
-
-  result.drums = Boolean(result.drums);
-  result.density = clamp(result.density, 0.25, 1, fallback.density);
-  result.swing = clamp(result.swing, 0, 0.35, fallback.swing);
-  result.tempoBpm = clamp(result.tempoBpm, 70, 180, 120);
-  result.harmonicComplexity = clamp(result.harmonicComplexity, 0, 1, 0.5);
-  result.preserveMelody = result.preserveMelody !== false;
-
-  if (![0.0625, 0.125, 0.25, 0.5].includes(Number(result.quantizeGrid))) {
-    result.quantizeGrid = fallback.quantizeGrid;
-  }
-
-  if (!["root", "octave", "walking", "pulse"].includes(result.bassPattern)) {
-    result.bassPattern = fallback.bassPattern;
-  }
-
-  if (!["sustained", "half", "quarter", "syncopated"].includes(result.chordRhythm)) {
-    result.chordRhythm = fallback.chordRhythm;
-  }
-
-  result.melodyOctave = [-1, 0, 1].includes(Number(result.melodyOctave))
-    ? Number(result.melodyOctave)
-    : 0;
-
-  if (!["none", "basic", "four_on_floor", "breakbeat"].includes(result.drumPattern)) {
-    result.drumPattern = fallback.drumPattern;
-  }
-
-  result.reason = typeof result.reason === "string"
-    ? result.reason.slice(0, 500)
-    : fallback.reason;
-
-  result.webResearch = Array.isArray(result.webResearch)
-    ? result.webResearch.slice(0, 8).map(item => ({
-        title: String(item?.title || "").slice(0, 180),
-        url: String(item?.url || "").slice(0, 500),
-        takeaway: String(item?.takeaway || "").slice(0, 300),
-      }))
-    : [];
-
-  return result;
-}
-
+// The style is deliberately NOT generated per upload.
+// Basic Pitch only supplies the user's notes; this fixed plan supplies the
+// musical identity every Robloxify conversion uses.
 async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
-  const fallback = fallbackPlan(notes, duration);
-  const analysis = summarize(notes, duration);
-
-  if (!process.env.OPENAI_API_KEY) {
-    return { ...fallback, ai: false, analysis, webResearch: [] };
-  }
-
-  try {
-    const model = process.env.ROBLOXIFY_AI_MODEL || "gpt-6-luna";
-    const prompt = [
-      "You are the musical director for Robloxify.",
-      "Create a vocal-less 8-bit chiptune/game-console arrangement based on the supplied reference URL and its publicly available information.",
-      "Study the reference URL with web search before deciding the arrangement. Extract broad traits such as tempo feel, rhythmic density, melodic phrasing, harmony, instrumentation, texture, distortion/bit-crush character, and mix balance.",
-      "Do not copy the reference song, melody, lyrics, recording, or distinctive arrangement. Recreate only broad sonic characteristics for the user's uploaded song.",
-      "The actual instruments must come from the Roblox SF2 palette supplied below. Choose the closest palette members for each role rather than inventing external instruments.",
-      "Preserve the uploaded performance's melody, timing, contour, and recognizable structure while converting its instrumentation into crunchy 8-bit/chiptune sounds.",
-      "Favor square/pulse leads, short synth bass, compact chord stabs, arpeggios, simple game-style drums, and a deliberately lo-fi/bit-crushed texture.",
-      "Use the supplied reference library as broad arrangement knowledge.",
-      "REFERENCE_URL: " + referenceUrl,
-      "ROBLOX_SOUNDFONTS: " + JSON.stringify(ROBLOX_SOUNDFONTS),
-      "Do not copy any specific song, lyric, melody, or distinctive arrangement.",
-      "Return JSON only.",
-      JSON.stringify({ referenceLibrary: brain }),
-      JSON.stringify({
-        transcription: analysis,
-        schema: {
-          primaryRole: "guitar|keys|arp|vocals",
-          supportRoles: "array of up to four roles",
-          drums: "boolean",
-          density: "0.25-1",
-          swing: "0-0.35",
-          quantizeGrid: "0.0625|0.125|0.25|0.5",
-          preserveMelody: "boolean",
-          tempoBpm: "70-180",
-          harmonicComplexity: "0-1",
-          bassPattern: "root|octave|walking|pulse",
-          chordRhythm: "sustained|half|quarter|syncopated",
-          melodyOctave: "-1|0|1",
-          drumPattern: "none|basic|four_on_floor|breakbeat",
-          soundfontRoles: "object mapping lead,bass,harmony,arp,drums to soundfont IDs from ROBLOX_SOUNDFONTS",
-          referenceStyle: "short description of the broad sonic traits learned from the reference",
-          reason: "short string describing the 8-bit arrangement",
-          webResearch: "array of source summaries",
-        },
-      }),
-    ].join("\n\n");
-
-    const controller = new AbortController();
-    const plannerTimeout = setTimeout(() => controller.abort(), 20_000);
-    let response;
-    try {
-      response = await fetch("https://api.openai.com/v1/responses", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: "Bearer " + process.env.OPENAI_API_KEY,
-        },
-        body: JSON.stringify({
-          model,
-          tools: [{ type: "web_search" }],
-          input: prompt,
-          max_output_tokens: 1400,
-        }),
-        signal: controller.signal,
-      });
-    } finally {
-      clearTimeout(plannerTimeout);
-    }
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      throw new Error(data?.error?.message || "Robloxify planner request failed");
-    }
-
-    const outputText = data.output_text ||
-      (data.output || [])
-        .flatMap(item => item.content || [])
-        .filter(item => item.type === "output_text")
-        .map(item => item.text)
-        .join("");
-
-    return {
-      ...sanitizePlan(parseJson(outputText), fallback),
-      referenceUrl,
-      ai: true,
-      model,
-      analysis,
-    };
-  } catch (error) {
-    return {
-      ...fallback,
-      ai: false,
-      aiError: error?.name === "AbortError"
-        ? "Arrangement planner timed out; using the local arrangement fallback."
-        : error instanceof Error ? error.message : String(error),
-      analysis,
-      webResearch: [],
-      referenceUrl,
-    };
-  }
+  const plan = fallbackPlan(notes, duration);
+  return {
+    ...plan,
+    referenceUrl: REFERENCE_URL,
+    referenceStyle: REFERENCE_STYLE,
+    soundfont: FIXED_SOUNDFONT,
+    soundfontRoles: {
+      lead: FIXED_SOUNDFONT.id,
+      bass: FIXED_SOUNDFONT.id,
+      harmony: FIXED_SOUNDFONT.id,
+      arp: FIXED_SOUNDFONT.id,
+      drums: FIXED_SOUNDFONT.id,
+    },
+    ai: false,
+    fixedStyle: true,
+    model: null,
+    analysis: summarize(notes, duration),
+    webResearch: [],
+  };
 }
 
 module.exports = {
