@@ -809,22 +809,14 @@ async function separateVocalsAndBuildInstrumental(inputFile, onStatus, onProgres
   }
 }
 
-const ROBLOXIFY_STEPS = [
-  'Check the file. It has to be a song, and it has to be under the size limit.',
-  'Upload the song. The pre-baked style reads it on the free server. The first upload waits if that server is asleep.',
-  'Find the notes. Each note gets a pitch, a start time, and a length.',
-  'Split the notes into drums, bass, guitar, lead, keys, pad, strings, and arp.',
-  'Mix the SoundFonts. Each part gets its own Roblox bank, and the color parts change as the song goes.',
-];
-
 async function transcribeOnBackend(file, onStatus) {
-  onStatus('2/5 Uploading the song. The pre-baked style will read this file on the server.');
+  onStatus('Uploading the audio.');
   const form = new FormData();
   form.append('audio', file, file.name || 'audio.wav');
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000);
   try {
-    onStatus('3/5 Finding the notes: pitch, start time, and length. This is the slow step, and it takes longer if the server was asleep.');
+    onStatus('Reading pitch, start time, and length.');
     const res = await fetch(API_BASE + '/robloxify', {
       method: 'POST',
       body: form,
@@ -936,7 +928,7 @@ function MusicAI() {
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
-  const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0); const [processStep, setProcessStep] = useState(-1);
+  const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerInput, setPlayerInput] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
@@ -1031,7 +1023,7 @@ function MusicAI() {
     if (inputFile.size > MAX_BYTES) { setStatus('File too large (max 50 MB)'); return; }
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
-    setFile(inputFile); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setProcessStep(0); setStatus('1/5 Checking the audio file…');
+    setFile(inputFile); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Checking the audio file.');
     const loadingStartedAt = performance.now();
     const loadingTimer = window.setInterval(() => {
       if (conversionId === conversionIdRef.current) {
@@ -1054,12 +1046,10 @@ function MusicAI() {
         // Stem separation downloads a large model and runs it in the browser
         // before the server can even start. The pre-baked style thinks from
         // the notes, so send the original file straight through.
-        setProcessStep(1);
-        setStatus('2/5 Uploading the song so the pre-baked style can read it…');
+        setStatus('Uploading the audio.');
         let result = await transcribeOnBackend(inputFile, msg => {
           if (conversionId === conversionIdRef.current) {
             setStatus(msg);
-            setProcessStep(msg.indexOf('3/5') === 0 ? 2 : 1);
             setProgress(Math.max(displayedProgress, 30));
           }
         });
@@ -1070,13 +1060,11 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setProcessStep(3);
-      setStatus('4/5 Splitting the notes into drums, bass, guitar, lead, keys, pad, strings, and arp…'); await yieldToBrowser();
+      setStatus('Splitting notes into drums, bass, guitar, lead, keys, pad, strings, and arp.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
-      setProcessStep(4);
-      setStatus('5/5 Mixing a Roblox SoundFont onto each part…'); await yieldToBrowser();
+      setStatus('Mixing a SoundFont onto each part.'); await yieldToBrowser();
       const palette = choosePrebakedPalette(rawNotes);
       const soundfontRoles = assignRoleBanks(palette);
       Object.keys(soundfontRoles).forEach(roleId => {
@@ -1113,7 +1101,6 @@ function MusicAI() {
       window.clearInterval(loadingTimer);
       if (conversionId === conversionIdRef.current) {
         setLoadingSeconds(Math.floor((performance.now() - loadingStartedAt) / 1000));
-        setProcessStep(-1);
         setWorking(false);
       }
     }
@@ -1393,15 +1380,6 @@ function MusicAI() {
           <div style={{ ...panel, padding: 8, flexShrink: 0 }}>
             <div style={{ background: rbx.blue, color: '#fff', fontWeight: 'bold', fontSize: 11, padding: '2px 6px', margin: '-8px -8px 6px', borderBottom: '2px solid #000' }}>Status</div>
             <div style={{ fontSize: 11, marginBottom: 4, lineHeight: 1.35 }}>{status}</div>
-            {working && processStep >= 0 && (
-              <ol style={{ margin: '0 0 6px 18px', padding: 0, fontSize: 10, lineHeight: 1.35 }}>
-                {ROBLOXIFY_STEPS.map((step, index) => (
-                  <li key={step} style={{ color: index < processStep ? '#174a88' : '#000', fontWeight: index === processStep ? 'bold' : 'normal' }}>
-                    {index < processStep ? 'Done. ' : index === processStep ? 'Now. ' : ''}{step}
-                  </li>
-                ))}
-              </ol>
-            )}
             <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
             <HealthBar value={progress} max={100} label={
               <span style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
