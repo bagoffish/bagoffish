@@ -1,3 +1,10 @@
+// One thread keeps the native TensorFlow heap small enough for the 512 MB instance.
+process.env.TF_NUM_INTRAOP_THREADS = process.env.TF_NUM_INTRAOP_THREADS || "1";
+process.env.TF_NUM_INTEROP_THREADS = process.env.TF_NUM_INTEROP_THREADS || "1";
+
+const { createRequire } = require("module");
+const requireFromHere = createRequire(__filename);
+
 const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "arp"];
 
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
@@ -236,6 +243,72 @@ const MAX_BYTES = 120 * 1024 * 1024;
 
 let modelPromise = null;
 
+// Basic Pitch never disposes the window tensors it builds. On the free Render
+// instance those tensors accumulate until Linux OOM-kills the process, and the
+// dropped connection shows up in the browser as a CORS failure.
+function tensorApis() {
+  const apis = [];
+  const add = (mod) => {
+    const tf = mod && (typeof mod.engine === "function" ? mod : mod.default);
+    if (!tf || typeof tf.engine !== "function") return;
+    const engine = tf.engine();
+    if (apis.some((api) => api.engine() === engine)) return;
+    apis.push(tf);
+  };
+
+  add(requireFromHere("@tensorflow/tfjs-node"));
+  try {
+    const pitchEntry = requireFromHere.resolve("@spotify/basic-pitch");
+    const pitchTfPath = requireFromHere.resolve("@tensorflow/tfjs", {
+      paths: [pitchEntry],
+    });
+    add(requireFromHere(pitchTfPath));
+  } catch (err) {
+    console.warn("Robloxify Basic Pitch TensorFlow resolve failed:", err.message);
+  }
+  return apis;
+}
+
+function tensorSnapshot(apis) {
+  return apis
+    .map((tf) => {
+      const memory = tf.memory();
+      return `${memory.numTensors} tensors/${Math.round(memory.numBytes / (1024 * 1024))}MB`;
+    })
+    .join(" | ");
+}
+
+async function evaluateWithoutLeaking(pitch, audio) {
+  const apis = tensorApis();
+  const before = tensorSnapshot(apis);
+  for (const tf of apis) tf.engine().startScope("robloxify");
+  const frames = [];
+  const onsets = [];
+  const contours = [];
+  try {
+    await pitch.instance.evaluateModel(
+      audio,
+      (frameBatch, onsetBatch, contourBatch) => {
+        frames.push(...frameBatch);
+        onsets.push(...onsetBatch);
+        contours.push(...contourBatch);
+      },
+      () => {}
+    );
+    return { frames, onsets, contours };
+  } finally {
+    for (let i = apis.length - 1; i >= 0; i -= 1) {
+      try {
+        apis[i].engine().endScope();
+      } catch (err) {
+        console.warn("Robloxify tensor scope cleanup failed:", err.message);
+      }
+    }
+    const rss = Math.round(process.memoryUsage().rss / (1024 * 1024));
+    console.log(`Robloxify tensors ${before} -> ${tensorSnapshot(apis)}, rss ${rss}MB`);
+  }
+}
+
 async function loadBasicPitch() {
   if (modelPromise) return modelPromise;
 
@@ -444,19 +517,9 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   );
   const pitchStartedAt = Date.now();
   const pitch = await loadBasicPitch();
-
-  const frames = [];
-  const onsets = [];
-  const contours = [];
-
-  await pitch.instance.evaluateModel(
-    audioLike(samples, TARGET_RATE),
-    (frameBatch, onsetBatch, contourBatch) => {
-      frames.push(...frameBatch);
-      onsets.push(...onsetBatch);
-      contours.push(...contourBatch);
-    },
-    () => {}
+  const { frames, onsets, contours } = await evaluateWithoutLeaking(
+    pitch,
+    audioLike(samples, TARGET_RATE)
   );
 
   console.log(

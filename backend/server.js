@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-visitor-count";
+const BACKEND_VERSION = "2026-10-08-robloxify-memory";
 const ROBLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -328,6 +328,11 @@ async function loadRobloxify() {
 
 app.post("/robloxify", async (req, res) => {
   setCors(req, res);
+  if (robloxifyBusy) {
+    res.setHeader("Retry-After", "5");
+    return res.status(503).json({ error: "Robloxify is busy processing another file. Try again in a moment." });
+  }
+  robloxifyBusy = true;
   try {
     const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await loadRobloxify();
     const upload = multer({
@@ -338,7 +343,6 @@ app.post("/robloxify", async (req, res) => {
       limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
     }).single("audio");
     await new Promise((resolve, reject) => { upload(req, res, (err) => (err ? reject(err) : resolve())); });
-    if (robloxifyBusy) return res.status(503).json({ error: "Robloxify is busy processing another file. Try again in a moment." });
     if (!req.file) return res.status(400).json({ error: "Audio file required (field name: audio)" });
     const fileBuffer = await fs.promises.readFile(req.file.path);
     await fs.promises.unlink(req.file.path).catch(() => {});
@@ -349,32 +353,27 @@ app.post("/robloxify", async (req, res) => {
       robloxifyCache.set(cacheKey, cachedResult);
       return res.json({ ...cachedResult, cached: true, ms: 0, version: BACKEND_VERSION });
     }
-    robloxifyBusy = true;
     const t0 = Date.now();
-    try {
-      const transcriptionStartedAt = Date.now();
-      // Stem separation is intentionally done in the browser. Running Demucs here
-      // makes the small Render instance unnecessarily memory-hungry.
-      const transcriptionBuffer = fileBuffer;
-      const transcriptionMime = req.file.mimetype;
-      const stemSeparation = "browser";
-      const result = await transcribeAudioBuffer(transcriptionBuffer, transcriptionMime);
-      console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
-      const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
-      const response = {
-        ok: true,
-        notes: result.notes,
-        duration: result.duration,
-        sampleRate: result.sampleRate,
-        noteCount: result.noteCount,
-        aiPlan,
-        stemSeparation,
-      };
-      rememberRobloxifyResult(cacheKey, response);
-      res.json({ ...response, cached: false, ms: Date.now() - t0, version: BACKEND_VERSION });
-    } finally {
-      robloxifyBusy = false;
-    }
+    const transcriptionStartedAt = Date.now();
+    // Stem separation is intentionally done in the browser. Running Demucs here
+    // makes the small Render instance unnecessarily memory-hungry.
+    const transcriptionBuffer = fileBuffer;
+    const transcriptionMime = req.file.mimetype;
+    const stemSeparation = "browser";
+    const result = await transcribeAudioBuffer(transcriptionBuffer, transcriptionMime);
+    console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
+    const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
+    const response = {
+      ok: true,
+      notes: result.notes,
+      duration: result.duration,
+      sampleRate: result.sampleRate,
+      noteCount: result.noteCount,
+      aiPlan,
+      stemSeparation,
+    };
+    rememberRobloxifyResult(cacheKey, response);
+    res.json({ ...response, cached: false, ms: Date.now() - t0, version: BACKEND_VERSION });
   } catch (err) {
     console.error("Robloxify failed:", err?.stack || err);
     setCors(req, res);
@@ -382,7 +381,9 @@ app.post("/robloxify", async (req, res) => {
     const isUploadError = err?.name === "MulterError" || /too large|shorter|empty|busy|decode|format|unsupported|invalid audio|could not determine|no usable samples/i.test(msg);
     const status = /busy/i.test(msg) ? 503 : isUploadError ? 400 : 500;
     if (status === 503) res.setHeader("Retry-After", "5");
-    res.status(status).json({ error: msg });
+    if (!res.headersSent) res.status(status).json({ error: msg });
+  } finally {
+    robloxifyBusy = false;
   }
 });
 
