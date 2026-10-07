@@ -110,12 +110,12 @@
                   '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async">' +
                 '</a>' +
               '</div>' +
+              '<div id="terminationLine"></div>' +
               '<div class="info-line rendererName"><b>' +
                 escapeHtml(roblox.displayName || "") +
                 '</b> [' +
                 escapeHtml(roblox.username || username) +
                 ']</div>' +
-              '<div id="terminationLine"></div>' +
               '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
               '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> Loading…</div>' +
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
@@ -262,7 +262,7 @@
             if (valueLine) valueLine.innerHTML = "<b>RAP:</b> " + escapeHtml(detailRobli.rap || "Unknown") +
               " &nbsp;&nbsp; <b>Value:</b> " + escapeHtml(detailRobli.value || "Unknown");
             if (terminationLine && detailRobli.terminated) {
-              terminationLine.innerHTML = '<p class="rendererTermination">TERMINATED ACCOUNT</p>';
+              terminationLine.innerHTML = '<p class="rendererTermination">Terminated</p>';
             }
           }).catch(function () {
             var pastLine = document.getElementById("pastUsernamesLine");
