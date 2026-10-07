@@ -218,6 +218,11 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
       frames.push(...frameBatch);
       onsets.push(...onsetBatch);
       contours.push(...contourBatch);
+    },
+    () => {
+      // Basic Pitch 1.0.1 requires a PercentCallback. The API endpoint does
+      // not stream progress, so the backend intentionally keeps this callback
+      // lightweight and lets the HTTP request complete normally.
     }
   );
 
