@@ -47,15 +47,20 @@ const SOUNDFONT_LIBRARY = [
 ];
 const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
 const SOUND_FONT_BY_ROLE = {
-  drums: 'drums',
+  drums: 'stealth-drums',
   bass: 'fjords',
   guitar: 'gamehero',
-  vocals: 'roblox-sf',
+  vocals: 'roblox-1',
   keys: 'classic-days',
-  pad: 'strategy',
-  strings: 'strategy',
-  arp: 'fjords',
+  pad: 'fjords-midi',
+  strings: 'fjords-hq',
+  arp: 'nokia',
 };
+// The three largest banks are left out of the automatic mix. Parsing them
+// with the rest of the catalog freezes the window before a note plays.
+const HEAVY_SOUNDFONT_IDS = new Set(['stealth-v2', 'strategy', 'beastmasters']);
+const CYCLE_ROLES = ['guitar', 'keys', 'pad', 'strings', 'arp'];
+const ROLE_CHANNEL = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
 const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
   Object.entries(SOUND_FONT_BY_ROLE).map(([role, id]) => [role, SOUNDFONT_LIBRARY.find(bank => bank.id === id)])
 );
@@ -64,6 +69,78 @@ const getRoleBank = (roleId, plan) => {
   const id = plan && plan.soundfontRoles && plan.soundfontRoles[roleId];
   return SOUND_FONT_BY_ID[id] || SOUND_FONT_ROLE_BANKS[roleId] || SOUNDFONT_LIBRARY[0];
 };
+
+function bankForNote(note, plan) {
+  const id = (note && note.bankId) || (plan && plan.soundfontRoles && note && plan.soundfontRoles[note.role]);
+  return SOUND_FONT_BY_ID[id] || getRoleBank(note && note.role, plan);
+}
+
+function choosePrebakedPalette(notes) {
+  const clean = Array.isArray(notes) ? notes : [];
+  let hash = clean.length * 31;
+  for (let i = 0; i < Math.min(clean.length, 256); i++) {
+    const note = clean[i] || {};
+    hash = (hash * 33 + Math.round(Number(note.pitchMidi) || 0) + Math.round((Number(note.startTimeSeconds) || 0) * 10)) >>> 0;
+  }
+  const selected = [];
+  const pushUnique = font => {
+    if (font && font.id && !selected.some(item => item.id === font.id)) selected.push(font);
+  };
+  pushUnique(SOUND_FONT_BY_ID['stealth-drums']);
+  pushUnique(SOUND_FONT_BY_ID.gamehero);
+  const light = SOUNDFONT_LIBRARY.filter(font => font.id !== 'stealth-drums' && font.id !== 'gamehero' && !HEAVY_SOUNDFONT_IDS.has(font.id));
+  const start = light.length ? hash % light.length : 0;
+  for (let i = 0; light.length && selected.length < 12; i++) {
+    pushUnique(light[(start + i * 2) % light.length]);
+  }
+  return selected;
+}
+
+function assignRoleBanks(palette) {
+  const banks = {};
+  roles.forEach((role, index) => {
+    const fromPalette = palette[index % Math.max(1, palette.length)];
+    const preferred = SOUND_FONT_BY_ID[SOUND_FONT_BY_ROLE[role.id]] || fromPalette;
+    banks[role.id] = (preferred || SOUNDFONT_LIBRARY[0]).id;
+  });
+  if (SOUND_FONT_BY_ID['stealth-drums']) banks.drums = 'stealth-drums';
+  const used = new Set();
+  roles.forEach(role => {
+    if (role.id === 'drums') return;
+    if (!used.has(banks[role.id])) {
+      used.add(banks[role.id]);
+      return;
+    }
+    const replacement = (palette || []).find(font => font && !used.has(font.id) && font.id !== 'stealth-drums');
+    if (replacement) {
+      banks[role.id] = replacement.id;
+      used.add(replacement.id);
+    }
+  });
+  return banks;
+}
+
+function stampSoundfontMix(notes, palette, soundfontRoles) {
+  const reserved = new Set([
+    'stealth-drums',
+    soundfontRoles && soundfontRoles.drums,
+    soundfontRoles && soundfontRoles.bass,
+    soundfontRoles && soundfontRoles.vocals,
+  ]);
+  const fonts = (palette || []).filter(font => font && font.id && SOUND_FONT_BY_ID[font.id] && !reserved.has(font.id));
+  return notes.map(note => {
+    let bankId = soundfontRoles && soundfontRoles[note.role];
+    if (fonts.length && CYCLE_ROLES.indexOf(note.role) !== -1) {
+      const section = Math.floor((note.startTimeSeconds || 0) / 8);
+      const roleShift = CYCLE_ROLES.indexOf(note.role);
+      bankId = fonts[(section * 3 + roleShift) % fonts.length].id;
+    }
+    if (note.role === 'drums' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
+    if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
+    if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
+    return bankId ? { ...note, bankId } : note;
+  });
+}
 const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
 let demucsProcessorPromise = null;
 let demucsLibsPromise = null;
@@ -141,19 +218,19 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
   const source = cleanDetectedNotes(rawNotes || []);
   if (!source.length) return [];
 
-  // The AI decides the *musical direction*; Basic Pitch remains the source of
-  // truth for the actual performance so the arrangement does not hallucinate
-  // an unrelated song.
+  // Basic Pitch supplies the performance. The pre-baked plan only steers
+  // feel. Every detected note is kept, then split and doubled into the
+  // eight instrument parts so the SoundFont mix has something to play.
   const ai = stylePlan || {};
   const end = Math.max(duration || 0, ...source.map(n => n.startTimeSeconds + n.durationSeconds));
   const out = [];
   const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  const primaryRole = roles.some(r => r.id === ai.primaryRole) ? ai.primaryRole : 'guitar';
-  const support = Array.isArray(ai.supportRoles) ? ai.supportRoles : ['bass', 'keys'];
-  const harmonicComplexity = Math.max(0, Math.min(1, Number(ai.harmonicComplexity) || 0.5));
-  const bassPattern = ['root', 'octave', 'walking', 'pulse'].includes(ai.bassPattern) ? ai.bassPattern : 'root';
+  const harmonicComplexity = Math.max(0, Math.min(1, Number(ai.harmonicComplexity) || 0.65));
+  const bassPattern = ['root', 'octave', 'walking', 'pulse'].includes(ai.bassPattern) ? ai.bassPattern : 'octave';
   const chordRhythm = ['sustained', 'half', 'quarter', 'syncopated'].includes(ai.chordRhythm) ? ai.chordRhythm : 'half';
   const melodyOctave = [-1, 0, 1].includes(Number(ai.melodyOctave)) ? Number(ai.melodyOctave) : 0;
+  const density = Math.max(0.45, Math.min(1, Number(ai.density) || 0.72));
+  const drumPattern = ['basic', 'four_on_floor', 'breakbeat'].includes(ai.drumPattern) ? ai.drumPattern : 'basic';
 
   const clusters = [];
   const clusterForNote = new Map();
@@ -170,28 +247,25 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
   const medianPitch = ordered.map(n => n.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
   ordered.forEach(note => {
     const cluster = clusterForNote.get(note);
-    const chordLike = cluster && cluster.notes.length >= 3;
-    let role = primaryRole;
-
-    // Keep the important source voices separated even when the AI chose a
-    // single primary instrument.
-    if (support.includes('bass') && note.pitchMidi <= Math.min(52, medianPitch - 10) && note.durationSeconds >= 0.18) {
-      role = 'bass';
-    } else if (support.includes('keys') && chordLike) {
-      role = 'keys';
-    } else if (support.includes('vocals') && !chordLike && note.pitchMidi >= medianPitch + 7) {
-      role = 'vocals';
-    } else if (support.includes('guitar') && !chordLike && note.pitchMidi < medianPitch + 7 && primaryRole !== 'guitar') {
-      role = 'guitar';
-    }
-
-    const sourcePitch = role === primaryRole && ai.preserveMelody !== false ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
-    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.72));
+    const notesInCluster = cluster && cluster.notes.length ? cluster.notes : [note];
+    const highest = Math.max.apply(null, notesInCluster.map(item => item.pitchMidi));
+    const lowest = Math.min.apply(null, notesInCluster.map(item => item.pitchMidi));
+    let role = 'guitar';
+    if (note.pitchMidi === lowest && note.pitchMidi <= Math.min(52, medianPitch - 5) && note.durationSeconds >= 0.12) role = 'bass';
+    else if (note.pitchMidi === highest && highest >= medianPitch - 2) role = 'vocals';
+    else if (notesInCluster.length >= 3) role = 'keys';
+    const sourcePitch = role === 'vocals' && ai.preserveMelody !== false ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
+    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.78));
   });
 
-  // Infer harmony only where the recording actually contains enough pitch
-  // information. AI can request support harmony, but it cannot invent a whole
-  // song's chord bed from nothing.
+  if (!out.some(note => note.role === 'vocals')) {
+    clusters.forEach(cluster => {
+      const top = cluster.notes.slice().sort((a, b) => b.pitchMidi - a.pitchMidi)[0];
+      if (!top) return;
+      pushNote(out, 'vocals', top.pitchMidi + melodyOctave * 12, top.startTimeSeconds, Math.max(0.18, top.durationSeconds), 0.62);
+    });
+  }
+
   const harmonyStep = 0.25;
   const windows = new Map();
   ordered.forEach(note => {
@@ -223,8 +297,9 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     }
   });
 
+  const fallbackRoot = ((ordered[0] && ordered[0].pitchMidi) || 60) % 12;
   const chordAt = time => {
-    let current = null;
+    let current = stableChords.length ? stableChords[0] : { time: 0, rootPc: fallbackRoot };
     for (const event of stableChords) {
       if (event.time > time) break;
       current = event;
@@ -232,51 +307,59 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     return current;
   };
 
-  const density = Math.max(0.25, Math.min(1, Number(ai.density) || 0.6));
-  const supportBass = support.includes('bass');
-  const supportKeys = support.includes('keys');
-  for (let t = 0; t < end; t += 0.5) {
+  const beat = 0.5;
+  for (let t = 0; t < end; t += beat) {
     const chord = chordAt(t);
-    if (!chord) continue;
-    const root = clampMidi(36 + chord.rootPc);
-    const hasBass = ordered.some(n => n.pitchMidi <= 52 && Math.abs(n.startTimeSeconds - t) < 0.3);
-    const beatIndex = Math.round(t / 0.5);
-    if (supportBass && !hasBass && density > 0.45) {
-      const bassPitch = bassPattern === 'octave' && beatIndex % 2 ? root + 12 : bassPattern === 'walking' ? root + ((beatIndex % 4 === 2 ? 7 : 0)) : root;
-      pushNote(out, 'bass', bassPitch, t, bassPattern === 'pulse' ? 0.22 : 0.32, 0.34 + density * 0.18);
+    const rootPc = ((chord && chord.rootPc) || fallbackRoot) % 12;
+    const beatIndex = Math.round(t / beat);
+    const hasBass = out.some(n => n.role === 'bass' && Math.abs(n.startTimeSeconds - t) < 0.28);
+    if (!hasBass) {
+      let bassPitch = 36 + rootPc;
+      if (bassPattern === 'octave' && beatIndex % 2) bassPitch += 12;
+      else if (bassPattern === 'walking') bassPitch += [0, 7, 3, 10][beatIndex % 4];
+      pushNote(out, 'bass', bassPitch, t, bassPattern === 'pulse' ? 0.2 : 0.42, 0.5);
     }
-    const chordEvery = chordRhythm === 'quarter' ? 1 : chordRhythm === 'syncopated' ? 2 : chordRhythm === 'half' ? 2 : 4;
-    if (supportKeys && density > 0.42 && beatIndex % chordEvery === 0) {
-      const intervals = harmonicComplexity > 0.7 ? [0, 3, 7, 10] : harmonicComplexity > 0.35 ? [0, 4, 7] : [0, 7];
-      intervals.forEach(interval => {
-        pushNote(out, 'keys', clampMidi(60 + chord.rootPc + interval), t, chordRhythm === 'sustained' ? 0.8 : 0.38, 0.12 + density * 0.14);
+
+    const guitarBusy = out.some(n => n.role === 'guitar' && Math.abs(n.startTimeSeconds - t) < 0.16);
+    if (!guitarBusy && beatIndex % 2 === 1) {
+      pushNote(out, 'guitar', 52 + rootPc, t, 0.16, 0.36);
+      if (harmonicComplexity > 0.4) pushNote(out, 'guitar', 59 + rootPc, t, 0.16, 0.28);
+    }
+
+    const chordEvery = chordRhythm === 'quarter' ? 1 : chordRhythm === 'syncopated' ? 3 : chordRhythm === 'half' ? 2 : 4;
+    if (beatIndex % chordEvery === 0) {
+      const intervals = harmonicComplexity > 0.7 ? [0, 4, 7, 11] : [0, 4, 7];
+      intervals.forEach((interval, index) => {
+        pushNote(out, 'keys', 60 + rootPc + interval, t, chordRhythm === 'sustained' ? 0.95 : 0.4, 0.3 - index * 0.04);
       });
     }
-  }
 
-  // Drums are only generated when the AI sees a rhythmic style AND the source
-  // itself contains a stable onset pulse.
-  const onsets = ordered.map(n => n.startTimeSeconds);
-  const gaps = [];
-  for (let i = 1; i < onsets.length; i++) {
-    const gap = onsets[i] - onsets[i - 1];
-    if (gap >= 0.18 && gap <= 1.2) gaps.push(gap);
-  }
-  const sortedGaps = gaps.slice().sort((a,b) => a-b);
-  const medianGap = sortedGaps.length ? sortedGaps[Math.floor(sortedGaps.length / 2)] : 0;
-  const drumPattern = ['none','basic','four_on_floor','breakbeat'].includes(ai.drumPattern) ? ai.drumPattern : (ai.drums ? 'basic' : 'none');
-  if (drumPattern !== 'none' && medianGap >= 0.2 && medianGap <= 0.8 && ordered.length >= 8) {
-    const beat = Math.max(0.25, Math.min(0.75, medianGap));
-    for (let t = 0, i = 0; t < end; t += beat, i++) {
-      if (drumPattern === 'four_on_floor' || i % 2 === 0) pushNote(out, 'drums', 36, t, 0.08, i % 4 === 0 ? 0.42 : 0.25);
-      if (drumPattern !== 'four_on_floor' && i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.32);
-      if ((drumPattern === 'breakbeat' || density > 0.7) && i % 2 === 1) pushNote(out, 'drums', 42, t, 0.05, 0.18);
+    if (beatIndex % 4 === 0) {
+      pushNote(out, 'pad', 60 + rootPc, t, 1.9, 0.22);
+      pushNote(out, 'pad', 67 + rootPc, t, 1.9, 0.16);
+      if (harmonicComplexity > 0.5) pushNote(out, 'pad', 64 + rootPc, t, 1.7, 0.13);
+    }
+
+    if (beatIndex % (density > 0.8 ? 1 : 2) === 0) {
+      const arpIntervals = [0, 4, 7, 12, 7, 4];
+      pushNote(out, 'arp', 72 + rootPc + arpIntervals[beatIndex % arpIntervals.length], t, 0.24, 0.34);
     }
   }
 
-  // Keep the detected instrumental as the source of truth. The fixed
-  // SoundFont palette supplies the Roblox character without duplicating the
-  // melody into a second, unrelated chiptune arrangement.
+  out.filter(note => (note.role === 'vocals' || note.role === 'guitar') && note.durationSeconds >= 0.2 && (note.amplitude || 0) >= 0.45).forEach(note => {
+    const shift = note.pitchMidi > 70 ? -12 : 12;
+    pushNote(out, 'strings', note.pitchMidi + shift, note.startTimeSeconds, Math.min(1.5, note.durationSeconds * 1.35), (note.amplitude || 0.5) * 0.4);
+  });
+
+  const pulse = 0.5;
+  for (let t = 0, i = 0; t < end; t += pulse, i++) {
+    const downbeat = i % 4 === 0;
+    if (drumPattern === 'four_on_floor' || downbeat || i % 2 === 0) pushNote(out, 'drums', 36, t, 0.08, downbeat ? 0.64 : 0.42);
+    if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.52);
+    if (i % 2 === 1) pushNote(out, 'drums', 42, t, 0.05, drumPattern === 'breakbeat' ? 0.36 : 0.24);
+    if (drumPattern === 'breakbeat' && i % 8 === 6) pushNote(out, 'drums', 46, t, 0.1, 0.32);
+  }
+
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
     .map((note, index) => ({ ...note, id: index + 1 }));
@@ -487,13 +570,15 @@ function makeMidi(notes, programs, soundfontRoles) {
     const track = midi.addTrack();
     track.name = role.label;
     track.channel = role.channel;
-    const bank = getRoleBank(role.id, { soundfontRoles });
-    if (bank && typeof track.addCC === 'function') {
-      track.addCC({ controllerType: 0, value: (bank.bankOffset || 0) / 127, time: 0 });
-      track.addCC({ controllerType: 32, value: 0, time: 0 });
-    }
+    let lastBankId = null;
     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
     notes.filter(note => note.role === role.id).forEach(note => {
+      const bank = bankForNote(note, { soundfontRoles });
+      if (bank && bank.id !== lastBankId && typeof track.addCC === 'function') {
+        track.addCC({ controllerType: 0, value: (bank.bankOffset || 0) / 127, time: Math.max(0, note.startTimeSeconds - 0.001) });
+        track.addCC({ controllerType: 32, value: 0, time: Math.max(0, note.startTimeSeconds - 0.001) });
+        lastBankId = bank.id;
+      }
       track.addNote({
         midi: note.pitchMidi,
         time: note.startTimeSeconds,
@@ -590,8 +675,7 @@ async function renderCombinedWav(notes, duration, onProgress) {
     if (typeof synth.systemReset === 'function') synth.systemReset();
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     roles.forEach(role => {
-      const roleBankId = (planRef.current && planRef.current.soundfontRoles && planRef.current.soundfontRoles[role.id]) || SOUND_FONT_BY_ROLE[role.id];
-      const bank = activeSoundfonts.find(candidate => candidate.id === roleBankId) || SOUNDFONT_LIBRARY.find(candidate => candidate.id === roleBankId) || activeSoundfonts[0];
+      const bank = getRoleBank(role.id, planRef.current);
       if (bank) {
         synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
         synth.controllerChange(role.channel, 32, 0);
@@ -604,16 +688,16 @@ async function renderCombinedWav(notes, duration, onProgress) {
 
     recorder.start();
     const total = Math.max(1, notes.length);
+    const lastBankByChannel = {};
     notes.forEach((note, index) => {
-      const channel = note.role === 'drums' ? 9
-        : note.role === 'bass' ? 0
-        : note.role === 'guitar' ? 1
-        : note.role === 'vocals' ? 2
-        : note.role === 'keys' ? 3
-        : note.role === 'pad' ? 4
-        : note.role === 'strings' ? 5
-        : 6;
+      const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
       const startTime = Math.max(0, Math.min(renderDuration - 0.001, Number(note.startTimeSeconds) || 0));
+      const bank = bankForNote(note, planRef.current);
+      if (bank && lastBankByChannel[channel] !== bank.id) {
+        synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
+        synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
+        lastBankByChannel[channel] = bank.id;
+      }
       const durationSeconds = Math.max(
         0.025,
         Math.min(Number(note.durationSeconds) || 0.05, renderDuration - startTime)
@@ -955,34 +1039,15 @@ function MusicAI() {
       let displayedProgress = 5;
       setProgress(displayedProgress);
       const progressTimer = window.setInterval(() => {
-        displayedProgress = Math.min(82, displayedProgress + (displayedProgress < 45 ? 2 : 1));
+        displayedProgress = Math.min(82, displayedProgress + (displayedProgress < 45 ? 3 : 1));
         if (conversionId === conversionIdRef.current) setProgress(displayedProgress);
       }, 350);
       try {
-        setStatus('Removing vocals in your browser…');
-        setProgress(Math.max(displayedProgress, 15));
-        let analysisFile = inputFile;
-        try {
-          // Download of htdemucs plus inference. 25s expired during the
-          // model download and forced the "using original audio" fallback.
-          const stemBudgetMs = Math.min(
-            8 * 60 * 1000,
-            Math.max(3 * 60 * 1000, Math.round(inputFile.size / (1024 * 1024) * 45000) + 90000)
-          );
-          analysisFile = await withTimeout(
-            separateVocalsAndBuildInstrumental(
-              inputFile,
-              msg => { if (conversionId === conversionIdRef.current) setStatus(msg); },
-              p => { if (conversionId === conversionIdRef.current) setProgress(Math.max(displayedProgress, p)); }
-            ),
-            stemBudgetMs,
-            'Stem separation timed out'
-          );
-        } catch (stemError) {
-          console.warn('Browser stem separation failed; using original audio:', stemError);
-          if (conversionId === conversionIdRef.current) setStatus('Vocal removal skipped — transcribing with pre-baked style…');
-        }
-        let result = await transcribeOnBackend(analysisFile, msg => {
+        // Stem separation downloads a large model and runs it in the browser
+        // before the server can even start. The pre-baked style thinks from
+        // the notes, so send the original file straight through.
+        setStatus('Pre-baked style is thinking…');
+        let result = await transcribeOnBackend(inputFile, msg => {
           if (conversionId === conversionIdRef.current) {
             setStatus(msg);
             setProgress(Math.max(displayedProgress, 30));
@@ -995,19 +1060,30 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Building the arrangement — keeping your melody…'); await yieldToBrowser();
+      setStatus('Splitting into instruments and mixing the SoundFonts…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
+      const palette = choosePrebakedPalette(rawNotes);
+      const soundfontRoles = assignRoleBanks(palette);
+      Object.keys(soundfontRoles).forEach(roleId => {
+        const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
+        if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
+      });
+      fitted = stampSoundfontMix(fitted, palette, soundfontRoles);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
+      const instrumentCount = new Set(fitted.map(note => note.role)).size;
+      const fontCount = new Set(fitted.map(note => note.bankId).filter(Boolean)).size;
       const plan = {
         ...(aiPlan || {}),
-        label: 'Classic Robloxify',
-        reason: 'Fixed classic Roblox reference style · multi-SoundFont palette · vocals removed before transcription.',
+        label: 'Pre-baked Robloxify',
+        reason: 'Pre-baked style · eight instruments · SoundFont catalog mixed across the song.',
         fixedStyle: true,
+        preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
-        soundfontRoles: { ...(aiPlan && aiPlan.soundfontRoles ? aiPlan.soundfontRoles : SOUND_FONT_BY_ROLE) },
+        soundfontPalette: palette,
+        soundfontRoles,
         programs: { ...ORCHESTRA_PROGRAMS },
         drums: SOUND_FONT_ROLE_BANKS.drums,
       };
@@ -1016,7 +1092,7 @@ function MusicAI() {
       setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles));
       setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + 'Robloxify Arrangement' + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
+      setStatus('Done — ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · ' + fontCount + ' SoundFonts mixed');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -1144,7 +1220,7 @@ function MusicAI() {
       }
     };
 
-    setStatus('Loading classic Roblox SoundFont palette…');
+    setStatus('Mixing the SoundFont catalog…');
     const requestedIds = Array.isArray(usePlan.soundfontPalette) ? usePlan.soundfontPalette.map(font => font && font.id).filter(Boolean) : [];
     const activeBanks = requestedIds.length
       ? requestedIds.map(id => SOUNDFONT_LIBRARY.find(bank => bank.id === id)).filter(Boolean)
@@ -1168,18 +1244,26 @@ function MusicAI() {
     if (typeof synth.systemReset === 'function') synth.systemReset();
     configureSynthRoles(synth);
     if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
-    const roleChannel = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
     let maxEnd = 0;
     arrangement.forEach(note => { maxEnd = Math.max(maxEnd, note.startTimeSeconds + Math.max(0.05, note.durationSeconds)); });
     setPlaybackDuration(maxEnd);
     arrangement.filter(n => n.startTimeSeconds + n.durationSeconds > fromTime).forEach(note => {
-      const ch = roleChannel[note.role] != null ? roleChannel[note.role] : 1;
+      const ch = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 1;
       const noteStart = Math.max(0, note.startTimeSeconds - fromTime);
       const alreadyElapsed = Math.max(0, fromTime - note.startTimeSeconds);
       const dur = Math.max(0.05, note.durationSeconds - alreadyElapsed);
       const vel = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
+      const bank = bankForNote(note, planRef.current);
       scheduledTimersRef.current.push(
-        window.setTimeout(() => { try { synth.noteOn(ch, note.pitchMidi, vel); } catch (e) {} }, noteStart * 1000),
+        window.setTimeout(() => {
+          try {
+            if (bank) {
+              synth.controllerChange(ch, 0, bank.bankOffset || 0);
+              synth.controllerChange(ch, 32, 0);
+            }
+            synth.noteOn(ch, note.pitchMidi, vel);
+          } catch (e) {}
+        }, noteStart * 1000),
         window.setTimeout(() => { try { synth.noteOff(ch, note.pitchMidi); } catch (e) {} }, (noteStart + dur) * 1000)
       );
     });
@@ -1203,7 +1287,7 @@ function MusicAI() {
         soundfontId: FIXED_SOUNDFONT_ID,
         programs: ORCHESTRA_PROGRAMS,
       };
-      setStatus('Loading classic Roblox SoundFont palette…');
+      setStatus('Mixing the SoundFont catalog…');
       const synth = await ensureSynth(plan);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
