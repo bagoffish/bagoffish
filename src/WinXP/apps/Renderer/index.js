@@ -161,12 +161,6 @@ function Renderer({ onClose }) {
           {/* XP-style Renderer app content */}
           <div className="rendererRoot">
             <div className="rendererPanel">
-              <div className="rendererMenu">
-                <div className="rendererMenuItem">File</div>
-                <div className="rendererMenuItem">Edit</div>
-                <div className="rendererMenuItem">Help</div>
-              </div>
-
               <div className="rendererContent">
                 <div id="renderer-container" className="rendererContainer">
                   <h1 className="rendererTitle">AVATAR RENDERER</h1>
@@ -197,10 +191,6 @@ function Renderer({ onClose }) {
                 </div>
               </div>
 
-              <div className="statusbar">
-                <span>Ready</span>
-                <span>https://bagof.fish</span>
-              </div>
             </div>
 
             <style>{legacyCss}</style>
@@ -249,20 +239,6 @@ const legacyCss = `
   border: 1px solid #808080;
   box-shadow: inset 0 0 0 1px #fff;
   background: #ece9d8;
-}
-.rendererMenu{
-  display: flex;
-  gap: 14px;
-  padding: 3px 8px;
-  border-bottom: 1px solid #808080;
-  background: #ece9d8;
-  font-family: Tahoma, Verdana, sans-serif;
-  font-size: 12px;
-  user-select: none;
-}
-.rendererMenuItem{
-  padding: 2px 4px;
-  cursor: url("/images/Normal Select.cur") 3 3, default;
 }
 .rendererContent{
   flex: 1;
@@ -347,19 +323,6 @@ const legacyCss = `
   width: 100%;
   box-sizing: border-box;
 }
-.statusbar{
-  height: 22px;
-  border-top: 1px solid #808080;
-  background: #ece9d8;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 8px;
-  font-family: Tahoma, Verdana, sans-serif;
-  font-size: 11px;
-  user-select: none;
-  box-sizing: border-box;
-}
 
 /* Your result boxes (used by renderer.js) */
 .info-box{
@@ -402,11 +365,8 @@ const legacyCss = `
   background: linear-gradient(#f5f5f5, #c0c0c0);
   border: 1px solid #808080;
 }
-/* Polished Luna renderer controls */
+/* Renderer controls */
 .rendererPanel{border-color:#316ac5;border-radius:6px 6px 0 0;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.28),inset 0 0 0 1px #fff;}
-.rendererMenu{gap:2px;padding:3px 6px;background:linear-gradient(180deg,#fff,#f5f5f5 42%,#e1e1e1);border-bottom-color:#9aaecb;}
-.rendererMenuItem{padding:3px 9px;border:1px solid transparent;border-radius:3px;}
-.rendererMenuItem:hover{border-color:#7aa7e6;background:linear-gradient(180deg,#fff,#dbeafe);box-shadow:inset 0 1px 0 #fff;}
 .rendererContent{padding:14px;background:linear-gradient(180deg,#f7fbff,#fff 35%);}
 .rendererTitle{width:100%;box-sizing:border-box;padding:7px 10px;margin:0 0 2px;color:#fff;text-shadow:1px 1px 1px #194a91;letter-spacing:.2px;border:1px solid #174ea6;border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#7db3f4,#3c7bd6 45%,#245edc);box-shadow:inset 0 1px 0 rgba(255,255,255,.75),0 1px 2px rgba(0,0,0,.2);}
 .inputWrapper{padding:9px;border:1px solid #a6a6a6;border-radius:4px;background:linear-gradient(180deg,#f9f9f9,#e9e9e9);box-shadow:inset 0 1px 0 #fff,0 1px 2px rgba(0,0,0,.12);}
@@ -427,7 +387,6 @@ const legacyCss = `
 #oldAvatars{gap:7px;padding-top:8px;margin-top:5px;border-top:1px solid #aebfd4;}
 .old-avatar-thumb{transition:transform .08s ease,box-shadow .08s ease;}
 .old-avatar-thumb:hover{transform:translateY(-1px);}
-.statusbar{background:linear-gradient(180deg,#f5f5f5,#dedede);box-shadow:inset 0 1px 0 #fff;}
 `;
 
 const Div = styled.div`
@@ -659,7 +618,6 @@ const Div = styled.div`
   }
   @media (max-width: 700px) {
     .rendererRoot { padding: 4px; }
-    .rendererMenu { gap: 4px; overflow-x: auto; }
     .rendererContent { padding: 6px; }
     .rendererContainer { max-width: none; }
     .inputRow { flex-direction: column; gap: 6px; }
@@ -673,7 +631,6 @@ const Div = styled.div`
       height: 84px;
     }
     .info-box { overflow-wrap: anywhere; }
-    .statusbar span:last-child { display: none; }
     .ie__function_bar { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   }
 
