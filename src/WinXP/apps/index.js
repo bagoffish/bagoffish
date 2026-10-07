@@ -5,7 +5,7 @@ import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
 const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
-const Winamp = lazyApp(() => import("./Winamp"));
+import Winamp from "./Winamp";
 const Robloxify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
