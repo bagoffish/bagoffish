@@ -159,7 +159,7 @@ function mergeNotes(primary, secondary) {
     );
 }
 
-async function transcribeAudioBuffer(fileBuffer) {
+async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   if (!Buffer.isBuffer(fileBuffer) || fileBuffer.length === 0) {
     throw new Error("Empty audio file");
   }
@@ -167,18 +167,28 @@ async function transcribeAudioBuffer(fileBuffer) {
     throw new Error("Audio file too large (max 50 MB)");
   }
 
+  let metadataDuration = 0;
+  try {
+    const mm = await import("music-metadata");
+    const parsed = await mm.parseBuffer(fileBuffer, { mimeType: String(mimeType || "") }, { duration: true, skipCovers: true });
+    metadataDuration = Number(parsed?.format?.duration) || 0;
+  } catch (metadataError) {
+    console.warn("Audio metadata duration unavailable:", metadataError?.message || metadataError);
+  }
+
   const decoderModule = await import("@audio/decode");
   const decodeAudio = decoderModule.default || decoderModule;
   const decoded = await decodeAudio(fileBuffer);
 
-  const channelData = Array.isArray(decoded.channelData) ? decoded.channelData : [];
-  const decodedSampleRate = Number(decoded.sampleRate);
+  const channelData = Array.isArray(decoded?.channelData) ? decoded.channelData : [];
+  const decodedSampleRate = Number(decoded?.sampleRate);
   const decodedLength = channelData.length && channelData[0] ? channelData[0].length : 0;
-  const duration = decodedLength > 0 && decodedSampleRate > 0
+  const decodedDuration = decodedLength > 0 && decodedSampleRate > 0
     ? decodedLength / decodedSampleRate
-    : Number(decoded.duration);
+    : Number(decoded?.duration) || 0;
+  const duration = decodedDuration > 0 ? decodedDuration : metadataDuration;
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error("Could not determine audio duration");
+    throw new Error("Could not determine audio duration. The uploaded audio format could not be read.");
   }
   if (duration > MAX_SECONDS) {
     throw new Error("Audio must be 600 seconds or shorter (10 minutes)");
