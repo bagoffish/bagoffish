@@ -7,14 +7,24 @@ const MAX_BYTES = 50 * 1024 * 1024;
 let modelPromise = null;
 let stemSeparatorPromise = null;
 
-const DEMUCS_WEIGHTS_URL = "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/";
+// StemSplitio/htdemucs-onnx stores the file at the repo ROOT, not under htdemucs/.
+// @audio/neural-separate appends "htdemucs/htdemucs.onnx" when given a directory
+// base, which 404s. Point at the concrete file (or a base that resolves correctly).
+const DEMUCS_MODEL_FILE_URL =
+  process.env.DEMUCS_MODEL_URL ||
+  "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs.onnx";
+const DEMUCS_WEIGHTS_BASE =
+  process.env.DEMUCS_WEIGHTS_URL ||
+  "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/";
 
 async function loadStemSeparator() {
   if (!stemSeparatorPromise) {
-    stemSeparatorPromise = import("@audio/neural-separate").then(mod => mod.default || mod.separate || mod).catch(error => {
-      stemSeparatorPromise = null;
-      throw error;
-    });
+    stemSeparatorPromise = import("@audio/neural-separate")
+      .then((mod) => mod.default || mod.separate || mod)
+      .catch((error) => {
+        stemSeparatorPromise = null;
+        throw error;
+      });
   }
   return stemSeparatorPromise;
 }
@@ -63,17 +73,49 @@ async function separateToInstrumental(fileBuffer, mimeType = "") {
   const right = channelData[1] || left;
   console.log("Robloxify backend Demucs: separating drums/bass/other/vocals");
 
-  const separated = await separator([left, right], {
-    sampleRate,
-    model: "htdemucs",
-    weights: DEMUCS_WEIGHTS_URL,
-    device: "cpu",
-    progress: info => {
-      if (info && Number.isFinite(info.chunk) && Number.isFinite(info.totalChunks)) {
-        console.log(`Robloxify Demucs chunk ${info.chunk + 1}/${info.totalChunks}`);
-      }
-    },
-  });
+  // Try the concrete model file first, then fall back to the directory base
+  // (some neural-separate versions append model paths themselves).
+  let separated;
+  const attempts = [
+    { model: "htdemucs", weights: DEMUCS_MODEL_FILE_URL },
+    { model: "htdemucs", weights: DEMUCS_WEIGHTS_BASE },
+  ];
+
+  let lastError = null;
+  for (const opts of attempts) {
+    try {
+      separated = await separator([left, right], {
+        sampleRate,
+        model: opts.model,
+        weights: opts.weights,
+        device: "cpu",
+        progress: (info) => {
+          if (
+            info &&
+            Number.isFinite(info.chunk) &&
+            Number.isFinite(info.totalChunks)
+          ) {
+            console.log(
+              `Robloxify Demucs chunk ${info.chunk + 1}/${info.totalChunks}`
+            );
+          }
+        },
+      });
+      lastError = null;
+      break;
+    } catch (err) {
+      lastError = err;
+      console.warn(
+        "Robloxify Demucs attempt failed:",
+        opts.weights,
+        err?.message || err
+      );
+    }
+  }
+
+  if (lastError || !separated) {
+    throw lastError || new Error("Stem separator failed");
+  }
 
   const stems = separated?.stems || {};
   const bass = stems.bass;
@@ -83,22 +125,35 @@ async function separateToInstrumental(fileBuffer, mimeType = "") {
     throw new Error("Stem separator did not return the required instrumental stems");
   }
 
-  const stemLeft = value => value?.[0] || value?.left || new Float32Array(0);
-  const stemRight = value => value?.[1] || value?.right || stemLeft(value);
+  const stemLeft = (value) => value?.[0] || value?.left || new Float32Array(0);
+  const stemRight = (value) => value?.[1] || value?.right || stemLeft(value);
   const bassL = stemLeft(bass);
   const bassR = stemRight(bass);
   const drumsL = stemLeft(drums);
   const drumsR = stemRight(drums);
   const otherL = stemLeft(other);
   const otherR = stemRight(other);
-  const length = Math.min(bassL.length, bassR.length, drumsL.length, drumsR.length, otherL.length, otherR.length);
+  const length = Math.min(
+    bassL.length,
+    bassR.length,
+    drumsL.length,
+    drumsR.length,
+    otherL.length,
+    otherR.length
+  );
   if (!length) throw new Error("Stem separator returned empty stems");
 
   const instrumentalL = new Float32Array(length);
   const instrumentalR = new Float32Array(length);
   for (let i = 0; i < length; i += 1) {
-    instrumentalL[i] = Math.max(-1, Math.min(1, (bassL[i] || 0) + (otherL[i] || 0) + (drumsL[i] || 0) * 0.16));
-    instrumentalR[i] = Math.max(-1, Math.min(1, (bassR[i] || 0) + (otherR[i] || 0) + (drumsR[i] || 0) * 0.16));
+    instrumentalL[i] = Math.max(
+      -1,
+      Math.min(1, (bassL[i] || 0) + (otherL[i] || 0) + (drumsL[i] || 0) * 0.16)
+    );
+    instrumentalR[i] = Math.max(
+      -1,
+      Math.min(1, (bassR[i] || 0) + (otherR[i] || 0) + (drumsR[i] || 0) * 0.16)
+    );
   }
 
   const instrumental = encodeStereoWav(instrumentalL, instrumentalR, sampleRate);
@@ -107,29 +162,34 @@ async function separateToInstrumental(fileBuffer, mimeType = "") {
 
 const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "arp"];
 
-// Robloxify has one permanent musical reference. The reference is learned once
-// and represented here as a fixed style profile; uploads must not cause the AI
-// to invent a new genre, instrumentation, or arrangement direction.
+// Permanent musical reference: SEWH:RECODE M.U.L.E rips
+// https://www.youtube.com/watch?v=XWpqGrSfd_0
+// Style is pre-baked once — no live web search or per-request LLM call.
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
 const REFERENCE_STYLE = {
-  name: "Robloxify Reference Style",
+  name: "SEWH M.U.L.E / Robloxify Reference Style",
+  source: "SEWH:RECODE M.U.L.E rips (Something Evil Will Happen lobby/remix music)",
   traits: [
-    "MIDI-era Roblox/game-music character",
-    "bright synthetic lead",
-    "compact repeating motifs",
-    "clear root-driven bass",
-    "simple triadic harmony",
-    "short quantized notes",
-    "small arpeggio accents",
-    "restrained game percussion",
-    "lo-fi crunchy SoundFont character",
+    "classic M.U.L.E. / early-Roblox MIDI character",
+    "bright synthetic lead that stays melodic and readable",
+    "compact repeating motifs that loop cleanly",
+    "clear root-driven bass with simple pulse or octave patterns",
+    "simple triadic harmony and short chord stabs",
+    "short quantized notes with light arpeggio accents",
+    "restrained game-style percussion (kick/snare/hat, not modern kits)",
+    "lo-fi crunchy SoundFont texture, deliberately not pristine",
+    "vocal-less arrangement — everything is instrumental MIDI",
+    "mix of upbeat remix energy and clean game-lobby readability",
   ],
-  arrangement: "Keep the uploaded melody and timing recognizable, then express it through a compact Roblox/game-MIDI arrangement.",
-  instrumentation: "Use the fixed classic-Roblox SoundFont palette from the repository; assign different fixed banks to different roles, never per-song.",
+  arrangement:
+    "Keep the uploaded melody and timing recognizable. Express it through a compact M.U.L.E./Roblox game-MIDI arrangement inspired by the SEWH rips, without copying any specific song.",
+  instrumentation:
+    "Use the fixed classic-Roblox SoundFont palette from the repository. Assign different fixed banks to different roles; never pick a new SoundFont per song.",
+  tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
+  density: "moderate — melodic lead + bass + light harmony + sparse drums",
 };
 
-// Robloxify uses a permanent, hand-picked classic-Roblox SoundFont palette.
-// The palette is fixed for every song; uploads never choose a new SoundFont.
+// Permanent, hand-picked classic-Roblox SoundFont palette.
 const ROBLOX_SOUNDFONTS = [
   {
     id: "fjords",
@@ -209,8 +269,6 @@ async function loadBasicPitch() {
   if (modelPromise) return modelPromise;
 
   modelPromise = (async () => {
-    // Use the native Node TensorFlow backend. The pure-JS tfjs CPU backend is
-    // dramatically slower for Basic Pitch on Render.
     const tfModule = await import("@tensorflow/tfjs-node");
     const tf = tfModule.default || tfModule;
     const pitchModule = await import("@spotify/basic-pitch");
@@ -247,7 +305,7 @@ async function loadBasicPitch() {
     }
 
     throw lastError || new Error("Could not load the Basic Pitch model");
-  })().catch(error => {
+  })().catch((error) => {
     modelPromise = null;
     throw error;
   });
@@ -305,7 +363,8 @@ function mergeNotes(primary, secondary) {
   const buckets = new Map();
 
   for (const note of notes) {
-    const key = Math.round(note.startTimeSeconds / 0.045) + ":" + Math.round(note.pitchMidi);
+    const key =
+      Math.round(note.startTimeSeconds / 0.045) + ":" + Math.round(note.pitchMidi);
     buckets.set(key, note);
   }
 
@@ -333,14 +392,15 @@ function mergeNotes(primary, secondary) {
   }
 
   return notes
-    .filter(note =>
-      Number.isFinite(note.pitchMidi) &&
-      Number.isFinite(note.startTimeSeconds) &&
-      Number.isFinite(note.durationSeconds)
+    .filter(
+      (note) =>
+        Number.isFinite(note.pitchMidi) &&
+        Number.isFinite(note.startTimeSeconds) &&
+        Number.isFinite(note.durationSeconds)
     )
-    .sort((a, b) =>
-      a.startTimeSeconds - b.startTimeSeconds ||
-      a.pitchMidi - b.pitchMidi
+    .sort(
+      (a, b) =>
+        a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
     );
 }
 
@@ -355,10 +415,17 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   let metadataDuration = 0;
   try {
     const mm = await import("music-metadata");
-    const parsed = await mm.parseBuffer(fileBuffer, { mimeType: String(mimeType || "") }, { duration: true, skipCovers: true });
+    const parsed = await mm.parseBuffer(
+      fileBuffer,
+      { mimeType: String(mimeType || "") },
+      { duration: true, skipCovers: true }
+    );
     metadataDuration = Number(parsed?.format?.duration) || 0;
   } catch (metadataError) {
-    console.warn("Audio metadata duration unavailable:", metadataError?.message || metadataError);
+    console.warn(
+      "Audio metadata duration unavailable:",
+      metadataError?.message || metadataError
+    );
   }
 
   const decodeStartedAt = Date.now();
@@ -368,19 +435,28 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
 
   const channelData = Array.isArray(decoded?.channelData) ? decoded.channelData : [];
   const decodedSampleRate = Number(decoded?.sampleRate);
-  const decodedLength = channelData.length && channelData[0] ? channelData[0].length : 0;
-  const decodedDuration = decodedLength > 0 && decodedSampleRate > 0
-    ? decodedLength / decodedSampleRate
-    : Number(decoded?.duration) || 0;
+  const decodedLength =
+    channelData.length && channelData[0] ? channelData[0].length : 0;
+  const decodedDuration =
+    decodedLength > 0 && decodedSampleRate > 0
+      ? decodedLength / decodedSampleRate
+      : Number(decoded?.duration) || 0;
   const duration = decodedDuration > 0 ? decodedDuration : metadataDuration;
   if (!Number.isFinite(duration) || duration <= 0) {
-    throw new Error("Could not determine audio duration. The uploaded audio format could not be read.");
+    throw new Error(
+      "Could not determine audio duration. The uploaded audio format could not be read."
+    );
   }
   if (duration > MAX_SECONDS) {
     throw new Error("Audio must be 600 seconds or shorter (10 minutes)");
   }
 
-  if (!channelData.length || !Number.isFinite(decodedSampleRate) || decodedSampleRate <= 0 || decodedLength <= 0) {
+  if (
+    !channelData.length ||
+    !Number.isFinite(decodedSampleRate) ||
+    decodedSampleRate <= 0 ||
+    decodedLength <= 0
+  ) {
     throw new Error("Decoded audio contains no usable samples");
   }
 
@@ -392,7 +468,9 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   };
   const mono = toMono(decodedAudio);
   const samples = resample(mono.samples, mono.sampleRate, TARGET_RATE);
-  console.log(`Robloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`);
+  console.log(
+    `Robloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`
+  );
   const pitchStartedAt = Date.now();
   const pitch = await loadBasicPitch();
 
@@ -407,14 +485,12 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
       onsets.push(...onsetBatch);
       contours.push(...contourBatch);
     },
-    () => {
-      // Basic Pitch 1.0.1 requires a PercentCallback. The API endpoint does
-      // not stream progress, so the backend intentionally keeps this callback
-      // lightweight and lets the HTTP request complete normally.
-    }
+    () => {}
   );
 
-  console.log(`Robloxify Basic Pitch inference: ${Date.now() - pitchStartedAt}ms`);
+  console.log(
+    `Robloxify Basic Pitch inference: ${Date.now() - pitchStartedAt}ms`
+  );
 
   const notePostProcessStartedAt = Date.now();
   const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.32, 0.38, 8);
@@ -428,7 +504,9 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   );
 
   const notes = mergeNotes(primary, sensitive);
-  console.log(`Robloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`);
+  console.log(
+    `Robloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`
+  );
 
   return {
     notes,
@@ -439,10 +517,11 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
 }
 
 function summarize(notes, duration) {
-  const clean = (notes || []).filter(note =>
-    Number.isFinite(note.pitchMidi) &&
-    Number.isFinite(note.startTimeSeconds) &&
-    Number.isFinite(note.durationSeconds)
+  const clean = (notes || []).filter(
+    (note) =>
+      Number.isFinite(note.pitchMidi) &&
+      Number.isFinite(note.startTimeSeconds) &&
+      Number.isFinite(note.durationSeconds)
   );
 
   const histogram = Array(12).fill(0);
@@ -475,11 +554,13 @@ function summarize(notes, duration) {
   return {
     durationSeconds: Math.round(Number(duration || 0) * 100) / 100,
     noteCount: clean.length,
-    notesPerSecond: Number((clean.length / Math.max(1, duration || 1)).toFixed(3)),
+    notesPerSecond: Number(
+      (clean.length / Math.max(1, duration || 1)).toFixed(3)
+    ),
     pitchRange: clean.length
       ? {
-          min: Math.min(...clean.map(note => note.pitchMidi)),
-          max: Math.max(...clean.map(note => note.pitchMidi)),
+          min: Math.min(...clean.map((note) => note.pitchMidi)),
+          max: Math.max(...clean.map((note) => note.pitchMidi)),
         }
       : null,
     pitchClassHistogram: histogram,
@@ -512,11 +593,12 @@ function fallbackPlan(notes, duration) {
     referenceUrl: REFERENCE_URL,
     referenceStyle: REFERENCE_STYLE,
     soundfontRoles: { ...SOUND_FONT_BY_ROLE },
-    reason: "Permanent classic-Roblox reference style using a fixed repository SoundFont palette while preserving the uploaded instrumental.",
+    reason:
+      "Permanent SEWH M.U.L.E / classic-Roblox reference style using a fixed repository SoundFont palette while preserving the uploaded instrumental.",
   };
 }
 
-// The style is deliberately NOT generated per upload.
+// Style is deliberately NOT generated per upload.
 // Basic Pitch only supplies the user's notes; this fixed plan supplies the
 // musical identity every Robloxify conversion uses.
 async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
