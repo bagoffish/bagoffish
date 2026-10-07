@@ -127,22 +127,6 @@
           centerPanel.innerHTML = html;
           loadingIndicator.style.display = "none";
 
-          function appendOldAvatar(container, url) {
-            if (!url) return;
-            var thumb = document.createElement("img");
-            thumb.src = url;
-            thumb.alt = "";
-            thumb.loading = "lazy";
-            thumb.decoding = "async";
-            thumb.className = "old-avatar-thumb";
-            thumb.title = "Open archived avatar";
-            thumb.addEventListener("error", function () { thumb.style.display = "none"; });
-            thumb.addEventListener("click", function () {
-              window.open(url, "_blank", "noopener,noreferrer");
-            });
-            container.appendChild(thumb);
-          }
-
           function renderArchivedAvatars(archived) {
             var oldContainer = document.getElementById("oldAvatars");
             if (!oldContainer) return;
