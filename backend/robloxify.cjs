@@ -7,7 +7,7 @@ const MAX_BYTES = 50 * 1024 * 1024;
 let modelPromise = null;
 let stemSeparatorPromise = null;
 
-const DEMUCS_WEIGHTS_URL = process.env.ROBLOXIFY_DEMUCS_WEIGHTS_URL || "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/";
+const DEMUCS_WEIGHTS_URL = "https://huggingface.co/StemSplitio/htdemucs-onnx/resolve/main/htdemucs_fp16weights.onnx";
 
 async function loadStemSeparator() {
   if (!stemSeparatorPromise) {
