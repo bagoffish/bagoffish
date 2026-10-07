@@ -26,17 +26,80 @@ const REFERENCE_STYLE = {
     "lo-fi crunchy SoundFont character",
   ],
   arrangement: "Keep the uploaded melody and timing recognizable, then express it through a compact Roblox/game-MIDI arrangement.",
-  instrumentation: "Use only the fixed Wind of Fjords MIDI SoundFont from the repository.",
+  instrumentation: "Use the fixed classic-Roblox SoundFont palette from the repository; assign different fixed banks to different roles, never per-song.",
 };
 
-// This is intentionally the ONLY SoundFont used by Robloxify.
-const FIXED_SOUNDFONT = {
-  id: "fjords-midi",
-  name: "Wind of Fjords MIDI",
-  url: "/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2",
-  character: "MIDI-era melodic/harmonic colors",
+// Robloxify uses a permanent, hand-picked classic-Roblox SoundFont palette.
+// The palette is fixed for every song; uploads never choose a new SoundFont.
+const ROBLOX_SOUNDFONTS = [
+  {
+    id: "fjords",
+    name: "Wind of Fjords",
+    url: "/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2",
+    character: "classic Roblox/MIDI melodic instruments",
+    bankOffset: 0,
+  },
+  {
+    id: "roblox-sf",
+    name: "Roblox Soundfont",
+    url: "/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2",
+    character: "classic Roblox synthetic colors",
+    bankOffset: 1,
+  },
+  {
+    id: "strategy",
+    name: "The Great Strategy",
+    url: "/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/The_Great_Strategy_MIDI.sf2",
+    character: "retro game orchestral colors",
+    bankOffset: 2,
+  },
+  {
+    id: "classic-days",
+    name: "Classic Days",
+    url: "/soundfonts/Instruments/Soundfonts/Classic%20Days.sf2",
+    character: "older game/MIDI colors",
+    bankOffset: 3,
+  },
+  {
+    id: "gamehero",
+    name: "GameHero",
+    url: "/soundfonts/Instruments/Soundfonts/GameHero%20Soundfont.sf2",
+    character: "bright game instruments",
+    bankOffset: 4,
+  },
+  {
+    id: "stealth",
+    name: "StealthPilot",
+    url: "/soundfonts/Instruments/Soundfonts/StealthPilot.sf2",
+    character: "retro electronic colors",
+    bankOffset: 5,
+  },
+  {
+    id: "nokia",
+    name: "Nokia Tongbao",
+    url: "/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2",
+    character: "compact mobile/MIDI tones",
+    bankOffset: 6,
+  },
+  {
+    id: "drums",
+    name: "StealthPilot Drums",
+    url: "/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2",
+    character: "classic electronic/game percussion",
+    bankOffset: 7,
+  },
+];
+
+const SOUND_FONT_BY_ROLE = {
+  drums: "drums",
+  bass: "fjords",
+  guitar: "gamehero",
+  vocals: "roblox-sf",
+  keys: "classic-days",
+  pad: "strategy",
+  strings: "strategy",
+  arp: "nokia",
 };
-const ROBLOX_SOUNDFONTS = [FIXED_SOUNDFONT];
 
 function clamp(value, min, max, fallback) {
   const n = Number(value);
@@ -337,7 +400,7 @@ function fallbackPlan(notes, duration) {
     primaryRole: "vocals",
     supportRoles: ["bass", "keys", "arp"],
     drums: true,
-    density: 0.72,
+    density: 0.38,
     swing: 0,
     quantizeGrid: 0.125,
     preserveMelody: true,
@@ -349,14 +412,8 @@ function fallbackPlan(notes, duration) {
     drumPattern: "basic",
     referenceUrl: REFERENCE_URL,
     referenceStyle: REFERENCE_STYLE,
-    soundfontRoles: {
-      lead: FIXED_SOUNDFONT.id,
-      bass: FIXED_SOUNDFONT.id,
-      harmony: FIXED_SOUNDFONT.id,
-      arp: FIXED_SOUNDFONT.id,
-      drums: FIXED_SOUNDFONT.id,
-    },
-    reason: "Permanent Robloxify reference style using the repository SoundFont.",
+    soundfontRoles: { ...SOUND_FONT_BY_ROLE },
+    reason: "Permanent classic-Roblox reference style using a fixed repository SoundFont palette while preserving the uploaded instrumental.",
   };
 }
 
@@ -369,14 +426,8 @@ async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENC
     ...plan,
     referenceUrl: REFERENCE_URL,
     referenceStyle: REFERENCE_STYLE,
-    soundfont: FIXED_SOUNDFONT,
-    soundfontRoles: {
-      lead: FIXED_SOUNDFONT.id,
-      bass: FIXED_SOUNDFONT.id,
-      harmony: FIXED_SOUNDFONT.id,
-      arp: FIXED_SOUNDFONT.id,
-      drums: FIXED_SOUNDFONT.id,
-    },
+    soundfonts: ROBLOX_SOUNDFONTS,
+    soundfontRoles: { ...SOUND_FONT_BY_ROLE },
     ai: false,
     fixedStyle: true,
     model: null,
