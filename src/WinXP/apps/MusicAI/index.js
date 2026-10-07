@@ -653,6 +653,32 @@ function yieldToBrowser() {
   return new Promise(resolve => { if (typeof window !== 'undefined' && window.requestAnimationFrame) window.requestAnimationFrame(() => setTimeout(resolve, 0)); else setTimeout(resolve, 0); });
 }
 
+function encodeMonoFloatWav(left, right, sampleRate) {
+  const sourceLength = Math.min(left.length, right.length);
+  const ratio = Math.max(1, Math.round(sampleRate / 22050));
+  const outRate = Math.floor(sampleRate / ratio);
+  const frames = Math.max(1, Math.ceil(sourceLength / ratio));
+  const buffer = new ArrayBuffer(44 + frames * 2);
+  const view = new DataView(buffer);
+  const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
+  write(0, 'RIFF'); view.setUint32(4, 36 + frames * 2, true);
+  write(8, 'WAVE'); write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true); view.setUint32(24, outRate, true); view.setUint32(28, outRate * 2, true);
+  view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  write(36, 'data'); view.setUint32(40, frames * 2, true);
+  let offset = 44;
+  for (let i = 0; i < frames; i++) {
+    const start = i * ratio;
+    const end = Math.min(sourceLength, start + ratio);
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += ((left[j] || 0) + (right[j] || 0)) * 0.5;
+    const sample = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+    view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+    offset += 2;
+  }
+  return new Blob([buffer], { type: 'audio/wav' });
+}
+
 async function separateVocalsAndBuildInstrumental(inputFile, onStatus, onProgress) {
   const { ort, DemucsProcessor, CONSTANTS } = await loadDemucsLibs();
   const DEMUCS_CONSTANTS = CONSTANTS || {};
@@ -904,32 +930,6 @@ function MusicAI() {
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
     if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
   }, []);
-
-  const encodeMonoFloatWav = (left, right, sampleRate) => {
-    const sourceLength = Math.min(left.length, right.length);
-    const ratio = Math.max(1, Math.round(sampleRate / 22050));
-    const outRate = Math.floor(sampleRate / ratio);
-    const frames = Math.max(1, Math.ceil(sourceLength / ratio));
-    const buffer = new ArrayBuffer(44 + frames * 2);
-    const view = new DataView(buffer);
-    const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
-    write(0, 'RIFF'); view.setUint32(4, 36 + frames * 2, true);
-    write(8, 'WAVE'); write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-    view.setUint16(22, 1, true); view.setUint32(24, outRate, true); view.setUint32(28, outRate * 2, true);
-    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
-    write(36, 'data'); view.setUint32(40, frames * 2, true);
-    let offset = 44;
-    for (let i = 0; i < frames; i++) {
-      const start = i * ratio;
-      const end = Math.min(sourceLength, start + ratio);
-      let sum = 0;
-      for (let j = start; j < end; j++) sum += ((left[j] || 0) + (right[j] || 0)) * 0.5;
-      const sample = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
-      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
-      offset += 2;
-    }
-    return new Blob([buffer], { type: 'audio/wav' });
-  };
 
   const convert = async inputFile => {
     const extension = String(inputFile && inputFile.name || '').toLowerCase().split('.').pop();
