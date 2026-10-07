@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import Webamp from 'webamp';
 import { initialTracks } from './config';
 
-function Winamp({ onClose, onMinimize }) {
+function Winamp({ onClose, onMinimize, isFocus }) {
   const targetRef = useRef(null);
   const webampRef = useRef(null);
 
@@ -62,6 +62,12 @@ function Winamp({ onClose, onMinimize }) {
       }
     };
   }, [onClose, onMinimize]);
+
+  useEffect(() => {
+    if (isFocus && webampRef.current) {
+      webampRef.current.reopen();
+    }
+  }, [isFocus]);
 
   return (
     <div
