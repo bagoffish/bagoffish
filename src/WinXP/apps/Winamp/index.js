@@ -3,50 +3,33 @@ import Webamp from 'webamp';
 import { initialTracks } from './config';
 
 function Winamp({ onClose, onMinimize }) {
-  const targetRef = useRef(null);
-  const webampRef = useRef(null);
-
+  const ref = useRef(null);
+  const webamp = useRef(null);
   useEffect(() => {
-    const target = targetRef.current;
-    if (!target) return undefined;
-
-    if (Webamp.browserIsSupported && !Webamp.browserIsSupported()) {
-      return undefined;
+    const target = ref.current;
+    if (!target) {
+      return;
     }
-
-    const webamp = new Webamp({
+    webamp.current = new Webamp({
       initialTracks,
-      enableMediaSession: true,
     });
-
-    webampRef.current = webamp;
-    webamp.onClose(onClose);
-    webamp.onMinimize(onMinimize);
-
-    webamp
-      .renderWhenReady(target)
-      .catch(error => {
-        console.error('Winamp failed to render:', error);
-      });
-
+    webamp.current.renderWhenReady(target).then(() => {
+      target.appendChild(document.querySelector('#webamp'));
+    });
     return () => {
-      if (webampRef.current) {
-        webampRef.current.dispose();
-        webampRef.current = null;
-      }
+      webamp.current.dispose();
     };
-  }, [onClose, onMinimize]);
-
+  }, []);
+  useEffect(() => {
+    if (webamp.current) {
+      webamp.current.onClose(onClose);
+      webamp.current.onMinimize(onMinimize);
+    }
+  });
   return (
     <div
-      ref={targetRef}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        width: '100%',
-        height: '100%',
-        pointerEvents: 'auto',
-      }}
+      style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0 }}
+      ref={ref}
     />
   );
 }
