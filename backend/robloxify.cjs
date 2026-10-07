@@ -540,7 +540,9 @@ async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENC
     return {
       ...fallback,
       ai: false,
-      aiError: error?.name === "AbortError"\n        ? "Arrangement planner timed out; using the local arrangement fallback."\n        : error instanceof Error ? error.message : String(error),
+      aiError: error?.name === "AbortError"
+        ? "Arrangement planner timed out; using the local arrangement fallback."
+        : error instanceof Error ? error.message : String(error),
       analysis,
       webResearch: [],
       referenceUrl,
