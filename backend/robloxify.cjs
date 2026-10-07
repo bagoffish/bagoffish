@@ -27,7 +27,9 @@ async function loadBasicPitch() {
   if (modelPromise) return modelPromise;
 
   modelPromise = (async () => {
-    const tfModule = await import("@tensorflow/tfjs");
+    // Use the native Node TensorFlow backend. The pure-JS tfjs CPU backend is
+    // dramatically slower for Basic Pitch on Render.
+    const tfModule = await import("@tensorflow/tfjs-node");
     const tf = tfModule.default || tfModule;
     const pitchModule = await import("@spotify/basic-pitch");
     const pkg = pitchModule.default || pitchModule;
@@ -37,8 +39,9 @@ async function loadBasicPitch() {
       throw new Error("Basic Pitch module loaded without BasicPitch");
     }
 
-    await tf.setBackend("cpu");
+    await tf.setBackend("tensorflow");
     await tf.ready();
+    console.log("Robloxify TensorFlow backend:", tf.getBackend());
 
     const urls = [
       process.env.BASIC_PITCH_MODEL_URL,
@@ -176,6 +179,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
     console.warn("Audio metadata duration unavailable:", metadataError?.message || metadataError);
   }
 
+  const decodeStartedAt = Date.now();
   const decoderModule = await import("@audio/decode");
   const decodeAudio = decoderModule.default || decoderModule;
   const decoded = await decodeAudio(fileBuffer);
@@ -206,6 +210,8 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   };
   const mono = toMono(decodedAudio);
   const samples = resample(mono.samples, mono.sampleRate, TARGET_RATE);
+  console.log(`Robloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`);
+  const pitchStartedAt = Date.now();
   const pitch = await loadBasicPitch();
 
   const frames = [];
@@ -226,6 +232,9 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
     }
   );
 
+  console.log(`Robloxify Basic Pitch inference: ${Date.now() - pitchStartedAt}ms`);
+
+  const notePostProcessStartedAt = Date.now();
   const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.32, 0.38, 8);
   const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.22, 0.30, 6);
 
@@ -237,6 +246,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   );
 
   const notes = mergeNotes(primary, sensitive);
+  console.log(`Robloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`);
 
   return {
     notes,
