@@ -423,9 +423,9 @@ async function createRobloxifyStylePlan(notes, duration) {
     const model = process.env.ROBLOXIFY_AI_MODEL || "gpt-6-luna";
     const prompt = [
       "You are the musical director for Robloxify.",
-      "Create one coherent Roblox arrangement using the supplied reference library.",
-      "Preserve the uploaded performance's melody, timing, contour, and recognizable structure.",
-      "Use complementary sound families together when appropriate.",
+      "Create a vocal-less 8-bit chiptune/game-console arrangement using the supplied reference library as broad knowledge.",
+      "Preserve the uploaded performance's melody, timing, contour, and recognizable structure while converting its instrumentation into crunchy 8-bit/chiptune sounds.",
+      "Favor square/pulse leads, short synth bass, compact chord stabs, arpeggios, simple game-style drums, and a deliberately lo-fi/bit-crushed texture.",
       "Use the supplied reference library as broad arrangement knowledge.",
       "Do not copy any specific song, lyric, melody, or distinctive arrangement.",
       "Return JSON only.",
@@ -433,7 +433,7 @@ async function createRobloxifyStylePlan(notes, duration) {
       JSON.stringify({
         transcription: analysis,
         schema: {
-          primaryRole: "bass|guitar|vocals|keys|pad|strings|arp",
+          primaryRole: "guitar|keys|arp|vocals",
           supportRoles: "array of up to four roles",
           drums: "boolean",
           density: "0.25-1",
@@ -446,7 +446,7 @@ async function createRobloxifyStylePlan(notes, duration) {
           chordRhythm: "sustained|half|quarter|syncopated",
           melodyOctave: "-1|0|1",
           drumPattern: "none|basic|four_on_floor|breakbeat",
-          reason: "short string",
+          reason: "short string describing the 8-bit arrangement",
           webResearch: "array of source summaries",
         },
       }),
