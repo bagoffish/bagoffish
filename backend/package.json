@@ -17,8 +17,6 @@
     "@spotify/basic-pitch": "1.0.1",
     "@audio/decode": "^4.0.0",
     "music-metadata": "^10.9.1",
-    "@tensorflow/tfjs-node": "^4.22.0",
-    "@audio/neural-separate": "^0.1.0",
-    "onnxruntime-node": "^1.30.0"
+    "@tensorflow/tfjs-node": "^4.22.0"
   }
 }
