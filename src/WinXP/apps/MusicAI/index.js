@@ -808,26 +808,28 @@ function MusicAI() {
     if (working) { setStatus('Already converting…'); return; }
     setFile(inputFile); setWorking(true); setProgress(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Starting…');
     try {
-      let rawNotes = []; let duration = 0; let usedBackend = false; let aiPlan = null;
-      // Transcribe in the browser. This keeps the conversion responsive on
-      // iPhone/iPad and avoids waiting on a cold Render worker or a remote
-      // server-side model before the progress bar can move.
-      const result = await transcribeLocally(
-        inputFile,
-        msg => {
+      let rawNotes = []; let duration = 0; let usedBackend = true; let aiPlan = null;
+      // Keep heavy transcription off the mobile main thread. The browser-side
+      // TensorFlow/Basic Pitch path can monopolize Safari's CPU and make the
+      // entire XP window appear frozen. The Render worker handles transcription,
+      // while this lightweight progress ticker keeps the UI visibly responsive.
+      let displayedProgress = 5;
+      setProgress(displayedProgress);
+      const progressTimer = window.setInterval(() => {
+        displayedProgress = Math.min(82, displayedProgress + (displayedProgress < 45 ? 2 : 1));
+        if (conversionId === conversionIdRef.current) setProgress(displayedProgress);
+      }, 350);
+      try {
+        const result = await transcribeOnBackend(inputFile, msg => {
           if (conversionId === conversionIdRef.current) setStatus(msg);
-        },
-        value => {
-          if (conversionId === conversionIdRef.current) {
-            setProgress(Math.round(Math.max(0, Math.min(1, value)) * 85));
-          }
-        }
-      );
-      if (conversionId !== conversionIdRef.current) return;
-      rawNotes = result.notes;
-      duration = result.duration || 0;
-      aiPlan = null;
-      usedBackend = false;
+        });
+        if (conversionId !== conversionIdRef.current) return;
+        rawNotes = result.notes;
+        duration = result.duration || 0;
+        aiPlan = result.aiPlan || null;
+      } finally {
+        window.clearInterval(progressTimer);
+      }
       setStatus('Building a unified Roblox orchestra — keeping your melody…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
