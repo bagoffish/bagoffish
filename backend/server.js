@@ -538,10 +538,8 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
 app.get("/proxy-roblox", async (req, res) => {
   setCors(req, res);
 
-  // The thumbnail index is built from the bundled .jsonl chunks at startup.
-  // Always wait for it before serving a lookup so the first request cannot
-  // cache an incomplete avatar result.
-  await avatarIndexReady;
+  // Do not block the lookup on a complete thumbnail-chunk index.
+  // Archived avatars are searched only for the requested Roblox user.
   const username = req.query.username;
   if (!username) return res.status(400).json({ error: "Username required" });
 
