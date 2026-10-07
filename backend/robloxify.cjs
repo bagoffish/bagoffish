@@ -1,9 +1,201 @@
+const brain = require("./robloxify-knowledge.json");
 const TARGET_RATE = 22050;
 const MAX_SECONDS = 600;
 const MAX_BYTES = 120 * 1024 * 1024;
-
+const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
+const REFERENCE_STYLE = { name:"SEWH M.U.L.E / Robloxify Reference Style", source:"SEWH:RECODE M.U.L.E rips", traits:["classic M.U.L.E. / early-Roblox MIDI character","bright synthetic melodic leads","compact repeating motifs","root-driven bass","simple triadic harmony and chord stabs","short quantized notes and light arpeggios","restrained game-style percussion","lo-fi SoundFont texture","instrumental MIDI arrangement"], arrangement:"Keep the uploaded melody and timing recognizable while expressing it through a compact classic-Roblox/M.U.L.E.-style arrangement without copying a reference song." };
+const ROBLOX_SOUNDFONTS = [
+  {
+    "id": "stealthpilot-midi-drums-only-0",
+    "name": "StealthPilot_MIDI_DRUMS_ONLY",
+    "url": "/public/soundfonts/Instruments/MIDI Compatible Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2",
+    "bankOffset": 0
+  },
+  {
+    "id": "the-great-strategy-midi-1",
+    "name": "The_Great_Strategy_MIDI",
+    "url": "/public/soundfonts/Instruments/MIDI Compatible Soundfonts/The_Great_Strategy_MIDI.sf2",
+    "bankOffset": 1
+  },
+  {
+    "id": "wind-of-fjords-midi-2",
+    "name": "Wind_of_Fjords_MIDI",
+    "url": "/public/soundfonts/Instruments/MIDI Compatible Soundfonts/Wind_of_Fjords_MIDI.sf2",
+    "bankOffset": 2
+  },
+  {
+    "id": "aquadoesstuff-modified-3",
+    "name": "AquaDoesStuff - Modified",
+    "url": "/public/soundfonts/Instruments/Other People/AquaDoesStuff - Modified.sf2",
+    "bankOffset": 3
+  },
+  {
+    "id": "roblox-soundfont-4",
+    "name": "Roblox Soundfont",
+    "url": "/public/soundfonts/Instruments/Other People/Roblox Soundfont.sf2",
+    "bankOffset": 4
+  },
+  {
+    "id": "beastmasters-tale-5",
+    "name": "Beastmasters Tale",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Beastmasters Tale.sf2",
+    "bankOffset": 5
+  },
+  {
+    "id": "clan-being-raided-6",
+    "name": "Clan Being Raided",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Clan Being Raided.sf2",
+    "bankOffset": 6
+  },
+  {
+    "id": "classic-days-7",
+    "name": "Classic Days",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Classic Days.sf2",
+    "bankOffset": 7
+  },
+  {
+    "id": "crossroad-times-8",
+    "name": "Crossroad Times",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Crossroad Times.sf2",
+    "bankOffset": 8
+  },
+  {
+    "id": "dance-potion-9",
+    "name": "Dance Potion",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Dance Potion.sf2",
+    "bankOffset": 9
+  },
+  {
+    "id": "death-sounds-10",
+    "name": "Death Sounds",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Death Sounds.sf2",
+    "bankOffset": 10
+  },
+  {
+    "id": "explore-roblox-11",
+    "name": "Explore Roblox",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Explore Roblox.sf2",
+    "bankOffset": 11
+  },
+  {
+    "id": "gamehero-soundfont-12",
+    "name": "GameHero Soundfont",
+    "url": "/public/soundfonts/Instruments/Soundfonts/GameHero Soundfont.sf2",
+    "bankOffset": 12
+  },
+  {
+    "id": "monster-mash-13",
+    "name": "Monster Mash",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Monster Mash.sf2",
+    "bankOffset": 13
+  },
+  {
+    "id": "noob-alert-14",
+    "name": "Noob Alert",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Noob Alert.sf2",
+    "bankOffset": 14
+  },
+  {
+    "id": "party-music-15",
+    "name": "Party Music",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Party Music.sf2",
+    "bankOffset": 15
+  },
+  {
+    "id": "roblox-horror-16",
+    "name": "Roblox Horror",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Roblox Horror.sf2",
+    "bankOffset": 16
+  },
+  {
+    "id": "roblox-old-sounds-17",
+    "name": "Roblox Old Sounds",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Roblox Old Sounds.sf2",
+    "bankOffset": 17
+  },
+  {
+    "id": "stealthpilot-v2-18",
+    "name": "StealthPilot v2",
+    "url": "/public/soundfonts/Instruments/Soundfonts/StealthPilot v2.sf2",
+    "bankOffset": 18
+  },
+  {
+    "id": "stealthpilot-19",
+    "name": "StealthPilot",
+    "url": "/public/soundfonts/Instruments/Soundfonts/StealthPilot.sf2",
+    "bankOffset": 19
+  },
+  {
+    "id": "the-great-strategy-20",
+    "name": "The Great Strategy",
+    "url": "/public/soundfonts/Instruments/Soundfonts/The Great Strategy.sf2",
+    "bankOffset": 20
+  },
+  {
+    "id": "training-day-21",
+    "name": "Training Day",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Training Day.sf2",
+    "bankOffset": 21
+  },
+  {
+    "id": "trouble-ahead-22",
+    "name": "Trouble Ahead",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Trouble Ahead.sf2",
+    "bankOffset": 22
+  },
+  {
+    "id": "waapp-whistle-23",
+    "name": "WAAPP Whistle",
+    "url": "/public/soundfonts/Instruments/Soundfonts/WAAPP Whistle.sf2",
+    "bankOffset": 23
+  },
+  {
+    "id": "wiley-metal-bricks-24",
+    "name": "Wiley, Metal Bricks",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Wiley, Metal Bricks.sf2",
+    "bankOffset": 24
+  },
+  {
+    "id": "wind-of-fjords-voyage-to-eternity-they-share-same-instruments-25",
+    "name": "Wind of Fjords + Voyage to Eternity (They share same Instruments)",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Wind of Fjords + Voyage to Eternity (They share same Instruments).sf2",
+    "bankOffset": 25
+  },
+  {
+    "id": "wind-of-fjords-hq-26",
+    "name": "Wind of fjords HQ",
+    "url": "/public/soundfonts/Instruments/Soundfonts/Wind of fjords HQ.sf2",
+    "bankOffset": 26
+  },
+  {
+    "id": "nokia-tongbao-bank-27",
+    "name": "Nokia_Tongbao_Bank",
+    "url": "/public/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2",
+    "bankOffset": 27
+  },
+  {
+    "id": "roblox-soundfont-1-28",
+    "name": "Roblox Soundfont-1",
+    "url": "/public/soundfonts/Instruments/WorkingR-Blox/Roblox Soundfont-1.sf2",
+    "bankOffset": 28
+  },
+  {
+    "id": "windoffjordsv2-5-1a-29",
+    "name": "WindOfFjordsV2.5.1a",
+    "url": "/public/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2",
+    "bankOffset": 29
+  },
+  {
+    "id": "roblox-soundfont-1-30",
+    "name": "._Roblox Soundfont-1",
+    "url": "/public/soundfonts/Instruments/WorkingR-Blox/__MACOSX/._Roblox Soundfont-1.sf2",
+    "bankOffset": 30
+  }
+];
+const PREBAKED_SOUNDFONT_LIBRARY = ROBLOX_SOUNDFONTS.map(font => ({id:font.id,name:font.name,bankOffset:font.bankOffset,source:font.url}));
+function selectSoundfontsForSong(notes){const histogram=Array(12).fill(0);for(const note of notes||[])histogram[((Math.round(note.pitchMidi)%12)+12)%12]+=1;const seed=histogram.reduce((s,v,i)=>s+v*(i+1),0)%ROBLOX_SOUNDFONTS.length;const roles=["drums","bass","guitar","vocals","keys","pad","strings","arp"];const selected={};roles.forEach((role,i)=>{selected[role]=ROBLOX_SOUNDFONTS[(seed+i*4)%ROBLOX_SOUNDFONTS.length].id;});return selected;}
+const SOUND_FONT_BY_ROLE = selectSoundfontsForSong([]);
 let modelPromise = null;
-
 async function loadBasicPitch() {
   if (modelPromise) return modelPromise;
 
@@ -314,47 +506,12 @@ function summarize(notes, duration) {
   };
 }
 
-function fallbackPlan(notes, duration) {
-  return {
-    primaryRole: "vocals",
-    supportRoles: ["bass", "keys", "arp"],
-    drums: true,
-    density: 0.38,
-    swing: 0,
-    quantizeGrid: 0.125,
-    preserveMelody: true,
-    tempoBpm: 120,
-    harmonicComplexity: 0.45,
-    bassPattern: "root",
-    chordRhythm: "half",
-    melodyOctave: 0,
-    drumPattern: "basic",
-    referenceUrl: REFERENCE_URL,
-    referenceStyle: REFERENCE_STYLE,
-    soundfontRoles: { ...SOUND_FONT_BY_ROLE },
-    reason:
-      "Permanent SEWH M.U.L.E / classic-Roblox reference style using a fixed repository SoundFont palette while preserving the uploaded instrumental.",
-  };
-}
+function fallbackPlan(notes, duration){const soundfontRoles=selectSoundfontsForSong(notes);return {primaryRole:"vocals",supportRoles:["bass","keys","arp"],drums:true,density:0.38,swing:0,quantizeGrid:0.125,preserveMelody:true,tempoBpm:120,harmonicComplexity:0.45,bassPattern:"root",chordRhythm:"half",melodyOctave:0,drumPattern:"basic",referenceUrl:REFERENCE_URL,referenceStyle:REFERENCE_STYLE,soundfontRoles,soundfonts:ROBLOX_SOUNDFONTS,soundfontPrebake:PREBAKED_SOUNDFONT_LIBRARY,knowledge:brain,reason:"Complete repository SoundFont pre-bake pool; each song selects a multi-font palette from the complete library."};}
 
 // Style is deliberately NOT generated per upload.
 // Basic Pitch only supplies the user's notes; this fixed plan supplies the
 // musical identity every Robloxify conversion uses.
-async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
-  const plan = fallbackPlan(notes, duration);
-  return {
-    ...plan,
-    referenceUrl: REFERENCE_URL,
-    referenceStyle: REFERENCE_STYLE,
-    soundfonts: ROBLOX_SOUNDFONTS,
-    soundfontRoles: { ...SOUND_FONT_BY_ROLE },
-    ai: false,
-    fixedStyle: true,
-    model: null,
-    analysis: summarize(notes, duration),
-    webResearch: [],
-  };
-}
+async function createRobloxifyStylePlan(notes,duration,referenceUrl=REFERENCE_URL){const plan=fallbackPlan(notes,duration);return {...plan,referenceUrl:REFERENCE_URL,referenceStyle:REFERENCE_STYLE,ai:{mode:"prebaked-soundfont-library",learnedLibrarySize:ROBLOX_SOUNDFONTS.length,selectedRoles:plan.soundfontRoles},fixedStyle:true,model:null,analysis:summarize(notes,duration),webResearch:[]};}
 
 module.exports = {
   transcribeAudioBuffer,
