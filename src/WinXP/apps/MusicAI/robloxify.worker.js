@@ -66,14 +66,20 @@ self.onmessage = async event => {
         contours.push(...contourBatch);
         processedFrames += frameBatch.length;
 
-        // Basic Pitch 1.0.1 does not accept a separate percent/progress
-        // callback. Report progress from the frame batches instead.
+        // Basic Pitch 1.0.1 expects a third PercentCallback argument.
+        // Frame batches are used only as a fallback progress estimate.
         const estimatedFrames = Math.max(1, Math.ceil(audioBuffer.duration * 86));
         const progress = Math.max(0, Math.min(0.99, processedFrames / estimatedFrames));
         if (progress >= 1 || progress - lastProgressPost >= 0.02) {
           lastProgressPost = progress;
           self.postMessage({ type: 'progress', value: progress });
         }
+      },
+      (progress) => {
+        self.postMessage({
+          type: 'progress',
+          value: Math.max(0, Math.min(1, Number(progress) || 0)),
+        });
       }
     );
     self.postMessage({ type: 'progress', value: 1 });
