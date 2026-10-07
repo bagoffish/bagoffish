@@ -14,19 +14,15 @@ const SOUNDFONT_LOAD_PROMISES = new Map();
 const BASIC_PITCH_IDB = 'robloxify-basic-pitch-v1';
 
 const SOUNDFONT_LIBRARY = [
-  { id: 'fjords', name: 'Wind of Fjords', url: '/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2' },
-  { id: 'fjords-midi', name: 'Wind of Fjords MIDI', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2' },
-  { id: 'strategy', name: 'The Great Strategy', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/The_Great_Strategy_MIDI.sf2' },
-  { id: 'roblox-sf', name: 'Roblox Soundfont', url: '/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2' },
-  { id: 'gamehero', name: 'GameHero', url: '/soundfonts/Instruments/Soundfonts/GameHero%20Soundfont.sf2' },
-  { id: 'classic-days', name: 'Classic Days', url: '/soundfonts/Instruments/Soundfonts/Classic%20Days.sf2' },
-  { id: 'party', name: 'Party Music', url: '/soundfonts/Instruments/Soundfonts/Party%20Music.sf2' },
-  { id: 'monster', name: 'Monster Mash', url: '/soundfonts/Instruments/Soundfonts/Monster%20Mash.sf2' },
-  { id: 'horror', name: 'Roblox Horror', url: '/soundfonts/Instruments/Soundfonts/Roblox%20Horror.sf2' },
-  { id: 'stealth', name: 'StealthPilot', url: '/soundfonts/Instruments/Soundfonts/StealthPilot.sf2' },
-  { id: 'drums', name: 'StealthPilot Drums', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2' },
-  { id: 'nokia', name: 'Nokia Tongbao', url: '/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2' },
+  {
+    id: 'fjords-midi',
+    name: 'Wind of Fjords MIDI',
+    url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2'
+  },
 ];
+const FIXED_SOUNDFONT_ID = 'fjords-midi';
+
+
 
 
 const ORCHESTRA_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
@@ -849,7 +845,17 @@ function MusicAI() {
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
-      const plan = { ...(aiPlan || {}), label: '8-bit Robloxify', reason: 'Soundfont palettes blended around the original song.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+      const fixedSoundfont = SOUNDFONT_LIBRARY[0];
+      const plan = {
+        ...(aiPlan || {}),
+        label: '8-bit Robloxify',
+        reason: 'Fixed Robloxify reference style · Wind of Fjords MIDI SoundFont.',
+        fixedStyle: true,
+        soundfont: fixedSoundfont,
+        soundfontId: FIXED_SOUNDFONT_ID,
+        programs: { ...ORCHESTRA_PROGRAMS },
+        drums: fixedSoundfont,
+      };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs));
@@ -917,13 +923,28 @@ function MusicAI() {
     setProjectName(project.name);
     const loaded = (project.arrangement || []).map((n, i) => ({ ...n, id: n.id || i + 1 }));
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
-    const plan = { ...(project.plan || {}), label: 'Robloxify Arrangement', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+    const plan = {
+      ...(project.plan || {}),
+      label: 'Robloxify Arrangement',
+      fixedStyle: true,
+      soundfont: SOUNDFONT_LIBRARY[0],
+      soundfontId: FIXED_SOUNDFONT_ID,
+      programs: { ...ORCHESTRA_PROGRAMS },
+      drums: SOUNDFONT_LIBRARY[0],
+    };
     planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
   const ensureSynth = async plan => {
-    const usePlan = plan || planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+    const usePlan = plan || planRef.current || {
+      label: 'Robloxify Arrangement',
+      fixedStyle: true,
+      soundfont: SOUNDFONT_LIBRARY[0],
+      soundfontId: FIXED_SOUNDFONT_ID,
+      programs: ORCHESTRA_PROGRAMS,
+      drums: SOUNDFONT_LIBRARY[0],
+    };
     if (synthRef.current && contextRef.current) return synthRef.current;
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
     if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
@@ -951,14 +972,10 @@ function MusicAI() {
       }
     };
 
-    // Only load a small core set before playback can begin. The remaining
-    // palette is added in the background so the first listen does not wait
-    // for every SF2 file to download and parse.
-    const coreIds = new Set(['fjords', 'fjords-midi', 'strategy', 'roblox-sf', 'drums']);
-    const core = SOUNDFONT_LIBRARY.filter(bank => coreIds.has(bank.id));
-    const background = SOUNDFONT_LIBRARY.filter(bank => !coreIds.has(bank.id));
-    setStatus('Loading core soundfonts…');
-    await Promise.all(core.map(loadBank));
+    // Robloxify intentionally loads exactly one SoundFont. There is no
+    // per-song soundfont selection or multi-bank blending.
+    setStatus('Loading Robloxify SoundFont…');
+    await loadBank(SOUNDFONT_LIBRARY[0]);
     if (synth.isReady) await synth.isReady;
     if (typeof synth.connect === 'function') synth.connect(context.destination);
     synthRef.current = synth; planRef.current = usePlan;
@@ -1006,7 +1023,13 @@ function MusicAI() {
   const playArrangement = async () => {
     if (!arrangement.length) { setStatus('Nothing to play'); return; }
     try {
-      const plan = planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
+      const plan = planRef.current || {
+        label: 'Robloxify Arrangement',
+        fixedStyle: true,
+        soundfont: SOUNDFONT_LIBRARY[0],
+        soundfontId: FIXED_SOUNDFONT_ID,
+        programs: ORCHESTRA_PROGRAMS,
+      };
       setStatus('Loading soundfonts…');
       const synth = await ensureSynth(plan);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
