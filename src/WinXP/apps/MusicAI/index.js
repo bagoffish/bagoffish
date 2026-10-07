@@ -835,22 +835,28 @@ function MusicAI() {
     if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
   }, []);
 
-  const encodeStereoFloatWav = (left, right, sampleRate) => {
-    const frames = Math.min(left.length, right.length);
-    const buffer = new ArrayBuffer(44 + frames * 4);
+  const encodeMonoFloatWav = (left, right, sampleRate) => {
+    const sourceLength = Math.min(left.length, right.length);
+    const ratio = Math.max(1, Math.round(sampleRate / 22050));
+    const outRate = Math.floor(sampleRate / ratio);
+    const frames = Math.max(1, Math.ceil(sourceLength / ratio));
+    const buffer = new ArrayBuffer(44 + frames * 2);
     const view = new DataView(buffer);
     const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
-    write(0, 'RIFF'); view.setUint32(4, 36 + frames * 4, true);
+    write(0, 'RIFF'); view.setUint32(4, 36 + frames * 2, true);
     write(8, 'WAVE'); write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
-    view.setUint16(22, 2, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 4, true);
-    view.setUint16(32, 4, true); view.setUint16(34, 16, true);
-    write(36, 'data'); view.setUint32(40, frames * 4, true);
+    view.setUint16(22, 1, true); view.setUint32(24, outRate, true); view.setUint32(28, outRate * 2, true);
+    view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+    write(36, 'data'); view.setUint32(40, frames * 2, true);
     let offset = 44;
     for (let i = 0; i < frames; i++) {
-      const l = Math.max(-1, Math.min(1, left[i] || 0));
-      const r = Math.max(-1, Math.min(1, right[i] || 0));
-      view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7fff, true); offset += 2;
-      view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7fff, true); offset += 2;
+      const start = i * ratio;
+      const end = Math.min(sourceLength, start + ratio);
+      let sum = 0;
+      for (let j = start; j < end; j++) sum += ((left[j] || 0) + (right[j] || 0)) * 0.5;
+      const sample = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+      view.setInt16(offset, sample < 0 ? sample * 0x8000 : sample * 0x7fff, true);
+      offset += 2;
     }
     return new Blob([buffer], { type: 'audio/wav' });
   };
@@ -913,7 +919,7 @@ function MusicAI() {
       }
       onProgress && onProgress(62);
       onStatus && onStatus('Vocals removed — transcribing the instrumental…');
-      return new File([encodeStereoFloatWav(outLeft, outRight, DEMUCS_CONSTANTS.SAMPLE_RATE || 44100)], inputFile.name.replace(/\.[^.]+$/, '') + '-instrumental.wav', { type: 'audio/wav' });
+      return new File([encodeMonoFloatWav(outLeft, outRight, DEMUCS_CONSTANTS.SAMPLE_RATE || 44100)], inputFile.name.replace(/\.[^.]+$/, '') + '-instrumental.wav', { type: 'audio/wav' });
     } finally {
       try { await context.close(); } catch (e) {}
     }
@@ -947,7 +953,12 @@ function MusicAI() {
         if (conversionId === conversionIdRef.current) setProgress(displayedProgress);
       }, 350);
       try {
-        const result = await transcribeOnBackend(inputFile, msg => {
+        const analysisFile = await separateVocalsAndBuildInstrumental(
+          inputFile,
+          msg => { if (conversionId === conversionIdRef.current) setStatus(msg); },
+          p => { if (conversionId === conversionIdRef.current) setProgress(Math.max(displayedProgress, p)); }
+        );
+        const result = await transcribeOnBackend(analysisFile, msg => {
           if (conversionId === conversionIdRef.current) setStatus(msg);
         });
         if (conversionId !== conversionIdRef.current) return;
