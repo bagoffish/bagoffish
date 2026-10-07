@@ -13,7 +13,8 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-robloxify-demucs-fix";
+const BACKEND_VERSION = "2026-10-07-robloxify-stable";
+const ROBLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -291,12 +292,20 @@ async function loadRobloxify() {
 app.post("/robloxify", async (req, res) => {
   setCors(req, res);
   try {
-    const { multer, separateToInstrumental, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await loadRobloxify();
-    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 } }).single("audio");
+    const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await loadRobloxify();
+    const upload = multer({
+      storage: multer.diskStorage({
+        destination: (req, file, cb) => cb(null, "/tmp/winxp-robloxify"),
+        filename: (req, file, cb) => cb(null, crypto.randomUUID() + ".upload"),
+      }),
+      limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
+    }).single("audio");
     await new Promise((resolve, reject) => { upload(req, res, (err) => (err ? reject(err) : resolve())); });
     if (robloxifyBusy) return res.status(503).json({ error: "Robloxify is busy processing another file. Try again in a moment." });
     if (!req.file) return res.status(400).json({ error: "Audio file required (field name: audio)" });
-    const cacheKey = getRobloxifyCacheKey(req.file.buffer);
+    const fileBuffer = await fs.promises.readFile(req.file.path);
+    await fs.promises.unlink(req.file.path).catch(() => {});
+    const cacheKey = getRobloxifyCacheKey(fileBuffer);
     const cachedResult = robloxifyCache.get(cacheKey);
     if (cachedResult) {
       robloxifyCache.delete(cacheKey);
@@ -307,25 +316,11 @@ app.post("/robloxify", async (req, res) => {
     const t0 = Date.now();
     try {
       const transcriptionStartedAt = Date.now();
-      let transcriptionBuffer = req.file.buffer;
-      let transcriptionMime = req.file.mimetype;
-      let stemSeparation = "browser-fallback";
-      const totalMemoryMb = Math.round((os.totalmem() / 1024 / 1024) * 10) / 10;
-      if (totalMemoryMb >= 1536) {
-        try {
-          console.log(`Robloxify: backend stem separation starting (${totalMemoryMb} MB RAM)`);
-          const instrumental = await separateToInstrumental(req.file.buffer, req.file.mimetype);
-          transcriptionBuffer = instrumental.buffer;
-          transcriptionMime = instrumental.mimeType;
-          stemSeparation = "backend";
-          console.log("Robloxify: backend stem separation complete");
-        } catch (stemErr) {
-          console.warn("Robloxify: backend Demucs failed, using original audio:", stemErr?.message || stemErr);
-          stemSeparation = "backend-failed-fallback";
-        }
-      } else {
-        console.warn(`Robloxify: skipping backend Demucs on low-memory instance (${totalMemoryMb} MB RAM)`);
-      }
+      // Stem separation is intentionally done in the browser. Running Demucs here
+      // makes the small Render instance unnecessarily memory-hungry.
+      const transcriptionBuffer = fileBuffer;
+      const transcriptionMime = req.file.mimetype;
+      const stemSeparation = "browser";
       const result = await transcribeAudioBuffer(transcriptionBuffer, transcriptionMime);
       console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
       const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
@@ -386,6 +381,10 @@ app.use((err, req, res, next) => {
   } else next(err);
 });
 
-app.listen(PORT, "0.0.0.0", () => {
+const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT} (${BACKEND_VERSION})`);
 });
+server.requestTimeout = ROBLOXIFY_REQUEST_TIMEOUT;
+server.timeout = ROBLOXIFY_REQUEST_TIMEOUT;
+server.keepAliveTimeout = 120000;
+server.headersTimeout = ROBLOXIFY_REQUEST_TIMEOUT + 5000;
