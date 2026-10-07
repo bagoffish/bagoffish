@@ -272,9 +272,42 @@ async function buildAvatarIndex() {
   saveToCache(fingerprint);
 }
 
-const avatarIndexReady = buildAvatarIndex().catch((err) => {
-  console.error("Avatar index build failed:", err);
-});
+const avatarIndexReady = Promise.resolve();
+
+async function findAvatarsInChunks(userId) {
+  if (!fs.existsSync(THUMBNAIL_CHUNKS_PATH)) return [];
+  const files = (await fs.promises.readdir(THUMBNAIL_CHUNKS_PATH)).filter((f) => f.endsWith(".jsonl"));
+  if (!files.length) return [];
+
+  const workerCount = Math.max(1, Math.min(3, files.length));
+  const buckets = Array.from({ length: workerCount }, () => []);
+  files.forEach((f, i) => buckets[i % workerCount].push(path.join(THUMBNAIL_CHUNKS_PATH, f)));
+
+  const results = await Promise.all(buckets.filter(Boolean).map((bucket) => new Promise((resolve, reject) => {
+    const worker = new Worker(WORKER_PATH, { workerData: { files: bucket, targetId: String(userId) } });
+    const collected = [];
+    worker.on("message", (msg) => {
+      if (msg.done) collected.push(...msg.done);
+      if (msg.warn) console.warn(msg.warn);
+    });
+    worker.once("error", reject);
+    worker.once("exit", (code) => code === 0 ? resolve(collected) : reject(new Error("Avatar chunk worker exited with code " + code)));
+  })));
+
+  const avatars = [];
+  const seen = new Set();
+  for (const entries of results) {
+    for (const [id, values] of entries) {
+      for (const avatar of values || []) {
+        if (!seen.has(avatar.url)) {
+          seen.add(avatar.url);
+          avatars.push(avatar);
+        }
+      }
+    }
+  }
+  return avatars;
+}
 
 /* ---------- cache ---------- */
 const cache = new Map();
@@ -561,7 +594,11 @@ app.get("/proxy-roblox", async (req, res) => {
       } catch {}
     }
 
-    const chunkAvatars = avatarIndex.get(String(id)) || [];
+    let chunkAvatars = avatarIndex.get(String(id));
+    if (!chunkAvatars) {
+      chunkAvatars = await findAvatarsInChunks(id);
+      avatarIndex.set(String(id), chunkAvatars);
+    }
     const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
     const liveAvatarUrl = avatarResData?.data?.[0]?.imageUrl || "";
     const avatarSourceUrl = liveAvatarUrl || chunkAvatarUrl;
