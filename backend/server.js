@@ -711,8 +711,13 @@ app.post("/robloxify", async (req, res) => {
     robloxifyBusy = true;
     const t0 = Date.now();
     try {
+      const transcriptionStartedAt = Date.now();
       const result = await transcribeAudioBuffer(req.file.buffer, req.file.mimetype);
+      console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
+
+      const plannerStartedAt = Date.now();
       const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
+      console.log(`Robloxify arrangement planner: ${Date.now() - plannerStartedAt}ms (ai=${aiPlan?.ai !== false})`);
       const response = {
         ok: true,
         notes: result.notes,
