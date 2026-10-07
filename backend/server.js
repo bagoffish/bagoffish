@@ -545,12 +545,10 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
 app.get("/proxy-roblox", async (req, res) => {
   setCors(req, res);
 
-  // Do not block the lookup on a complete thumbnail-chunk index.
-  // Archived avatars are searched only for the requested Roblox user.
-  const username = req.query.username;
+  const username = String(req.query.username || "").trim();
   if (!username) return res.status(400).json({ error: "Username required" });
 
-  const key = String(username).toLowerCase();
+  const key = username.toLowerCase();
   const cached = cache.get(key);
   if (cached && Date.now() - cached.t < CACHE_TTL) return res.json(cached.d);
 
@@ -564,17 +562,62 @@ app.get("/proxy-roblox", async (req, res) => {
     const id = userRes?.data?.[0]?.id;
     if (!id) return res.status(404).json({ error: "Not found" });
 
-    const [profileRes, avatarRes, pastRes, roliRes] = await Promise.all([
+    // The first paint only needs the user's profile and current avatar.
+    // Historical usernames, Rolimons and archived renders are loaded separately
+    // so a slow secondary service or chunk scan cannot delay the avatar itself.
+    const [profileRes, avatarRes] = await Promise.all([
       fetch(`https://users.roblox.com/v1/users/${id}`),
       fetch(
         `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`
       ),
+    ]);
+
+    if (!profileRes.ok) throw new Error("Roblox profile HTTP " + profileRes.status);
+    const profile = await profileRes.json();
+    const avatarResData = avatarRes.ok ? await avatarRes.json() : {};
+    const liveAvatarUrl = avatarResData?.data?.[0]?.imageUrl || "";
+
+    const payload = {
+      roblox: {
+        id,
+        username: profile.name,
+        displayName: profile.displayName,
+        joinDate: profile.created
+          ? new Date(profile.created).toUTCString().replace(" GMT", "")
+          : "Unknown",
+        avatarUrl: liveAvatarUrl,
+        oldAvatars: [],
+        pastUsernames: [],
+      },
+      rolimons: {},
+      detailsPending: true,
+    };
+
+    cache.set(key, { d: payload, t: Date.now() });
+    res.setHeader("Cache-Control", "private, max-age=60");
+    res.json(payload);
+  } catch (err) {
+    console.error("proxy-roblox error:", err);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+const detailsCache = new Map();
+const DETAILS_CACHE_TTL = 10 * 60 * 1000;
+
+app.get("/proxy-roblox-details", async (req, res) => {
+  setCors(req, res);
+  const id = String(req.query.userId || "").trim();
+  if (!/^\\d+$/.test(id)) return res.status(400).json({ error: "User ID required" });
+
+  const cached = detailsCache.get(id);
+  if (cached && Date.now() - cached.t < DETAILS_CACHE_TTL) return res.json(cached.d);
+
+  try {
+    const [pastRes, roliRes] = await Promise.all([
       fetch(`https://users.roblox.com/v1/users/${id}/username-history`).catch(() => null),
       fetch(`https://api.rolimons.com/players/v1/playerinfo/${id}`).catch(() => null),
     ]);
-
-    const profile = await profileRes.json();
-    const avatarResData = await avatarRes.json();
 
     let pastUsernames = [];
     if (pastRes && pastRes.ok) {
@@ -599,41 +642,27 @@ app.get("/proxy-roblox", async (req, res) => {
       } catch {}
     }
 
-    let chunkAvatars = avatarIndex.get(String(id));
-    if (!chunkAvatars) {
-      chunkAvatars = await findAvatarsInChunks(id);
-      avatarIndex.set(String(id), chunkAvatars);
+    // Archived avatar scanning is intentionally kept off the critical path.
+    // It can be expensive because the historical thumbnail chunks are large.
+    let oldAvatars = [];
+    try {
+      let chunkAvatars = avatarIndex.get(id);
+      if (!chunkAvatars) {
+        chunkAvatars = await findAvatarsInChunks(id);
+        avatarIndex.set(id, chunkAvatars);
+      }
+      oldAvatars = chunkAvatars.slice(0, 100);
+    } catch (err) {
+      console.warn("Archived avatar lookup skipped:", err.message);
     }
-    const chunkAvatarUrl = chunkAvatars.find((avatar) => avatar && avatar.url)?.url || "";
-    const liveAvatarUrl = avatarResData?.data?.[0]?.imageUrl || "";
-    const avatarSourceUrl = liveAvatarUrl || chunkAvatarUrl;
-    const avatarUrl = avatarSourceUrl
-      ? `https://winxp-backend-live.onrender.com/proxy-roblox-avatar?url=${encodeURIComponent(avatarSourceUrl)}`
-      : "";
 
-    const payload = {
-      roblox: {
-        id,
-        username: profile.name,
-        displayName: profile.displayName,
-        joinDate: profile.created
-          ? new Date(profile.created).toUTCString().replace(" GMT", "")
-          : "Unknown",
-        // Prefer the avatar captured in the thumbnail chunks. Roblox's live
-        // thumbnail endpoint remains a fallback for users absent from the chunks.
-        avatarUrl: avatarUrl || liveAvatarUrl,
-        oldAvatars: chunkAvatars.slice(0, 100),
-        pastUsernames,
-      },
-      rolimons: roli,
-    };
-
-    cache.set(key, { d: payload, t: Date.now() });
+    const payload = { pastUsernames, rolimons: roli, oldAvatars };
+    detailsCache.set(id, { d: payload, t: Date.now() });
+    res.setHeader("Cache-Control", "private, max-age=60");
     res.json(payload);
   } catch (err) {
-    console.error("proxy-roblox error:", err);
-    setCors(req, res);
-    res.status(500).json({ error: "Internal error" });
+    console.error("proxy-roblox-details error:", err);
+    res.status(500).json({ error: "Details unavailable" });
   }
 });
 
