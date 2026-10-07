@@ -1081,7 +1081,6 @@ function MusicAI() {
             <div style={{ fontSize: 11, marginBottom: 4 }}>{status}</div>
             <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
             <HealthBar value={progress} max={100} label="Loading" width="100%" height={14} />
-            <div style={{ marginTop: 4, fontSize: 10, color: '#333' }}><b>Unified Roblox Orchestra</b> — all available soundfont palettes are blended around the original song.</div>
           </div>
           {showProjects && (
             <div style={{ ...panel, padding: 6, maxHeight: 180, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
