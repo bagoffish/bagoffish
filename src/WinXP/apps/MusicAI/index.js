@@ -809,38 +809,104 @@ async function separateVocalsAndBuildInstrumental(inputFile, onStatus, onProgres
   }
 }
 
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function decodeToMono(file) {
+  const bytes = await file.arrayBuffer();
+  const context = new AudioContext();
+  try {
+    const decoded = await context.decodeAudioData(bytes.slice(0));
+    const length = decoded.length;
+    const channels = decoded.numberOfChannels || 1;
+    const mono = new Float32Array(length);
+    for (let channel = 0; channel < channels; channel++) {
+      const data = decoded.getChannelData(channel);
+      for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
+    }
+    return { samples: mono, sampleRate: decoded.sampleRate, duration: decoded.duration };
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
+async function postRobloxify(file) {
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(4000);
+    try { await fetch(API_BASE + '/health', { cache: 'no-store' }); } catch (e) {}
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+    try {
+      const form = new FormData();
+      form.append('audio', file, file.name || 'audio.wav');
+      const res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: form, signal: controller.signal });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 503) {
+        lastError = new Error(data.error || 'Server busy');
+        continue;
+      }
+      if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
+      if (!Array.isArray(data.notes)) throw new Error('Server returned no notes');
+      return data;
+    } catch (error) {
+      const message = String(error && error.message || '');
+      const retryable = (error && (error.name === 'AbortError' || error.name === 'TypeError')) || /failed to fetch|network/i.test(message);
+      if (!retryable) throw error;
+      lastError = error && error.name === 'AbortError'
+        ? new Error('Robloxify timed out while processing the audio. Try a shorter file.')
+        : error;
+    } finally {
+      clearTimeout(timeout);
+    }
+  }
+  throw lastError || new Error('Failed to fetch');
+}
+
+function usableNotes(notes, offset) {
+  return (notes || []).filter(note =>
+    note &&
+    Number.isFinite(Number(note.pitchMidi)) &&
+    Number.isFinite(Number(note.startTimeSeconds)) &&
+    Number.isFinite(Number(note.durationSeconds))
+  ).map(note => ({ ...note, startTimeSeconds: Number(note.startTimeSeconds) + offset }));
+}
+
 async function transcribeOnBackend(file, onStatus) {
   onStatus('Uploading the audio.');
-  const form = new FormData();
-  form.append('audio', file, file.name || 'audio.wav');
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000);
-  try {
+  let decoded = null;
+  try { decoded = await decodeToMono(file); } catch (e) { decoded = null; }
+  if (!decoded || !decoded.samples || !decoded.samples.length) {
     onStatus('Reading pitch, start time, and length.');
-    const res = await fetch(API_BASE + '/robloxify', {
-      method: 'POST',
-      body: form,
-      signal: controller.signal,
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
-    if (!Array.isArray(data.notes)) throw new Error('Server returned no notes');
+    const data = await postRobloxify(file);
+    const notes = usableNotes(data.notes, 0);
+    if (!notes.length) throw new Error('No notes detected — try a clearer song.');
     const duration = Number(data.duration);
     if (!Number.isFinite(duration) || duration <= 0) throw new Error('Server returned an invalid audio duration');
-    const notes = data.notes.filter(note =>
-      note &&
-      Number.isFinite(Number(note.pitchMidi)) &&
-      Number.isFinite(Number(note.startTimeSeconds)) &&
-      Number.isFinite(Number(note.durationSeconds))
-    );
-    if (!notes.length) throw new Error('No notes detected — try a clearer song.');
     return { notes, duration, aiPlan: data.aiPlan || null, stemSeparation: data.stemSeparation || 'unknown' };
-  } catch (error) {
-    if (error && error.name === 'AbortError') throw new Error('Robloxify timed out while processing the audio. Try a shorter file.');
-    throw error;
-  } finally {
-    clearTimeout(timeout);
   }
+  if (decoded.duration > MAX_SECONDS) throw new Error('Audio must be under 10 minutes.');
+  const chunkSeconds = 18;
+  const chunkLength = Math.max(1, Math.floor(decoded.sampleRate * chunkSeconds));
+  const partCount = Math.ceil(decoded.samples.length / chunkLength);
+  const notes = [];
+  let aiPlan = null;
+  for (let part = 0; part < partCount; part++) {
+    onStatus(partCount === 1
+      ? 'Reading pitch, start time, and length.'
+      : 'Reading pitch, start time, and length. Part ' + (part + 1) + ' of ' + partCount + '.');
+    await yieldToBrowser();
+    const start = part * chunkLength;
+    const slice = decoded.samples.subarray(start, Math.min(decoded.samples.length, start + chunkLength));
+    const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
+    const piece = new File([wav], 'part-' + (part + 1) + '.wav', { type: 'audio/wav' });
+    const data = await postRobloxify(piece);
+    if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
+    notes.push(...usableNotes(data.notes, start / decoded.sampleRate));
+  }
+  if (!notes.length) throw new Error('No notes detected — try a clearer song.');
+  return { notes, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
 }
 
 async function transcribeLocally(file, onStatus, onProgress) {
