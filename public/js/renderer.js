@@ -2,6 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://winxp-backend-live.onrender.com";
+  var RENDERER_SCRIPT_VERSION = "20261007-fast-avatar-1";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -16,28 +17,6 @@
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
-  }
-
-  function preloadImages(urls) {
-    var unique = [];
-    var seen = {};
-    var i;
-
-    for (i = 0; i < urls.length; i += 1) {
-      if (urls[i] && !seen[urls[i]]) {
-        seen[urls[i]] = true;
-        unique.push(urls[i]);
-      }
-    }
-
-    return Promise.all(unique.slice(0, 2).map(function (src) {
-      return new Promise(function (resolve) {
-        var image = new Image();
-        image.onload = function () { resolve(src); };
-        image.onerror = function () { resolve(src); };
-        image.src = src;
-      });
-    }));
   }
 
   function initRenderer() {
@@ -121,84 +100,103 @@
             imageUrls.push(roblox.avatarUrl);
           }
 
-          return preloadImages(imageUrls).then(function () {
-            var pastNames = Array.isArray(roblox.pastUsernames) && roblox.pastUsernames.length
-              ? roblox.pastUsernames.join(", ")
+          var pastNames = "Loading…";
+          var terminated = "";
+          var html =
+            '<div class="info-box">' +
+              '<div class="avatar-container">' +
+                '<a href="https://www.roblox.com/users/' + encodeURIComponent(text(roblox.id)) + '/profile" target="_blank" rel="noopener noreferrer">' +
+                  '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async">' +
+                '</a>' +
+              '</div>' +
+              '<div class="info-line rendererName"><b>' +
+                escapeHtml(roblox.displayName || "") +
+                '</b> [' +
+                escapeHtml(roblox.username || username) +
+                ']</div>' +
+              '<div id="terminationLine"></div>' +
+              '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
+              '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> Loading…</div>' +
+              '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
+              '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> Loading…</div>' +
+              '<div id="valueLine" class="info-line"><b>RAP:</b> Loading… &nbsp;&nbsp; <b>Value:</b> Loading…</div>' +
+              '<div id="oldAvatars"></div>' +
+            '</div>';
+
+          centerPanel.innerHTML = html;
+          loadingIndicator.style.display = "none";
+
+          function appendOldAvatar(container, url) {
+            if (!url) return;
+            var thumb = document.createElement("img");
+            thumb.src = url;
+            thumb.alt = "";
+            thumb.loading = "lazy";
+            thumb.decoding = "async";
+            thumb.className = "old-avatar-thumb";
+            thumb.title = "Open archived avatar";
+            thumb.addEventListener("error", function () { thumb.style.display = "none"; });
+            thumb.addEventListener("click", function () {
+              window.open(url, "_blank", "noopener,noreferrer");
+            });
+            container.appendChild(thumb);
+          }
+
+          fetch(API_BASE + "/proxy-roblox-details?userId=" + encodeURIComponent(text(roblox.id)), {
+            headers: { "Accept": "application/json" },
+            cache: "default"
+          }).then(function (response) {
+            if (!response.ok) throw new Error("Details HTTP " + response.status);
+            return response.json();
+          }).then(function (details) {
+            var detailRobli = details && details.rolimons ? details.rolimons : {};
+            var names = Array.isArray(details && details.pastUsernames) && details.pastUsernames.length
+              ? details.pastUsernames.join(", ")
               : "None";
-
-            var terminated = rolimons.terminated
-              ? '<p class="rendererTermination">TERMINATED ACCOUNT</p>'
-              : "";
-
-            var html =
-              '<div class="info-box">' +
-                '<div class="avatar-container">' +
-                  '<a href="https://www.roblox.com/users/' + encodeURIComponent(text(roblox.id)) + '/profile" target="_blank" rel="noopener noreferrer">' +
-                    '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager">' +
-                  '</a>' +
-                '</div>' +
-                '<div class="info-line rendererName"><b>' +
-                  escapeHtml(roblox.displayName || "") +
-                  '</b> [' +
-                  escapeHtml(roblox.username || username) +
-                  ']</div>' +
-                terminated +
-                '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
-                '<div class="info-line"><b>Past usernames:</b> ' + escapeHtml(pastNames) + '</div>' +
-                '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
-                '<div class="info-line"><b>Last Online:</b> ' + escapeHtml(rolimons.lastOnline || "Unknown") + '</div>' +
-                '<div class="info-line"><b>RAP:</b> ' + escapeHtml(rolimons.rap || "Unknown") +
-                  ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(rolimons.value || "Unknown") + '</div>' +
-                '<div id="oldAvatars"></div>' +
-              '</div>';
-
-            centerPanel.innerHTML = html;
-
-            function appendOldAvatar(container, url) {
-              if (!url) return;
-              var thumb = document.createElement("img");
-              thumb.src = url;
-              thumb.alt = "";
-              thumb.loading = "lazy";
-              thumb.decoding = "async";
-              thumb.className = "old-avatar-thumb";
-              thumb.title = "Open archived avatar";
-              thumb.addEventListener("error", function () { thumb.style.display = "none"; });
-              thumb.addEventListener("click", function () {
-                window.open(url, "_blank", "noopener,noreferrer");
-              });
-              container.appendChild(thumb);
+            var pastLine = document.getElementById("pastUsernamesLine");
+            var lastLine = document.getElementById("lastOnlineLine");
+            var valueLine = document.getElementById("valueLine");
+            var terminationLine = document.getElementById("terminationLine");
+            if (pastLine) pastLine.innerHTML = "<b>Past usernames:</b> " + escapeHtml(names);
+            if (lastLine) lastLine.innerHTML = "<b>Last Online:</b> " + escapeHtml(detailRobli.lastOnline || "Unknown");
+            if (valueLine) valueLine.innerHTML = "<b>RAP:</b> " + escapeHtml(detailRobli.rap || "Unknown") +
+              " &nbsp;&nbsp; <b>Value:</b> " + escapeHtml(detailRobli.value || "Unknown");
+            if (terminationLine && detailRobli.terminated) {
+              terminationLine.innerHTML = '<p class="rendererTermination">TERMINATED ACCOUNT</p>';
             }
 
+            var archived = Array.isArray(details && details.oldAvatars) ? details.oldAvatars : [];
             var oldContainer = document.getElementById("oldAvatars");
             if (oldContainer) {
-              for (i = 0; i < oldAvatars.length; i += 1) {
-                if (!oldAvatars[i] || !oldAvatars[i].wayback) {
-                  continue;
-                }
-
-                if (i >= OLD_AVATAR_PAGE_SIZE) break;
-                appendOldAvatar(oldContainer, oldAvatars[i].wayback);
+              for (var j = 0; j < archived.length && j < OLD_AVATAR_PAGE_SIZE; j += 1) {
+                if (archived[j] && archived[j].wayback) appendOldAvatar(oldContainer, archived[j].wayback);
               }
-              if (oldAvatars.length > OLD_AVATAR_PAGE_SIZE) {
+              if (archived.length > OLD_AVATAR_PAGE_SIZE) {
                 var more = document.createElement("button");
                 more.type = "button";
-                more.textContent = "Load more archived renders (" + (oldAvatars.length - OLD_AVATAR_PAGE_SIZE) + " more)";
+                more.textContent = "Load more archived renders (" + (archived.length - OLD_AVATAR_PAGE_SIZE) + " more)";
                 more.style.marginTop = "8px";
                 more.style.cursor = "pointer";
                 var shown = OLD_AVATAR_PAGE_SIZE;
                 more.addEventListener("click", function () {
-                  var end = Math.min(shown + OLD_AVATAR_PAGE_SIZE, oldAvatars.length);
-                  for (var j = shown; j < end; j += 1) appendOldAvatar(oldContainer, oldAvatars[j].wayback);
+                  var end = Math.min(shown + OLD_AVATAR_PAGE_SIZE, archived.length);
+                  for (var k = shown; k < end; k += 1) {
+                    if (archived[k] && archived[k].wayback) appendOldAvatar(oldContainer, archived[k].wayback);
+                  }
                   shown = end;
-                  if (shown >= oldAvatars.length) more.remove();
-                  else more.textContent = "Load more archived renders (" + (oldAvatars.length - shown) + " more)";
+                  if (shown >= archived.length) more.remove();
+                  else more.textContent = "Load more archived renders (" + (archived.length - shown) + " more)";
                 });
                 oldContainer.appendChild(more);
               }
             }
-
-            loadingIndicator.style.display = "none";
+          }).catch(function () {
+            var pastLine = document.getElementById("pastUsernamesLine");
+            var lastLine = document.getElementById("lastOnlineLine");
+            var valueLine = document.getElementById("valueLine");
+            if (pastLine) pastLine.innerHTML = "<b>Past usernames:</b> Unavailable";
+            if (lastLine) lastLine.innerHTML = "<b>Last Online:</b> Unavailable";
+            if (valueLine) valueLine.innerHTML = "<b>RAP:</b> Unavailable &nbsp;&nbsp; <b>Value:</b> Unavailable";
           });
         })
         .catch(function (error) {
