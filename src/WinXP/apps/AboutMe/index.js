@@ -260,7 +260,7 @@ function AboutMe({ onClose }) {
                 <a href="https://www.roblox.com/users/37753591/profile" target="_blank" rel="noopener noreferrer">
                   Roblox
                 </a>
-                <a href="https://steamcommunity.com/id/riffsolo/" target="_blank" rel="noopener noreferrer">
+                <a href="https://steamcommunity.com/id/snakecel/" target="_blank" rel="noopener noreferrer">
                   Steam
                 </a>
                 <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
