@@ -1069,6 +1069,23 @@ function MusicAI() {
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
+  const configureSynthRoles = synth => {
+    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
+    roles.forEach(role => {
+      const bank = SOUND_FONT_ROLE_BANKS[role.id];
+      const channel = role.channel;
+      try {
+        if (bank && typeof synth.controllerChange === 'function') {
+          synth.controllerChange(channel, 0, bank.bankOffset || 0);
+          synth.controllerChange(channel, 32, 0);
+        }
+        synth.programChange(channel, programs[role.id] != null ? programs[role.id] : role.program);
+      } catch (error) {
+        console.warn('Robloxify patch setup failed for', role.id, error);
+      }
+    });
+  };
+
   const ensureSynth = async plan => {
     const usePlan = plan || planRef.current || {
       label: 'Robloxify Arrangement',
@@ -1098,17 +1115,15 @@ function MusicAI() {
           SOUNDFONT_LOAD_PROMISES.set(bank.id, promise);
         }
         const cached = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await promise;
-        await synth.soundBankManager.addSoundBank(cached.slice(0), bank.id);
+        await synth.soundBankManager.addSoundBank(cached.slice(0), bank.id, bank.bankOffset || 0);
       } catch (err) {
         SOUNDFONT_LOAD_PROMISES.delete(bank.id);
         console.warn('SF2 load failed', bank.name, err);
       }
     };
 
-    // Robloxify intentionally loads exactly one SoundFont. There is no
-    // per-song soundfont selection or multi-bank blending.
-    setStatus('Loading Robloxify SoundFont…');
-    await loadBank(SOUNDFONT_LIBRARY[0]);
+    setStatus('Loading classic Roblox SoundFont palette…');
+    for (const bank of SOUNDFONT_LIBRARY) await loadBank(bank);
     if (synth.isReady) await synth.isReady;
     if (typeof synth.connect === 'function') synth.connect(context.destination);
     synthRef.current = synth; planRef.current = usePlan;
@@ -1123,16 +1138,8 @@ function MusicAI() {
 
   const scheduleFrom = (synth, fromTime) => {
     stopPlaybackInternal();
-    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     if (typeof synth.systemReset === 'function') synth.systemReset();
-    synth.programChange(9, programs.drums || 0);
-    synth.programChange(0, programs.bass || 38);
-    synth.programChange(1, programs.guitar || 80);
-    synth.programChange(2, programs.vocals || 80);
-    synth.programChange(3, programs.keys || 80);
-    synth.programChange(4, programs.pad || 89);
-    synth.programChange(5, programs.strings || 81);
-    synth.programChange(6, programs.arp || 81);
+    configureSynthRoles(synth);
     if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
     const roleChannel = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
     let maxEnd = 0;
@@ -1169,7 +1176,7 @@ function MusicAI() {
         soundfontId: FIXED_SOUNDFONT_ID,
         programs: ORCHESTRA_PROGRAMS,
       };
-      setStatus('Loading soundfonts…');
+      setStatus('Loading classic Roblox SoundFont palette…');
       const synth = await ensureSynth(plan);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
