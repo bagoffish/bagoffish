@@ -533,19 +533,19 @@ async function renderCombinedWav(notes, duration, onProgress) {
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
     synth = new WorkletSynthesizer(context);
 
-    const bank = SOUNDFONT_LIBRARY[0];
-    let bankPromise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
-    if (!bankPromise) {
-      bankPromise = fetch(bank.url, { cache: 'force-cache' }).then(response => {
-        if (!response.ok) throw new Error('SoundFont HTTP ' + response.status);
-        return response.arrayBuffer();
-      });
-      SOUNDFONT_LOAD_PROMISES.set(bank.id, bankPromise);
+    for (const bank of SOUNDFONT_LIBRARY) {
+      let bankPromise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
+      if (!bankPromise) {
+        bankPromise = fetch(bank.url, { cache: 'force-cache' }).then(response => {
+          if (!response.ok) throw new Error('SoundFont HTTP ' + response.status);
+          return response.arrayBuffer();
+        });
+        SOUNDFONT_LOAD_PROMISES.set(bank.id, bankPromise);
+      }
+      const bankBuffer = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await bankPromise;
+      SOUNDFONT_BUFFER_CACHE.set(bank.id, bankBuffer);
+      await synth.soundBankManager.addSoundBank(bankBuffer.slice(0), bank.id, bank.bankOffset || 0);
     }
-    const bankBuffer = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await bankPromise;
-    SOUNDFONT_BUFFER_CACHE.set(bank.id, bankBuffer);
-
-    await synth.soundBankManager.addSoundBank(bankBuffer.slice(0), bank.id);
     await synth.isReady;
 
     const destination = context.createMediaStreamDestination();
@@ -571,14 +571,14 @@ async function renderCombinedWav(notes, duration, onProgress) {
 
     if (typeof synth.systemReset === 'function') synth.systemReset();
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
-    synth.programChange(9, programs.drums || 0);
-    synth.programChange(0, programs.bass || 33);
-    synth.programChange(1, programs.guitar || 29);
-    synth.programChange(2, programs.vocals || 80);
-    synth.programChange(3, programs.keys || 4);
-    synth.programChange(4, programs.pad || 89);
-    synth.programChange(5, programs.strings || 48);
-    synth.programChange(6, programs.arp || 81);
+    roles.forEach(role => {
+      const bank = SOUND_FONT_ROLE_BANKS[role.id];
+      if (bank) {
+        synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
+        synth.controllerChange(role.channel, 32, 0);
+      }
+      synth.programChange(role.channel, programs[role.id] != null ? programs[role.id] : role.program);
+    });
 
     await context.resume();
     const baseTime = context.currentTime + 0.08;
