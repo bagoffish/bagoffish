@@ -167,16 +167,16 @@ async function transcribeAudioBuffer(fileBuffer) {
     throw new Error("Audio file too large (max 50 MB)");
   }
 
-  const decoderModule = await import("audio-decode");
+  const decoderModule = await import("@audio/decode");
   const decodeAudio = decoderModule.default || decoderModule;
-  const decoded = await decodeAudio(
-    fileBuffer.buffer.slice(
-      fileBuffer.byteOffset,
-      fileBuffer.byteOffset + fileBuffer.byteLength
-    )
-  );
+  const decoded = await decodeAudio(fileBuffer);
 
-  const duration = Number(decoded.duration || decoded.length / decoded.sampleRate);
+  const channelData = Array.isArray(decoded.channelData) ? decoded.channelData : [];
+  const decodedSampleRate = Number(decoded.sampleRate);
+  const decodedLength = channelData.length && channelData[0] ? channelData[0].length : 0;
+  const duration = decodedLength > 0 && decodedSampleRate > 0
+    ? decodedLength / decodedSampleRate
+    : Number(decoded.duration);
   if (!Number.isFinite(duration) || duration <= 0) {
     throw new Error("Could not determine audio duration");
   }
@@ -184,7 +184,17 @@ async function transcribeAudioBuffer(fileBuffer) {
     throw new Error("Audio must be 600 seconds or shorter (10 minutes)");
   }
 
-  const mono = toMono(decoded);
+  if (!channelData.length || !Number.isFinite(decodedSampleRate) || decodedSampleRate <= 0 || decodedLength <= 0) {
+    throw new Error("Decoded audio contains no usable samples");
+  }
+
+  const decodedAudio = {
+    numberOfChannels: channelData.length,
+    length: decodedLength,
+    sampleRate: decodedSampleRate,
+    getChannelData: (index) => channelData[index],
+  };
+  const mono = toMono(decodedAudio);
   const samples = resample(mono.samples, mono.sampleRate, TARGET_RATE);
   const pitch = await loadBasicPitch();
 
