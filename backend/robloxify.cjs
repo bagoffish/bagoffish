@@ -2,7 +2,7 @@ const brain = require("./robloxify-knowledge.json");
 
 const TARGET_RATE = 22050;
 const MAX_SECONDS = 600;
-const MAX_BYTES = 50 * 1024 * 1024;
+const MAX_BYTES = 120 * 1024 * 1024;
 
 let modelPromise = null;
 let stemSeparatorPromise = null;
