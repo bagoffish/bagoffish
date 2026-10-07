@@ -5,6 +5,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
+import { Worker } from "worker_threads";
 import crypto from "crypto";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -15,6 +16,9 @@ const PORT = process.env.PORT || 3000;
 const BACKEND_VERSION = "2026-10-07-robloxify-stable";
 const ROBLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
+const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
+const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
+const WORKER_PATH = path.join(__dirname, "chunkparser.js");
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
 const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || path.join(DATA_ROOT, "visitor-count-v2.json");
 const COMMUNITY_DIR = process.env.COMMUNITY_DIR || path.join(DATA_ROOT, "robloxify-community");
@@ -145,6 +149,11 @@ app.get("/visitor-count/visit", async (req, res) => {
     res.status(500).json({ error: "Visitor counter unavailable" });
   }
 });
+
+const avatarIndex = new Map();
+const avatarIndexReady = Promise.resolve();
+const cache = new Map();
+const CACHE_TTL = 10 * 60 * 1000;
 
 const PLAYERS_DIR = process.env.PLAYERS_DIR || path.join(DATA_ROOT, "robloxify-players");
 const PLAYERS_INDEX_PATH = path.join(PLAYERS_DIR, "players.json");
