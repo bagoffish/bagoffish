@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-robloxify-stable-import";
+const BACKEND_VERSION = "2026-10-07-robloxify-hardened";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -693,7 +693,11 @@ app.post("/robloxify", async (req, res) => {
     console.error("Robloxify failed:", err?.stack || err);
     setCors(req, res);
     const msg = err && err.message ? err.message : "Transcription failed";
-    const status = /too large|shorter|Empty|busy/i.test(msg) ? 400 : 500;
+    const isUploadError =
+      err?.name === "MulterError" ||
+      /too large|shorter|empty|busy|decode|format|unsupported|invalid audio|could not determine|no usable samples/i.test(msg);
+    const status = /busy/i.test(msg) ? 503 : isUploadError ? 400 : 500;
+    if (status === 503) res.setHeader("Retry-After", "5");
     res.status(status).json({ error: msg });
   }
 });
