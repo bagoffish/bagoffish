@@ -33,7 +33,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261006c"; // cache-bust the legacy renderer script
+    s.src = "/js/renderer.js?v=20261007a"; // cache-bust the legacy renderer script
     s.async = true;
     document.body.appendChild(s);
   }, []);
