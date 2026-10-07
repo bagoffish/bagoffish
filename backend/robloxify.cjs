@@ -7,6 +7,16 @@ const MAX_BYTES = 50 * 1024 * 1024;
 let modelPromise = null;
 
 const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "arp"];
+const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
+const ROBLOX_SOUNDFONTS = [
+  { id: "nokia", name: "Nokia Tongbao", character: "small, bright, lo-fi mobile-game timbres" },
+  { id: "roblox-sf", name: "Roblox Soundfont", character: "classic Roblox/general MIDI palette" },
+  { id: "gamehero", name: "GameHero", character: "arcade/game-style tones" },
+  { id: "classic-days", name: "Classic Days", character: "retro game/keyboard colors" },
+  { id: "stealth", name: "StealthPilot", character: "digital synth colors" },
+  { id: "drums", name: "StealthPilot Drums", character: "compact game percussion" },
+  { id: "fjords-midi", name: "Wind of Fjords MIDI", character: "MIDI-era melodic/harmonic colors" },
+];
 
 function clamp(value, min, max, fallback) {
   const n = Number(value);
@@ -411,7 +421,7 @@ function sanitizePlan(plan, fallback) {
   return result;
 }
 
-async function createRobloxifyStylePlan(notes, duration) {
+async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
   const fallback = fallbackPlan(notes, duration);
   const analysis = summarize(notes, duration);
 
@@ -423,10 +433,15 @@ async function createRobloxifyStylePlan(notes, duration) {
     const model = process.env.ROBLOXIFY_AI_MODEL || "gpt-6-luna";
     const prompt = [
       "You are the musical director for Robloxify.",
-      "Create a vocal-less 8-bit chiptune/game-console arrangement using the supplied reference library as broad knowledge.",
+      "Create a vocal-less 8-bit chiptune/game-console arrangement based on the supplied reference URL and its publicly available information.",
+      "Study the reference URL with web search before deciding the arrangement. Extract broad traits such as tempo feel, rhythmic density, melodic phrasing, harmony, instrumentation, texture, distortion/bit-crush character, and mix balance.",
+      "Do not copy the reference song, melody, lyrics, recording, or distinctive arrangement. Recreate only broad sonic characteristics for the user's uploaded song.",
+      "The actual instruments must come from the Roblox SF2 palette supplied below. Choose the closest palette members for each role rather than inventing external instruments.",
       "Preserve the uploaded performance's melody, timing, contour, and recognizable structure while converting its instrumentation into crunchy 8-bit/chiptune sounds.",
       "Favor square/pulse leads, short synth bass, compact chord stabs, arpeggios, simple game-style drums, and a deliberately lo-fi/bit-crushed texture.",
       "Use the supplied reference library as broad arrangement knowledge.",
+      "REFERENCE_URL: " + referenceUrl,
+      "ROBLOX_SOUNDFONTS: " + JSON.stringify(ROBLOX_SOUNDFONTS),
       "Do not copy any specific song, lyric, melody, or distinctive arrangement.",
       "Return JSON only.",
       JSON.stringify({ referenceLibrary: brain }),
@@ -446,6 +461,8 @@ async function createRobloxifyStylePlan(notes, duration) {
           chordRhythm: "sustained|half|quarter|syncopated",
           melodyOctave: "-1|0|1",
           drumPattern: "none|basic|four_on_floor|breakbeat",
+          soundfontRoles: "object mapping lead,bass,harmony,arp,drums to soundfont IDs from ROBLOX_SOUNDFONTS",
+          referenceStyle: "short description of the broad sonic traits learned from the reference",
           reason: "short string describing the 8-bit arrangement",
           webResearch: "array of source summaries",
         },
@@ -481,6 +498,7 @@ async function createRobloxifyStylePlan(notes, duration) {
 
     return {
       ...sanitizePlan(parseJson(outputText), fallback),
+      referenceUrl,
       ai: true,
       model,
       analysis,
@@ -492,6 +510,7 @@ async function createRobloxifyStylePlan(notes, duration) {
       aiError: error instanceof Error ? error.message : String(error),
       analysis,
       webResearch: [],
+      referenceUrl,
     };
   }
 }
