@@ -602,16 +602,36 @@ function yieldToBrowser() {
 
 async function transcribeOnBackend(file, onStatus) {
   onStatus('Uploading to server...');
-  const form = new FormData(); form.append('audio', file, file.name || 'audio.wav');
-  const controller = new AbortController(); const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000);
+  const form = new FormData();
+  form.append('audio', file, file.name || 'audio.wav');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15 * 60 * 1000);
   try {
     onStatus('Server is working...');
-    const res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: form, signal: controller.signal });
+    const res = await fetch(API_BASE + '/robloxify', {
+      method: 'POST',
+      body: form,
+      signal: controller.signal,
+    });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
     if (!Array.isArray(data.notes)) throw new Error('Server returned no notes');
-    return { notes: data.notes, duration: data.duration || 0, aiPlan: data.aiPlan || null };
-  } finally { clearTimeout(timeout); }
+    const duration = Number(data.duration);
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('Server returned an invalid audio duration');
+    const notes = data.notes.filter(note =>
+      note &&
+      Number.isFinite(Number(note.pitchMidi)) &&
+      Number.isFinite(Number(note.startTimeSeconds)) &&
+      Number.isFinite(Number(note.durationSeconds))
+    );
+    if (!notes.length) throw new Error('No notes detected — try a clearer song.');
+    return { notes, duration, aiPlan: data.aiPlan || null };
+  } catch (error) {
+    if (error && error.name === 'AbortError') throw new Error('Robloxify timed out while processing the audio. Try a shorter file.');
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function transcribeLocally(file, onStatus, onProgress) {
@@ -787,7 +807,10 @@ function MusicAI() {
   }, []);
 
   const convert = async inputFile => {
-    if (!inputFile || !(inputFile.type || '').startsWith('audio/')) { setStatus('Choose an audio file'); return; }
+    const extension = String(inputFile && inputFile.name || '').toLowerCase().split('.').pop();
+    const allowedExtensions = new Set(['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'oga', 'aif', 'aiff', 'webm']);
+    const isAudio = !!inputFile && ((inputFile.type || '').startsWith('audio/') || allowedExtensions.has(extension));
+    if (!isAudio) { setStatus('Choose an audio file'); return; }
     if (inputFile.size > MAX_BYTES) { setStatus('File too large (max 50 MB)'); return; }
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
