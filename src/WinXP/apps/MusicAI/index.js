@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
+import * as ort from 'onnxruntime-web';
+import { DemucsProcessor, CONSTANTS as DEMUCS_CONSTANTS } from 'demucs-web';
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
@@ -35,6 +37,8 @@ const SOUND_FONT_BY_ROLE = {
 const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
   Object.entries(SOUND_FONT_BY_ROLE).map(([role, id]) => [role, SOUNDFONT_LIBRARY.find(bank => bank.id === id)])
 );
+const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
+let demucsProcessorPromise = null;
 
 const ORCHESTRA_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
 
@@ -576,6 +580,50 @@ function yieldToBrowser() {
   return new Promise(resolve => { if (typeof window !== 'undefined' && window.requestAnimationFrame) window.requestAnimationFrame(() => setTimeout(resolve, 0)); else setTimeout(resolve, 0); });
 }
 
+async function separateVocalsAndBuildInstrumental(inputFile, onStatus, onProgress) {
+  if (!demucsProcessorPromise) {
+    ort.env.wasm.numThreads = Math.max(1, Math.min(4, Number(navigator.hardwareConcurrency) || 2));
+    demucsProcessorPromise = (async () => {
+      const processor = new DemucsProcessor({
+        ort,
+        onProgress: info => onProgress && onProgress(8 + Math.round((Number(info && info.progress) || 0) * 52)),
+        onDownloadProgress: (loaded, total) => {
+          if (onStatus && total) onStatus('Downloading stem separator… ' + Math.round((loaded / total) * 100) + '%');
+        },
+      });
+      onStatus && onStatus('Loading stem separator…');
+      await processor.loadModel(DEMUCS_MODEL_URL);
+      return processor;
+    })().catch(error => {
+      demucsProcessorPromise = null;
+      throw error;
+    });
+  }
+  const processor = await demucsProcessorPromise;
+  onStatus && onStatus('Splitting vocals / drums / bass / other…');
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error('Web Audio is unavailable for stem separation.');
+  const context = new AudioContextClass({ sampleRate: DEMUCS_CONSTANTS.SAMPLE_RATE || 44100 });
+  try {
+    const decoded = await context.decodeAudioData((await inputFile.arrayBuffer()).slice(0));
+    const left = decoded.getChannelData(0);
+    const right = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : left;
+    const stems = await processor.separate(left, right);
+    const stemLength = Math.min(stems.bass.left.length, stems.drums.left.length, stems.other.left.length, stems.bass.right.length, stems.drums.right.length, stems.other.right.length);
+    const outLeft = new Float32Array(stemLength);
+    const outRight = new Float32Array(stemLength);
+    for (let i = 0; i < stemLength; i++) {
+      outLeft[i] = Math.max(-1, Math.min(1, (stems.bass.left[i] || 0) + (stems.other.left[i] || 0) + (stems.drums.left[i] || 0) * 0.16));
+      outRight[i] = Math.max(-1, Math.min(1, (stems.bass.right[i] || 0) + (stems.other.right[i] || 0) + (stems.drums.right[i] || 0) * 0.16));
+    }
+    onProgress && onProgress(62);
+    onStatus && onStatus('Vocals removed — transcribing the instrumental…');
+    return new File([encodeMonoFloatWav(outLeft, outRight, DEMUCS_CONSTANTS.SAMPLE_RATE || 44100)], inputFile.name.replace(/\.[^.]+$/, '') + '-instrumental.wav', { type: 'audio/wav' });
+  } finally {
+    try { await context.close(); } catch (e) {}
+  }
+}
+
 async function transcribeOnBackend(file, onStatus) {
   onStatus('Uploading to server…');
   const form = new FormData();
@@ -601,7 +649,7 @@ async function transcribeOnBackend(file, onStatus) {
       Number.isFinite(Number(note.durationSeconds))
     );
     if (!notes.length) throw new Error('No notes detected — try a clearer song.');
-    return { notes, duration, aiPlan: data.aiPlan || null };
+    return { notes, duration, aiPlan: data.aiPlan || null, stemSeparation: data.stemSeparation || 'unknown' };
   } catch (error) {
     if (error && error.name === 'AbortError') throw new Error('Robloxify timed out while processing the audio. Try a shorter file.');
     throw error;
@@ -838,12 +886,22 @@ function MusicAI() {
       try {
         setStatus('Server is separating vocals / drums / bass / other…');
         setProgress(Math.max(displayedProgress, 15));
-        const result = await transcribeOnBackend(inputFile, msg => {
+        let result = await transcribeOnBackend(inputFile, msg => {
           if (conversionId === conversionIdRef.current) {
             setStatus(msg);
             setProgress(Math.max(displayedProgress, 30));
           }
         });
+        if (result.stemSeparation === 'browser-fallback') {
+          const analysisFile = await separateVocalsAndBuildInstrumental(
+            inputFile,
+            msg => { if (conversionId === conversionIdRef.current) setStatus(msg); },
+            p => { if (conversionId === conversionIdRef.current) setProgress(Math.max(displayedProgress, p)); }
+          );
+          result = await transcribeOnBackend(analysisFile, msg => {
+            if (conversionId === conversionIdRef.current) setStatus(msg);
+          });
+        }
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes;
         duration = result.duration || 0;
