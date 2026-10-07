@@ -153,9 +153,8 @@ const Window = memo(function({
 const StyledWindow = styled(Window)`
   display: ${({ show }) => (show ? 'flex' : 'none')};
   position: absolute;
-  padding: 3px;
   padding: ${({ header }) => (header.invisible ? 0 : 3)}px;
-  background-color: ${({ isFocus }) => (isFocus ? '#0831d9' : '#6582f5')};
+  background-color: ${({ header, isFocus }) => (header.invisible ? 'transparent' : (isFocus ? '#0831d9' : '#6582f5'))};
   flex-direction: column;
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
@@ -231,8 +230,8 @@ const StyledWindow = styled(Window)`
     min-height: 0;
     overflow: auto;
     position: relative;
-    margin-top: 25px;
-    height: calc(100% - 25px);
+    margin-top: ${({ header }) => (header.invisible ? 0 : 25)}px;
+    height: ${({ header }) => (header.invisible ? '100%' : 'calc(100% - 25px)')};
   }
 @media (max-width: 700px) {
   .app__header {
