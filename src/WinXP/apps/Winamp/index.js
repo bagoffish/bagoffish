@@ -12,16 +12,30 @@ function Winamp({ onClose, onMinimize }) {
 
     target.classList.add('winamp-host');
 
+    const focusParents = [];
+    let focusNode = target.parentElement;
+    for (let i = 0; i < 5 && focusNode; i += 1) {
+      focusNode.classList.add('winamp-focus-suppressor');
+      focusParents.push(focusNode);
+      focusNode = focusNode.parentElement;
+    }
+
     const style = document.createElement('style');
     style.textContent = `
       .winamp-host,
       .winamp-host:focus,
-      .winamp-host *:focus {
-        outline: none !important;
+      .winamp-host:focus-visible,
+      .winamp-host *:focus,
+      .winamp-host *:focus-visible,
+      .winamp-focus-suppressor:focus,
+      .winamp-focus-suppressor:focus-visible {
+        outline: 0 !important;
+        box-shadow: none !important;
+        -webkit-focus-ring-color: transparent !important;
       }
       .winamp-host,
       .winamp-host * {
-        -webkit-tap-highlight-color: transparent;
+        -webkit-tap-highlight-color: transparent !important;
       }
     `;
     document.head.appendChild(style);
@@ -50,6 +64,7 @@ function Winamp({ onClose, onMinimize }) {
     return () => {
       style.remove();
       target.classList.remove('winamp-host');
+      focusParents.forEach(node => node.classList.remove('winamp-focus-suppressor'));
       if (webampRef.current) {
         webampRef.current.dispose();
         webampRef.current = null;
