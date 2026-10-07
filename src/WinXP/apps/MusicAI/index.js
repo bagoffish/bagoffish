@@ -835,6 +835,90 @@ function MusicAI() {
     if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
   }, []);
 
+  const encodeStereoFloatWav = (left, right, sampleRate) => {
+    const frames = Math.min(left.length, right.length);
+    const buffer = new ArrayBuffer(44 + frames * 4);
+    const view = new DataView(buffer);
+    const write = (offset, text) => { for (let i = 0; i < text.length; i++) view.setUint8(offset + i, text.charCodeAt(i)); };
+    write(0, 'RIFF'); view.setUint32(4, 36 + frames * 4, true);
+    write(8, 'WAVE'); write(12, 'fmt '); view.setUint32(16, 16, true); view.setUint16(20, 1, true);
+    view.setUint16(22, 2, true); view.setUint32(24, sampleRate, true); view.setUint32(28, sampleRate * 4, true);
+    view.setUint16(32, 4, true); view.setUint16(34, 16, true);
+    write(36, 'data'); view.setUint32(40, frames * 4, true);
+    let offset = 44;
+    for (let i = 0; i < frames; i++) {
+      const l = Math.max(-1, Math.min(1, left[i] || 0));
+      const r = Math.max(-1, Math.min(1, right[i] || 0));
+      view.setInt16(offset, l < 0 ? l * 0x8000 : l * 0x7fff, true); offset += 2;
+      view.setInt16(offset, r < 0 ? r * 0x8000 : r * 0x7fff, true); offset += 2;
+    }
+    return new Blob([buffer], { type: 'audio/wav' });
+  };
+
+  const separateVocalsAndBuildInstrumental = async (inputFile, onStatus, onProgress) => {
+    if (!demucsProcessorPromise) {
+      ort.env.wasm.numThreads = 1;
+      demucsProcessorPromise = (async () => {
+        const processor = new DemucsProcessor({
+          ort,
+          onProgress: info => onProgress && onProgress(8 + Math.round((Number(info && info.progress) || 0) * 52)),
+          onLog: (phase, msg) => console.log('[Robloxify Demucs]', phase, msg),
+          onDownloadProgress: (loaded, total) => {
+            if (onStatus && total) onStatus('Downloading stem separator… ' + Math.round((loaded / total) * 100) + '%');
+          },
+        });
+        onStatus && onStatus('Loading stem separator…');
+        await processor.loadModel(DEMUCS_MODEL_URL);
+        return processor;
+      })().catch(error => {
+        demucsProcessorPromise = null;
+        throw error;
+      });
+    }
+
+    const processor = await demucsProcessorPromise;
+    onStatus && onStatus('Splitting vocals / drums / bass / other…');
+    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    if (!AudioContextClass) throw new Error('Web Audio is unavailable for stem separation.');
+    const context = new AudioContextClass({ sampleRate: DEMUCS_CONSTANTS.SAMPLE_RATE || 44100 });
+    try {
+      const decoded = await context.decodeAudioData((await inputFile.arrayBuffer()).slice(0));
+      const left = decoded.getChannelData(0);
+      const right = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : left;
+      const stems = await processor.separate(left, right);
+
+      // Do not send the vocal stem into Basic Pitch. Keep drums, bass and other
+      // as the instrumental source so the detected melody follows the actual song.
+      const stemLength = Math.min(
+        stems.bass.left.length,
+        stems.drums.left.length,
+        stems.other.left.length,
+        stems.bass.right.length,
+        stems.drums.right.length,
+        stems.other.right.length
+      );
+      const outLeft = new Float32Array(stemLength);
+      const outRight = new Float32Array(stemLength);
+      for (let i = 0; i < stemLength; i++) {
+        outLeft[i] = Math.max(-1, Math.min(1,
+          (stems.bass.left[i] || 0) +
+          (stems.other.left[i] || 0) +
+          (stems.drums.left[i] || 0) * 0.16
+        ));
+        outRight[i] = Math.max(-1, Math.min(1,
+          (stems.bass.right[i] || 0) +
+          (stems.other.right[i] || 0) +
+          (stems.drums.right[i] || 0) * 0.16
+        ));
+      }
+      onProgress && onProgress(62);
+      onStatus && onStatus('Vocals removed — transcribing the instrumental…');
+      return new File([encodeStereoFloatWav(outLeft, outRight, DEMUCS_CONSTANTS.SAMPLE_RATE || 44100)], inputFile.name.replace(/\.[^.]+$/, '') + '-instrumental.wav', { type: 'audio/wav' });
+    } finally {
+      try { await context.close(); } catch (e) {}
+    }
+  };
+
   const convert = async inputFile => {
     const extension = String(inputFile && inputFile.name || '').toLowerCase().split('.').pop();
     const allowedExtensions = new Set(['mp3', 'wav', 'm4a', 'aac', 'flac', 'ogg', 'oga', 'aif', 'aiff', 'webm']);
