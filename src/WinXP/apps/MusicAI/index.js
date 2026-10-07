@@ -1147,9 +1147,6 @@ function MusicAI() {
           <HealthBar value={playbackTime} max={Math.max(playbackDuration, 0.01)} label={'Time ' + playbackTime.toFixed(1) + ' / ' + (playbackDuration || 0).toFixed(1) + 's'} width="100%" height={18} onChange={seekTo} />
         </div>
       </div>
-      <div style={{ height: 24, background: 'rgba(0,0,0,0.65)', borderTop: '2px solid #000', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', padding: '0 8px', flexShrink: 0 }}>
-        Any song → Robloxify. Piano roll to edit. Drag Time to seek.
-      </div>
     </div>
   );
 }
