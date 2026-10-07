@@ -16,6 +16,6 @@
     "multer": "^2.0.2",
     "@tensorflow/tfjs": "^3.21.0",
     "@spotify/basic-pitch": "1.0.1",
-    "audio-decode": "^3.12.0"
+    "@audio/decode": "^4.0.0"
   }
 }
