@@ -299,12 +299,12 @@ export const appSettings = {
     },
     component: Winamp,
     defaultSize: {
-      width: 320,
-      height: 120,
+      width: 0,
+      height: 0,
     },
     defaultOffset: {
-      x: 90,
-      y: 90,
+      x: 0,
+      y: 0,
     },
     resizable: false,
     minimized: false,
