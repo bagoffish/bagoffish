@@ -978,16 +978,16 @@ function MusicAI() {
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
-      const fixedSoundfont = SOUNDFONT_LIBRARY[0];
       const plan = {
         ...(aiPlan || {}),
-        label: '8-bit Robloxify',
-        reason: 'Fixed Robloxify reference style · Wind of Fjords MIDI SoundFont.',
+        label: 'Classic Robloxify',
+        reason: 'Fixed classic Roblox reference style · multi-SoundFont palette · vocals removed before transcription.',
         fixedStyle: true,
-        soundfont: fixedSoundfont,
+        soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
+        soundfontRoles: { ...SOUND_FONT_BY_ROLE },
         programs: { ...ORCHESTRA_PROGRAMS },
-        drums: fixedSoundfont,
+        drums: SOUND_FONT_ROLE_BANKS.drums,
       };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
@@ -1060,10 +1060,10 @@ function MusicAI() {
       ...(project.plan || {}),
       label: 'Robloxify Arrangement',
       fixedStyle: true,
-      soundfont: SOUNDFONT_LIBRARY[0],
+      soundfonts: SOUNDFONT_LIBRARY,
       soundfontId: FIXED_SOUNDFONT_ID,
       programs: { ...ORCHESTRA_PROGRAMS },
-      drums: SOUNDFONT_LIBRARY[0],
+      drums: SOUND_FONT_ROLE_BANKS.drums,
     };
     planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
@@ -1090,10 +1090,10 @@ function MusicAI() {
     const usePlan = plan || planRef.current || {
       label: 'Robloxify Arrangement',
       fixedStyle: true,
-      soundfont: SOUNDFONT_LIBRARY[0],
+      soundfonts: SOUNDFONT_LIBRARY,
       soundfontId: FIXED_SOUNDFONT_ID,
       programs: ORCHESTRA_PROGRAMS,
-      drums: SOUNDFONT_LIBRARY[0],
+      drums: SOUND_FONT_ROLE_BANKS.drums,
     };
     if (synthRef.current && contextRef.current) return synthRef.current;
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
@@ -1172,7 +1172,7 @@ function MusicAI() {
       const plan = planRef.current || {
         label: 'Robloxify Arrangement',
         fixedStyle: true,
-        soundfont: SOUNDFONT_LIBRARY[0],
+        soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
         programs: ORCHESTRA_PROGRAMS,
       };
