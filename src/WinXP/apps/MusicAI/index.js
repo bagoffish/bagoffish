@@ -475,6 +475,11 @@ function makeMidi(notes, programs) {
     const track = midi.addTrack();
     track.name = role.label;
     track.channel = role.channel;
+    const bank = SOUND_FONT_ROLE_BANKS[role.id];
+    if (bank && typeof track.addCC === 'function') {
+      track.addCC({ controllerType: 0, value: (bank.bankOffset || 0) / 127, time: 0 });
+      track.addCC({ controllerType: 32, value: 0, time: 0 });
+    }
     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
     notes.filter(note => note.role === role.id).forEach(note => {
       track.addNote({
