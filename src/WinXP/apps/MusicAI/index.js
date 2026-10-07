@@ -719,7 +719,7 @@ function MusicAI() {
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
-  const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false);
+  const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0);
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerInput, setPlayerInput] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
@@ -814,7 +814,13 @@ function MusicAI() {
     if (inputFile.size > MAX_BYTES) { setStatus('File too large (max 50 MB)'); return; }
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
-    setFile(inputFile); setWorking(true); setProgress(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Starting…');
+    setFile(inputFile); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Starting…');
+    const loadingStartedAt = performance.now();
+    const loadingTimer = window.setInterval(() => {
+      if (conversionId === conversionIdRef.current) {
+        setLoadingSeconds(Math.floor((performance.now() - loadingStartedAt) / 1000));
+      }
+    }, 250);
     try {
       let rawNotes = []; let duration = 0; let usedBackend = true; let aiPlan = null;
       // Keep heavy transcription off the mobile main thread. The browser-side
@@ -853,7 +859,13 @@ function MusicAI() {
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
-    } finally { if (conversionId === conversionIdRef.current) setWorking(false); }
+    } finally {
+      window.clearInterval(loadingTimer);
+      if (conversionId === conversionIdRef.current) {
+        setLoadingSeconds(Math.floor((performance.now() - loadingStartedAt) / 1000));
+        setWorking(false);
+      }
+    }
   };
 
   const updateArrangement = next => {
@@ -1088,7 +1100,12 @@ function MusicAI() {
             <div style={{ background: rbx.blue, color: '#fff', fontWeight: 'bold', fontSize: 11, padding: '2px 6px', margin: '-8px -8px 6px', borderBottom: '2px solid #000' }}>Status</div>
             <div style={{ fontSize: 11, marginBottom: 4 }}>{status}</div>
             <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: 8-track · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
-            <HealthBar value={progress} max={100} label="Loading" width="100%" height={14} />
+            <HealthBar value={progress} max={100} label={
+              <span style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+                <span>Loading</span>
+                <span style={{ fontVariantNumeric: 'tabular-nums' }}>{loadingSeconds}s</span>
+              </span>
+            } width="100%" height={14} />
           </div>
           {showProjects && (
             <div style={{ ...panel, padding: 6, maxHeight: 180, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
