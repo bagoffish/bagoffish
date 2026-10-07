@@ -22,3 +22,8 @@
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Huge data (9+ GB) – must NOT live in the repo.
+# Host these externally (S3 / R2 / Render disk / release asset) and download on demand.
+backend/thumbnail_chunks/
+backend/avatar_index_cache.json
