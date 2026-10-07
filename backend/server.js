@@ -669,7 +669,7 @@ app.post("/robloxify", async (req, res) => {
     robloxifyBusy = true;
     const t0 = Date.now();
     try {
-      const result = await transcribeAudioBuffer(req.file.buffer);
+      const result = await transcribeAudioBuffer(req.file.buffer, req.file.mimetype);
       const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
       const response = {
         ok: true,
