@@ -809,19 +809,25 @@ function MusicAI() {
     setFile(inputFile); setWorking(true); setProgress(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Starting…');
     try {
       let rawNotes = []; let duration = 0; let usedBackend = false; let aiPlan = null;
-      try {
-        const result = await transcribeOnBackend(inputFile, msg => { if (conversionId === conversionIdRef.current) setStatus(msg); });
-        if (conversionId !== conversionIdRef.current) return;
-        rawNotes = result.notes; duration = result.duration || 0; aiPlan = result.aiPlan || null; usedBackend = true; setProgress(92);
-      } catch (backendError) {
-        console.warn('Robloxify server unavailable:', backendError);
-        if (conversionId !== conversionIdRef.current) return;
-        throw new Error(
-          backendError && backendError.message
-            ? backendError.message
-            : 'Robloxify server unavailable. Please try again.'
-        );
-      }
+      // Transcribe in the browser. This keeps the conversion responsive on
+      // iPhone/iPad and avoids waiting on a cold Render worker or a remote
+      // server-side model before the progress bar can move.
+      const result = await transcribeLocally(
+        inputFile,
+        msg => {
+          if (conversionId === conversionIdRef.current) setStatus(msg);
+        },
+        value => {
+          if (conversionId === conversionIdRef.current) {
+            setProgress(Math.round(Math.max(0, Math.min(1, value)) * 85));
+          }
+        }
+      );
+      if (conversionId !== conversionIdRef.current) return;
+      rawNotes = result.notes;
+      duration = result.duration || 0;
+      aiPlan = null;
+      usedBackend = false;
       setStatus('Building a unified Roblox orchestra — keeping your melody…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
