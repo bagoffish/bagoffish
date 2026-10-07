@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-07-robloxify-hardened";
+const BACKEND_VERSION = "2026-10-07-robloxify-cors-fixed";
 
 const THUMBNAIL_CHUNKS_PATH = path.join(__dirname, "thumbnail_chunks");
 const CACHE_PATH = path.join(__dirname, "avatar_index_cache.json");
@@ -32,32 +32,39 @@ const allowedOrigins = [
 ];
 
 function setCors(req, res) {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", "*");
+  const origin = String(req.headers.origin || "");
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Vary", "Origin");
+  } else if (!origin) {
+    // Non-browser/server-to-server requests do not need an ACAO header.
+  } else {
+    // Keep the API browser-accessible for the public site while avoiding
+    // credentialed wildcard CORS.
+    res.setHeader("Access-Control-Allow-Origin", "https://bagof.fish");
+    res.setHeader("Vary", "Origin");
   }
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type");
+  res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type, X-Requested-With");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
 app.use((req, res, next) => {
   setCors(req, res);
   res.setHeader("X-WinXP-Backend", BACKEND_VERSION);
-  if (req.method === "OPTIONS") {
-    return res.status(204).end();
-  }
+  if (req.method === "OPTIONS") return res.status(204).end();
   next();
 });
 
-app.use(
-  cors({
-    origin: "*",
-    methods: ["GET", "POST", "OPTIONS"],
-    allowedHeaders: ["Accept", "Content-Type"],
-    optionsSuccessStatus: 204,
-  })
-);
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(null, false);
+  },
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Accept", "Content-Type", "X-Requested-With"],
+  optionsSuccessStatus: 204,
+}));
 
 app.use(express.json({ limit: "2mb" }));
 
