@@ -341,7 +341,7 @@ function fallbackPlan(notes, duration) {
     chordRhythm: "half",
     melodyOctave: 0,
     drumPattern: "none",
-    reason: "Balanced unified Roblox orchestra.",
+    reason: "Balanced arrangement.",
   };
 }
 
@@ -423,9 +423,9 @@ async function createRobloxifyStylePlan(notes, duration) {
     const model = process.env.ROBLOXIFY_AI_MODEL || "gpt-6-luna";
     const prompt = [
       "You are the musical director for Robloxify.",
-      "Create one coherent original Roblox soundfont orchestra from the complete available palette.",
+      "Create one coherent Roblox arrangement using the supplied reference library.",
       "Preserve the uploaded performance's melody, timing, contour, and recognizable structure.",
-      "Use different sound families together rather than selecting one genre or one soundfont.",
+      "Use complementary sound families together when appropriate.",
       "Use the supplied reference library as broad arrangement knowledge.",
       "Do not copy any specific song, lyric, melody, or distinctive arrangement.",
       "Return JSON only.",
