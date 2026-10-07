@@ -300,6 +300,11 @@ function parseAIJson(text) {
   return JSON.parse(candidate.slice(first, last + 1));
 }
 
+const roles = [
+  { id: 'drums' }, { id: 'bass' }, { id: 'guitar' }, { id: 'vocals' },
+  { id: 'keys' }, { id: 'pad' }, { id: 'strings' }, { id: 'arp' }
+];
+
 function sanitizeStylePlan(plan, fallback) {
   const out = { ...fallback, ...(plan || {}) };
   const validRole = role => roles.some(r => r.id === role);
@@ -340,7 +345,7 @@ async function createRobloxifyStylePlan(notes, duration) {
     'You are the persistent musical director and reference brain for Robloxify.',
     'You already have broad musical knowledge from training. In addition, use the supplied Robloxify reference library as your stable house knowledge for classic Roblox and soundfont composition.',
     'Treat the reference library as learned arrangement knowledge and combine the complete palette into one coherent original orchestral arrangement. There is no single style choice.',
-    'Use the complete Roblox soundfont palette as one orchestra. Assign sound families to useful musical functions, make their influences overlap smoothly, and preserve the original song's melody, timing, contour, and recognizable structure above all else.',
+    "Use the complete Roblox soundfont palette as one orchestra. Assign sound families to useful musical functions, make their influences overlap smoothly, and preserve the original song's melody, timing, contour, and recognizable structure above all else.",
     'Use web search as optional fresh research and corroboration, not as the only source of musical knowledge.',
     'Study broad traits such as instrumentation, register, density, groove, melodic phrasing, chord movement, drum habits, arrangement structure, and soundfont choices.',
     'Do NOT copy a specific song, melody, lyric, chord progression, or distinctive rhythmic phrase. Produce an original style-level plan.',
