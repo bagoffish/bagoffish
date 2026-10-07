@@ -29,7 +29,7 @@ const SOUNDFONT_LIBRARY = [
 ];
 
 
-const ORCHESTRA_PROGRAMS = { drums: 0, bass: 33, guitar: 29, vocals: 80, keys: 4, pad: 89, strings: 48, arp: 81 };
+const ORCHESTRA_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
 
 const roles = [
   { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
@@ -197,74 +197,59 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     }
   }
 
-  // Full-style orchestra: every reference style contributes a distinct, restrained
-  // musical layer. The original transcription remains the melody source, so these
-  // layers enrich it instead of replacing it with unrelated material.
-  const styleLayers = [
-    ['mule', 'vocals', 0, 0.34],
-    ['fjords-midi', 'strings', 12, 0.13],
-    ['strategy', 'bass', -24, 0.16],
-    ['roblox-sf', 'keys', 0, 0.12],
-    ['gamehero', 'guitar', -12, 0.11],
-    ['classic-days', 'pad', 0, 0.08],
-    ['party', 'drums', 0, 0.10],
-    ['monster', 'bass', -12, 0.07],
-    ['horror', 'strings', -12, 0.06],
-    ['stealth', 'arp', 12, 0.07],
-    ['chip', 'arp', 24, 0.055],
-    ['classic', 'vocals', 0, 0.09],
-  ];
-  const fullMix = true;
-  if (fullMix) {
-    const sampled = ordered.filter((n, i) => i % 2 === 0);
-    styleLayers.forEach(([style, role, octave, gain]) => {
-      if (style === 'party') {
-        // Party influence is rhythmic rather than another copy of the melody.
-        const step = Math.max(0.25, Math.min(0.75, medianGap || 0.5));
-        for (let t = 0, i = 0; t < end; t += step, i++) {
-          if (i % 2 === 0) pushNote(out, 'drums', 36, t, 0.06, gain * 2.2);
-          if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.06, gain * 1.7);
-          if (i % 2 === 1) pushNote(out, 'drums', 42, t, 0.035, gain * 1.2);
-        }
-        return;
-      }
-      if (style === 'strategy' || style === 'monster') {
-        sampled.filter(n => n.pitchMidi <= medianPitch + 2).forEach(n => {
-          pushNote(out, 'bass', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.45, n.durationSeconds), gain);
-        });
-        return;
-      }
-      if (style === 'fjords-midi' || style === 'horror') {
-        sampled.filter(n => n.pitchMidi >= medianPitch).forEach(n => {
-          pushNote(out, 'strings', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.max(0.18, Math.min(0.8, n.durationSeconds * 1.35)), gain);
-        });
-        return;
-      }
-      if (style === 'classic-days' || style === 'roblox-sf') {
-        stableChords.forEach(chord => {
-          const root = clampMidi(60 + chord.rootPc);
-          const intervals = style === 'classic-days' ? [0, 7] : [0, 4, 7];
-          intervals.forEach(interval => pushNote(out, role, clampMidi(root + interval + octave), chord.time, 0.55, gain));
-        });
-        return;
-      }
-      if (style === 'stealth' || style === 'chip') {
-        sampled.filter((n, i) => i % 3 === 0).forEach(n => {
-          pushNote(out, 'arp', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.16, n.durationSeconds), gain);
-        });
-        return;
-      }
-      if (style === 'gamehero') {
-        sampled.filter(n => n.pitchMidi >= medianPitch - 5).forEach(n => {
-          pushNote(out, 'guitar', clampMidi(n.pitchMidi + octave), n.startTimeSeconds, Math.min(0.3, n.durationSeconds), gain);
-        });
-        return;
-      }
-      sampled.forEach(n => {
-        pushNote(out, role, clampMidi(n.pitchMidi + octave), n.startTimeSeconds, n.durationSeconds, gain);
-      });
-    });
+  // Vocal-less 8-bit / chiptune arrangement.
+  const eightBitDensity = Math.max(0.35, Math.min(1, Number(ai.density) || 0.7));
+  const chipStep = 0.125;
+  const sampled = ordered.filter((n, i) => i % 2 === 0);
+
+  // Square-wave style instrumental lead.
+  ordered.forEach(note => {
+    if (note.pitchMidi >= medianPitch - 10) {
+      pushNote(out, 'vocals', note.pitchMidi + melodyOctave * 12, note.startTimeSeconds, Math.min(note.durationSeconds, 0.42), Math.min(0.9, (note.amplitude || 0.7) * 0.9));
+    }
+  });
+
+  // Short synth-bass pulses.
+  for (let t = 0, i = 0; t < end; t += 0.5, i += 1) {
+    const chord = chordAt(t);
+    if (!chord) continue;
+    const root = clampMidi(36 + chord.rootPc);
+    const bassPitch = bassPattern === 'octave' && i % 2 ? root + 12 : bassPattern === 'walking' ? root + (i % 4 === 2 ? 7 : 0) : root;
+    pushNote(out, 'bass', bassPitch, t, 0.22, 0.48 + eightBitDensity * 0.12);
+    if (bassPattern === 'pulse' && i % 2 === 1) pushNote(out, 'bass', bassPitch + 12, t + 0.25, 0.14, 0.28);
   }
+
+  // Compact square-wave chord stabs.
+  stableChords.forEach(chord => {
+    const root = clampMidi(60 + chord.rootPc);
+    const intervals = harmonicComplexity > 0.7 ? [0, 3, 7] : [0, 4, 7];
+    intervals.forEach((interval, index) => pushNote(out, 'keys', clampMidi(root + interval), chord.time, 0.18 + (index === 0 ? 0.05 : 0), 0.18 + eightBitDensity * 0.08));
+  });
+
+  // Fast arpeggio texture.
+  stableChords.forEach(chord => {
+    const root = clampMidi(60 + chord.rootPc);
+    [0, 4, 7, 12].forEach((interval, index) => {
+      const t = chord.time + index * chipStep;
+      if (t < end) pushNote(out, 'arp', clampMidi(root + interval), t, 0.10, 0.18 + eightBitDensity * 0.07);
+    });
+  });
+
+  // Simple game-console percussion.
+  const beat = Math.max(0.25, Math.min(0.5, medianGap || 0.5));
+  if (ordered.length >= 6 && ai.drumPattern !== 'none') {
+    for (let t = 0, i = 0; t < end; t += beat, i += 1) {
+      pushNote(out, 'drums', 36, t, 0.045, i % 4 === 0 ? 0.46 : 0.30);
+      if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.045, 0.38);
+      if (i % 2 === 1) pushNote(out, 'drums', 42, t, 0.025, 0.22);
+    }
+  }
+
+  // Quiet high-register echo for a layered game-console feel.
+  sampled.forEach((note, i) => {
+    if (i % 3 !== 0 || note.pitchMidi < medianPitch) return;
+    pushNote(out, 'guitar', clampMidi(note.pitchMidi + 12), note.startTimeSeconds + chipStep, 0.08, 0.12);
+  });
 
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
@@ -835,7 +820,7 @@ function MusicAI() {
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
-      const plan = { ...(aiPlan || {}), label: 'Robloxify Arrangement', reason: 'Soundfont palettes blended around the original song.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+      const plan = { ...(aiPlan || {}), label: '8-bit Robloxify', reason: 'Soundfont palettes blended around the original song.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs));
