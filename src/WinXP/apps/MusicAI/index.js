@@ -830,18 +830,18 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Building a unified Roblox orchestra — keeping your melody…'); await yieldToBrowser();
+      setStatus('Building the arrangement — keeping your melody…'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
-      const plan = { ...(aiPlan || {}), label: 'Unified Roblox Orchestra', reason: 'All available soundfont palettes blended into one cohesive arrangement.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+      const plan = { ...(aiPlan || {}), label: 'Robloxify Arrangement', reason: 'Soundfont palettes blended around the original song.', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs));
       setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + 'Unified Roblox Orchestra' + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
+      setStatus('Done — ' + fitted.length + ' notes · ' + 'Robloxify Arrangement' + (usedBackend ? ' (server)' : ' (local)') + ' — edit in the piano roll');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -888,7 +888,7 @@ function MusicAI() {
 
   const saveProject = () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Unified Roblox Orchestra', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Robloxify Arrangement', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); if (playerName) { fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) }).then(async response => { if (response.ok) { const data = await response.json(); setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100)); } }).catch(() => {}); } setStatus('Project saved');
   };
@@ -897,13 +897,13 @@ function MusicAI() {
     setProjectName(project.name);
     const loaded = (project.arrangement || []).map((n, i) => ({ ...n, id: n.id || i + 1 }));
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
-    const plan = { ...(project.plan || {}), label: 'Unified Roblox Orchestra', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+    const plan = { ...(project.plan || {}), label: 'Robloxify Arrangement', programs: { ...ORCHESTRA_PROGRAMS }, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
     planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
   const ensureSynth = async plan => {
-    const usePlan = plan || planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
+    const usePlan = plan || planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS, drums: SOUNDFONT_LIBRARY.find(s => s.id === 'drums') };
     if (synthRef.current && contextRef.current) return synthRef.current;
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
     if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
@@ -986,12 +986,12 @@ function MusicAI() {
   const playArrangement = async () => {
     if (!arrangement.length) { setStatus('Nothing to play'); return; }
     try {
-      const plan = planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS };
-      setStatus('Loading the Roblox orchestra…');
+      const plan = planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
+      setStatus('Loading soundfonts…');
       const synth = await ensureSynth(plan);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
-      scheduleFrom(synth, from); setStatus('Playing · Roblox orchestra');
+      scheduleFrom(synth, from); setStatus('Playing');
     } catch (error) {
       console.error(error); setStatus('Playback failed — ' + (error.message || 'unknown')); setPlaying(false);
     }
@@ -1001,7 +1001,7 @@ function MusicAI() {
     const clamped = Math.max(0, Math.min(playbackDuration || t, t)); setPlaybackTime(clamped);
     if (playing) {
       try {
-        const plan = planRef.current || { label: 'Unified Roblox Orchestra', programs: ORCHESTRA_PROGRAMS };
+        const plan = planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
         scheduleFrom(synth, clamped);
@@ -1149,7 +1149,7 @@ function MusicAI() {
         </div>
       </div>
       <div style={{ height: 24, background: 'rgba(0,0,0,0.65)', borderTop: '2px solid #000', color: '#fff', fontSize: 11, display: 'flex', alignItems: 'center', padding: '0 8px', flexShrink: 0 }}>
-        Any song → one unified Roblox orchestra. All soundfont palettes are blended around the original song. Piano roll to edit. Drag Time to seek.
+        Any song → Robloxify. Piano roll to edit. Drag Time to seek.
       </div>
     </div>
   );
