@@ -295,7 +295,7 @@ app.post("/robloxify", async (req, res) => {
     const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await loadRobloxify();
     const upload = multer({
       storage: multer.diskStorage({
-        destination: (req, file, cb) => cb(null, "/tmp/winxp-robloxify"),
+        destination: (req, file, cb) => cb(null, os.tmpdir()),
         filename: (req, file, cb) => cb(null, crypto.randomUUID() + ".upload"),
       }),
       limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
