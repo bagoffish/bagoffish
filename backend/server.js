@@ -741,10 +741,25 @@ app.post("/robloxify", async (req, res) => {
     const t0 = Date.now();
     try {
       const transcriptionStartedAt = Date.now();
-      console.log("Robloxify: backend stem separation starting");
-      const instrumental = await separateToInstrumental(req.file.buffer, req.file.mimetype);
-      console.log("Robloxify: backend stem separation complete");
-      const result = await transcribeAudioBuffer(instrumental.buffer, instrumental.mimeType);
+      let transcriptionBuffer = req.file.buffer;
+      let transcriptionMime = req.file.mimetype;
+      const totalMemoryMb = Math.round((os.totalmem() / 1024 / 1024) * 10) / 10;
+
+      // HT-Demucs needs substantially more memory than Render's free 512 MB
+      // instance. Do not OOM-kill the API; use the original transcription path
+      // on low-memory instances and automatically enable backend stems on a
+      // larger Render plan.
+      if (totalMemoryMb >= 1536) {
+        console.log(`Robloxify: backend stem separation starting (${totalMemoryMb} MB RAM)`);
+        const instrumental = await separateToInstrumental(req.file.buffer, req.file.mimetype);
+        transcriptionBuffer = instrumental.buffer;
+        transcriptionMime = instrumental.mimeType;
+        console.log("Robloxify: backend stem separation complete");
+      } else {
+        console.warn(`Robloxify: skipping backend Demucs on low-memory instance (${totalMemoryMb} MB RAM)`);
+      }
+
+      const result = await transcribeAudioBuffer(transcriptionBuffer, transcriptionMime);
       console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
 
       const plannerStartedAt = Date.now();
