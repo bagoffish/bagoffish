@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
+import * as ort from 'onnxruntime-web';
+import { DemucsProcessor, CONSTANTS as DEMUCS_CONSTANTS } from 'demucs-web';
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
@@ -14,13 +16,29 @@ const SOUNDFONT_LOAD_PROMISES = new Map();
 const BASIC_PITCH_IDB = 'robloxify-basic-pitch-v1';
 
 const SOUNDFONT_LIBRARY = [
-  {
-    id: 'fjords-midi',
-    name: 'Wind of Fjords MIDI',
-    url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2'
-  },
+  { id: 'fjords', name: 'Wind of Fjords', url: '/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2', bankOffset: 0 },
+  { id: 'roblox-sf', name: 'Roblox Soundfont', url: '/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2', bankOffset: 1 },
+  { id: 'strategy', name: 'The Great Strategy', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/The_Great_Strategy_MIDI.sf2', bankOffset: 2 },
+  { id: 'classic-days', name: 'Classic Days', url: '/soundfonts/Instruments/Soundfonts/Classic%20Days.sf2', bankOffset: 3 },
+  { id: 'gamehero', name: 'GameHero', url: '/soundfonts/Instruments/Soundfonts/GameHero%20Soundfont.sf2', bankOffset: 4 },
+  { id: 'drums', name: 'StealthPilot Drums', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2', bankOffset: 7 },
 ];
-const FIXED_SOUNDFONT_ID = 'fjords-midi';
+const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
+const SOUND_FONT_BY_ROLE = {
+  drums: 'drums',
+  bass: 'fjords',
+  guitar: 'gamehero',
+  vocals: 'roblox-sf',
+  keys: 'classic-days',
+  pad: 'strategy',
+  strings: 'strategy',
+  arp: 'fjords',
+};
+const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
+  Object.entries(SOUND_FONT_BY_ROLE).map(([role, id]) => [role, SOUNDFONT_LIBRARY.find(bank => bank.id === id)])
+);
+const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
+let demucsProcessorPromise = null;
 
 
 
