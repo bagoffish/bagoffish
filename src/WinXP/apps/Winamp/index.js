@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import Webamp from 'webamp';
 import { initialTracks } from './config';
 
-function Winamp({ onClose, onMinimize }) {
+function Winamp({ onClose, onMinimize, isFocus }) {
   const targetRef = useRef(null);
   const webampRef = useRef(null);
 
@@ -56,7 +56,7 @@ function Winamp({ onClose, onMinimize }) {
     webamp.onMinimize(onMinimize);
 
     webamp
-      .renderWhenReady(target)
+      .renderInto(target)
       .catch(error => {
         console.error('Winamp failed to render:', error);
       });
@@ -72,6 +72,12 @@ function Winamp({ onClose, onMinimize }) {
     };
   }, [onClose, onMinimize]);
 
+  useEffect(() => {
+    if (isFocus && webampRef.current) {
+      webampRef.current.reopen();
+    }
+  }, [isFocus]);
+
   return (
     <div
       ref={targetRef}
@@ -82,9 +88,13 @@ function Winamp({ onClose, onMinimize }) {
         height: '100%',
         minWidth: 0,
         minHeight: 0,
-        overflow: 'hidden',
+        overflow: 'visible',
         pointerEvents: 'auto',
         zIndex: 1,
+        background: 'transparent',
+        border: 0,
+        outline: 0,
+        boxShadow: 'none',
       }}
     />
   );
