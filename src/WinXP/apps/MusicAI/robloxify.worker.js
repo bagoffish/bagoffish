@@ -55,8 +55,8 @@ self.onmessage = async event => {
     const frames = [];
     const onsets = [];
     const contours = [];
-    let lastProgressPost = -1;
-    let lastProgressAt = 0;
+    let lastProgressPost = 0;
+    let processedFrames = 0;
 
     await basicPitch.evaluateModel(
       audioBuffer,
@@ -64,20 +64,19 @@ self.onmessage = async event => {
         frames.push(...frameBatch);
         onsets.push(...onsetBatch);
         contours.push(...contourBatch);
-      },
-      value => {
-        const progress = Math.max(0, Math.min(1, value));
-        const now = performance.now();
-        if (progress >= 1 || progress - lastProgressPost >= 0.02 || now - lastProgressAt >= 150) {
+        processedFrames += frameBatch.length;
+
+        // Basic Pitch 1.0.1 does not accept a separate percent/progress
+        // callback. Report progress from the frame batches instead.
+        const estimatedFrames = Math.max(1, Math.ceil(audioBuffer.duration * 86));
+        const progress = Math.max(0, Math.min(0.99, processedFrames / estimatedFrames));
+        if (progress >= 1 || progress - lastProgressPost >= 0.02) {
           lastProgressPost = progress;
-          lastProgressAt = now;
-          self.postMessage({
-            type: 'progress',
-            value: progress,
-          });
+          self.postMessage({ type: 'progress', value: progress });
         }
       }
     );
+    self.postMessage({ type: 'progress', value: 1 });
 
     const notes = noteFramesToTime(
       addPitchBendsToNoteEvents(
