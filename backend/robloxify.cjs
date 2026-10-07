@@ -494,19 +494,27 @@ async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENC
       }),
     ].join("\n\n");
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + process.env.OPENAI_API_KEY,
-      },
-      body: JSON.stringify({
-        model,
-        tools: [{ type: "web_search" }],
-        input: prompt,
-        max_output_tokens: 1400,
-      }),
-    });
+    const controller = new AbortController();
+    const plannerTimeout = setTimeout(() => controller.abort(), 20_000);
+    let response;
+    try {
+      response = await fetch("https://api.openai.com/v1/responses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer " + process.env.OPENAI_API_KEY,
+        },
+        body: JSON.stringify({
+          model,
+          tools: [{ type: "web_search" }],
+          input: prompt,
+          max_output_tokens: 1400,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(plannerTimeout);
+    }
 
     const data = await response.json().catch(() => ({}));
 
@@ -532,7 +540,7 @@ async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENC
     return {
       ...fallback,
       ai: false,
-      aiError: error instanceof Error ? error.message : String(error),
+      aiError: error?.name === "AbortError"\n        ? "Arrangement planner timed out; using the local arrangement fallback."\n        : error instanceof Error ? error.message : String(error),
       analysis,
       webResearch: [],
       referenceUrl,
