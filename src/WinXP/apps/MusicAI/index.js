@@ -1549,9 +1549,9 @@ function MusicAI() {
                   <span style={{ fontWeight: 'bold', minWidth: 0, overflowWrap: 'anywhere' }}>{p.name}</span>
                 </div>
               ))}
-              <div style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community uploads</div>
+              <div style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community places</div>
               {communityLoading && <div style={{ color: '#666' }}>Loading places…</div>}
-              {!communityLoading && communityTracks.length === 0 && <div style={{ color: '#777' }}>No public uploads yet.</div>}
+              {!communityLoading && communityTracks.length === 0 && <div style={{ color: '#777' }}>No public places yet.</div>}
               {communityTracks.map(track => (
                 <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
                   <audio controls preload="none" src={API_BASE + track.audioUrl} style={{ width: 180, height: 26 }} />
