@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://winxp-backend-live.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261007-archived-avatars";
+  var RENDERER_SCRIPT_VERSION = "20261008-live-current-archive-old";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
   var ARCHIVE_SHARDS = 128;
@@ -71,7 +71,7 @@
     function fetchRendererData(username) {
       return fetch(API_BASE + "/proxy-roblox?username=" + encodeURIComponent(username), {
         headers: { "Accept": "application/json" },
-        cache: "default"
+        cache: "no-store"
       }).then(function (response) {
         if (!response.ok) throw new Error("Backend HTTP " + response.status);
         return response.json();
@@ -222,20 +222,22 @@
           if (oldContainer) oldContainer.textContent = "Loading archived renders…";
           fetchArchivedAvatars(roblox.id).then(function (archived) {
             var fromApi = oldAvatars.filter(function (item) {
-              return item && item.wayback;
+              return item && (item.url || item.wayback);
             });
             var seen = {};
             var merged = [];
             var n;
             for (n = 0; n < fromApi.length; n += 1) {
-              if (!seen[fromApi[n].wayback]) {
-                seen[fromApi[n].wayback] = 1;
+              var fromApiUrl = fromApi[n].url || fromApi[n].wayback;
+              if (!seen[fromApiUrl]) {
+                seen[fromApiUrl] = 1;
                 merged.push(fromApi[n]);
               }
             }
             for (n = 0; n < archived.length; n += 1) {
-              if (!seen[archived[n].wayback]) {
-                seen[archived[n].wayback] = 1;
+              var archivedUrl = archived[n].url || archived[n].wayback;
+              if (!seen[archivedUrl]) {
+                seen[archivedUrl] = 1;
                 merged.push(archived[n]);
               }
             }
