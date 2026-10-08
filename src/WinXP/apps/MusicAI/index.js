@@ -186,9 +186,9 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
       const roleShift = CYCLE_ROLES.indexOf(note.role);
       bankId = fonts[(section * 3 + roleShift) % fonts.length].id;
     }
-    // GeneralUser's orchestral kit is program 48 on channel 9. The first drum
-    // font to claim that program keeps it for every bank, so a new orchestra
-    // stays on general-user. Older places still pin the drums to stealth-drums.
+    // GeneralUser's standard kit is program 0 on channel 9. The first drum
+    // font to claim that program keeps it, so a new orchestra stays on
+    // general-user. Older places still pin the drums to stealth-drums.
     if (note.role === 'drums' && pinned !== 'general-user' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
     if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
     if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
@@ -238,11 +238,12 @@ function configureOrtWasm(ort) {
 }
 
 const CLASSIC_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
-const ORCHESTRA_PROGRAMS = { drums: 48, bass: 43, guitar: 42, vocals: 40, keys: 0, pad: 60, strings: 49, arp: 46 };
+const ORCHESTRA_PROGRAMS = { drums: 0, bass: 43, guitar: 42, vocals: 40, keys: 0, pad: 60, strings: 49, arp: 46 };
 // Channel volume (CC7). Saved Roblox-font places keep the older balance.
 // Orchestra places use the second table so the violin stays in front.
 const ROLE_VOLUME = { drums: 96, bass: 108, guitar: 64, vocals: 122, keys: 52, pad: 36, strings: 78, arp: 56 };
-const ORCHESTRA_VOLUME = { drums: 78, bass: 100, guitar: 76, vocals: 116, keys: 68, pad: 72, strings: 84, arp: 70 };
+const ORCHESTRA_VOLUME = { drums: 58, bass: 90, guitar: 62, vocals: 108, keys: 48, pad: 40, strings: 62, arp: 44 };
+const ORCHESTRA_REVERB = { drums: 6, bass: 10, guitar: 34, vocals: 22, keys: 18, pad: 36, strings: 48, arp: 30 };
 const ORCHESTRA_PAN = { drums: 64, bass: 64, guitar: 46, vocals: 80, keys: 58, pad: 90, strings: 64, arp: 100 };
 
 function mixValue(roleId, notes, soundfontRoles, table, fallback) {
@@ -253,7 +254,7 @@ function mixValue(roleId, notes, soundfontRoles, table, fallback) {
 }
 
 const roles = [
-  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 48 },
+  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
   { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 43 },
   { id: 'guitar', label: 'CELLO', channel: 1, color: '#70e070', program: 42 },
   { id: 'vocals', label: 'VIOLIN', channel: 2, color: '#e0e070', program: 40 },
@@ -677,6 +678,9 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       synth.programChange(role.channel, programs[role.id] != null ? programs[role.id] : role.program);
       synth.controllerChange(role.channel, 7, mixValue(role.id, notes, playable.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id] != null ? ROLE_VOLUME[role.id] : 100));
       synth.controllerChange(role.channel, 10, mixValue(role.id, notes, playable.soundfontRoles, ORCHESTRA_PAN, 64));
+      if (usesOrchestra(notes, playable.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
+        synth.controllerChange(role.channel, 91, ORCHESTRA_REVERB[role.id]);
+      }
     });
 
     await context.resume();
@@ -1135,7 +1139,7 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Writing violin, strings, horns, harp, and bass around the melody.'); await yieldToBrowser();
+      setStatus('Writing the violin from the tune, with bass and strings under it.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = glueArrangement(smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid));
@@ -1153,7 +1157,7 @@ function MusicAI() {
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Bloxify',
-        reason: 'Bloxify orchestra · violin or flute, strings, horns, harp, piano, cello, and contrabass.',
+        reason: 'Bloxify orchestra · violin on the tune, bass and strings from the chords that were heard.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1256,6 +1260,9 @@ function MusicAI() {
         if (typeof synth.controllerChange === 'function' && volume != null) {
           synth.controllerChange(channel, 7, volume);
           synth.controllerChange(channel, 10, pan);
+          if (usesOrchestra(notes, planRef.current && planRef.current.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
+            synth.controllerChange(channel, 91, ORCHESTRA_REVERB[role.id]);
+          }
         }
       } catch (error) {
         console.warn('Bloxify patch setup failed for', role.id, error);
