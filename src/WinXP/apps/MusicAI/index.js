@@ -701,7 +701,40 @@ function downloadBlob(blob, filename) {
   const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function yieldToBrowser() {
-  return new Promise(resolve => { if (typeof window !== 'undefined' && window.requestAnimationFrame) window.requestAnimationFrame(() => setTimeout(resolve, 0)); else setTimeout(resolve, 0); });
+  return new Promise(resolve => {
+    const hidden = typeof document !== 'undefined' && document.hidden;
+    // requestAnimationFrame does not fire while the tab is hidden, which stalls
+    // the next upload until the user comes back. A hidden tab only needs a timer.
+    if (!hidden && typeof window !== 'undefined' && window.requestAnimationFrame) {
+      window.requestAnimationFrame(() => setTimeout(resolve, 0));
+    } else {
+      setTimeout(resolve, 0);
+    }
+  });
+}
+
+// Chrome throttles and can freeze a hidden tab that is silent. A quiet loop
+// counts as playing audio, so a conversion keeps uploading after you leave.
+function startConversionKeepAlive() {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) return function () {};
+  let context;
+  try { context = new AudioContextClass(); } catch (e) { return function () {}; }
+  const oscillator = context.createOscillator();
+  const gain = context.createGain();
+  oscillator.frequency.value = 28;
+  gain.gain.value = 0.001;
+  oscillator.connect(gain);
+  gain.connect(context.destination);
+  try { oscillator.start(); } catch (e) {}
+  const resume = () => { if (context.state !== 'closed') context.resume().catch(() => {}); };
+  resume();
+  document.addEventListener('visibilitychange', resume);
+  return () => {
+    document.removeEventListener('visibilitychange', resume);
+    try { oscillator.stop(); } catch (e) {}
+    context.close().catch(() => {});
+  };
 }
 
 function encodeMonoFloatWav(left, right, sampleRate) {
@@ -803,7 +836,7 @@ async function postBloxify(file) {
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(4000);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 120000);
+    const timeout = setTimeout(() => controller.abort(), 180000);
     try {
       const form = new FormData();
       form.append('audio', file, file.name || 'audio.wav');
@@ -867,7 +900,7 @@ async function transcribeOnBackend(file, onStatus) {
     onStatus(partCount === 1
       ? 'Reading pitch, start time, and length.'
       : 'Reading pitch, start time, and length. Part ' + (part + 1) + ' of ' + partCount + '.');
-    await yieldToBrowser();
+    if (typeof document === 'undefined' || !document.hidden) await yieldToBrowser();
     const range = ranges[part];
     const slice = decoded.samples.subarray(range.start, range.end);
     const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
@@ -1067,12 +1100,15 @@ function MusicAI() {
     if (working) { setStatus('Already converting…'); return; }
     const placeName = placeNameFromFile(inputFile);
     setFile(inputFile); setProjectName(placeName); writeCookie(COOKIE_KEY, placeName); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Checking the audio file.');
+    const stopKeepAlive = startConversionKeepAlive();
     const loadingStartedAt = performance.now();
-    const loadingTimer = window.setInterval(() => {
+    const paintLoadingSeconds = () => {
       if (conversionId === conversionIdRef.current) {
         setLoadingSeconds(Math.floor((performance.now() - loadingStartedAt) / 1000));
       }
-    }, 250);
+    };
+    const loadingTimer = window.setInterval(paintLoadingSeconds, 250);
+    document.addEventListener('visibilitychange', paintLoadingSeconds);
     try {
       let rawNotes = []; let duration = 0; let usedBackend = true; let aiPlan = null;
       // Keep heavy transcription off the mobile main thread. The browser-side
@@ -1144,6 +1180,8 @@ function MusicAI() {
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
     } finally {
       window.clearInterval(loadingTimer);
+      document.removeEventListener('visibilitychange', paintLoadingSeconds);
+      stopKeepAlive();
       if (conversionId === conversionIdRef.current) {
         setLoadingSeconds(Math.floor((performance.now() - loadingStartedAt) / 1000));
         setWorking(false);
