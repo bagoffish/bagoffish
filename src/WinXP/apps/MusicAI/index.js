@@ -1161,11 +1161,11 @@ async function postBloxify(file) {
     try {
       const form = new FormData();
       form.append('audio', file, file.name || 'audio.wav');
-      let res = await fetch(API_BASE + '/bloxify', { method: 'POST', body: form, signal: controller.signal });
+      let res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: form, signal: controller.signal });
       if (res.status === 404) {
         const fallback = new FormData();
         fallback.append('audio', file, file.name || 'audio.wav');
-        res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: fallback, signal: controller.signal });
+        res = await fetch(API_BASE + '/bloxify', { method: 'POST', body: fallback, signal: controller.signal });
       }
       const data = await res.json().catch(() => ({}));
       if (res.status === 503) {
@@ -1602,7 +1602,7 @@ function MusicAI() {
       if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
     }
     if ((created || pending.length) && synth.isReady) await synth.isReady;
-    if (created && typeof synth.connect === 'function') synth.connect(context.destination);
+    if (created && contextRef.current && typeof synth.connect === 'function') synth.connect(contextRef.current.destination);
 
     // Do not parse every SF2 file in parallel here. Large soundfonts can
     // consume enough memory/CPU to freeze the XP window. Extra banks are
