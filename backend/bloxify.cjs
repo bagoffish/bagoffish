@@ -208,6 +208,12 @@ const ROBLOX_SOUNDFONTS = [
     "name": "Wind of Fjords v2.5.1a",
     "url": "/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2",
     "bankOffset": 30
+  },
+  {
+    "id": "general-user",
+    "name": "GeneralUser GS Orchestra",
+    "url": "/soundfonts/Orchestra/GeneralUser-GS.sf2",
+    "bankOffset": 31
   }
 ];
 
@@ -228,7 +234,7 @@ function choosePrebakedSoundfontPalette(notes) {
   for (let i = 0; i < Math.min(clean.length, 256); i += 1) {
     hash = (hash * 33 + Math.round(Number(clean[i].pitchMidi) || 0) + Math.round((Number(clean[i].startTimeSeconds) || 0) * 10)) >>> 0;
   }
-  const pool = ROBLOX_SOUNDFONTS.filter(font => font.id !== "stealth-drums");
+  const pool = ROBLOX_SOUNDFONTS.filter(font => font.id !== "stealth-drums" && font.id !== "general-user");
   const selected = [];
   const start = hash % pool.length;
   const count = Math.min(8, pool.length);

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
+import { buildOrchestralArrangement, orchestraProgramsFor } from './orchestraArrange';
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
@@ -44,9 +45,20 @@ const SOUNDFONT_LIBRARY = [
   { id: 'nokia', name: 'Nokia Tongbao Bank', url: '/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2', bankOffset: 28 },
   { id: 'roblox-1', name: 'Roblox Soundfont 1', url: '/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2', bankOffset: 29 },
   { id: 'fjords', name: 'Wind of Fjords v2.5.1a', url: '/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2', bankOffset: 30 },
+  { id: 'general-user', name: 'GeneralUser GS Orchestra', url: '/soundfonts/Orchestra/GeneralUser-GS.sf2', bankOffset: 31 },
 ];
 const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
 const SOUND_FONT_BY_ROLE = {
+  drums: 'general-user',
+  bass: 'general-user',
+  guitar: 'general-user',
+  vocals: 'general-user',
+  keys: 'general-user',
+  pad: 'general-user',
+  strings: 'general-user',
+  arp: 'general-user',
+};
+const CLASSIC_ROLE_BANKS = {
   drums: 'stealth-drums',
   bass: 'fjords',
   guitar: 'gamehero',
@@ -56,11 +68,6 @@ const SOUND_FONT_BY_ROLE = {
   strings: 'fjords-hq',
   arp: 'nokia',
 };
-// The three largest banks are left out of the automatic mix. Parsing them
-// with the rest of the catalog freezes the window before a note plays.
-const HEAVY_SOUNDFONT_IDS = new Set(['stealth-v2', 'strategy', 'beastmasters']);
-// Strings stay on one saw the whole song. Cycling that harmony every few
-// seconds is what made the classic lead hard to follow.
 const CYCLE_ROLES = ['guitar', 'keys', 'pad', 'arp'];
 const ROLE_CHANNEL = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
 const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
@@ -93,7 +100,7 @@ function planWithSoundBanks(notes, savedPlan) {
   usedRoles.forEach(roleId => {
     const stamped = list.find(note => note && note.role === roleId && note.bankId && SOUND_FONT_BY_ID[note.bankId]);
     const savedId = savedRoles[roleId];
-    const id = (stamped && stamped.bankId) || (SOUND_FONT_BY_ID[savedId] ? savedId : '') || SOUND_FONT_BY_ROLE[roleId];
+    const id = (stamped && stamped.bankId) || (SOUND_FONT_BY_ID[savedId] ? savedId : '') || CLASSIC_ROLE_BANKS[roleId];
     if (id && SOUND_FONT_BY_ID[id]) soundfontRoles[roleId] = id;
   });
   const draft = { soundfontRoles };
@@ -111,9 +118,23 @@ function planWithSoundBanks(notes, savedPlan) {
     soundfontId: FIXED_SOUNDFONT_ID,
     soundfontRoles,
     soundfontPalette: palette,
-    programs: { ...ORCHESTRA_PROGRAMS },
-    drums: SOUND_FONT_ROLE_BANKS.drums,
+    programs: programsForPlan(list, saved, soundfontRoles),
+    drums: getRoleBank('drums', { soundfontRoles }),
   };
+}
+
+function usesOrchestra(notes, savedRoles) {
+  if ((notes || []).some(note => note && note.bankId === 'general-user')) return true;
+  return !!(savedRoles && Object.keys(savedRoles).some(roleId => savedRoles[roleId] === 'general-user'));
+}
+
+function programsForPlan(notes, saved, soundfontRoles) {
+  const savedPrograms = saved && saved.programs && typeof saved.programs === 'object' ? saved.programs : null;
+  if (!usesOrchestra(notes, soundfontRoles)) return { ...CLASSIC_PROGRAMS };
+  const tuned = orchestraProgramsFor(notes);
+  const vocals = savedPrograms && (savedPrograms.vocals === 40 || savedPrograms.vocals === 73) ? savedPrograms.vocals : tuned.vocals;
+  const strings = savedPrograms && (savedPrograms.strings === 48 || savedPrograms.strings === 49) ? savedPrograms.strings : tuned.strings;
+  return { ...tuned, vocals, strings };
 }
 
 async function addBankToSynth(synth, bank) {
@@ -140,47 +161,11 @@ async function addBankToSynth(synth, bank) {
   }
 }
 
-function choosePrebakedPalette(notes) {
-  const clean = Array.isArray(notes) ? notes : [];
-  let hash = clean.length * 31;
-  for (let i = 0; i < Math.min(clean.length, 256); i++) {
-    const note = clean[i] || {};
-    hash = (hash * 33 + Math.round(Number(note.pitchMidi) || 0) + Math.round((Number(note.startTimeSeconds) || 0) * 10)) >>> 0;
-  }
-  const selected = [];
-  const pushUnique = font => {
-    if (font && font.id && !selected.some(item => item.id === font.id)) selected.push(font);
-  };
-  pushUnique(SOUND_FONT_BY_ID['stealth-drums']);
-  pushUnique(SOUND_FONT_BY_ID.gamehero);
-  const light = SOUNDFONT_LIBRARY.filter(font => font.id !== 'stealth-drums' && font.id !== 'gamehero' && !HEAVY_SOUNDFONT_IDS.has(font.id));
-  const start = light.length ? hash % light.length : 0;
-  for (let i = 0; light.length && selected.length < 12; i++) {
-    pushUnique(light[(start + i * 2) % light.length]);
-  }
-  return selected;
-}
-
-function assignRoleBanks(palette) {
+function assignRoleBanks() {
   const banks = {};
-  roles.forEach((role, index) => {
-    const fromPalette = palette[index % Math.max(1, palette.length)];
-    const preferred = SOUND_FONT_BY_ID[SOUND_FONT_BY_ROLE[role.id]] || fromPalette;
-    banks[role.id] = (preferred || SOUNDFONT_LIBRARY[0]).id;
-  });
-  if (SOUND_FONT_BY_ID['stealth-drums']) banks.drums = 'stealth-drums';
-  const used = new Set();
   roles.forEach(role => {
-    if (role.id === 'drums') return;
-    if (!used.has(banks[role.id])) {
-      used.add(banks[role.id]);
-      return;
-    }
-    const replacement = (palette || []).find(font => font && !used.has(font.id) && font.id !== 'stealth-drums');
-    if (replacement) {
-      banks[role.id] = replacement.id;
-      used.add(replacement.id);
-    }
+    const id = SOUND_FONT_BY_ROLE[role.id];
+    banks[role.id] = SOUND_FONT_BY_ID[id] ? id : CLASSIC_ROLE_BANKS[role.id];
   });
   return banks;
 }
@@ -195,12 +180,16 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
   const fonts = (palette || []).filter(font => font && font.id && SOUND_FONT_BY_ID[font.id] && !reserved.has(font.id));
   return notes.map(note => {
     let bankId = soundfontRoles && soundfontRoles[note.role];
-    if (fonts.length && CYCLE_ROLES.indexOf(note.role) !== -1) {
+    const pinned = soundfontRoles && soundfontRoles[note.role];
+    if (pinned !== 'general-user' && fonts.length && CYCLE_ROLES.indexOf(note.role) !== -1) {
       const section = Math.floor((note.startTimeSeconds || 0) / 8);
       const roleShift = CYCLE_ROLES.indexOf(note.role);
       bankId = fonts[(section * 3 + roleShift) % fonts.length].id;
     }
-    if (note.role === 'drums' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
+    // GeneralUser's orchestral kit is program 48 on channel 9. The first drum
+    // font to claim that program keeps it for every bank, so a new orchestra
+    // stays on general-user. Older places still pin the drums to stealth-drums.
+    if (note.role === 'drums' && pinned !== 'general-user' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
     if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
     if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
     return bankId ? { ...note, bankId } : note;
@@ -248,39 +237,33 @@ function configureOrtWasm(ort) {
   return wasm.numThreads;
 }
 
-const ORCHESTRA_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
-// Channel volume (CC7). Classic Roblox MIDIs keep the square lead loudest,
-// the bass under it, and harmony and hats quiet enough that the tune stays clear.
+const CLASSIC_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
+const ORCHESTRA_PROGRAMS = { drums: 48, bass: 43, guitar: 42, vocals: 40, keys: 0, pad: 60, strings: 49, arp: 46 };
+// Channel volume (CC7). Saved Roblox-font places keep the older balance.
+// Orchestra places use the second table so the violin stays in front.
 const ROLE_VOLUME = { drums: 96, bass: 108, guitar: 64, vocals: 122, keys: 52, pad: 36, strings: 78, arp: 56 };
+const ORCHESTRA_VOLUME = { drums: 78, bass: 100, guitar: 76, vocals: 116, keys: 68, pad: 72, strings: 84, arp: 70 };
+const ORCHESTRA_PAN = { drums: 64, bass: 64, guitar: 46, vocals: 80, keys: 58, pad: 90, strings: 64, arp: 100 };
+
+function mixValue(roleId, notes, soundfontRoles, table, fallback) {
+  const orchestra = (notes || []).some(note => note && note.role === roleId && note.bankId === 'general-user')
+    || (soundfontRoles && soundfontRoles[roleId] === 'general-user');
+  if (orchestra && table[roleId] != null) return table[roleId];
+  return fallback;
+}
 
 const roles = [
-  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
-  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 33 },
-  { id: 'guitar', label: 'RHYTHM GUITAR', channel: 1, color: '#70e070', program: 29 },
-  { id: 'vocals', label: 'LEAD', channel: 2, color: '#e0e070', program: 80 },
-  { id: 'keys', label: 'KEYS', channel: 3, color: '#c080e0', program: 4 },
-  { id: 'pad', label: 'PAD', channel: 4, color: '#70d0d0', program: 89 },
-  { id: 'strings', label: 'STRINGS', channel: 5, color: '#e0a070', program: 48 },
-  { id: 'arp', label: 'ARP', channel: 6, color: '#d0d070', program: 81 },
+  { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 48 },
+  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 43 },
+  { id: 'guitar', label: 'CELLO', channel: 1, color: '#70e070', program: 42 },
+  { id: 'vocals', label: 'VIOLIN', channel: 2, color: '#e0e070', program: 40 },
+  { id: 'keys', label: 'PIANO', channel: 3, color: '#c080e0', program: 0 },
+  { id: 'pad', label: 'HORNS', channel: 4, color: '#70d0d0', program: 60 },
+  { id: 'strings', label: 'STRINGS', channel: 5, color: '#e0a070', program: 49 },
+  { id: 'arp', label: 'HARP', channel: 6, color: '#d0d070', program: 46 },
 ];
 
 const STEM_ORDER = roles.map(role => role.id);
-
-function clampMidi(value) {
-  return Math.max(24, Math.min(108, Math.round(value)));
-}
-
-function pushNote(target, role, pitchMidi, startTimeSeconds, durationSeconds, amplitude = 0.65) {
-  if (!Number.isFinite(startTimeSeconds) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) return;
-  target.push({
-    id: 0,
-    role,
-    pitchMidi: clampMidi(pitchMidi),
-    startTimeSeconds: Math.max(0, startTimeSeconds),
-    durationSeconds: Math.max(0.05, durationSeconds),
-    amplitude: Math.max(0.12, Math.min(0.95, amplitude)),
-  });
-}
 
 // SoundFont releases are chopped if playback stops on the final noteOff.
 const RELEASE_TAIL = 2;
@@ -293,288 +276,13 @@ function heardEnd(notes) {
   return maxEnd + RELEASE_TAIL;
 }
 
-function estimateBeatSeconds(notes) {
-  const starts = notes.map(note => note.startTimeSeconds).sort((a, b) => a - b);
-  const gaps = [];
-  for (let i = 1; i < starts.length; i++) {
-    const gap = starts[i] - starts[i - 1];
-    if (gap >= 0.14 && gap <= 1.1) gaps.push(gap);
-  }
-  if (gaps.length < 4) return 0.5;
-  gaps.sort((a, b) => a - b);
-  let beat = gaps[Math.floor(gaps.length / 2)];
-  while (beat < 0.34) beat *= 2;
-  while (beat > 0.72) beat *= 0.5;
-  return beat;
-}
-
-// Basic Pitch often ends a held tone early. Close only the short holes so
-// repeated attacks still speak, and give slow Roblox attacks time to sound.
-function sustainDetectedNotes(notes) {
-  const byPitch = new Map();
-  notes.forEach(note => {
-    const list = byPitch.get(note.pitchMidi) || [];
-    list.push(note);
-    byPitch.set(note.pitchMidi, list);
-  });
-  byPitch.forEach(list => {
-    list.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
-    for (let i = 0; i < list.length; i++) {
-      const note = list[i];
-      const next = list[i + 1];
-      const end = note.startTimeSeconds + note.durationSeconds;
-      const nextStart = next ? next.startTimeSeconds : end + 1.2;
-      const gap = nextStart - end;
-      const onset = Math.max(0.05, nextStart - note.startTimeSeconds);
-      if (next && gap >= 0 && gap <= 0.12) {
-        note.durationSeconds = Math.max(note.durationSeconds, onset - 0.02);
-        continue;
-      }
-      if (note.durationSeconds < 0.28) {
-        const room = Math.max(0.08, onset - 0.03);
-        note.durationSeconds = Math.min(Math.max(note.durationSeconds, 0.36), room);
-      }
-    }
-  });
-  return notes;
-}
-
-function legatoRole(notes, role, maxHold) {
-  const list = notes.filter(note => note.role === role).sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  for (let i = 0; i < list.length; i++) {
-    const note = list[i];
-    const next = list[i + 1];
-    const limit = next ? next.startTimeSeconds - 0.03 : note.startTimeSeconds + maxHold;
-    const target = Math.min(note.startTimeSeconds + maxHold, limit);
-    if (target - note.startTimeSeconds > note.durationSeconds) {
-      note.durationSeconds = target - note.startTimeSeconds;
-    }
-  }
-}
-
-function voiceChord(rootPc, intervals, low, high) {
-  const voices = [];
-  intervals.forEach(interval => {
-    const pc = ((rootPc + interval) % 12 + 12) % 12;
-    let pitch = low + ((pc - (low % 12) + 12) % 12);
-    if (interval >= 12) {
-      const raised = pitch + 12;
-      if (raised <= high) pitch = raised;
-    }
-    while (pitch < low) pitch += 12;
-    while (pitch > high) pitch -= 12;
-    if (pitch < low || pitch > high) return;
-    if (voices.indexOf(pitch) === -1) voices.push(pitch);
-  });
-  return voices;
-}
-
-function bedIntervals(seg) {
-  const intervals = [0, 7];
-  if (seg.hasThird) intervals.splice(1, 0, seg.minor ? 3 : 4);
-  return intervals;
-}
-
-function buildChordSegments(ordered, gridStart, end, beat) {
-  const harmonyStep = Math.max(0.2, beat * 0.5);
-  const windows = new Map();
-  ordered.forEach(note => {
-    const slot = Math.floor(note.startTimeSeconds / harmonyStep) * harmonyStep;
-    const weight = Math.max(0.15, Math.min(1.5, note.durationSeconds)) * (note.amplitude || 0.7);
-    const list = windows.get(slot) || [];
-    list.push({ pc: ((note.pitchMidi % 12) + 12) % 12, weight });
-    windows.set(slot, list);
-  });
-  const events = [];
-  [...windows.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
-    const weights = Array(12).fill(0);
-    values.forEach(item => { weights[item.pc] += item.weight; });
-    const present = weights.some(weight => weight > 0);
-    if (!present) return;
-    let best = null;
-    for (let rootPc = 0; rootPc < 12; rootPc++) {
-      const at = step => weights[(rootPc + step) % 12];
-      const root = at(0);
-      const fifth = at(7);
-      if (root <= 0 || fifth <= 0) continue;
-      const minorThird = at(3);
-      const majorThird = at(4);
-      const third = Math.max(minorThird, majorThird);
-      const score = root + fifth + third * 1.25;
-      if (!best || score > best.score) {
-        const flat7 = at(10);
-        const maj7 = at(11);
-        let seventh = null;
-        if (flat7 > root * 0.45 && flat7 >= maj7) seventh = 10;
-        else if (maj7 > root * 0.45) seventh = 11;
-        best = { rootPc, score, minor: minorThird > majorThird * 1.15, hasThird: third > 0, seventh };
-      }
-    }
-    if (best) events.push({ time, rootPc: best.rootPc, minor: best.minor, hasThird: best.hasThird, seventh: best.seventh });
-  });
-  const minChord = Math.max(0.9, beat * 2);
-  const stable = [];
-  events.forEach(event => {
-    const previous = stable[stable.length - 1];
-    if (!previous) {
-      stable.push({ ...event });
-      return;
-    }
-    if (event.time - previous.time < minChord) return;
-    if (previous.rootPc !== event.rootPc || previous.minor !== event.minor || previous.seventh !== event.seventh) {
-      stable.push({ ...event });
-    }
-  });
-  const fallbackRoot = ((ordered[0] && ordered[0].pitchMidi) || 60) % 12;
-  if (!stable.length) stable.push({ time: gridStart, rootPc: fallbackRoot, minor: false, hasThird: true, seventh: null });
-  const segments = stable.map((chord, index) => ({
-    start: index === 0 ? gridStart : chord.time,
-    end: index + 1 < stable.length ? stable[index + 1].time : end,
-    rootPc: chord.rootPc,
-    minor: chord.minor,
-    hasThird: chord.hasThird,
-    seventh: chord.seventh,
-  })).filter(seg => seg.end - seg.start >= 0.2);
-  if (!segments.length) segments.push({ start: gridStart, end, rootPc: fallbackRoot, minor: false, hasThird: true, seventh: null });
-  segments[0].start = gridStart;
-  segments[segments.length - 1].end = end;
-  return segments;
-}
-
-// One note per pitch for as long as that chord tone stays. Retriggering the
-// same pad every couple of seconds is what makes the SoundFont choke.
-function addSustainedPart(out, role, segments, low, high, amplitude) {
-  const spans = new Map();
-  segments.forEach(seg => {
-    voiceChord(seg.rootPc, bedIntervals(seg), low, high).forEach(pitch => {
-      const list = spans.get(pitch) || [];
-      const prev = list[list.length - 1];
-      if (prev && seg.start <= prev.end + 0.06) prev.end = Math.max(prev.end, seg.end);
-      else list.push({ start: seg.start, end: seg.end });
-      spans.set(pitch, list);
-    });
-  });
-  spans.forEach((list, pitch) => {
-    list.forEach(span => {
-      const dur = span.end - span.start - 0.04;
-      if (dur >= 0.35) pushNote(out, role, pitch, span.start, dur, amplitude);
-    });
-  });
-}
-
-function roleCovers(notes, role, start, end) {
-  return notes.some(note =>
-    note.role === role &&
-    note.startTimeSeconds < start + 0.08 &&
-    note.startTimeSeconds + note.durationSeconds > end - 0.1
-  );
-}
-
 function buildFullArrangement(rawNotes, duration, stylePlan) {
-  const source = sustainDetectedNotes(cleanDetectedNotes(rawNotes || []));
-  if (!source.length) return [];
-
-  // Basic Pitch supplies the performance. Holds, strums, and the drum bed are
-  // written here in full. A sparse server plan must not shorten them: the
-  // live API still describes half-note chops until Render can rebuild.
-  const plan = stylePlan || {};
-  const melodyOctave = [-1, 0, 1].includes(Number(plan.melodyOctave)) ? Number(plan.melodyOctave) : 0;
-  const preserveMelody = plan.preserveMelody !== false;
-  const fourOnFloor = plan.drumPattern === 'four_on_floor';
-  const detectedEnd = source.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0);
-  const end = Math.max(Number(duration) || 0, detectedEnd);
-  const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  const beat = estimateBeatSeconds(ordered);
-  const gridStart = Math.max(0, Math.floor(ordered[0].startTimeSeconds / beat) * beat);
-  const out = [];
-
-  const clusters = [];
-  const clusterForNote = new Map();
-  ordered.forEach(note => {
-    let cluster = clusters[clusters.length - 1];
-    if (!cluster || note.startTimeSeconds - cluster.time > 0.09) {
-      cluster = { time: note.startTimeSeconds, notes: [] };
-      clusters.push(cluster);
-    }
-    cluster.notes.push(note);
-    clusterForNote.set(note, cluster);
-  });
-
-  const medianPitch = ordered.map(note => note.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
-  ordered.forEach(note => {
-    const cluster = clusterForNote.get(note);
-    const notesInCluster = cluster && cluster.notes.length ? cluster.notes : [note];
-    const highest = Math.max.apply(null, notesInCluster.map(item => item.pitchMidi));
-    const lowest = Math.min.apply(null, notesInCluster.map(item => item.pitchMidi));
-    const hasLineAbove = highest - note.pitchMidi >= 5;
-    let role = null;
-    if (note.pitchMidi === lowest && hasLineAbove && note.pitchMidi <= Math.min(52, medianPitch - 5) && note.durationSeconds >= 0.12) role = 'bass';
-    else if (notesInCluster.length === 1 || note.pitchMidi === highest) role = 'vocals';
-    if (!role) return;
-    let sourcePitch = role === 'vocals' && preserveMelody ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
-    if (role === 'vocals') {
-      while (sourcePitch < 60) sourcePitch += 12;
-      while (sourcePitch > 96) sourcePitch -= 12;
-    }
-    if (role === 'bass') {
-      while (sourcePitch > 45) sourcePitch -= 12;
-      while (sourcePitch < 28) sourcePitch += 12;
-    }
-    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, role === 'vocals' ? 0.92 : 0.7);
-  });
-
-  if (!out.some(note => note.role === 'vocals')) {
-    clusters.forEach(cluster => {
-      const top = cluster.notes.slice().sort((a, b) => b.pitchMidi - a.pitchMidi)[0];
-      if (!top) return;
-      let pitch = top.pitchMidi + melodyOctave * 12;
-      while (pitch < 60) pitch += 12;
-      while (pitch > 96) pitch -= 12;
-      pushNote(out, 'vocals', pitch, top.startTimeSeconds, Math.max(0.36, top.durationSeconds), 0.92);
-    });
-  }
-
-  legatoRole(out, 'bass', Math.max(1.1, beat * 4));
-  legatoRole(out, 'vocals', Math.max(0.32, beat * 0.92));
-
-  const segments = buildChordSegments(ordered, gridStart, end, beat);
-  // One saw harmony, under the lead (C3–B3) and above the bass.
-  addSustainedPart(out, 'strings', segments, 48, 59, 0.4);
-
-  const bassStep = beat * 2;
-  segments.forEach(seg => {
-    let index = 0;
-    for (let t = seg.start; t < seg.end - 0.12; t += bassStep, index++) {
-      const holdEnd = Math.min(seg.end, t + bassStep);
-      if (roleCovers(out, 'bass', t, holdEnd)) continue;
-      let pitch = 36 + seg.rootPc;
-      if (index % 2 === 1) pitch += 7;
-      while (pitch > 45) pitch -= 12;
-      while (pitch < 28) pitch += 12;
-      const dur = holdEnd - t - 0.04;
-      if (dur >= 0.28) pushNote(out, 'bass', pitch, t, dur, 0.7);
-    }
-  });
-
-  const hatStep = beat / 2;
-  for (let t = gridStart, step = 0; t < end - 0.02; t += hatStep, step++) {
-    const beatIndex = Math.floor(step / 2);
-    const onDown = step % 2 === 0;
-    const remaining = end - t;
-    if (onDown) {
-      const kick = fourOnFloor || beatIndex % 2 === 0;
-      if (kick) pushNote(out, 'drums', 36, t, Math.min(beat * 0.72, remaining), beatIndex % 4 === 0 ? 0.62 : 0.48);
-      if (beatIndex % 2 === 1) pushNote(out, 'drums', 38, t, Math.min(beat * 0.55, remaining), fourOnFloor ? 0.4 : 0.52);
-    } else {
-      const openHat = beatIndex % 8 === 7;
-      pushNote(out, 'drums', openHat ? 46 : 42, t, Math.min(hatStep * 0.7, remaining), openHat ? 0.2 : 0.15);
-    }
-  }
-
+  const out = buildOrchestralArrangement(rawNotes, duration, stylePlan);
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
     .map((note, index) => ({ ...note, id: index + 1 }));
 }
+
 function makeStemMidi(notes, roleId, programs) {
   const role = roles.find(r => r.id === roleId);
   const midi = new Midi();
@@ -584,8 +292,11 @@ function makeStemMidi(notes, roleId, programs) {
   track.name = role ? role.label : roleId.toUpperCase();
   track.channel = role ? role.channel : 0;
   track.instrument.number = programs && programs[roleId] != null ? programs[roleId] : (role ? role.program : 0);
-  if (typeof track.addCC === 'function' && ROLE_VOLUME[roleId] != null) {
-    track.addCC({ controllerType: 7, value: ROLE_VOLUME[roleId] / 127, time: 0 });
+  const volume = mixValue(roleId, notes, null, ORCHESTRA_VOLUME, ROLE_VOLUME[roleId]);
+  const pan = mixValue(roleId, notes, null, ORCHESTRA_PAN, 64);
+  if (typeof track.addCC === 'function' && volume != null) {
+    track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
+    track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
   }
   notes.filter(note => note.role === roleId).forEach(note => {
     track.addNote({
@@ -719,41 +430,6 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
       </div>
     </div>
   );
-}
-
-function cleanDetectedNotes(notes) {
-  const sorted = notes.filter(note => Number.isFinite(note.startTimeSeconds) && Number.isFinite(note.durationSeconds) && Number.isFinite(note.pitchMidi) && note.durationSeconds >= 0.04 && note.pitchMidi >= 0 && note.pitchMidi <= 127)
-    .sort((x, y) => x.startTimeSeconds - y.startTimeSeconds || x.pitchMidi - y.pitchMidi);
-  const result = []; const lastByPitch = new Map();
-  sorted.forEach(note => {
-    const previous = lastByPitch.get(note.pitchMidi);
-    if (previous && note.startTimeSeconds <= previous.startTimeSeconds + previous.durationSeconds + 0.02) {
-      const end = Math.max(previous.startTimeSeconds + previous.durationSeconds, note.startTimeSeconds + note.durationSeconds);
-      previous.durationSeconds = end - previous.startTimeSeconds;
-      previous.amplitude = Math.max(previous.amplitude || 0, note.amplitude || 0);
-      return;
-    }
-    const clean = { ...note, startTimeSeconds: Math.max(0, note.startTimeSeconds), durationSeconds: Math.max(0.05, note.durationSeconds), amplitude: note.amplitude == null ? 0.8 : Math.max(0.2, Math.min(1, note.amplitude)) };
-    result.push(clean); lastByPitch.set(clean.pitchMidi, clean);
-  });
-  return result;
-}
-
-function assignRoles(detected) {
-  const cleaned = cleanDetectedNotes(detected);
-  const pitches = cleaned.map(n => n.pitchMidi).sort((a, b) => a - b);
-  const median = pitches[Math.floor(pitches.length / 2)] || 60;
-  const bassCutoff = Math.min(52, median - 12);
-  return cleaned.map((note, index) => {
-    const pitch = note.pitchMidi; const short = note.durationSeconds < 0.12;
-    let role = 'guitar';
-    if (pitch < bassCutoff && !short) role = 'bass';
-    else if (short && pitch >= 36 && pitch <= 55 && note.amplitude > 0.55) role = Math.random() < 0.25 ? 'drums' : 'guitar';
-    else if (pitch >= 76 && note.durationSeconds > 0.35) role = 'vocals';
-    let outPitch = pitch;
-    if (role === 'drums') outPitch = pitch < 45 ? 36 : pitch < 55 ? 38 : pitch < 65 ? 42 : 46;
-    return { ...note, id: index + 1, role, pitchMidi: outPitch };
-  });
 }
 
 function smartQuantize(notes, preferredGrid) {
@@ -895,9 +571,11 @@ function makeMidi(notes, programs, soundfontRoles, name) {
     track.channel = role.channel;
     let lastBankId = null;
     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
-    if (typeof track.addCC === 'function' && ROLE_VOLUME[role.id] != null) {
-      track.addCC({ controllerType: 7, value: ROLE_VOLUME[role.id] / 127, time: 0 });
-      track.addCC({ controllerType: 10, value: 64 / 127, time: 0 });
+    const volume = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id]);
+    const pan = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_PAN, 64);
+    if (typeof track.addCC === 'function' && volume != null) {
+      track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
+      track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
     }
     notes.filter(note => note.role === role.id).forEach(note => {
       const bank = bankForNote(note, { soundfontRoles });
@@ -997,8 +675,8 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
       synth.controllerChange(role.channel, 32, 0);
       synth.programChange(role.channel, programs[role.id] != null ? programs[role.id] : role.program);
-      synth.controllerChange(role.channel, 7, ROLE_VOLUME[role.id] != null ? ROLE_VOLUME[role.id] : 100);
-      synth.controllerChange(role.channel, 10, 64);
+      synth.controllerChange(role.channel, 7, mixValue(role.id, notes, playable.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id] != null ? ROLE_VOLUME[role.id] : 100));
+      synth.controllerChange(role.channel, 10, mixValue(role.id, notes, playable.soundfontRoles, ORCHESTRA_PAN, 64));
     });
 
     await context.resume();
@@ -1015,7 +693,8 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       if (lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
         synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
-        if (ROLE_VOLUME[note.role] != null) synth.controllerChange(channel, 7, ROLE_VOLUME[note.role], { time: baseTime + startTime });
+        const noteVolume = mixValue(note.role, notes, playable.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
+        if (noteVolume != null) synth.controllerChange(channel, 7, noteVolume, { time: baseTime + startTime });
         lastBankByChannel[channel] = bank.id;
       }
       const durationSeconds = Math.max(
@@ -1456,13 +1135,13 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Writing a clear lead, bass, harmony, and drums across the whole file.'); await yieldToBrowser();
+      setStatus('Writing violin, strings, horns, harp, and bass around the melody.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = glueArrangement(smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid));
-      setStatus('Mixing a SoundFont onto each part.'); await yieldToBrowser();
-      const palette = choosePrebakedPalette(rawNotes);
-      const soundfontRoles = assignRoleBanks(palette);
+      setStatus('Mixing the orchestra.'); await yieldToBrowser();
+      const soundfontRoles = assignRoleBanks();
+      const palette = [];
       Object.keys(soundfontRoles).forEach(roleId => {
         const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
         if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
@@ -1470,18 +1149,18 @@ function MusicAI() {
       fitted = stampSoundfontMix(fitted, palette, soundfontRoles);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       const instrumentCount = new Set(fitted.map(note => note.role)).size;
-      const fontCount = new Set(fitted.map(note => note.bankId).filter(Boolean)).size;
+      const programs = orchestraProgramsFor(fitted);
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Bloxify',
-        reason: 'Bloxify mix · clear lead, lower bass, quiet harmony, drums through the whole file.',
+        reason: 'Bloxify orchestra · violin or flute, strings, horns, harp, piano, cello, and contrabass.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
         soundfontPalette: palette,
         soundfontRoles,
-        programs: { ...ORCHESTRA_PROGRAMS },
+        programs,
         drums: SOUND_FONT_ROLE_BANKS.drums,
       };
       planRef.current = plan; setActivePlan(plan);
@@ -1490,7 +1169,7 @@ function MusicAI() {
       setPlaybackDuration(heardEnd(fitted));
       setProgress(100);
       const songEnd = Math.max(duration || 0, fitted.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0));
-      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · lead in front');
+      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · orchestra');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -1572,9 +1251,11 @@ function MusicAI() {
           synth.controllerChange(channel, 32, 0);
         }
         synth.programChange(channel, programs[role.id] != null ? programs[role.id] : role.program);
-        if (typeof synth.controllerChange === 'function' && ROLE_VOLUME[role.id] != null) {
-          synth.controllerChange(channel, 7, ROLE_VOLUME[role.id]);
-          synth.controllerChange(channel, 10, 64);
+        const volume = mixValue(role.id, notes, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id]);
+        const pan = mixValue(role.id, notes, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_PAN, 64);
+        if (typeof synth.controllerChange === 'function' && volume != null) {
+          synth.controllerChange(channel, 7, volume);
+          synth.controllerChange(channel, 10, pan);
         }
       } catch (error) {
         console.warn('Bloxify patch setup failed for', role.id, error);
@@ -1585,8 +1266,10 @@ function MusicAI() {
   const ensureSynth = async (plan, notes) => {
     const usePlan = planWithSoundBanks(notes || arrangement, plan || planRef.current);
     planRef.current = usePlan;
+    const requiredIds = new Set((usePlan.soundfontPalette || []).map(bank => bank && bank.id).filter(Boolean));
+    const staleBank = [...loadedBanksRef.current].some(id => !requiredIds.has(id));
     let created = false;
-    if (!synthRef.current || !contextRef.current) {
+    if (!synthRef.current || !contextRef.current || staleBank) {
       if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
       if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
       loadedBanksRef.current = new Set();
@@ -1597,7 +1280,7 @@ function MusicAI() {
     }
     const synth = synthRef.current;
     const pending = (usePlan.soundfontPalette || []).filter(bank => bank && !loadedBanksRef.current.has(bank.id));
-    if (pending.length) setStatus('Mixing the SoundFont catalog…');
+    if (pending.length) setStatus(pending.every(bank => bank.id === 'general-user') ? 'Loading the orchestra.' : 'Mixing the SoundFont catalog…');
     for (const bank of pending) {
       if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
     }
@@ -1633,7 +1316,8 @@ function MusicAI() {
           try {
             synth.controllerChange(ch, 0, bank.bankOffset || 0);
             synth.controllerChange(ch, 32, 0);
-            if (ROLE_VOLUME[note.role] != null) synth.controllerChange(ch, 7, ROLE_VOLUME[note.role]);
+            const noteVolume = mixValue(note.role, arrangement, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
+            if (noteVolume != null) synth.controllerChange(ch, 7, noteVolume);
             synth.noteOn(ch, note.pitchMidi, vel);
           } catch (e) {}
         }, noteStart * 1000)

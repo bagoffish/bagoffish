@@ -1,0 +1,30 @@
+GeneralUser GS v2.0.3
+License v2.0
+S. Christian Collins
+http://www.schristiancollins.com
+
+License of the complete work
+
+You may use GeneralUser GS without restriction for your own music creation,
+private or commercial. This SoundFont bank is provided to the community free of
+charge. Please feel free to use it in your software projects, and to modify the
+SoundFont bank or its packaging to suit your needs.
+
+License of contained samples
+
+GeneralUser GS inherits the usage rights of the samples contained within, all of
+which allow full use in music production, including the ability to make profit
+from musical recordings created with GeneralUser GS.
+
+Many of the samples are original, but some were taken from other banks freely
+(and legally) available on the Internet from various SoundFont websites. Because
+GeneralUser GS originated as a personal project with no intention for
+publication, the author cannot be 100% sure where all of the samples originated,
+although none of them came from commercially published SoundFont packages or
+sample CDs. If you become aware of any restricted samples being used in
+GeneralUser GS, contact the author so they can be replaced.
+
+Bloxify ships this copy so the orchestra arrangement can play violins, violas,
+cellos, basses, horns, harp, piano, flute, and an orchestral drum kit.
+The Roblox song banks under public/soundfonts/Instruments stay in the catalog
+for saved places. This file is the GeneralUser GS bank, not a Roblox asset.
