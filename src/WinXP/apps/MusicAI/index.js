@@ -1437,20 +1437,25 @@ function MusicAI() {
     if (showProjects) loadCommunityTracks();
   }, [showProjects, loadCommunityTracks]);
 
-  const publishTrack = useCallback(async () => {
-    if (!wavBlob || publishing) return;
+  const publishTrack = useCallback(async project => {
+    if (!project || publishing) return;
     if (!playerName) { setStatus('Choose your Player List name before publishing.'); return; }
-    const name = String(projectName || '').trim();
-    if (!name) {
-      setStatus('Give your place a name before publishing.');
+    const name = String(project.name || '').trim();
+    const notes = Array.isArray(project.arrangement) ? project.arrangement : [];
+    if (!name || !notes.length) {
+      setStatus('This saved place has no arrangement to publish.');
       return;
     }
     setPublishing(true);
     try {
+      setStatus('Rendering "' + name + '" for publishing…');
+      const plan = planWithSoundBanks(notes, project.plan);
+      const duration = notes.reduce((max, note) => Math.max(max, (Number(note.startTimeSeconds) || 0) + (Number(note.durationSeconds) || 0)), 0);
+      const audioBlob = await renderCombinedWav(notes, duration, value => setProgress(value), plan);
       const form = new FormData();
       form.append('name', name);
       form.append('ownerName', playerName);
-      form.append('audio', wavBlob, name.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 48) + '.wav');
+      form.append('audio', audioBlob, name.replace(/[^a-z0-9._-]+/gi, '_').slice(0, 48) + '.wav');
       const response = await fetch(API_BASE + '/community/tracks', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Publish failed');
@@ -1461,8 +1466,9 @@ function MusicAI() {
       setStatus(error.message || 'Could not publish this track.');
     } finally {
       setPublishing(false);
+      setProgress(0);
     }
-  }, [wavBlob, publishing, projectName, playerName, loadCommunityTracks]);
+  }, [publishing, playerName, loadCommunityTracks]);
 
   const onDrop = e => { e.preventDefault(); e.stopPropagation(); const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]; if (f) convert(f); };
   const onFileInput = e => { const f = e.target.files && e.target.files[0]; if (f) convert(f); e.target.value = ''; };
@@ -1479,7 +1485,6 @@ function MusicAI() {
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
         <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Other Places</button>
-        <button type="button" style={topBtnGray} disabled={!wavBlob || publishing} onClick={publishTrack}>{publishing ? 'Publishing…' : 'Publish'}</button>
         <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#fff', textShadow: '1px 1px 0 #000' }}>{projectName}</span>
       </div>
@@ -1505,8 +1510,9 @@ function MusicAI() {
               {projects.map(p => (
                 <div key={p.id} style={{ display: 'flex', gap: 4, marginBottom: 3, alignItems: 'center' }}>
                   <button type="button" style={topBtn} onClick={() => loadProject(p)}>Load</button>
-                  <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => { const next = projects.filter(x => x.id !== p.id); setProjects(next); persistProjects(next); }}>Del</button>
-                  <span style={{ fontWeight: 'bold' }}>{p.name}</span>
+                  <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => { const next = projects.filter(x => x.id !== p.id); setProjects(next); persistProjects(next); }}>Delete</button>
+                  <button type="button" style={topBtnGray} disabled={publishing || !p.arrangement || !p.arrangement.length} onClick={() => publishTrack(p)}>{publishing ? 'Publishing…' : 'Publish'}</button>
+                  <span style={{ fontWeight: 'bold', minWidth: 0, overflowWrap: 'anywhere' }}>{p.name}</span>
                 </div>
               ))}
               <div style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community uploads</div>
