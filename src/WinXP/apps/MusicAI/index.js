@@ -5,7 +5,7 @@ import { buildRobloxArrangement, orchestraProgramsFor } from './orchestraArrange
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
-const MAX_SECONDS = 600;
+const MAX_SECONDS = 300;
 const MAX_BYTES = 120 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
 const SKY_URL = '/images/sky.png';
@@ -891,7 +891,7 @@ async function transcribeOnBackend(file, onStatus) {
     if (!Number.isFinite(duration) || duration <= 0) throw new Error('Server returned an invalid audio duration');
     return { notes, duration, aiPlan: data.aiPlan || null, stemSeparation: data.stemSeparation || 'unknown' };
   }
-  if (decoded.duration > MAX_SECONDS) throw new Error('Audio must be under 10 minutes.');
+  if (decoded.duration > MAX_SECONDS) throw new Error('Audio must be under 5 minutes.');
   const ranges = chunkRanges(decoded.samples.length, decoded.sampleRate);
   const partCount = ranges.length;
   const notes = [];
@@ -921,7 +921,7 @@ async function transcribeLocally(file, onStatus, onProgress) {
   const decodeContext = new AudioContext(); let sourceBuffer;
   try { sourceBuffer = await decodeContext.decodeAudioData(bytes.slice(0)); } finally { await decodeContext.close().catch(() => {}); }
   const duration = sourceBuffer.duration;
-  if (duration > MAX_SECONDS) throw new Error('Audio must be under 10 minutes.');
+  if (duration > MAX_SECONDS) throw new Error('Audio must be under 5 minutes.');
   onStatus('Resampling...'); await yieldToBrowser();
   const targetRate = 22050; const targetLength = Math.ceil(duration * targetRate);
   const offlineContext = new OfflineAudioContext(1, targetLength, targetRate);
@@ -1158,7 +1158,7 @@ function MusicAI() {
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Bloxify',
-        reason: 'Old Roblox MIDI · lead on the tune, octave bass, key stabs, Nokia arp, and a small kit.',
+        reason: 'Old Roblox MIDI · the heard tune, with bass, guitar, keys, pad, strings, arp, and drums moving under it for the full song.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
