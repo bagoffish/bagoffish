@@ -214,23 +214,213 @@ function pushNote(target, role, pitchMidi, startTimeSeconds, durationSeconds, am
   });
 }
 
+// SoundFont releases are chopped if playback stops on the final noteOff.
+const RELEASE_TAIL = 2;
+
+function heardEnd(notes) {
+  let maxEnd = 0;
+  (notes || []).forEach(note => {
+    maxEnd = Math.max(maxEnd, (Number(note.startTimeSeconds) || 0) + Math.max(0.05, Number(note.durationSeconds) || 0));
+  });
+  return maxEnd + RELEASE_TAIL;
+}
+
+function estimateBeatSeconds(notes) {
+  const starts = notes.map(note => note.startTimeSeconds).sort((a, b) => a - b);
+  const gaps = [];
+  for (let i = 1; i < starts.length; i++) {
+    const gap = starts[i] - starts[i - 1];
+    if (gap >= 0.14 && gap <= 1.1) gaps.push(gap);
+  }
+  if (gaps.length < 4) return 0.5;
+  gaps.sort((a, b) => a - b);
+  let beat = gaps[Math.floor(gaps.length / 2)];
+  while (beat < 0.34) beat *= 2;
+  while (beat > 0.72) beat *= 0.5;
+  return beat;
+}
+
+// Basic Pitch often ends a held tone early. Close only the short holes so
+// repeated attacks still speak, and give slow Roblox attacks time to sound.
+function sustainDetectedNotes(notes) {
+  const byPitch = new Map();
+  notes.forEach(note => {
+    const list = byPitch.get(note.pitchMidi) || [];
+    list.push(note);
+    byPitch.set(note.pitchMidi, list);
+  });
+  byPitch.forEach(list => {
+    list.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    for (let i = 0; i < list.length; i++) {
+      const note = list[i];
+      const next = list[i + 1];
+      const end = note.startTimeSeconds + note.durationSeconds;
+      const nextStart = next ? next.startTimeSeconds : end + 1.2;
+      const gap = nextStart - end;
+      const onset = Math.max(0.05, nextStart - note.startTimeSeconds);
+      if (next && gap >= 0 && gap <= 0.12) {
+        note.durationSeconds = Math.max(note.durationSeconds, onset - 0.02);
+        continue;
+      }
+      if (note.durationSeconds < 0.28) {
+        const room = Math.max(0.08, onset - 0.03);
+        note.durationSeconds = Math.min(Math.max(note.durationSeconds, 0.36), room);
+      }
+    }
+  });
+  return notes;
+}
+
+function legatoRole(notes, role, maxHold) {
+  const list = notes.filter(note => note.role === role).sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
+  for (let i = 0; i < list.length; i++) {
+    const note = list[i];
+    const next = list[i + 1];
+    const limit = next ? next.startTimeSeconds - 0.03 : note.startTimeSeconds + maxHold;
+    const target = Math.min(note.startTimeSeconds + maxHold, limit);
+    if (target - note.startTimeSeconds > note.durationSeconds) {
+      note.durationSeconds = target - note.startTimeSeconds;
+    }
+  }
+}
+
+function voiceChord(rootPc, intervals, low, high) {
+  const voices = [];
+  intervals.forEach(interval => {
+    const pc = ((rootPc + interval) % 12 + 12) % 12;
+    let pitch = low + ((pc - (low % 12) + 12) % 12);
+    if (interval >= 12) {
+      const raised = pitch + 12;
+      if (raised <= high) pitch = raised;
+    }
+    while (pitch < low) pitch += 12;
+    while (pitch > high) pitch -= 12;
+    if (pitch < low || pitch > high) return;
+    if (voices.indexOf(pitch) === -1) voices.push(pitch);
+  });
+  return voices;
+}
+
+function bedIntervals(seg, withOctave) {
+  const intervals = [0, 7];
+  if (seg.hasThird) intervals.splice(1, 0, seg.minor ? 3 : 4);
+  if (withOctave) intervals.push(12);
+  if (seg.seventh != null) intervals.push(seg.seventh);
+  return intervals;
+}
+
+function buildChordSegments(ordered, gridStart, end, beat) {
+  const harmonyStep = Math.max(0.2, beat * 0.5);
+  const windows = new Map();
+  ordered.forEach(note => {
+    const slot = Math.floor(note.startTimeSeconds / harmonyStep) * harmonyStep;
+    const weight = Math.max(0.15, Math.min(1.5, note.durationSeconds)) * (note.amplitude || 0.7);
+    const list = windows.get(slot) || [];
+    list.push({ pc: ((note.pitchMidi % 12) + 12) % 12, weight });
+    windows.set(slot, list);
+  });
+  const events = [];
+  [...windows.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
+    const weights = Array(12).fill(0);
+    values.forEach(item => { weights[item.pc] += item.weight; });
+    const present = weights.some(weight => weight > 0);
+    if (!present) return;
+    let best = null;
+    for (let rootPc = 0; rootPc < 12; rootPc++) {
+      const at = step => weights[(rootPc + step) % 12];
+      const root = at(0);
+      const fifth = at(7);
+      if (root <= 0 || fifth <= 0) continue;
+      const minorThird = at(3);
+      const majorThird = at(4);
+      const third = Math.max(minorThird, majorThird);
+      const score = root + fifth + third * 1.25;
+      if (!best || score > best.score) {
+        const flat7 = at(10);
+        const maj7 = at(11);
+        let seventh = null;
+        if (flat7 > root * 0.45 && flat7 >= maj7) seventh = 10;
+        else if (maj7 > root * 0.45) seventh = 11;
+        best = { rootPc, score, minor: minorThird > majorThird * 1.15, hasThird: third > 0, seventh };
+      }
+    }
+    if (best) events.push({ time, rootPc: best.rootPc, minor: best.minor, hasThird: best.hasThird, seventh: best.seventh });
+  });
+  const minChord = Math.max(0.9, beat * 2);
+  const stable = [];
+  events.forEach(event => {
+    const previous = stable[stable.length - 1];
+    if (!previous) {
+      stable.push({ ...event });
+      return;
+    }
+    if (event.time - previous.time < minChord) return;
+    if (previous.rootPc !== event.rootPc || previous.minor !== event.minor || previous.seventh !== event.seventh) {
+      stable.push({ ...event });
+    }
+  });
+  const fallbackRoot = ((ordered[0] && ordered[0].pitchMidi) || 60) % 12;
+  if (!stable.length) stable.push({ time: gridStart, rootPc: fallbackRoot, minor: false, hasThird: true, seventh: null });
+  const segments = stable.map((chord, index) => ({
+    start: index === 0 ? gridStart : chord.time,
+    end: index + 1 < stable.length ? stable[index + 1].time : end,
+    rootPc: chord.rootPc,
+    minor: chord.minor,
+    hasThird: chord.hasThird,
+    seventh: chord.seventh,
+  })).filter(seg => seg.end - seg.start >= 0.2);
+  if (!segments.length) segments.push({ start: gridStart, end, rootPc: fallbackRoot, minor: false, hasThird: true, seventh: null });
+  segments[0].start = gridStart;
+  segments[segments.length - 1].end = end;
+  return segments;
+}
+
+// One note per pitch for as long as that chord tone stays. Retriggering the
+// same pad every couple of seconds is what makes the SoundFont choke.
+function addSustainedPart(out, role, segments, low, high, amplitude, withOctave) {
+  const spans = new Map();
+  segments.forEach(seg => {
+    voiceChord(seg.rootPc, bedIntervals(seg, withOctave), low, high).forEach(pitch => {
+      const list = spans.get(pitch) || [];
+      const prev = list[list.length - 1];
+      if (prev && seg.start <= prev.end + 0.06) prev.end = Math.max(prev.end, seg.end);
+      else list.push({ start: seg.start, end: seg.end });
+      spans.set(pitch, list);
+    });
+  });
+  spans.forEach((list, pitch) => {
+    list.forEach(span => {
+      const dur = span.end - span.start - 0.04;
+      if (dur >= 0.35) pushNote(out, role, pitch, span.start, dur, amplitude);
+    });
+  });
+}
+
+function roleCovers(notes, role, start, end) {
+  return notes.some(note =>
+    note.role === role &&
+    note.startTimeSeconds < start + 0.08 &&
+    note.startTimeSeconds + note.durationSeconds > end - 0.1
+  );
+}
+
 function buildFullArrangement(rawNotes, duration, stylePlan) {
-  const source = cleanDetectedNotes(rawNotes || []);
+  const source = sustainDetectedNotes(cleanDetectedNotes(rawNotes || []));
   if (!source.length) return [];
 
-  // Basic Pitch supplies the performance. The pre-baked plan only steers
-  // feel. Every detected note is kept, then split and doubled into the
-  // eight instrument parts so the SoundFont mix has something to play.
-  const ai = stylePlan || {};
-  const end = Math.max(duration || 0, ...source.map(n => n.startTimeSeconds + n.durationSeconds));
-  const out = [];
+  // Basic Pitch supplies the performance. Holds, strums, and the drum bed are
+  // written here in full. A sparse server plan must not shorten them: the
+  // live API still describes half-note chops until Render can rebuild.
+  const plan = stylePlan || {};
+  const melodyOctave = [-1, 0, 1].includes(Number(plan.melodyOctave)) ? Number(plan.melodyOctave) : 0;
+  const preserveMelody = plan.preserveMelody !== false;
+  const fourOnFloor = plan.drumPattern === 'four_on_floor';
+  const detectedEnd = source.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0);
+  const end = Math.max(Number(duration) || 0, detectedEnd);
   const ordered = source.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  const harmonicComplexity = Math.max(0, Math.min(1, Number(ai.harmonicComplexity) || 0.65));
-  const bassPattern = ['root', 'octave', 'walking', 'pulse'].includes(ai.bassPattern) ? ai.bassPattern : 'octave';
-  const chordRhythm = ['sustained', 'half', 'quarter', 'syncopated'].includes(ai.chordRhythm) ? ai.chordRhythm : 'half';
-  const melodyOctave = [-1, 0, 1].includes(Number(ai.melodyOctave)) ? Number(ai.melodyOctave) : 0;
-  const density = Math.max(0.45, Math.min(1, Number(ai.density) || 0.72));
-  const drumPattern = ['basic', 'four_on_floor', 'breakbeat'].includes(ai.drumPattern) ? ai.drumPattern : 'basic';
+  const beat = estimateBeatSeconds(ordered);
+  const gridStart = Math.max(0, Math.floor(ordered[0].startTimeSeconds / beat) * beat);
+  const out = [];
 
   const clusters = [];
   const clusterForNote = new Map();
@@ -244,7 +434,7 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     clusterForNote.set(note, cluster);
   });
 
-  const medianPitch = ordered.map(n => n.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
+  const medianPitch = ordered.map(note => note.pitchMidi).sort((a, b) => a - b)[Math.floor(ordered.length / 2)] || 60;
   ordered.forEach(note => {
     const cluster = clusterForNote.get(note);
     const notesInCluster = cluster && cluster.notes.length ? cluster.notes : [note];
@@ -254,110 +444,81 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     if (note.pitchMidi === lowest && note.pitchMidi <= Math.min(52, medianPitch - 5) && note.durationSeconds >= 0.12) role = 'bass';
     else if (note.pitchMidi === highest && highest >= medianPitch - 2) role = 'vocals';
     else if (notesInCluster.length >= 3) role = 'keys';
-    const sourcePitch = role === 'vocals' && ai.preserveMelody !== false ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
-    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.78));
+    const sourcePitch = role === 'vocals' && preserveMelody ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
+    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.82));
   });
 
   if (!out.some(note => note.role === 'vocals')) {
     clusters.forEach(cluster => {
       const top = cluster.notes.slice().sort((a, b) => b.pitchMidi - a.pitchMidi)[0];
       if (!top) return;
-      pushNote(out, 'vocals', top.pitchMidi + melodyOctave * 12, top.startTimeSeconds, Math.max(0.18, top.durationSeconds), 0.62);
+      pushNote(out, 'vocals', top.pitchMidi + melodyOctave * 12, top.startTimeSeconds, Math.max(0.36, top.durationSeconds), 0.72);
     });
   }
 
-  const harmonyStep = 0.25;
-  const windows = new Map();
-  ordered.forEach(note => {
-    const slot = Math.floor(note.startTimeSeconds / harmonyStep) * harmonyStep;
-    const list = windows.get(slot) || [];
-    list.push(note);
-    windows.set(slot, list);
+  legatoRole(out, 'bass', Math.max(1.2, beat * 4));
+  legatoRole(out, 'vocals', Math.max(0.5, beat * 1.6));
+  legatoRole(out, 'guitar', Math.max(0.55, beat * 2));
+  legatoRole(out, 'keys', Math.max(0.7, beat * 2));
+
+  const segments = buildChordSegments(ordered, gridStart, end, beat);
+  addSustainedPart(out, 'keys', segments, 60, 76, 0.28, true);
+  addSustainedPart(out, 'pad', segments, 48, 67, 0.18, false);
+  addSustainedPart(out, 'strings', segments, 55, 79, 0.3, true);
+
+  out.filter(note => note.role === 'vocals' && note.durationSeconds >= 0.2).forEach(note => {
+    const shift = note.pitchMidi > 74 ? -12 : 12;
+    pushNote(out, 'strings', note.pitchMidi + shift, note.startTimeSeconds, note.durationSeconds, Math.min(0.42, (note.amplitude || 0.7) * 0.38));
   });
 
-  const chordEvents = [];
-  [...windows.entries()].sort((a, b) => a[0] - b[0]).forEach(([time, values]) => {
-    const pcs = [...new Set(values.map(n => ((n.pitchMidi % 12) + 12) % 12))];
-    if (pcs.length < 3) return;
-    let best = null;
-    pcs.forEach(rootPc => {
-      const intervals = pcs.map(pc => (pc - rootPc + 12) % 12);
-      const score = intervals.includes(0) + intervals.includes(3) + intervals.includes(4) + intervals.includes(7) + intervals.includes(10) + intervals.includes(11);
-      if (!best || score > best.score) best = { rootPc, score };
-    });
-    if (!best || best.score < 3) return;
-    chordEvents.push({ time, rootPc: best.rootPc });
-  });
-
-  const stableChords = [];
-  chordEvents.forEach(event => {
-    const previous = stableChords[stableChords.length - 1];
-    if (!previous || previous.rootPc !== event.rootPc || event.time - previous.time >= 1.0) {
-      stableChords.push(event);
-    }
-  });
-
-  const fallbackRoot = ((ordered[0] && ordered[0].pitchMidi) || 60) % 12;
-  const chordAt = time => {
-    let current = stableChords.length ? stableChords[0] : { time: 0, rootPc: fallbackRoot };
-    for (const event of stableChords) {
-      if (event.time > time) break;
-      current = event;
-    }
-    return current;
-  };
-
-  const beat = 0.5;
-  for (let t = 0; t < end; t += beat) {
-    const chord = chordAt(t);
-    const rootPc = ((chord && chord.rootPc) || fallbackRoot) % 12;
-    const beatIndex = Math.round(t / beat);
-    const hasBass = out.some(n => n.role === 'bass' && Math.abs(n.startTimeSeconds - t) < 0.28);
-    if (!hasBass) {
-      let bassPitch = 36 + rootPc;
-      if (bassPattern === 'octave' && beatIndex % 2) bassPitch += 12;
-      else if (bassPattern === 'walking') bassPitch += [0, 7, 3, 10][beatIndex % 4];
-      pushNote(out, 'bass', bassPitch, t, bassPattern === 'pulse' ? 0.2 : 0.42, 0.5);
-    }
-
-    const guitarBusy = out.some(n => n.role === 'guitar' && Math.abs(n.startTimeSeconds - t) < 0.16);
-    if (!guitarBusy && beatIndex % 2 === 1) {
-      pushNote(out, 'guitar', 52 + rootPc, t, 0.16, 0.36);
-      if (harmonicComplexity > 0.4) pushNote(out, 'guitar', 59 + rootPc, t, 0.16, 0.28);
-    }
-
-    const chordEvery = chordRhythm === 'quarter' ? 1 : chordRhythm === 'syncopated' ? 3 : chordRhythm === 'half' ? 2 : 4;
-    if (beatIndex % chordEvery === 0) {
-      const intervals = harmonicComplexity > 0.7 ? [0, 4, 7, 11] : [0, 4, 7];
-      intervals.forEach((interval, index) => {
-        pushNote(out, 'keys', 60 + rootPc + interval, t, chordRhythm === 'sustained' ? 0.95 : 0.4, 0.3 - index * 0.04);
+  const strumEvery = beat * 2;
+  segments.forEach(seg => {
+    for (let t = seg.start; t < seg.end - 0.18; t += strumEvery) {
+      const holdEnd = Math.min(seg.end, t + strumEvery);
+      if (roleCovers(out, 'guitar', t, holdEnd)) continue;
+      const room = holdEnd - t - 0.08;
+      if (room < 0.28) continue;
+      voiceChord(seg.rootPc, bedIntervals(seg, false).filter(interval => interval < 12), 52, 76).forEach((pitch, index) => {
+        pushNote(out, 'guitar', pitch, t + index * 0.018, Math.max(0.28, room - index * 0.018), 0.4 - index * 0.05);
       });
     }
-
-    if (beatIndex % 4 === 0) {
-      pushNote(out, 'pad', 60 + rootPc, t, 1.9, 0.22);
-      pushNote(out, 'pad', 67 + rootPc, t, 1.9, 0.16);
-      if (harmonicComplexity > 0.5) pushNote(out, 'pad', 64 + rootPc, t, 1.7, 0.13);
-    }
-
-    if (beatIndex % (density > 0.8 ? 1 : 2) === 0) {
-      const arpIntervals = [0, 4, 7, 12, 7, 4];
-      pushNote(out, 'arp', 72 + rootPc + arpIntervals[beatIndex % arpIntervals.length], t, 0.24, 0.34);
-    }
-  }
-
-  out.filter(note => (note.role === 'vocals' || note.role === 'guitar') && note.durationSeconds >= 0.2 && (note.amplitude || 0) >= 0.45).forEach(note => {
-    const shift = note.pitchMidi > 70 ? -12 : 12;
-    pushNote(out, 'strings', note.pitchMidi + shift, note.startTimeSeconds, Math.min(1.5, note.durationSeconds * 1.35), (note.amplitude || 0.5) * 0.4);
   });
 
-  const pulse = 0.5;
-  for (let t = 0, i = 0; t < end; t += pulse, i++) {
-    const downbeat = i % 4 === 0;
-    if (drumPattern === 'four_on_floor' || downbeat || i % 2 === 0) pushNote(out, 'drums', 36, t, 0.08, downbeat ? 0.64 : 0.42);
-    if (i % 4 === 2) pushNote(out, 'drums', 38, t, 0.08, 0.52);
-    if (i % 2 === 1) pushNote(out, 'drums', 42, t, 0.05, drumPattern === 'breakbeat' ? 0.36 : 0.24);
-    if (drumPattern === 'breakbeat' && i % 8 === 6) pushNote(out, 'drums', 46, t, 0.1, 0.32);
+  const bassStep = beat * 2;
+  segments.forEach(seg => {
+    let index = 0;
+    for (let t = seg.start; t < seg.end - 0.12; t += bassStep, index++) {
+      const holdEnd = Math.min(seg.end, t + bassStep);
+      if (roleCovers(out, 'bass', t, holdEnd)) continue;
+      let pitch = 36 + seg.rootPc;
+      if (index % 2 === 1) pitch += 12;
+      if (pitch < 30) pitch += 12;
+      const dur = holdEnd - t - 0.03;
+      if (dur >= 0.28) pushNote(out, 'bass', pitch, t, dur, 0.62);
+    }
+  });
+
+  segments.forEach(seg => {
+    const figure = seg.minor ? [0, 7, 3, 12] : [0, 7, 4, 12];
+    let index = 0;
+    for (let t = seg.start; t < seg.end - 0.08; t += beat, index++) {
+      const interval = figure[index % figure.length];
+      const pitch = 72 + ((seg.rootPc + (interval % 12)) % 12) + (interval >= 12 ? 12 : 0);
+      const dur = Math.min(beat * 0.94, seg.end - t - 0.015);
+      if (dur >= 0.16) pushNote(out, 'arp', pitch, t, dur, 0.34);
+    }
+  });
+
+  const hatStep = beat / 2;
+  for (let t = gridStart, step = 0; t < end - 0.02; t += hatStep, step++) {
+    const beatIndex = Math.floor(step / 2);
+    const onDown = step % 2 === 0;
+    const remaining = end - t;
+    const kick = onDown && (fourOnFloor || beatIndex % 2 === 0);
+    if (kick) pushNote(out, 'drums', 36, t, Math.min((fourOnFloor ? beat * 0.78 : beat * 0.82), remaining), beatIndex % 4 === 0 ? 0.72 : 0.54);
+    if (onDown && beatIndex % 2 === 1) pushNote(out, 'drums', 38, t, Math.min(beat * 0.7, remaining), 0.6);
+    const openHat = !onDown && beatIndex % 4 === 3;
+    pushNote(out, 'drums', openHat ? 46 : 42, t, Math.min(hatStep * 0.86, remaining), openHat ? 0.3 : (onDown ? 0.36 : 0.24));
   }
 
   return out
@@ -563,6 +724,94 @@ function smartQuantize(notes, preferredGrid) {
   });
 }
 
+// Overlapping notes on one channel and pitch share a noteOff, so the first
+// release kills whatever is still supposed to be sounding. Drums stay
+// separate hits; tonal parts join into a single hold.
+function glueArrangement(notes) {
+  const groups = new Map();
+  (notes || []).forEach(note => {
+    const key = note.role + ':' + Math.round(note.pitchMidi);
+    const list = groups.get(key) || [];
+    list.push({ ...note });
+    groups.set(key, list);
+  });
+  const out = [];
+  groups.forEach(list => {
+    list.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    let current = null;
+    list.forEach(note => {
+      if (note.role === 'drums') {
+        if (current) {
+          const prevEnd = current.startTimeSeconds + current.durationSeconds;
+          if (note.startTimeSeconds < prevEnd) {
+            current.durationSeconds = Math.max(0.04, note.startTimeSeconds - current.startTimeSeconds - 0.012);
+          }
+        }
+        current = { ...note, durationSeconds: Math.max(0.04, note.durationSeconds) };
+        out.push(current);
+        return;
+      }
+      if (current && note.startTimeSeconds <= current.startTimeSeconds + current.durationSeconds + 0.035) {
+        const end = Math.max(current.startTimeSeconds + current.durationSeconds, note.startTimeSeconds + note.durationSeconds);
+        current.durationSeconds = Math.max(0.05, end - current.startTimeSeconds);
+        current.amplitude = Math.max(current.amplitude || 0, note.amplitude || 0);
+        return;
+      }
+      current = { ...note, durationSeconds: Math.max(0.05, note.durationSeconds) };
+      out.push(current);
+    });
+  });
+  return out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
+}
+
+function chunkRanges(sampleCount, sampleRate) {
+  const chunkSeconds = 18;
+  const overlapSeconds = 2;
+  const chunkLength = Math.max(1, Math.floor(sampleRate * chunkSeconds));
+  const hopLength = Math.max(1, Math.floor(sampleRate * (chunkSeconds - overlapSeconds)));
+  const ranges = [];
+  if (sampleCount <= chunkLength) {
+    ranges.push({ start: 0, end: sampleCount });
+    return ranges;
+  }
+  for (let start = 0; start < sampleCount; start += hopLength) {
+    ranges.push({ start, end: Math.min(sampleCount, start + chunkLength) });
+    if (start + chunkLength >= sampleCount) break;
+  }
+  return ranges;
+}
+
+function stitchChunkNotes(notes) {
+  const sorted = (notes || []).slice().sort((a, b) => a.pitchMidi - b.pitchMidi || a.startTimeSeconds - b.startTimeSeconds);
+  const out = [];
+  sorted.forEach(note => {
+    const prev = out[out.length - 1];
+    const start = Math.max(0, Number(note.startTimeSeconds) || 0);
+    const dur = Math.max(0.05, Number(note.durationSeconds) || 0);
+    if (prev && prev.pitchMidi === note.pitchMidi && start <= prev.startTimeSeconds + prev.durationSeconds + 0.16) {
+      const end = Math.max(prev.startTimeSeconds + prev.durationSeconds, start + dur);
+      prev.durationSeconds = end - prev.startTimeSeconds;
+      prev.amplitude = Math.max(prev.amplitude || 0, note.amplitude || 0);
+      return;
+    }
+    out.push({ ...note, startTimeSeconds: start, durationSeconds: dur });
+  });
+  return out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
+}
+
+function noteOffCutsHeldNote(notes, note, offTime) {
+  const pitch = note.pitchMidi;
+  const role = note.role;
+  for (let i = 0; i < notes.length; i++) {
+    const other = notes[i];
+    if (other === note || other.role !== role || other.pitchMidi !== pitch) continue;
+    const start = other.startTimeSeconds;
+    const end = start + other.durationSeconds;
+    if (start < offTime - 0.004 && end > offTime + 0.004) return true;
+  }
+  return false;
+}
+
 
 function makeMidi(notes, programs, soundfontRoles) {
   const midi = new Midi(); midi.name = 'Robloxify'; midi.header.setTempo(120);
@@ -614,8 +863,10 @@ function encodeWav(audioBuffer) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-async function renderCombinedWav(notes, duration, onProgress) {
-  const renderDuration = Math.max(0.25, Math.min(MAX_SECONDS, duration || 0));
+async function renderCombinedWav(notes, duration, onProgress, plan) {
+  const activePlan = plan || {};
+  const musicalEnd = Math.max(0.25, Math.min(MAX_SECONDS, duration || 0));
+  const recordSeconds = Math.min(MAX_SECONDS, musicalEnd + RELEASE_TAIL);
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) throw new Error('Web Audio is unavailable in this browser.');
   if (typeof MediaRecorder === 'undefined') {
@@ -630,8 +881,7 @@ async function renderCombinedWav(notes, duration, onProgress) {
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
     synth = new WorkletSynthesizer(context);
 
-    const plan = planRef.current || {};
-    const requestedIds = Array.isArray(plan.soundfontPalette) ? plan.soundfontPalette.map(font => font && font.id).filter(Boolean) : [];
+    const requestedIds = Array.isArray(activePlan.soundfontPalette) ? activePlan.soundfontPalette.map(font => font && font.id).filter(Boolean) : [];
     const activeSoundfonts = requestedIds.length
       ? requestedIds.map(id => SOUNDFONT_LIBRARY.find(bank => bank.id === id)).filter(Boolean)
       : SOUNDFONT_LIBRARY.slice(0, 9);
@@ -673,9 +923,9 @@ async function renderCombinedWav(notes, duration, onProgress) {
     });
 
     if (typeof synth.systemReset === 'function') synth.systemReset();
-    const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
+    const programs = activePlan.programs || ORCHESTRA_PROGRAMS;
     roles.forEach(role => {
-      const bank = getRoleBank(role.id, planRef.current);
+      const bank = getRoleBank(role.id, activePlan);
       if (bank) {
         synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
         synth.controllerChange(role.channel, 32, 0);
@@ -691,8 +941,8 @@ async function renderCombinedWav(notes, duration, onProgress) {
     const lastBankByChannel = {};
     notes.forEach((note, index) => {
       const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
-      const startTime = Math.max(0, Math.min(renderDuration - 0.001, Number(note.startTimeSeconds) || 0));
-      const bank = bankForNote(note, planRef.current);
+      const startTime = Math.max(0, Math.min(musicalEnd - 0.001, Number(note.startTimeSeconds) || 0));
+      const bank = bankForNote(note, activePlan);
       if (bank && lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
         synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
@@ -700,7 +950,7 @@ async function renderCombinedWav(notes, duration, onProgress) {
       }
       const durationSeconds = Math.max(
         0.025,
-        Math.min(Number(note.durationSeconds) || 0.05, renderDuration - startTime)
+        Math.min(Number(note.durationSeconds) || 0.05, musicalEnd - startTime)
       );
       const velocity = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
 
@@ -712,7 +962,7 @@ async function renderCombinedWav(notes, duration, onProgress) {
       }
     });
 
-    await new Promise(resolve => window.setTimeout(resolve, Math.ceil((renderDuration + 0.5) * 1000)));
+    await new Promise(resolve => window.setTimeout(resolve, Math.ceil(recordSeconds * 1000)));
     onProgress && onProgress(85);
     recorder.stop();
     await recordingDone;
@@ -887,9 +1137,8 @@ async function transcribeOnBackend(file, onStatus) {
     return { notes, duration, aiPlan: data.aiPlan || null, stemSeparation: data.stemSeparation || 'unknown' };
   }
   if (decoded.duration > MAX_SECONDS) throw new Error('Audio must be under 10 minutes.');
-  const chunkSeconds = 18;
-  const chunkLength = Math.max(1, Math.floor(decoded.sampleRate * chunkSeconds));
-  const partCount = Math.ceil(decoded.samples.length / chunkLength);
+  const ranges = chunkRanges(decoded.samples.length, decoded.sampleRate);
+  const partCount = ranges.length;
   const notes = [];
   let aiPlan = null;
   for (let part = 0; part < partCount; part++) {
@@ -897,16 +1146,17 @@ async function transcribeOnBackend(file, onStatus) {
       ? 'Reading pitch, start time, and length.'
       : 'Reading pitch, start time, and length. Part ' + (part + 1) + ' of ' + partCount + '.');
     await yieldToBrowser();
-    const start = part * chunkLength;
-    const slice = decoded.samples.subarray(start, Math.min(decoded.samples.length, start + chunkLength));
+    const range = ranges[part];
+    const slice = decoded.samples.subarray(range.start, range.end);
     const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
     const piece = new File([wav], 'part-' + (part + 1) + '.wav', { type: 'audio/wav' });
     const data = await postRobloxify(piece);
     if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
-    notes.push(...usableNotes(data.notes, start / decoded.sampleRate));
+    notes.push(...usableNotes(data.notes, range.start / decoded.sampleRate));
   }
-  if (!notes.length) throw new Error('No notes detected — try a clearer song.');
-  return { notes, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
+  const stitched = stitchChunkNotes(notes);
+  if (!stitched.length) throw new Error('No notes detected — try a clearer song.');
+  return { notes: stitched, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
 }
 
 async function transcribeLocally(file, onStatus, onProgress) {
@@ -1129,7 +1379,7 @@ function MusicAI() {
       setStatus('Splitting notes into drums, bass, guitar, lead, keys, pad, strings, and arp.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
-      fitted = smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid);
+      fitted = glueArrangement(smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid));
       setStatus('Mixing a SoundFont onto each part.'); await yieldToBrowser();
       const palette = choosePrebakedPalette(rawNotes);
       const soundfontRoles = assignRoleBanks(palette);
@@ -1144,7 +1394,7 @@ function MusicAI() {
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Robloxify',
-        reason: 'Pre-baked style · eight instruments · SoundFont catalog mixed across the song.',
+        reason: 'Pre-baked style · held chords, legato bass, connected arp · eight instruments.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1157,7 +1407,7 @@ function MusicAI() {
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles));
-      setPlaybackDuration(fitted.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
+      setPlaybackDuration(heardEnd(fitted));
       setProgress(100);
       setStatus('Done — ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · ' + fontCount + ' SoundFonts mixed');
     } catch (error) {
@@ -1178,7 +1428,7 @@ function MusicAI() {
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     setMidiBlob(makeMidi(cleaned, programs, planRef.current && planRef.current.soundfontRoles));
     setWavBlob(null);
-    setPlaybackDuration(cleaned.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
+    setPlaybackDuration(heardEnd(cleaned));
   };
 
   const downloadStem = roleId => {
@@ -1195,7 +1445,7 @@ function MusicAI() {
     setStatus('Rendering combined WAV…');
     try {
       const duration = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
-      const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)));
+      const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), planRef.current);
       setWavBlob(blob);
       downloadBlob(blob, 'robloxify-combined.wav');
       setStatus('Combined WAV ready · ' + Math.round(duration * 10) / 10 + 's');
@@ -1311,9 +1561,8 @@ function MusicAI() {
     if (typeof synth.systemReset === 'function') synth.systemReset();
     configureSynthRoles(synth);
     if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
-    let maxEnd = 0;
-    arrangement.forEach(note => { maxEnd = Math.max(maxEnd, note.startTimeSeconds + Math.max(0.05, note.durationSeconds)); });
-    setPlaybackDuration(maxEnd);
+    const playEnd = heardEnd(arrangement);
+    setPlaybackDuration(playEnd);
     arrangement.filter(n => n.startTimeSeconds + n.durationSeconds > fromTime).forEach(note => {
       const ch = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 1;
       const noteStart = Math.max(0, note.startTimeSeconds - fromTime);
@@ -1321,6 +1570,7 @@ function MusicAI() {
       const dur = Math.max(0.05, note.durationSeconds - alreadyElapsed);
       const vel = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
       const bank = bankForNote(note, planRef.current);
+      const offAt = note.startTimeSeconds + note.durationSeconds;
       scheduledTimersRef.current.push(
         window.setTimeout(() => {
           try {
@@ -1330,18 +1580,22 @@ function MusicAI() {
             }
             synth.noteOn(ch, note.pitchMidi, vel);
           } catch (e) {}
-        }, noteStart * 1000),
-        window.setTimeout(() => { try { synth.noteOff(ch, note.pitchMidi); } catch (e) {} }, (noteStart + dur) * 1000)
+        }, noteStart * 1000)
       );
+      if (!noteOffCutsHeldNote(arrangement, note, offAt)) {
+        scheduledTimersRef.current.push(
+          window.setTimeout(() => { try { synth.noteOff(ch, note.pitchMidi); } catch (e) {} }, (noteStart + dur) * 1000)
+        );
+      }
     });
     seekOffsetRef.current = fromTime; playStartRef.current = performance.now(); setPlaybackTime(fromTime); setPlaying(true);
     const tick = () => {
       const elapsed = (performance.now() - playStartRef.current) / 1000 + seekOffsetRef.current;
-      setPlaybackTime(Math.min(elapsed, maxEnd));
-      if (elapsed < maxEnd) playbackRafRef.current = requestAnimationFrame(tick); else setPlaying(false);
+      setPlaybackTime(Math.min(elapsed, playEnd));
+      if (elapsed < playEnd) playbackRafRef.current = requestAnimationFrame(tick); else setPlaying(false);
     };
     playbackRafRef.current = requestAnimationFrame(tick);
-    playbackStopTimerRef.current = window.setTimeout(() => setPlaying(false), Math.max(0, (maxEnd - fromTime) * 1000) + 200);
+    playbackStopTimerRef.current = window.setTimeout(() => setPlaying(false), Math.max(0, (playEnd - fromTime) * 1000) + 40);
   };
 
   const playArrangement = async () => {
