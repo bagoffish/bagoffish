@@ -998,7 +998,7 @@ function MusicAI() {
   function readStorage(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
   function adoptStorage(key, legacy) { const current = readStorage(key); if (current != null) return current; const previous = readStorage(legacy); if (previous != null) { try { window.localStorage.setItem(key, previous); } catch (e) {} } return previous; }
   function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'robloxify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
-  function persistProjects(value) { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch (e) {} }
+  function persistProjects(value) { try { const serialized = JSON.stringify(value); window.localStorage.setItem(STORAGE_KEY, serialized); return window.localStorage.getItem(STORAGE_KEY) === serialized; } catch (e) { return false; } }
   const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
@@ -1242,12 +1242,46 @@ function MusicAI() {
     updateArrangement(arrangement.map(n => (n.id === selectedNote.id ? { ...n, ...next } : n)));
   };
 
-  const saveProject = () => {
+  const saveProject = async () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
     const playable = planWithSoundBanks(arrangement, activePlan || planRef.current);
     const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'Bloxify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id) }, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
-    setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); if (playerName) { fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) }).then(async response => { if (response.ok) { const data = await response.json(); setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100)); } }).catch(() => {}); } setStatus('Project saved');
+    if (!persistProjects(next)) { setStatus('Could not save: browser storage is full or unavailable. Delete old saved places and try again.'); return; }
+    setProjects(next);
+    writeCookie(COOKIE_KEY, project.name);
+    if (playerName) {
+      try {
+        const response = await fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'Player List backup failed');
+        setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100));
+        setStatus('Project saved on this device and to your Player List.');
+      } catch (error) {
+        setStatus('Project saved on this device, but Player List backup failed: ' + (error.message || 'server unavailable') + '.');
+      }
+    } else {
+      setStatus('Project saved on this device.');
+    }
+  };
+
+  const deleteProject = async project => {
+    const next = projects.filter(item => String(item.id) !== String(project.id));
+    if (!persistProjects(next)) { setStatus('Could not delete: browser storage is unavailable.'); return; }
+    setProjects(next);
+    setPlayerProjects(prev => prev.filter(item => String(item.id) !== String(project.id)));
+    if (playerName) {
+      try {
+        const response = await fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects/' + encodeURIComponent(project.id), { method: 'DELETE' });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || 'server deletion failed');
+        setStatus('Deleted "' + project.name + '" from saved places and Player List.');
+      } catch (error) {
+        setStatus('Deleted locally, but cloud copy could not be deleted: ' + (error.message || 'server unavailable') + '.');
+      }
+    } else {
+      setStatus('Deleted "' + project.name + '" from saved places.');
+    }
   };
 
   const loadProject = project => {
@@ -1510,7 +1544,7 @@ function MusicAI() {
               {projects.map(p => (
                 <div key={p.id} style={{ display: 'flex', gap: 4, marginBottom: 3, alignItems: 'center' }}>
                   <button type="button" style={topBtn} onClick={() => loadProject(p)}>Load</button>
-                  <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => { const next = projects.filter(x => x.id !== p.id); setProjects(next); persistProjects(next); }}>Delete</button>
+                  <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => deleteProject(p)}>Delete</button>
                   <button type="button" style={topBtnGray} disabled={publishing || !p.arrangement || !p.arrangement.length} onClick={() => publishTrack(p)}>{publishing ? 'Publishing…' : 'Publish'}</button>
                   <span style={{ fontWeight: 'bold', minWidth: 0, overflowWrap: 'anywhere' }}>{p.name}</span>
                 </div>
