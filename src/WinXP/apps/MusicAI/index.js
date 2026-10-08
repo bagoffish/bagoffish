@@ -1493,7 +1493,7 @@ function MusicAI() {
       const response = await fetch(API_BASE + '/community/tracks', { method: 'POST', body: form });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'Publish failed');
-      setStatus('Published "' + data.track.name + '" to Other Places.');
+      setStatus('Published "' + data.track.name + '" to Places.');
       await loadCommunityTracks();
       setShowProjects(true);
     } catch (error) {
@@ -1518,7 +1518,7 @@ function MusicAI() {
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
-        <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Other Places</button>
+        <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
         <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#fff', textShadow: '1px 1px 0 #000' }}>{projectName}</span>
       </div>
@@ -1538,7 +1538,7 @@ function MusicAI() {
           </div>
           {showProjects && (
             <div style={{ ...panel, padding: 6, maxHeight: 180, overflow: 'auto', fontSize: 11, flexShrink: 0 }}>
-              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>Other Places</div>
+              <div style={{ fontWeight: 'bold', marginBottom: 4 }}>Places</div>
               <div style={{ color: '#555', marginBottom: 5 }}>Your saved places</div>
               {projects.length === 0 && <div style={{ color: '#777', marginBottom: 6 }}>No saved places.</div>}
               {projects.map(p => (
