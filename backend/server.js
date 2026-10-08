@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-08-robloxify-memory";
+const BACKEND_VERSION = "2026-10-08-site-fixes";
 const ROBLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -78,10 +78,10 @@ app.get("/health", (req, res) => {
   });
 });
 
-// Full routes restored from a004370 + Demucs non-fatal fallback.
-// If this deploy is still incomplete, hard-reset main to a004370 on GitHub.
-
 const VISITOR_GITHUB_PATH = "site/visitor-count.json";
+const PLAYERS_GITHUB_PATH = "site/players.json";
+const COMMUNITY_GITHUB_INDEX = "site/community/index.json";
+const COMMUNITY_MAX_BYTES = 12 * 1024 * 1024;
 let visitorCountQueue = Promise.resolve();
 let memoryVisitorCount = 0;
 const memoryVisitorIds = new Set();
@@ -196,81 +196,140 @@ const PLAYERS_DIR = process.env.PLAYERS_DIR || path.join(DATA_ROOT, "robloxify-p
 const PLAYERS_INDEX_PATH = path.join(PLAYERS_DIR, "players.json");
 let memoryPlayers = new Map();
 
-function normalizePlayerName(value) { return String(value || "").trim().replace(/\\s+/g, " "); }
+function normalizePlayerName(value) { return String(value || "").trim().replace(/\s+/g, " "); }
 function playerKey(value) { return normalizePlayerName(value).toLocaleLowerCase(); }
 function validPlayerName(value) { return /^[A-Za-z0-9._-]{2,20}(?: [A-Za-z0-9._-]{1,20})*$/.test(value); }
 
+let playersHydrated = false;
+let playersGithubSha = "";
+let playersQueue = Promise.resolve();
+
+function enqueuePlayers(job) {
+  const pending = playersQueue.catch(() => {}).then(job);
+  playersQueue = pending;
+  return pending;
+}
+
+function playersFromList(list) {
+  const map = new Map();
+  if (Array.isArray(list)) {
+    list.forEach(player => { if (player && player.name) map.set(playerKey(player.name), player); });
+  }
+  return map;
+}
+
 async function readPlayers() {
+  if (playersHydrated) return Array.from(memoryPlayers.values());
+  if (rendererCacheEnabled()) {
+    let file = null;
+    try {
+      file = await rendererGhGet(PLAYERS_GITHUB_PATH);
+    } catch (err) {
+      console.warn("Player store GitHub read failed:", err.message);
+      file = await rendererGhGetRaw(PLAYERS_GITHUB_PATH).then((bytes) => (bytes ? { sha: "", bytes } : null));
+    }
+    if (file) {
+      playersGithubSha = file.sha;
+      memoryPlayers = playersFromList(JSON.parse(file.bytes.toString("utf8")));
+      playersHydrated = true;
+      return Array.from(memoryPlayers.values());
+    }
+  }
   try {
     await fs.promises.mkdir(PLAYERS_DIR, { recursive: true });
     const raw = await fs.promises.readFile(PLAYERS_INDEX_PATH, "utf8");
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) {
-      const map = new Map();
-      parsed.forEach(p => { if (p && p.name) map.set(playerKey(p.name), p); });
-      memoryPlayers = map;
-    }
+    memoryPlayers = playersFromList(JSON.parse(raw));
   } catch (err) {
     if (err.code !== "ENOENT" && !["EACCES","EROFS"].includes(err.code)) console.warn("Player store unavailable:", err.message);
   }
+  playersHydrated = true;
   return Array.from(memoryPlayers.values());
 }
 async function writePlayers(players) {
-  memoryPlayers = new Map(players.map(p => [playerKey(p.name), p]));
+  memoryPlayers = playersFromList(players);
+  playersHydrated = true;
+  const list = Array.from(memoryPlayers.values());
   try {
     await fs.promises.mkdir(PLAYERS_DIR, { recursive: true });
     const tmp = PLAYERS_INDEX_PATH + ".tmp";
-    await fs.promises.writeFile(tmp, JSON.stringify(players, null, 2), "utf8");
+    await fs.promises.writeFile(tmp, JSON.stringify(list), "utf8");
     await fs.promises.rename(tmp, PLAYERS_INDEX_PATH);
   } catch (err) {
-    console.warn("Player store persistence unavailable:", err.message);
+    console.warn("Player store disk write failed:", err.message);
+  }
+  if (rendererCacheEnabled()) {
+    playersGithubSha = await rendererGhPut(
+      PLAYERS_GITHUB_PATH,
+      Buffer.from(JSON.stringify(list)),
+      "Save Robloxify players",
+      playersGithubSha
+    ) || playersGithubSha;
   }
 }
 function projectsForPlayer(player) { return Array.isArray(player.projects) ? player.projects.slice(0, 100) : []; }
 
+function playerPayload(player) {
+  return {
+    ok: true,
+    player: { name: player.name, createdAt: player.createdAt },
+    projects: projectsForPlayer(player),
+    tracks: [],
+  };
+}
+
 app.post("/players/register", async (req, res) => {
   try {
-    await readPlayers();
-    const name = normalizePlayerName(req.body?.name);
-    if (!validPlayerName(name)) return res.status(400).json({ error: "Names must be 2-20 characters and use letters, numbers, spaces, dots, underscores, or hyphens." });
-    const key = playerKey(name);
-    const existing = memoryPlayers.get(key);
-    if (existing && existing.name !== name) return res.status(409).json({ error: "That player name is already taken." });
-    const player = existing || { name, createdAt: new Date().toISOString(), projects: [] };
-    memoryPlayers.set(key, player);
-    await writePlayers(Array.from(memoryPlayers.values()));
-    res.json({ ok: true, player: { name: player.name, createdAt: player.createdAt }, projects: projectsForPlayer(player), tracks: [] });
+    const outcome = await enqueuePlayers(async () => {
+      await readPlayers();
+      const name = normalizePlayerName(req.body?.name);
+      if (!validPlayerName(name)) return { status: 400, body: { error: "Names must be 2-20 characters and use letters, numbers, spaces, dots, underscores, or hyphens." } };
+      const existing = memoryPlayers.get(playerKey(name));
+      if (existing && existing.name !== name) return { status: 409, body: { error: "That player name is already taken." } };
+      const player = existing || { name, createdAt: new Date().toISOString(), projects: [] };
+      const list = Array.from(memoryPlayers.values()).filter(item => playerKey(item.name) !== playerKey(name));
+      list.push(player);
+      await writePlayers(list);
+      return { status: 200, body: playerPayload(player) };
+    });
+    res.status(outcome.status).json(outcome.body);
   } catch (err) {
+    console.warn("Player register failed:", err.message);
     res.status(500).json({ error: "Could not save player name." });
   }
 });
 app.get("/players/:name", async (req, res) => {
   try {
-    await readPlayers();
-    const name = normalizePlayerName(req.params.name);
-    const player = memoryPlayers.get(playerKey(name));
+    const player = await enqueuePlayers(async () => {
+      await readPlayers();
+      return memoryPlayers.get(playerKey(normalizePlayerName(req.params.name))) || null;
+    });
     if (!player) return res.status(404).json({ error: "Player name not found." });
     res.setHeader("Cache-Control", "no-store");
-    res.json({ player: { name: player.name, createdAt: player.createdAt }, projects: projectsForPlayer(player), tracks: [] });
+    res.json(playerPayload(player));
   } catch (err) {
+    console.warn("Player read failed:", err.message);
     res.status(500).json({ error: "Could not load player." });
   }
 });
 app.post("/players/:name/projects", async (req, res) => {
   try {
-    await readPlayers();
-    const name = normalizePlayerName(req.params.name);
-    const player = memoryPlayers.get(playerKey(name));
-    if (!player) return res.status(404).json({ error: "Player name not found." });
-    const project = req.body?.project;
-    if (!project || !project.id) return res.status(400).json({ error: "Project data required." });
-    const projects = projectsForPlayer(player).filter(p => String(p.id) !== String(project.id));
-    projects.unshift(project);
-    player.projects = projects.slice(0, 100);
-    memoryPlayers.set(playerKey(player.name), player);
-    await writePlayers(Array.from(memoryPlayers.values()));
-    res.json({ ok: true, project });
+    const outcome = await enqueuePlayers(async () => {
+      await readPlayers();
+      const name = normalizePlayerName(req.params.name);
+      const player = memoryPlayers.get(playerKey(name));
+      if (!player) return { status: 404, body: { error: "Player name not found." } };
+      const project = req.body?.project;
+      if (!project || !project.id) return { status: 400, body: { error: "Project data required." } };
+      const projects = projectsForPlayer(player).filter(item => String(item.id) !== String(project.id));
+      projects.unshift(project);
+      player.projects = projects.slice(0, 100);
+      const list = Array.from(memoryPlayers.values());
+      await writePlayers(list);
+      return { status: 200, body: { ok: true, project } };
+    });
+    res.status(outcome.status).json(outcome.body);
   } catch (err) {
+    console.warn("Player project save failed:", err.message);
     res.status(500).json({ error: "Could not save project." });
   }
 });
@@ -289,17 +348,175 @@ async function readCommunityTracks() {
 async function writeCommunityTracks(tracks) {
   await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
   const temp = COMMUNITY_INDEX_PATH + ".tmp";
-  await fs.promises.writeFile(temp, JSON.stringify(tracks.slice(0, 2000), null, 2), "utf8");
+  await fs.promises.writeFile(temp, JSON.stringify(tracks.slice(0, 200)), "utf8");
   await fs.promises.rename(temp, COMMUNITY_INDEX_PATH);
 }
-app.use("/community/audio", express.static(COMMUNITY_AUDIO_DIR, { fallthrough: false, maxAge: "1h", index: false }));
+
+let communityTracksCache = null;
+let communityIndexSha = "";
+let communityQueue = Promise.resolve();
+let communityUpload = null;
+
+function enqueueCommunity(job) {
+  const pending = communityQueue.catch(() => {}).then(job);
+  communityQueue = pending;
+  return pending;
+}
+
+function communityPublicTrack(track) {
+  return {
+    id: track.id,
+    name: track.name,
+    ownerName: track.ownerName || "",
+    file: track.file,
+    createdAt: track.createdAt,
+    audioUrl: "/community/audio/" + encodeURIComponent(track.file),
+  };
+}
+
+function safeCommunityFile(name) {
+  const file = path.basename(String(name || ""));
+  return /^[A-Za-z0-9._-]{1,80}$/.test(file) ? file : "";
+}
+
+async function loadCommunityTracks() {
+  if (communityTracksCache) return communityTracksCache;
+  if (rendererCacheEnabled()) {
+    let file = null;
+    try {
+      file = await rendererGhGet(COMMUNITY_GITHUB_INDEX);
+    } catch (err) {
+      console.warn("Community index read failed:", err.message);
+      const bytes = await rendererGhGetRaw(COMMUNITY_GITHUB_INDEX);
+      if (bytes) file = { sha: "", bytes };
+    }
+    if (file) {
+      communityIndexSha = file.sha;
+      const parsed = JSON.parse(file.bytes.toString("utf8"));
+      communityTracksCache = Array.isArray(parsed) ? parsed : [];
+      return communityTracksCache;
+    }
+  }
+  try {
+    communityTracksCache = await readCommunityTracks();
+  } catch (err) {
+    console.warn("Community disk read failed:", err.message);
+    communityTracksCache = [];
+  }
+  return communityTracksCache;
+}
+
+async function saveCommunityIndex(tracks) {
+  const next = tracks.slice(0, 200);
+  communityTracksCache = next;
+  try {
+    await writeCommunityTracks(next);
+  } catch (err) {
+    console.warn("Community disk write failed:", err.message);
+  }
+  if (rendererCacheEnabled()) {
+    communityIndexSha = await rendererGhPut(
+      COMMUNITY_GITHUB_INDEX,
+      Buffer.from(JSON.stringify(next)),
+      "Save community places",
+      communityIndexSha
+    ) || communityIndexSha;
+  }
+}
+
+async function parseCommunityUpload(req, res) {
+  if (!communityUpload) {
+    const multer = (await import("multer")).default;
+    communityUpload = multer({
+      storage: multer.diskStorage({
+        destination: (request, file, callback) => callback(null, os.tmpdir()),
+        filename: (request, file, callback) => callback(null, crypto.randomUUID() + ".upload"),
+      }),
+      limits: { fileSize: COMMUNITY_MAX_BYTES, files: 1 },
+    }).single("audio");
+  }
+  await new Promise((resolve, reject) => {
+    communityUpload(req, res, (err) => (err ? reject(err) : resolve()));
+  });
+}
+
+app.get("/community/audio/:file", async (req, res) => {
+  const file = safeCommunityFile(req.params.file);
+  if (!file) return res.status(400).end();
+  const diskPath = path.join(COMMUNITY_AUDIO_DIR, file);
+  try {
+    await fs.promises.access(diskPath);
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    return res.sendFile(diskPath);
+  } catch {
+    // The free instance disk is empty after a restart. Fall through to GitHub.
+  }
+  try {
+    if (!rendererCacheEnabled()) return res.status(404).end();
+    const bytes = await rendererGhGetRaw(`site/community/audio/${file}`);
+    if (!bytes || !bytes.length) return res.status(404).end();
+    await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
+    await fs.promises.writeFile(diskPath, bytes).catch(() => {});
+    res.setHeader("Content-Type", "audio/wav");
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(bytes);
+  } catch (err) {
+    console.warn("Community audio read failed:", err.message);
+    if (!res.headersSent) res.status(502).end();
+  }
+});
+
 app.get("/community/tracks", async (req, res) => {
   try {
-    const tracks = await readCommunityTracks();
+    const tracks = await enqueueCommunity(() => loadCommunityTracks());
     res.setHeader("Cache-Control", "no-store");
-    res.json({ tracks: tracks.map(track => ({ ...track, audioUrl: "/community/audio/" + encodeURIComponent(track.file) })) });
+    res.json({ tracks: tracks.map(communityPublicTrack) });
   } catch (err) {
+    console.warn("Community list failed:", err.message);
     res.status(500).json({ error: "Could not load community places" });
+  }
+});
+
+app.post("/community/tracks", async (req, res) => {
+  setCors(req, res);
+  let uploadPath = "";
+  try {
+    await parseCommunityUpload(req, res);
+    if (!req.file) return res.status(400).json({ error: "Audio file required" });
+    uploadPath = req.file.path;
+    const name = String(req.body?.name || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 80);
+    const ownerName = String(req.body?.ownerName || "").replace(/[\u0000-\u001f]/g, "").trim().slice(0, 40);
+    if (!name) return res.status(400).json({ error: "Give your place a name before publishing." });
+    const id = crypto.randomUUID();
+    const file = id + ".wav";
+    const bytes = await fs.promises.readFile(uploadPath);
+    await fs.promises.mkdir(COMMUNITY_AUDIO_DIR, { recursive: true });
+    await fs.promises.writeFile(path.join(COMMUNITY_AUDIO_DIR, file), bytes);
+    const track = {
+      id,
+      name,
+      ownerName,
+      file,
+      createdAt: new Date().toISOString(),
+    };
+    await enqueueCommunity(async () => {
+      if (rendererCacheEnabled()) {
+        await rendererGhPut(`site/community/audio/${file}`, bytes, `Publish community place ${name}`, "");
+      }
+      const tracks = await loadCommunityTracks();
+      await saveCommunityIndex([track, ...tracks.filter(item => item && item.id !== id)]);
+    });
+    res.json({ ok: true, track: communityPublicTrack(track) });
+  } catch (err) {
+    console.warn("Community publish failed:", err.message);
+    const tooLarge = err?.name === "MulterError" && err.code === "LIMIT_FILE_SIZE";
+    if (!res.headersSent) {
+      res.status(tooLarge ? 400 : 500).json({
+        error: tooLarge ? "Audio file is too large to publish (max 12 MB)." : "Could not publish this place.",
+      });
+    }
+  } finally {
+    if (uploadPath) await fs.promises.unlink(uploadPath).catch(() => {});
   }
 });
 
@@ -495,6 +712,17 @@ async function rendererGhGet(filePath) {
   const body = await res.json();
   const bytes = Buffer.from(body.content || "", "base64");
   return { sha: body.sha, bytes };
+}
+
+async function rendererGhGetRaw(filePath) {
+  if (!rendererCacheEnabled()) return null;
+  const url = `https://api.github.com/repos/${RENDERER_CACHE_REPO}/contents/${filePath}?ref=${encodeURIComponent(RENDERER_CACHE_BRANCH)}`;
+  const res = await fetch(url, {
+    headers: { ...rendererGhHeaders(), Accept: "application/vnd.github.raw" },
+  });
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error("renderer cache raw " + res.status);
+  return Buffer.from(await res.arrayBuffer());
 }
 
 async function rendererGhPut(filePath, bytes, message, sha, attempt = 0) {
