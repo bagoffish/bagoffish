@@ -5,27 +5,29 @@ process.env.TF_NUM_INTEROP_THREADS = process.env.TF_NUM_INTEROP_THREADS || "1";
 const { createRequire } = require("module");
 const requireFromHere = createRequire(__filename);
 
-const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "arp"];
+const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"];
 
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
 const REFERENCE_STYLE = {
-  name: "SEWH M.U.L.E / Bloxify Reference Style",
+  name: "SEWH M.U.L.E / Bloxify Orchestra",
   source: "SEWH:RECODE M.U.L.E rips",
   traits: [
-    "classic M.U.L.E. / early-Roblox MIDI character",
-    "bright synthetic lead",
-    "compact repeating motifs",
-    "root-driven bass that holds through the chord",
-    "sustained triadic harmony",
-    "connected arpeggios and notes that ring instead of choking",
-    "game-style percussion through the end of the song",
-    "lo-fi crunchy SoundFont texture",
+    "classic Roblox MIDI orchestra, not a square-wave loop",
+    "violin lead that follows the heard tune and stays in front",
+    "contrabass and cello in long notes, not constant eighths",
+    "string ensemble, horn, flute, oboe, and clarinet answering in phrases",
+    "harp broken chords, soft piano stabs, and pizzicato offbeats",
+    "trumpet only at a phrase ending",
+    "timpani on the downbeat and a short roll at the cadence",
+    "light kit: kick and snare, hats only sometimes, a rest every few bars",
+    "small timing delays so the section does not attack together",
+    "lo-fi SoundFont crunch from the Roblox banks plus GeneralUser GS",
     "vocal-less instrumental MIDI",
   ],
-  arrangement: "Keep the uploaded melody recognizable, hold chords and bass until the harmony changes, and let every part ring through the end of the song.",
-  instrumentation: "Use the complete pre-baked repository SoundFont catalog and select a compact multi-bank palette per conversion.",
+  arrangement: "Keep the uploaded melody recognizable on the violin. Write the other parts as an orchestra that breathes: one color instrument at a time, rests in the fourth bar of a phrase, and no machine-gun accompaniment.",
+  instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Play them from four banks: Roblox Soundfont 1, Wind of Fjords, GeneralUser GS, and StealthPilot drums.",
   tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
-  density: "moderate melodic lead + bass + harmony + sparse drums",
+  density: "violin lead plus a small orchestra, thinner when the tune is sparse",
 };
 
 const ROBLOX_SOUNDFONTS = [
@@ -220,27 +222,42 @@ const ROBLOX_SOUNDFONTS = [
 const SOUND_FONT_BY_ROLE = {
   drums: "stealth-drums",
   bass: "fjords",
-  guitar: "gamehero",
+  cello: "fjords",
   vocals: "roblox-1",
-  keys: "classic-days",
-  pad: "strategy",
-  strings: "fjords-hq",
-  arp: "nokia",
+  strings: "general-user",
+  horn: "general-user",
+  flute: "general-user",
+  oboe: "general-user",
+  clarinet: "general-user",
+  arp: "general-user",
+  keys: "general-user",
+  pizz: "general-user",
+  trumpet: "general-user",
+  timpani: "general-user",
+  guitar: "gamehero",
+  pad: "fjords-midi",
 };
 
-function choosePrebakedSoundfontPalette(notes) {
-  const clean = Array.isArray(notes) ? notes : [];
-  let hash = clean.length * 31;
-  for (let i = 0; i < Math.min(clean.length, 256); i += 1) {
-    hash = (hash * 33 + Math.round(Number(clean[i].pitchMidi) || 0) + Math.round((Number(clean[i].startTimeSeconds) || 0) * 10)) >>> 0;
-  }
-  const pool = ROBLOX_SOUNDFONTS.filter(font => font.id !== "stealth-drums" && font.id !== "general-user");
-  const selected = [];
-  const start = hash % pool.length;
-  const count = Math.min(8, pool.length);
-  for (let i = 0; i < count; i += 1) selected.push(pool[(start + i * 3) % pool.length]);
-  selected.unshift(ROBLOX_SOUNDFONTS.find(font => font.id === "stealth-drums"));
-  return selected.filter(Boolean);
+const STUDIED_INSTRUMENTS = [
+  { role: "vocals", name: "Violin", program: 40, bank: "roblox-1" },
+  { role: "bass", name: "Contrabass", program: 43, bank: "fjords" },
+  { role: "cello", name: "Cello", program: 42, bank: "fjords" },
+  { role: "strings", name: "String ensemble", program: 48, bank: "general-user" },
+  { role: "horn", name: "French horn", program: 60, bank: "general-user" },
+  { role: "flute", name: "Flute", program: 73, bank: "general-user" },
+  { role: "oboe", name: "Oboe", program: 68, bank: "general-user" },
+  { role: "clarinet", name: "Clarinet", program: 71, bank: "general-user" },
+  { role: "arp", name: "Orchestral harp", program: 46, bank: "general-user" },
+  { role: "keys", name: "Piano", program: 0, bank: "general-user" },
+  { role: "pizz", name: "Pizzicato strings", program: 45, bank: "general-user" },
+  { role: "trumpet", name: "Trumpet", program: 56, bank: "general-user" },
+  { role: "timpani", name: "Timpani", program: 47, bank: "general-user" },
+  { role: "drums", name: "Kit", program: 0, bank: "stealth-drums" },
+];
+
+function choosePrebakedSoundfontPalette() {
+  const ids = ["stealth-drums", "fjords", "roblox-1", "general-user"];
+  return ids.map((id) => ROBLOX_SOUNDFONTS.find((font) => font.id === id)).filter(Boolean);
 }
 
 const TARGET_RATE = 22050;
@@ -616,32 +633,28 @@ function summarize(notes, duration) {
 }
 
 function fallbackPlan(notes, duration) {
-  const palette = choosePrebakedSoundfontPalette(notes);
-  const roleBanks = {};
-  const roleIds = Object.keys(SOUND_FONT_BY_ROLE);
-  roleIds.forEach((role, index) => {
-    roleBanks[role] = palette[index % palette.length]?.id || SOUND_FONT_BY_ROLE[role];
-  });
+  const palette = choosePrebakedSoundfontPalette();
   return {
     primaryRole: "vocals",
-    supportRoles: ["bass", "keys", "arp"],
+    supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"],
     drums: true,
-    density: 0.86,
+    density: 0.62,
     swing: 0,
-    quantizeGrid: 0.125,
+    quantizeGrid: 0.25,
     preserveMelody: true,
     tempoBpm: 120,
-    harmonicComplexity: 0.8,
-    bassPattern: "octave",
-    chordRhythm: "sustained",
+    harmonicComplexity: 0.72,
+    bassPattern: "half-notes",
+    chordRhythm: "phrases",
     melodyOctave: 0,
-    drumPattern: "basic",
+    drumPattern: "light",
     referenceUrl: REFERENCE_URL,
     referenceStyle: REFERENCE_STYLE,
-    soundfontRoles: roleBanks,
+    studiedInstruments: STUDIED_INSTRUMENTS,
+    soundfontRoles: { ...SOUND_FONT_BY_ROLE },
     soundfontPalette: palette,
     soundfontCatalogSize: ROBLOX_SOUNDFONTS.length,
-    reason: "Pre-baked Bloxify arrangement with held chords, legato bass, a connected arp, and drums through the end of the song.",
+    reason: "Pre-baked Roblox orchestra. Violin on the heard tune, with bass, cello, strings, winds, harp, piano, pizzicato, trumpet, timpani, and a light kit.",
   };
 }
 

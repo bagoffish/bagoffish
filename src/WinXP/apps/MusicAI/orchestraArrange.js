@@ -1,8 +1,9 @@
-// Prebaked old-Roblox MIDI song. Basic Pitch supplies the notes that were
-// actually in the recording. The lead follows that tune. Bass, guitar, keys,
-// pad, strings, arp, and drums all move, and the pattern changes by the bar
-// so the song does not sit on one loop. A third is used only when it was
-// heard. The arrangement runs to the end of the audio, up to 5 minutes.
+// Prebaked classic-Roblox orchestra. Basic Pitch supplies the notes that were
+// actually in the recording. The violin follows that tune. Bass, cello, and
+// the GeneralUser section (strings, horn, flute, oboe, clarinet, harp, piano,
+// pizzicato, trumpet, timpani) answer it in phrases, with rests, instead of
+// one machine-gun loop. A third is used only when it was heard. The
+// arrangement runs to the end of the audio, up to 5 minutes.
 
 const MAJOR_SCALE = [0, 2, 4, 5, 7, 9, 11];
 const MINOR_SCALE = [0, 2, 3, 5, 7, 8, 10];
@@ -401,14 +402,6 @@ function lockToGrid(time, origin, step) {
   return Math.max(0, snapped);
 }
 
-function bassPitch(pc, add) {
-  const root = placeBass(36 + (((pc % 12) + 12) % 12));
-  let pitch = root + add;
-  while (pitch > 57) pitch -= 12;
-  while (pitch < 31) pitch += 12;
-  return pitch;
-}
-
 function scalePitch(pitch, key, low, high) {
   const scale = new Set(scaleFor(key.minor).map(interval => (key.rootPc + interval) % 12));
   let best = null;
@@ -426,18 +419,10 @@ function scalePitch(pitch, key, low, high) {
   return best == null ? clampMidi(pitch) : best;
 }
 
-const BASS_SHAPES = [
-  [0, 7, 12, 7, 0, 5, 7, 10],
-  [0, 2, 4, 7, 8, 7, 5, 2],
-  [0, 12, 7, 0, 12, 7, 3, 10],
-  [7, 5, 4, 2, 0, 10, 7, 0],
-];
-const ARP_SHAPES = [
-  [0, 1, 2, 1, 0, 1, 2, 1],
-  [2, 1, 0, 1, 2, 1, 0, 2],
-  [0, 2, 1, 2, 0, 2, 1, 0],
-  [0, 1, 0, 2, 1, 2, 0, 1],
-];
+function feel(base, phrase, slot) {
+  const wobble = ((phrase * 5 + slot * 3) % 5) * 0.012;
+  return Math.max(0.12, base + wobble - 0.015);
+}
 
 export function buildRobloxArrangement(rawNotes, duration) {
   const source = (rawNotes || []).filter(note =>
@@ -502,111 +487,176 @@ export function buildRobloxArrangement(rawNotes, duration) {
     return pcs.slice(0, 3);
   }
 
-  function stabVoices(pcs, at) {
-    const voices = voiceChord(pcs, 60, 74, null).slice(0, 3);
-    const leadPitches = out.filter(note => note.role === 'vocals' && Math.abs(note.startTimeSeconds - at) < beat).map(note => note.pitchMidi);
-    const filtered = voices.filter(pitch => !leadPitches.some(lead => lead === pitch));
-    return (filtered.length ? filtered : voices).slice(0, 3);
+  function leadIn(at) {
+    return gridLead.filter(note => note.start >= at - 0.02 && note.start < at + bar - 0.01);
+  }
+
+  function doublesLead(pitch, at) {
+    return gridLead.some(note => note.pitch === pitch && Math.abs(note.start - at) < beat * 0.4);
+  }
+
+  function hold(role, pitch, at, length, amplitude) {
+    if (pitch == null || at >= end - 0.05) return;
+    const dur = Math.min(length, end - at);
+    if (dur < 0.08) return;
+    pushNote(out, role, pitch, at, dur, amplitude);
+  }
+
+  function sectionColor(phrase, leadCount) {
+    if (phrase === 3) return 'none';
+    if (leadCount <= 0) return phrase === 0 || phrase === 4 ? 'horn' : 'none';
+    if (phrase === 7) return 'trumpet';
+    if (phrase === 0) return 'horn';
+    if (phrase === 4) return 'flute';
+    if (phrase === 1) return 'oboe';
+    if (phrase === 5) return 'clarinet';
+    if (phrase === 2) return 'harp';
+    if (phrase === 6) return 'piano';
+    return 'none';
   }
 
   let barStart = phase;
   while (barStart - bar > -0.03) barStart -= bar;
-  let barIndex = 0;
   for (let start = barStart; start < end - beat * 0.35; start += bar) {
-    if (start + bar < 0.08) {
-      barIndex += 1;
-      continue;
-    }
-    const at = start < 0.02 ? 0 : start;
+    if (start + bar <= phase + beat * 0.2) continue;
+    const at = Math.max(0, start);
+    if (at >= end - beat * 0.35) break;
+    const drumBar = Math.floor((at - phase + 0.001) / bar);
+    const phrase = ((drumBar % 8) + 8) % 8;
     const pcs = pcsAt(at + eighth);
     const root = pcs[0];
     const shape = pcs.length >= 2 ? pcs : pcs.concat([(root + 7) % 12]);
-    const voices = stabVoices(pcs, at);
-    const bassShape = BASS_SHAPES[barIndex % BASS_SHAPES.length];
-    const bassLen = Math.max(0.08, eighth * 0.72);
-    bassShape.forEach((add, index) => {
-      const time = at + index * eighth;
-      if (time >= end - 0.05) return;
-      const raw = bassPitch(root, add);
-      const pitch = scalePitch(raw, key, 31, 55);
-      const vel = index % 2 === 0 ? 0.7 : 0.48;
-      pushNote(out, 'bass', pitch, time, Math.min(bassLen, end - time), vel);
-    });
+    const here = leadIn(at);
+    const leadCount = here.length;
+    const color = sectionColor(phrase, leadCount);
+    const sparse = leadCount <= 1;
+    const rootPitch = scalePitch(placeBass(36 + (((root % 12) + 12) % 12)), key, 33, 43);
+    const fifthPitch = scalePitch(rootPitch + 7, key, 33, 48);
+    const nextRoot = scalePitch(placeBass(36 + pcsAt(at + bar + eighth)[0]), key, 33, 43);
 
-    const keyPattern = barIndex % 3;
-    voices.forEach((pitch, voiceIndex) => {
-      const hits = keyPattern === 0 ? [0, 2] : keyPattern === 1 ? [0, 1.5, 3] : [0, 0.5, 2, 3.5];
-      hits.forEach((beatInBar, hitIndex) => {
-        const time = at + beatInBar * beat;
-        if (time >= end - 0.05) return;
-        if (keyPattern === 2 && ((hitIndex + voiceIndex) % 2 === 1)) return;
-        const length = keyPattern === 2 ? eighth * 0.9 : beat * (hitIndex === 0 ? 0.7 : 0.45);
-        pushNote(out, 'keys', pitch, time, Math.min(length, end - time), hitIndex === 0 ? 0.52 : 0.36);
+    if (phrase === 3 || sparse) {
+      hold('bass', rootPitch, at + 0.02, bar * 0.9, feel(0.5, phrase, 0));
+    } else if (phrase === 0 || phrase === 4) {
+      hold('bass', rootPitch, at, beat * 2.7, feel(0.62, phrase, 0));
+      hold('bass', fifthPitch, at + beat * 3, beat * 0.85, feel(0.4, phrase, 1));
+    } else if (phrase === 7) {
+      hold('bass', rootPitch, at, beat * 1.85, feel(0.6, phrase, 0));
+      hold('bass', nextRoot, at + beat * 2, beat * 1.8, feel(0.52, phrase, 1));
+    } else {
+      hold('bass', rootPitch, at, beat * 1.85, feel(0.56, phrase, 0));
+      const passing = nextRoot !== rootPitch ? scalePitch(nextRoot + (nextRoot > rootPitch ? -2 : 2), key, 33, 46) : fifthPitch;
+      hold('bass', passing, at + beat * 2, beat * 1.75, feel(0.42, phrase, 1));
+    }
+
+    if (phrase === 2 || phrase === 6) {
+      const celloStart = nearestPitch(root, 48, 58, 52);
+      const step = phrase === 2 ? 2 : -2;
+      const celloNext = celloStart == null ? null : scalePitch(celloStart + step, key, 48, 62);
+      hold('cello', celloStart, at + 0.012, beat * 1.75, feel(0.5, phrase, 2));
+      if (celloNext != null && celloNext !== celloStart) hold('cello', celloNext, at + beat * 2 + 0.02, beat * 1.6, feel(0.42, phrase, 3));
+    } else if (!sparse || phrase === 0) {
+      const cello = nearestPitch(shape[Math.min(1, shape.length - 1)], 48, 60, phrase % 2 === 0 ? 52 : 55);
+      hold('cello', cello, at + (phrase % 2 === 0 ? 0 : 0.018), phrase === 3 ? bar * 0.82 : beat * 3.2, feel(phrase === 3 ? 0.36 : 0.48, phrase, 2));
+    }
+
+    const stringVoices = phrase === 3 || leadCount === 0 || color === 'none' ? 0 : 1;
+    if (stringVoices > 0) {
+      const voiced = voiceChord(shape, 55, 72, null).filter(pitch => !doublesLead(pitch, at)).slice(0, stringVoices);
+      voiced.forEach((pitch, index) => {
+        hold('strings', pitch, at + 0.032 + index * 0.012, bar * 0.78, feel(index === 0 ? 0.34 : 0.28, phrase, 4 + index));
       });
-    });
-
-    const guitarHigh = barIndex % 2 === 0;
-    for (let index = 0; index < 8; index++) {
-      if (barIndex % 4 === 2 && index % 2 === 1) continue;
-      const time = at + index * eighth + (index % 4 === 3 ? sixteenth * 0.0 : 0);
-      if (time >= end - 0.05) break;
-      const pc = shape[(index + (guitarHigh ? 1 : 0)) % shape.length];
-      const pitch = nearestPitch(pc, guitarHigh ? 57 : 50, guitarHigh ? 72 : 64, guitarHigh ? 64 : 55);
-      if (pitch == null) continue;
-      const short = index % 2 === 1;
-      pushNote(out, 'guitar', pitch, time, Math.min(short ? eighth * 0.42 : eighth * 0.8, end - time), short ? 0.34 : 0.5);
     }
 
-    const padVoices = voiceChord(shape.slice(0, 3), 52, 67, null).slice(0, 2);
-    padVoices.forEach(pitch => {
-      pushNote(out, 'pad', pitch, at, Math.min(bar * 0.88, end - at), 0.28);
-    });
-
-    const leadHere = gridLead.filter(note => note.start >= at - 0.02 && note.start < at + bar);
-    const leadPitch = leadHere.length ? leadHere[Math.floor(leadHere.length / 2)].pitch : 72;
-    [0, 2].forEach(half => {
-      const time = at + half * beat;
-      if (time >= end - 0.05) return;
-      const target = leadPitch - (half === 0 ? 8 : 5);
-      const pc = shape[(half + barIndex) % shape.length];
-      const pitched = nearestPitch(pc, 55, 76, target);
-      const pitch = pitched == null ? scalePitch(target, key, 55, 76) : pitched;
-      pushNote(out, 'strings', pitch, time, Math.min(beat * 1.7, end - time), 0.4);
-    });
-
-    const arpShape = ARP_SHAPES[barIndex % ARP_SHAPES.length];
-    for (let index = 0; index < 8; index++) {
-      if (barIndex % 4 === 3 && index % 3 === 2) continue;
-      const time = at + index * eighth;
-      if (time >= end - 0.05) break;
-      const pc = shape[arpShape[index] % shape.length];
-      const high = arpShape[index] === 2 || index >= 4;
-      const pitch = nearestPitch(pc, high ? 76 : 70, 93, high ? 86 : 76);
-      if (pitch == null) continue;
-      pushNote(out, 'arp', pitch, time, Math.max(0.08, Math.min(eighth * (index % 4 === 3 ? 0.95 : 0.55), end - time)), 0.32 + (index % 2) * 0.06);
+    if (color === 'horn') {
+      const hornRoot = nearestPitch(root, 52, 70, 60);
+      const hornFifth = nearestPitch((root + 7) % 12, 55, 74, 67);
+      if (hornRoot != null && !doublesLead(hornRoot, at)) hold('horn', hornRoot, at + 0.046, bar * 0.86, feel(0.4, phrase, 6));
+      if (phrase !== 0 && !sparse && hornFifth != null && hornFifth !== hornRoot && !doublesLead(hornFifth, at + beat * 2)) {
+        hold('horn', hornFifth, at + beat * 2 + 0.04, beat * 1.7, feel(0.32, phrase, 7));
+      }
+    } else if (color === 'oboe') {
+      const pitch = nearestPitch(shape[Math.min(1, shape.length - 1)], 64, 79, 70);
+      if (pitch != null && !doublesLead(pitch, at)) hold('oboe', pitch, at + 0.028, beat * 1.9, feel(0.38, phrase, 6));
+      if (leadCount >= 2) {
+        [1, 3].forEach((beatIn, index) => {
+          const pc = shape[index % shape.length];
+          const plucked = nearestPitch(pc, 48, 67, index === 0 ? 55 : 60);
+          hold('pizz', plucked, at + beatIn * beat, 0.15, feel(index === 0 ? 0.44 : 0.34, phrase, 8 + index));
+        });
+      }
+    } else if (color === 'clarinet') {
+      let pitch = nearestPitch(root, 58, 72, 64);
+      if (pitch != null && doublesLead(pitch, at)) pitch = nearestPitch(root, 48, 57, 52);
+      if (pitch != null && !doublesLead(pitch, at)) hold('clarinet', pitch, at + 0.04, beat * 1.7, feel(0.34, phrase, 6));
+    } else if (color === 'flute') {
+      const peak = here.slice().sort((a, b) => (b.amplitude || 0) - (a.amplitude || 0) || b.pitch - a.pitch)[0];
+      if (peak) {
+        const echoed = scalePitch(peak.pitch < 72 ? peak.pitch + 12 : peak.pitch, key, 72, 88);
+        const echoAt = peak.start + beat * 0.5 + 0.02;
+        if (!doublesLead(echoed, echoAt)) hold('flute', echoed, echoAt, beat * 0.85, feel(0.34, phrase, 6));
+      }
+    } else if (color === 'harp') {
+      const used = [];
+      for (let index = 0; index < 4; index++) {
+        const pc = shape[index % shape.length];
+        let pitch = nearestPitch(pc, index < 2 ? 60 : 72, index < 2 ? 76 : 88, index < 2 ? 67 : 79);
+        if (pitch != null && used.indexOf(pitch) !== -1) pitch = nearestPitch(pc, pitch + 1, 90, pitch + 12);
+        if (pitch == null || used.indexOf(pitch) !== -1) continue;
+        used.push(pitch);
+        hold('arp', pitch, at + index * beat + 0.012, beat * 0.72, feel(0.3 + index * 0.025, phrase, 9 + index));
+      }
+    } else if (color === 'piano') {
+      let stabs = voiceChord(shape, 60, 76, null).filter(pitch => !doublesLead(pitch, at)).slice(0, 2);
+      if (!stabs.length) {
+        const lower = nearestPitch(root, 48, 59, 53);
+        if (lower != null) stabs = [lower];
+      }
+      stabs.forEach((pitch, index) => {
+        hold('keys', pitch, at + 0.01 + index * 0.008, beat * 0.55, feel(0.32, phrase, 6 + index));
+      });
+    } else if (color === 'trumpet') {
+      const last = here.length ? here[here.length - 1].pitch : 67;
+      const first = scalePitch(last - 2, key, 60, 76);
+      const second = scalePitch(last, key, 62, 79);
+      hold('trumpet', first, at + beat, beat * 0.9, feel(0.5, phrase, 6));
+      if (second !== first) hold('trumpet', second, at + beat * 2, beat * 1.55, feel(0.58, phrase, 7));
     }
-    barIndex += 1;
+
+    if (phrase === 0 || phrase === 4) {
+      const timp = nearestPitch(root, 36, 47, 41);
+      hold('timpani', timp, at, beat * 0.85, feel(phrase === 0 ? 0.66 : 0.52, phrase, 11));
+    } else if (phrase === 7) {
+      const timp = nearestPitch(root, 36, 47, 41);
+      for (let index = 0; index < 4; index++) {
+        hold('timpani', timp, at + beat * 3 + index * Math.max(0.09, sixteenth), Math.max(0.09, sixteenth * 0.85), feel(0.34 + index * 0.06, phrase, 12 + index));
+      }
+    }
   }
 
   let time = phase;
-  while (time - eighth >= -0.001) time -= eighth;
-  if (time < -0.001) time += eighth;
-  for (; time < end - 0.04; time += eighth) {
+  while (time - beat >= -0.001) time -= beat;
+  if (time < -0.001) time += beat;
+  for (; time < end - 0.04; time += beat) {
     const hit = time < 0.02 ? 0 : time;
     const pos = ((hit - phase) % bar + bar) % bar;
-    const eighthIndex = Math.round(pos / eighth) % 8;
+    const beatIndex = ((Math.round(pos / beat) % 4) + 4) % 4;
     const drumBar = Math.floor((hit - phase + 0.001) / bar);
-    const fill = drumBar > 0 && drumBar % 4 === 3 && eighthIndex >= 6;
-    if (eighthIndex % 2 === 1) pushNote(out, 'drums', eighthIndex === 7 && drumBar % 2 === 1 ? 46 : 42, hit, Math.max(0.08, Math.min(0.12, eighth * 0.45)), eighthIndex === 7 ? 0.34 : 0.24);
-    if (!fill && drumBar % 2 === 1 && eighthIndex % 2 === 0) pushNote(out, 'drums', 42, hit + sixteenth, Math.max(0.08, sixteenth * 0.8), 0.16);
-    if (eighthIndex === 0 || eighthIndex === 4) pushNote(out, 'drums', 36, hit, Math.max(0.08, Math.min(0.18, eighth * 0.8)), eighthIndex === 0 ? 0.76 : 0.5);
-    if (!fill && (eighthIndex === 2 || eighthIndex === 6)) pushNote(out, 'drums', 38, hit, Math.max(0.08, Math.min(0.12, eighth * 0.5)), 0.62);
-    if (!fill && eighthIndex === 3 && drumBar % 2 === 0) pushNote(out, 'drums', 38, hit, Math.max(0.08, sixteenth), 0.22);
-    if (fill) {
-      pushNote(out, 'drums', eighthIndex === 6 ? 45 : 47, hit, Math.max(0.08, eighth * 0.7), 0.55);
-      pushNote(out, 'drums', 38, hit + sixteenth, Math.max(0.08, sixteenth), 0.4);
+    const phrase = ((drumBar % 8) + 8) % 8;
+    const breathe = phrase === 3;
+    const cadence = phrase === 7;
+    if (beatIndex === 0) pushNote(out, 'drums', 36, hit, 0.16, phrase === 0 ? 0.7 : 0.58);
+    if (!breathe && beatIndex === 2) pushNote(out, 'drums', 36, hit, 0.12, 0.4);
+    if (breathe && beatIndex === 2) pushNote(out, 'drums', 38, hit, 0.12, 0.38);
+    if (!breathe && (beatIndex === 1 || beatIndex === 3) && !(cadence && beatIndex === 3)) {
+      pushNote(out, 'drums', 38, hit, 0.11, beatIndex === 1 ? 0.52 : 0.44);
+      if (phrase === 2 || phrase === 5 || phrase === 6) pushNote(out, 'drums', 42, hit + 0.02, 0.08, 0.2);
     }
-    if (eighthIndex === 0 && drumBar > 0 && drumBar % 4 === 0) pushNote(out, 'drums', 49, hit, Math.min(0.4, beat), 0.32);
+    if (cadence && beatIndex === 3) {
+      pushNote(out, 'drums', 38, hit, 0.09, 0.4);
+      pushNote(out, 'drums', 38, hit + Math.max(0.09, sixteenth), 0.09, 0.5);
+      pushNote(out, 'drums', 47, hit + Math.max(0.09, sixteenth) * 2, 0.1, 0.4);
+    }
+    if (beatIndex === 0 && drumBar > 0 && phrase === 0) pushNote(out, 'drums', 49, hit, Math.min(0.4, beat), 0.3);
   }
 
   return out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
@@ -614,18 +664,23 @@ export function buildRobloxArrangement(rawNotes, duration) {
 
 export function orchestraProgramsFor(notes) {
   const leads = (notes || []).filter(note => note.role === 'vocals');
-  const durations = leads.map(note => note.durationSeconds).sort((a, b) => a - b);
-  const median = durations.length ? durations[Math.floor(durations.length / 2)] : 0.4;
-  const beat = estimateBeatSeconds(leads.length > 3 ? leads : (notes || []).filter(note => note.role !== 'drums'));
-  const flute = median < 0.16 && beat < 0.38;
+  const beat = estimateBeatSeconds(leads.length > 3 ? leads : (notes || []).filter(note => note.role !== 'drums' && note.role !== 'timpani'));
   return {
     drums: 0,
     bass: 43,
     guitar: 42,
-    vocals: flute ? 73 : 40,
+    vocals: 40,
     keys: 0,
     pad: 60,
-    strings: beat < 0.36 ? 48 : 49,
+    strings: beat < 0.4 ? 49 : 48,
     arp: 46,
+    cello: 42,
+    horn: 60,
+    flute: 73,
+    oboe: 68,
+    clarinet: 71,
+    timpani: 47,
+    pizz: 45,
+    trumpet: 56,
   };
 }
