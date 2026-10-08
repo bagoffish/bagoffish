@@ -77,6 +77,69 @@ function bankForNote(note, plan) {
   return SOUND_FONT_BY_ID[id] || getRoleBank(note && note.role, plan);
 }
 
+// Saved places used to store only the program numbers. Playback then selected
+// every default bank without calling addSoundBank, and SpessaSynth warned
+// "No preset found". Rebuild the banks from the notes, then from the saved
+// role map, then from the role defaults.
+function planWithSoundBanks(notes, savedPlan) {
+  const saved = savedPlan && typeof savedPlan === 'object' ? savedPlan : {};
+  const savedRoles = saved.soundfontRoles && typeof saved.soundfontRoles === 'object' ? saved.soundfontRoles : {};
+  const list = Array.isArray(notes) ? notes : [];
+  const usedRoles = [];
+  list.forEach(note => {
+    if (note && note.role && usedRoles.indexOf(note.role) === -1) usedRoles.push(note.role);
+  });
+  const soundfontRoles = {};
+  usedRoles.forEach(roleId => {
+    const stamped = list.find(note => note && note.role === roleId && note.bankId && SOUND_FONT_BY_ID[note.bankId]);
+    const savedId = savedRoles[roleId];
+    const id = (stamped && stamped.bankId) || (SOUND_FONT_BY_ID[savedId] ? savedId : '') || SOUND_FONT_BY_ROLE[roleId];
+    if (id && SOUND_FONT_BY_ID[id]) soundfontRoles[roleId] = id;
+  });
+  const draft = { soundfontRoles };
+  const palette = [];
+  const push = bank => {
+    if (bank && bank.id && !palette.some(font => font.id === bank.id)) palette.push(bank);
+  };
+  list.forEach(note => push(bankForNote(note, draft)));
+  usedRoles.forEach(roleId => push(getRoleBank(roleId, draft)));
+  return {
+    label: 'Bloxify Arrangement',
+    fixedStyle: true,
+    preBakedSoundFontCatalog: true,
+    soundfonts: SOUNDFONT_LIBRARY,
+    soundfontId: FIXED_SOUNDFONT_ID,
+    soundfontRoles,
+    soundfontPalette: palette,
+    programs: { ...ORCHESTRA_PROGRAMS },
+    drums: SOUND_FONT_ROLE_BANKS.drums,
+  };
+}
+
+async function addBankToSynth(synth, bank) {
+  if (!synth || !bank || !bank.url || !synth.soundBankManager) return false;
+  try {
+    let promise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
+    if (!promise) {
+      promise = fetch(bank.url, { cache: 'force-cache' }).then(response => {
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        return response.arrayBuffer();
+      }).then(buffer => {
+        SOUNDFONT_BUFFER_CACHE.set(bank.id, buffer);
+        return buffer;
+      });
+      SOUNDFONT_LOAD_PROMISES.set(bank.id, promise);
+    }
+    const cached = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await promise;
+    await synth.soundBankManager.addSoundBank(cached.slice(0), bank.id, bank.bankOffset || 0);
+    return true;
+  } catch (err) {
+    SOUNDFONT_LOAD_PROMISES.delete(bank.id);
+    console.warn('SF2 load failed', bank.name, err);
+    return false;
+  }
+}
+
 function choosePrebakedPalette(notes) {
   const clean = Array.isArray(notes) ? notes : [];
   let hash = clean.length * 31;
@@ -896,23 +959,10 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
     synth = new WorkletSynthesizer(context);
 
-    const requestedIds = Array.isArray(activePlan.soundfontPalette) ? activePlan.soundfontPalette.map(font => font && font.id).filter(Boolean) : [];
-    const activeSoundfonts = requestedIds.length
-      ? requestedIds.map(id => SOUNDFONT_LIBRARY.find(bank => bank.id === id)).filter(Boolean)
-      : SOUNDFONT_LIBRARY.slice(0, 9);
-
-    for (const bank of activeSoundfonts) {
-      let bankPromise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
-      if (!bankPromise) {
-        bankPromise = fetch(bank.url, { cache: 'force-cache' }).then(response => {
-          if (!response.ok) throw new Error('SoundFont HTTP ' + response.status);
-          return response.arrayBuffer();
-        });
-        SOUNDFONT_LOAD_PROMISES.set(bank.id, bankPromise);
-      }
-      const bankBuffer = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await bankPromise;
-      SOUNDFONT_BUFFER_CACHE.set(bank.id, bankBuffer);
-      await synth.soundBankManager.addSoundBank(bankBuffer.slice(0), bank.id, bank.bankOffset || 0);
+    const playable = planWithSoundBanks(notes, activePlan);
+    const loadedBanks = new Set();
+    for (const bank of playable.soundfontPalette) {
+      if (await addBankToSynth(synth, bank)) loadedBanks.add(bank.id);
     }
     await synth.isReady;
 
@@ -938,13 +988,14 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     });
 
     if (typeof synth.systemReset === 'function') synth.systemReset();
-    const programs = activePlan.programs || ORCHESTRA_PROGRAMS;
+    const programs = playable.programs || ORCHESTRA_PROGRAMS;
+    const usedRoles = new Set(notes.map(note => note && note.role).filter(Boolean));
     roles.forEach(role => {
-      const bank = getRoleBank(role.id, activePlan);
-      if (bank) {
-        synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
-        synth.controllerChange(role.channel, 32, 0);
-      }
+      if (!usedRoles.has(role.id)) return;
+      const bank = getRoleBank(role.id, playable);
+      if (!bank || !loadedBanks.has(bank.id)) return;
+      synth.controllerChange(role.channel, 0, bank.bankOffset || 0);
+      synth.controllerChange(role.channel, 32, 0);
       synth.programChange(role.channel, programs[role.id] != null ? programs[role.id] : role.program);
       synth.controllerChange(role.channel, 7, ROLE_VOLUME[role.id] != null ? ROLE_VOLUME[role.id] : 100);
       synth.controllerChange(role.channel, 10, 64);
@@ -959,8 +1010,9 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     notes.forEach((note, index) => {
       const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
       const startTime = Math.max(0, Math.min(musicalEnd - 0.001, Number(note.startTimeSeconds) || 0));
-      const bank = bankForNote(note, activePlan);
-      if (bank && lastBankByChannel[channel] !== bank.id) {
+      const bank = bankForNote(note, playable);
+      if (!bank || !loadedBanks.has(bank.id)) return;
+      if (lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
         synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
         if (ROLE_VOLUME[note.role] != null) synth.controllerChange(channel, 7, ROLE_VOLUME[note.role], { time: baseTime + startTime });
@@ -1266,7 +1318,7 @@ function MusicAI() {
   function adoptStorage(key, legacy) { const current = readStorage(key); if (current != null) return current; const previous = readStorage(legacy); if (previous != null) { try { window.localStorage.setItem(key, previous); } catch (e) {} } return previous; }
   function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'robloxify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
   function persistProjects(value) { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch (e) {} }
-  const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null);
+  const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
@@ -1354,6 +1406,7 @@ function MusicAI() {
   useEffect(() => () => {
     stopPlaybackInternal();
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
+    loadedBanksRef.current = new Set();
     if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
   }, []);
 
@@ -1490,7 +1543,8 @@ function MusicAI() {
 
   const saveProject = () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Bloxify Arrangement', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
+    const playable = planWithSoundBanks(arrangement, activePlan || planRef.current);
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'Bloxify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id) }, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); if (playerName) { fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) }).then(async response => { if (response.ok) { const data = await response.json(); setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100)); } }).catch(() => {}); } setStatus('Project saved');
   };
@@ -1499,26 +1553,21 @@ function MusicAI() {
     setProjectName(project.name);
     const loaded = (project.arrangement || []).map((n, i) => ({ ...n, id: n.id || i + 1 }));
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
-    const plan = {
-      ...(project.plan || {}),
-      label: 'Bloxify Arrangement',
-      fixedStyle: true,
-      soundfonts: SOUNDFONT_LIBRARY,
-      soundfontId: FIXED_SOUNDFONT_ID,
-      programs: { ...ORCHESTRA_PROGRAMS },
-      drums: SOUND_FONT_ROLE_BANKS.drums,
-    };
+    const plan = planWithSoundBanks(loaded, project.plan);
     planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs, plan.soundfontRoles, project.name)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
-  const configureSynthRoles = synth => {
+  const configureSynthRoles = (synth, notes) => {
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
+    const usedRoles = new Set((notes || []).map(note => note && note.role).filter(Boolean));
     roles.forEach(role => {
+      if (!usedRoles.has(role.id)) return;
       const bank = getRoleBank(role.id, planRef.current);
+      if (!bank || !loadedBanksRef.current.has(bank.id)) return;
       const channel = role.channel;
       try {
-        if (bank && typeof synth.controllerChange === 'function') {
+        if (typeof synth.controllerChange === 'function') {
           synth.controllerChange(channel, 0, bank.bankOffset || 0);
           synth.controllerChange(channel, 32, 0);
         }
@@ -1533,52 +1582,27 @@ function MusicAI() {
     });
   };
 
-  const ensureSynth = async plan => {
-    const usePlan = plan || planRef.current || {
-      label: 'Bloxify Arrangement',
-      fixedStyle: true,
-      soundfonts: SOUNDFONT_LIBRARY,
-      soundfontId: FIXED_SOUNDFONT_ID,
-      programs: ORCHESTRA_PROGRAMS,
-      drums: SOUND_FONT_ROLE_BANKS.drums,
-    };
-    if (synthRef.current && contextRef.current) return synthRef.current;
-    if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
-    if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
-    const context = new AudioContext(); contextRef.current = context;
-    await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
-    const synth = new WorkletSynthesizer(context);
-    const loadBank = async bank => {
-      try {
-        let promise = SOUNDFONT_LOAD_PROMISES.get(bank.id);
-        if (!promise) {
-          promise = fetch(bank.url, { cache: 'force-cache' }).then(r => {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            return r.arrayBuffer();
-          }).then(buf => {
-            SOUNDFONT_BUFFER_CACHE.set(bank.id, buf);
-            return buf;
-          });
-          SOUNDFONT_LOAD_PROMISES.set(bank.id, promise);
-        }
-        const cached = SOUNDFONT_BUFFER_CACHE.get(bank.id) || await promise;
-        await synth.soundBankManager.addSoundBank(cached.slice(0), bank.id, bank.bankOffset || 0);
-      } catch (err) {
-        SOUNDFONT_LOAD_PROMISES.delete(bank.id);
-        console.warn('SF2 load failed', bank.name, err);
-      }
-    };
-
-    setStatus('Mixing the SoundFont catalog…');
-    const requestedIds = Array.isArray(usePlan.soundfontPalette) ? usePlan.soundfontPalette.map(font => font && font.id).filter(Boolean) : [];
-    const activeBanks = requestedIds.length
-      ? requestedIds.map(id => SOUNDFONT_LIBRARY.find(bank => bank.id === id)).filter(Boolean)
-      : Object.values(usePlan.soundfontRoles || {}).map(id => SOUNDFONT_LIBRARY.find(bank => bank.id === id)).filter(Boolean);
-    const uniqueBanks = Array.from(new Map(activeBanks.map(bank => [bank.id, bank])).values());
-    for (const bank of uniqueBanks) await loadBank(bank);
-    if (synth.isReady) await synth.isReady;
-    if (typeof synth.connect === 'function') synth.connect(context.destination);
-    synthRef.current = synth; planRef.current = usePlan;
+  const ensureSynth = async (plan, notes) => {
+    const usePlan = planWithSoundBanks(notes || arrangement, plan || planRef.current);
+    planRef.current = usePlan;
+    let created = false;
+    if (!synthRef.current || !contextRef.current) {
+      if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
+      if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
+      loadedBanksRef.current = new Set();
+      const context = new AudioContext(); contextRef.current = context;
+      await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
+      synthRef.current = new WorkletSynthesizer(context);
+      created = true;
+    }
+    const synth = synthRef.current;
+    const pending = (usePlan.soundfontPalette || []).filter(bank => bank && !loadedBanksRef.current.has(bank.id));
+    if (pending.length) setStatus('Mixing the SoundFont catalog…');
+    for (const bank of pending) {
+      if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
+    }
+    if ((created || pending.length) && synth.isReady) await synth.isReady;
+    if (created && typeof synth.connect === 'function') synth.connect(context.destination);
 
     // Do not parse every SF2 file in parallel here. Large soundfonts can
     // consume enough memory/CPU to freeze the XP window. Extra banks are
@@ -1591,7 +1615,7 @@ function MusicAI() {
   const scheduleFrom = (synth, fromTime) => {
     stopPlaybackInternal();
     if (typeof synth.systemReset === 'function') synth.systemReset();
-    configureSynthRoles(synth);
+    configureSynthRoles(synth, arrangement);
     if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
     const playEnd = heardEnd(arrangement);
     setPlaybackDuration(playEnd);
@@ -1602,14 +1626,13 @@ function MusicAI() {
       const dur = Math.max(0.05, note.durationSeconds - alreadyElapsed);
       const vel = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
       const bank = bankForNote(note, planRef.current);
+      if (!bank || !loadedBanksRef.current.has(bank.id)) return;
       const offAt = note.startTimeSeconds + note.durationSeconds;
       scheduledTimersRef.current.push(
         window.setTimeout(() => {
           try {
-            if (bank) {
-              synth.controllerChange(ch, 0, bank.bankOffset || 0);
-              synth.controllerChange(ch, 32, 0);
-            }
+            synth.controllerChange(ch, 0, bank.bankOffset || 0);
+            synth.controllerChange(ch, 32, 0);
             if (ROLE_VOLUME[note.role] != null) synth.controllerChange(ch, 7, ROLE_VOLUME[note.role]);
             synth.noteOn(ch, note.pitchMidi, vel);
           } catch (e) {}
@@ -1642,7 +1665,7 @@ function MusicAI() {
         programs: ORCHESTRA_PROGRAMS,
       };
       setStatus('Mixing the SoundFont catalog…');
-      const synth = await ensureSynth(plan);
+      const synth = await ensureSynth(plan, arrangement);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
       scheduleFrom(synth, from); setStatus('Playing');
@@ -1656,7 +1679,7 @@ function MusicAI() {
     if (playing) {
       try {
         const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
-        const synth = await ensureSynth(plan);
+        const synth = await ensureSynth(plan, arrangement);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
         scheduleFrom(synth, clamped);
       } catch (e) { console.error(e); }
