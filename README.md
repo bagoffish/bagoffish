@@ -1,6 +1,10 @@
-<img src="https://capsule-render.vercel.app/api?type=rect&color=1a73b8&height=8&section=header&text=&fontSize=1" width="100%" alt="">
+<p align="center">
+  <img src="assets/header.png" alt="coy" width="100%">
+</p>
 
-# My name is Coy
+<br>
+
+My name is Coy
 
 I'm deeply into philosophy; I'm an optimistic nihilist & an antinatalist.  
 Favorite philosophers: Nietzsche, Schopenhauer, Camus & Sartre. (In order)
@@ -13,22 +17,28 @@ I'm fine with adults interacting with me if you aren't a creep.
 That's all I'll say due to limited space, just talk to me if you're interested.  
 If normal, there's 0 biting.
 
-<img src="https://capsule-render.vercel.app/api?type=rect&color=1a73b8&height=46&section=header&text=02%20%20%20INTERESTS&fontSize=16&fontColor=ffffff&fontAlign=0&fontAlignY=50" width="100%" alt="02 INTERESTS">
+<br>
+
+<img src="assets/interests.png" alt="02 INTERESTS" width="100%">
+
+<br>
 
 Hobbies: Playing guitar, writing, photographing, illustrating & dissecting  
 Genres: Philosophy, horror eroge, ero guro, body horror,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;psychological horror, speculative evolution,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;post-apocalyptic sci-fi
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;psychological horror, speculative evolution,  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;post-apocalyptic sci-fi
 
-<img src="https://capsule-render.vercel.app/api?type=rect&color=1a73b8&height=46&section=header&text=03%20%20%20RECOMMENDATIONS&fontSize=16&fontColor=ffffff&fontAlign=0&fontAlignY=50" width="100%" alt="03 RECOMMENDATIONS">
+<br>
+
+<img src="assets/recommendations.png" alt="03 RECOMMENDATIONS" width="100%">
+
+<br>
 
 TV Shows: Mr. Robot & American Gods  
 Visual Novels: Saya no Uta, Steins;Gate, Katawa Shoujo,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Teaching Feeling, Higurashi & SubaHibi  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Teaching Feeling, Higurashi & SubaHibi  
 Mangas: Tokyo Akazukin, Null-Meta, Sayonara Zetsubou Sensei, Ashizuri Suizokukan,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Shadow Star, Made in Abyss, Mai-chan's Daily Life & Shimeji Simulation  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Shadow Star, Made in Abyss, Mai-chan's Daily Life & Shimeji Simulation  
 Animes: A Silent Voice, Monster, Inuyashiki, Bungo Stray Dogs,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alien Nine, Evangelion, Parasyte, Nichijou,  
-&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Girls Last Tour, Haibane Renmei & Serial Experiments Lain
-
-<img src="https://capsule-render.vercel.app/api?type=rect&color=1a73b8&height=8&section=header&text=&fontSize=1" width="100%" alt="">
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Alien Nine, Evangelion, Parasyte, Nichijou,  
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Girls Last Tour, Haibane Renmei & Serial Experiments Lain
