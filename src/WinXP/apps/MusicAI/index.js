@@ -1,7 +1,21 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
-import { WorkletSynthesizer } from 'spessasynth_lib';
 import { buildRobloxArrangement, orchestraProgramsFor } from './orchestraArrange';
+let workletSynthesizerPromise = null;
+function loadWorkletSynthesizer() {
+  if (!workletSynthesizerPromise) {
+    workletSynthesizerPromise = import('spessasynth_lib').then(mod => {
+      const loaded = mod && (mod.WorkletSynthesizer || (mod.default && mod.default.WorkletSynthesizer));
+      if (typeof loaded !== 'function') throw new Error('SoundFont player failed to load');
+      return loaded;
+    }).catch(error => {
+      workletSynthesizerPromise = null;
+      throw error;
+    });
+  }
+  return workletSynthesizerPromise;
+}
+
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
@@ -181,48 +195,6 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
     return bankId ? { ...note, bankId } : note;
   });
 }
-const DEMUCS_MODEL_URL = 'https://huggingface.co/timcsy/demucs-web-onnx/resolve/main/htdemucs_embedded.onnx';
-let demucsProcessorPromise = null;
-let demucsLibsPromise = null;
-
-// onnxruntime-web + demucs-web are large. Load them only when converting,
-// never when the Bloxify window first opens.
-function loadDemucsLibs() {
-  if (!demucsLibsPromise) {
-    demucsLibsPromise = Promise.all([
-      import('onnxruntime-web'),
-      import('demucs-web'),
-    ]).then(([ortMod, demucsMod]) => {
-      const ort = ortMod && (ortMod.default || ortMod);
-      const demucs = demucsMod && (demucsMod.default || demucsMod);
-      return {
-        ort,
-        DemucsProcessor: demucsMod.DemucsProcessor || demucs.DemucsProcessor,
-        CONSTANTS: demucsMod.CONSTANTS || demucs.CONSTANTS || {},
-      };
-    });
-  }
-  return demucsLibsPromise;
-}
-
-function withTimeout(promise, ms, message) {
-  return Promise.race([
-    promise,
-    new Promise((_, reject) => setTimeout(() => reject(new Error(message || 'Timed out')), ms)),
-  ]);
-}
-
-// onnxruntime-web warns and drops to one thread when numThreads > 1
-// unless the document is cross-origin isolated (COOP + COEP).
-function configureOrtWasm(ort) {
-  const wasm = ort && ort.env && ort.env.wasm;
-  if (!wasm) return 1;
-  const isolated = typeof crossOriginIsolated === 'boolean' && crossOriginIsolated;
-  const cores = Math.max(1, Number(navigator.hardwareConcurrency) || 1);
-  wasm.numThreads = isolated ? Math.min(2, cores) : 1;
-  return wasm.numThreads;
-}
-
 const CLASSIC_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
 const ORCHESTRA_PROGRAMS = { drums: 0, bass: 43, guitar: 42, vocals: 40, keys: 0, pad: 60, strings: 49, arp: 46 };
 // Channel volume (CC7). Saved Roblox-font places keep the older balance.
@@ -329,12 +301,16 @@ function HealthBar({ value, max = 1, label, width = 120, height = 14, onChange }
   );
 }
 
-function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }) {
+function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration, playheadSink }) {
   const scrollRef = React.useRef(null);
+  const lineRef = React.useRef(null);
+  const dragRef = React.useRef(null);
   const [pxPerSec, setPxPerSec] = React.useState(80);
   const [fitWidth, setFitWidth] = React.useState(false);
+  const [view, setView] = React.useState({ left: 0, width: 900 });
   const rowH = 12, minPitch = 24, maxPitch = 96, pitchCount = maxPitch - minPitch + 1;
-  const resizeRef = React.useRef(null);
+  const pxRef = React.useRef(pxPerSec);
+  pxRef.current = pxPerSec;
   React.useEffect(() => {
     if (!fitWidth || !scrollRef.current) return undefined;
     const updateFit = () => {
@@ -351,6 +327,41 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
       window.removeEventListener('resize', updateFit);
     };
   }, [fitWidth, duration, notes.length]);
+  const paintLine = React.useCallback((time) => {
+    const line = lineRef.current;
+    if (!line) return;
+    if (time == null || !Number.isFinite(time)) {
+      line.style.display = 'none';
+      return;
+    }
+    line.style.display = 'block';
+    line.style.left = (time * pxRef.current) + 'px';
+  }, []);
+  React.useEffect(() => {
+    if (playheadSink) playheadSink.current = paintLine;
+    paintLine(playhead);
+    return () => {
+      if (playheadSink && playheadSink.current === paintLine) playheadSink.current = null;
+    };
+  }, [playheadSink, paintLine, playhead, pxPerSec]);
+  React.useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return undefined;
+    let frame = 0;
+    const measure = () => {
+      setView({ left: el.scrollLeft, width: el.clientWidth || 900 });
+    };
+    const onScroll = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(() => { frame = 0; measure(); });
+    };
+    measure();
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      el.removeEventListener('scroll', onScroll);
+      if (frame) window.cancelAnimationFrame(frame);
+    };
+  }, []);
   const totalDur = Math.max(duration || 4, 4, ...notes.map(n => n.startTimeSeconds + n.durationSeconds));
   const width = Math.max(400, totalDur * pxPerSec + 40);
   const height = pitchCount * rowH;
@@ -358,8 +369,15 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
   const yToPitch = y => Math.max(minPitch, Math.min(maxPitch, maxPitch - Math.floor(y / rowH)));
   const xToTime = x => Math.max(0, x / pxPerSec);
   const timeToX = t => t * pxPerSec;
-  const dragRef = React.useRef(null);
   const roleColor = id => (roles.find(r => r.id === id) || roles[2]).color;
+  const t0 = view.left / pxPerSec - 1;
+  const t1 = (view.left + view.width) / pxPerSec + 1;
+  const draggedId = dragRef.current && dragRef.current.id;
+  const visibleNotes = notes.filter(note => {
+    if (note.id === selectedId || note.id === draggedId) return true;
+    const start = note.startTimeSeconds;
+    return start < t1 && start + note.durationSeconds > t0;
+  });
   const onNotePointerDown = (e, note, mode) => {
     e.stopPropagation(); e.preventDefault(); onSelect(note.id);
     dragRef.current = { id: note.id, mode, origStart: note.startTimeSeconds, origDur: note.durationSeconds, origPitch: note.pitchMidi, startX: e.clientX, startY: e.clientY };
@@ -378,9 +396,6 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
   const onGridDoubleClick = e => {
     if (e.target !== e.currentTarget && !e.target.dataset.grid) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    // rect is the actual scrollable grid element, so getBoundingClientRect already
-    // accounts for the current scroll position. Adding scrollLeft/scrollTop again
-    // makes notes jump farther right/down after scrolling.
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
     const newNote = { id: Date.now(), pitchMidi: yToPitch(y), startTimeSeconds: Math.round(xToTime(x) * 8) / 8, durationSeconds: 0.25, amplitude: 0.85, role: 'guitar' };
@@ -402,7 +417,7 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
             const p = maxPitch - i; if (p % 12 !== 0) return null;
             return <div key={'c' + p} data-grid="1" style={{ position: 'absolute', left: 0, right: 0, top: i * rowH, height: rowH, background: 'rgba(110,153,201,0.12)', pointerEvents: 'none' }} />;
           })}
-          {notes.map(note => {
+          {visibleNotes.map(note => {
             const left = timeToX(note.startTimeSeconds), w = Math.max(4, timeToX(note.durationSeconds)), top = pitchToY(note.pitchMidi), sel = note.id === selectedId;
             const loudness = 0.42 + 0.58 * Math.max(0.12, Math.min(1, note.amplitude || 0.7));
             return (
@@ -412,7 +427,7 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
               </div>
             );
           })}
-          {playhead != null && <div style={{ position: 'absolute', left: timeToX(playhead), top: 0, bottom: 0, width: 2, background: '#f5cd2f', pointerEvents: 'none', zIndex: 5 }} />}
+          <div ref={lineRef} style={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 2, background: '#f5cd2f', pointerEvents: 'none', zIndex: 5, display: 'none' }} />
         </div>
       </div>
     </div>
@@ -600,6 +615,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
 
   try {
     await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
+    const WorkletSynthesizer = await loadWorkletSynthesizer();
     synth = new WorkletSynthesizer(context);
 
     const playable = planWithSoundBanks(notes, activePlan);
@@ -763,52 +779,6 @@ function encodeMonoFloatWav(left, right, sampleRate) {
   return new Blob([buffer], { type: 'audio/wav' });
 }
 
-async function separateVocalsAndBuildInstrumental(inputFile, onStatus, onProgress) {
-  const { ort, DemucsProcessor, CONSTANTS } = await loadDemucsLibs();
-  const DEMUCS_CONSTANTS = CONSTANTS || {};
-  if (!demucsProcessorPromise) {
-    configureOrtWasm(ort);
-    demucsProcessorPromise = (async () => {
-      const processor = new DemucsProcessor({
-        ort,
-        onProgress: info => onProgress && onProgress(8 + Math.round((Number(info && info.progress) || 0) * 52)),
-        onDownloadProgress: (loaded, total) => {
-          if (onStatus && total) onStatus('Downloading stem separator… ' + Math.round((loaded / total) * 100) + '%');
-        },
-      });
-      onStatus && onStatus('Loading stem separator…');
-      await processor.loadModel(DEMUCS_MODEL_URL);
-      return processor;
-    })().catch(error => {
-      demucsProcessorPromise = null;
-      throw error;
-    });
-  }
-  const processor = await demucsProcessorPromise;
-  onStatus && onStatus('Splitting vocals / drums / bass / other…');
-  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContextClass) throw new Error('Web Audio is unavailable for stem separation.');
-  const context = new AudioContextClass({ sampleRate: DEMUCS_CONSTANTS.SAMPLE_RATE || 44100 });
-  try {
-    const decoded = await context.decodeAudioData((await inputFile.arrayBuffer()).slice(0));
-    const left = decoded.getChannelData(0);
-    const right = decoded.numberOfChannels > 1 ? decoded.getChannelData(1) : left;
-    const stems = await processor.separate(left, right);
-    const stemLength = Math.min(stems.bass.left.length, stems.drums.left.length, stems.other.left.length, stems.bass.right.length, stems.drums.right.length, stems.other.right.length);
-    const outLeft = new Float32Array(stemLength);
-    const outRight = new Float32Array(stemLength);
-    for (let i = 0; i < stemLength; i++) {
-      outLeft[i] = Math.max(-1, Math.min(1, (stems.bass.left[i] || 0) + (stems.other.left[i] || 0) + (stems.drums.left[i] || 0) * 0.16));
-      outRight[i] = Math.max(-1, Math.min(1, (stems.bass.right[i] || 0) + (stems.other.right[i] || 0) + (stems.drums.right[i] || 0) * 0.16));
-    }
-    onProgress && onProgress(62);
-    onStatus && onStatus('Vocals removed — transcribing the instrumental…');
-    return new File([encodeMonoFloatWav(outLeft, outRight, DEMUCS_CONSTANTS.SAMPLE_RATE || 44100)], inputFile.name.replace(/\.[^.]+$/, '') + '-instrumental.wav', { type: 'audio/wav' });
-  } finally {
-    try { await context.close(); } catch (e) {}
-  }
-}
-
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -823,7 +793,11 @@ async function decodeToMono(file) {
     const mono = new Float32Array(length);
     for (let channel = 0; channel < channels; channel++) {
       const data = decoded.getChannelData(channel);
-      for (let i = 0; i < length; i++) mono[i] += data[i] / channels;
+      const scale = 1 / channels;
+      for (let i = 0; i < length; i++) {
+        mono[i] += data[i] * scale;
+        if ((i & 262143) === 0) await yieldToBrowser();
+      }
     }
     return { samples: mono, sampleRate: decoded.sampleRate, duration: decoded.duration };
   } finally {
@@ -895,12 +869,6 @@ async function serverIsAwake() {
   }
 }
 
-async function transcribeInBrowser(file, onStatus, onProgress) {
-  onStatus('Reading the song in this browser.');
-  const local = await transcribeLocally(file, onStatus, onProgress || (() => {}));
-  return { notes: local.notes, duration: local.duration, aiPlan: null, stemSeparation: 'browser' };
-}
-
 async function transcribeOnBackend(file, onStatus) {
   onStatus('Reading the audio.');
   let decoded = null;
@@ -941,92 +909,30 @@ async function transcribeOnBackend(file, onStatus) {
   return { notes: stitched, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
 }
 
-async function transcribeSong(file, onStatus, onProgress) {
+async function transcribeSong(file, onStatus) {
+  // Pitch detection in this tab loads TensorFlow on the page thread and
+  // freezes the whole desktop. Keep trying the server instead.
   onStatus('Waking the server.');
-  const awake = await serverIsAwake();
-  if (!awake) return transcribeInBrowser(file, onStatus, onProgress);
-  try {
-    return await transcribeOnBackend(file, onStatus);
-  } catch (error) {
-    if (!serverGaveUp(error)) throw error;
-    onStatus('Server stopped answering. Reading the song in this browser.');
-    return transcribeInBrowser(file, onStatus, onProgress);
-  }
-}
-
-async function transcribeLocally(file, onStatus, onProgress) {
-  onStatus('Preparing audio...'); await yieldToBrowser();
-  const bytes = await file.arrayBuffer(); await yieldToBrowser();
-  const decodeContext = new AudioContext(); let sourceBuffer;
-  try { sourceBuffer = await decodeContext.decodeAudioData(bytes.slice(0)); } finally { await decodeContext.close().catch(() => {}); }
-  const duration = sourceBuffer.duration;
-  if (duration > MAX_SECONDS) throw new Error('Audio must be under 5 minutes.');
-  onStatus('Resampling...'); await yieldToBrowser();
-  const targetRate = 22050; const targetLength = Math.ceil(duration * targetRate);
-  const offlineContext = new OfflineAudioContext(1, targetLength, targetRate);
-  const source = offlineContext.createBufferSource(); source.buffer = sourceBuffer; source.connect(offlineContext.destination); source.start(0);
-  const audioBuffer = await offlineContext.startRendering(); await yieldToBrowser();
-  onStatus('Loading model...'); await yieldToBrowser();
-  const tf = await import('@tensorflow/tfjs'); await yieldToBrowser();
-  const { BasicPitch, addPitchBendsToNoteEvents, noteFramesToTime, outputToNotesPoly } = await import('@spotify/basic-pitch'); await yieldToBrowser();
-  await tf.setBackend('cpu'); await tf.ready(); await yieldToBrowser();
-  let model;
-  try {
-    const models = await tf.io.listModels();
-    if (models['indexeddb://' + BASIC_PITCH_IDB]) {
-      onStatus('Loading cached model...');
-      model = await tf.loadGraphModel('indexeddb://' + BASIC_PITCH_IDB);
+  let lastError = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      onStatus('Server is still starting. Waiting.');
+      await sleep(5000);
     }
-  } catch (err) {
-    console.warn('Basic Pitch IndexedDB cache unavailable:', err);
-  }
-  if (!model) {
-    onStatus('Downloading model...');
-    model = await tf.loadGraphModel(MODEL_URL);
+    const awake = await serverIsAwake();
+    if (!awake) {
+      lastError = new Error('Bloxify server is still starting. Try again in a minute.');
+      continue;
+    }
     try {
-      await model.save('indexeddb://' + BASIC_PITCH_IDB);
-    } catch (err) {
-      console.warn('Could not cache Basic Pitch model:', err);
+      return await transcribeOnBackend(file, onStatus);
+    } catch (error) {
+      lastError = error;
+      if (!serverGaveUp(error)) throw error;
+      onStatus('Server stopped answering. Trying again.');
     }
   }
-  const basicPitch = new BasicPitch(model); await yieldToBrowser();
-  onStatus('Transcribing...');
-  const frames = []; const onsets = []; const contours = [];
-  let lastProgress = -1; let lastYield = performance.now();
-  await basicPitch.evaluateModel(audioBuffer, (frameBatch, onsetBatch, contourBatch) => { frames.push(...frameBatch); onsets.push(...onsetBatch); contours.push(...contourBatch); }, async value => {
-    const progress = Math.max(0, Math.min(1, value));
-    if (progress - lastProgress >= 0.02 || progress >= 1) { lastProgress = progress; onProgress(progress); onStatus('Transcribing ' + Math.round(progress * 100) + '%'); }
-    if (performance.now() - lastYield > 80) { lastYield = performance.now(); await yieldToBrowser(); }
-  });
-  await yieldToBrowser(); onStatus('Extracting notes...');
-  const primary = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.32, 0.38, 8)));
-  const sensitive = noteFramesToTime(addPitchBendsToNoteEvents(contours, outputToNotesPoly(frames, onsets, 0.22, 0.30, 6)));
-  const notes = [...(primary || [])];
-  const noteBuckets = new Map();
-  notes.forEach(note => {
-    const key = Math.round(note.startTimeSeconds / 0.045) + ':' + Math.round(note.pitchMidi);
-    noteBuckets.set(key, note);
-  });
-  (sensitive || []).forEach(note => {
-    const timeBucket = Math.round(note.startTimeSeconds / 0.045);
-    const pitch = Math.round(note.pitchMidi);
-    let duplicate = false;
-    for (let bucket = timeBucket - 1; bucket <= timeBucket + 1 && !duplicate; bucket++) {
-      const existing = noteBuckets.get(bucket + ':' + pitch);
-      if (existing &&
-          Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
-          Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12) {
-        duplicate = true;
-      }
-    }
-    if (!duplicate) {
-      notes.push(note);
-      noteBuckets.set(timeBucket + ':' + pitch, note);
-    }
-  });
-  notes.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  try { model.dispose(); } catch (e) {}
-  return { notes, duration };
+  throw lastError || new Error('Bloxify server is still starting. Try again in a minute.');
 }
 
 function MusicAI() {
@@ -1114,10 +1020,11 @@ function MusicAI() {
 
   const playbackStopTimerRef = useRef(null); const playbackRafRef = useRef(null); const conversionIdRef = useRef(0);
   const scheduledTimersRef = useRef([]); const playStartRef = useRef(0); const seekOffsetRef = useRef(0);
+  const playheadSinkRef = useRef(null); const lastUiTimeRef = useRef(0);
 
   const stopPlaybackInternal = () => {
     if (playbackStopTimerRef.current) { window.clearTimeout(playbackStopTimerRef.current); playbackStopTimerRef.current = null; }
-    if (playbackRafRef.current) { window.cancelAnimationFrame(playbackRafRef.current); playbackRafRef.current = null; }
+    if (playbackRafRef.current) { window.cancelAnimationFrame(playbackRafRef.current); window.clearTimeout(playbackRafRef.current); playbackRafRef.current = null; }
     scheduledTimersRef.current.forEach(id => clearTimeout(id)); scheduledTimersRef.current = [];
     if (synthRef.current) { try { for (let ch = 0; ch < 16; ch++) { if (typeof synthRef.current.stopAll === 'function') synthRef.current.stopAll(ch); } } catch (e) {} }
   };
@@ -1330,6 +1237,7 @@ function MusicAI() {
       loadedBanksRef.current = new Set();
       const context = new AudioContext(); contextRef.current = context;
       await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
+      const WorkletSynthesizer = await loadWorkletSynthesizer();
       synthRef.current = new WorkletSynthesizer(context);
       created = true;
     }
@@ -1357,40 +1265,62 @@ function MusicAI() {
     if (typeof synth.setMainVolume === 'function') synth.setMainVolume(volume);
     const playEnd = heardEnd(arrangement);
     setPlaybackDuration(playEnd);
-    arrangement.filter(n => n.startTimeSeconds + n.durationSeconds > fromTime).forEach(note => {
-      const ch = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 1;
-      const noteStart = Math.max(0, note.startTimeSeconds - fromTime);
-      const alreadyElapsed = Math.max(0, fromTime - note.startTimeSeconds);
-      const dur = Math.max(0.05, note.durationSeconds - alreadyElapsed);
-      const vel = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
+    const queue = arrangement.filter(note => note.startTimeSeconds + note.durationSeconds > fromTime)
+      .slice()
+      .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    let index = 0;
+    seekOffsetRef.current = fromTime;
+    playStartRef.current = performance.now();
+    lastUiTimeRef.current = -1;
+    setPlaybackTime(fromTime);
+    setPlaying(true);
+    const songNow = () => (performance.now() - playStartRef.current) / 1000 + seekOffsetRef.current;
+    const paint = (time) => {
+      const sink = playheadSinkRef.current;
+      if (typeof sink === 'function') sink(time);
+    };
+    const armNote = (note, now) => {
       const bank = bankForNote(note, planRef.current);
       if (!bank || !loadedBanksRef.current.has(bank.id)) return;
+      const ch = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 1;
+      const delay = Math.max(0, (note.startTimeSeconds - now) * 1000);
+      const dur = Math.max(0.05, note.durationSeconds - Math.max(0, now - note.startTimeSeconds));
+      const vel = Math.max(1, Math.min(127, Math.round((note.amplitude || 0.8) * 127)));
       const offAt = note.startTimeSeconds + note.durationSeconds;
-      scheduledTimersRef.current.push(
-        window.setTimeout(() => {
-          try {
-            synth.controllerChange(ch, 0, bank.bankOffset || 0);
-            synth.controllerChange(ch, 32, 0);
-            const noteVolume = mixValue(note.role, arrangement, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
-            if (noteVolume != null) synth.controllerChange(ch, 7, noteVolume);
-            synth.noteOn(ch, note.pitchMidi, vel);
-          } catch (e) {}
-        }, noteStart * 1000)
-      );
+      scheduledTimersRef.current.push(window.setTimeout(() => {
+        try {
+          synth.controllerChange(ch, 0, bank.bankOffset || 0);
+          synth.controllerChange(ch, 32, 0);
+          const noteVolume = mixValue(note.role, arrangement, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
+          if (noteVolume != null) synth.controllerChange(ch, 7, noteVolume);
+          synth.noteOn(ch, note.pitchMidi, vel);
+        } catch (e) {}
+      }, delay));
       if (!noteOffCutsHeldNote(arrangement, note, offAt)) {
-        scheduledTimersRef.current.push(
-          window.setTimeout(() => { try { synth.noteOff(ch, note.pitchMidi); } catch (e) {} }, (noteStart + dur) * 1000)
-        );
+        scheduledTimersRef.current.push(window.setTimeout(() => {
+          try { synth.noteOff(ch, note.pitchMidi); } catch (e) {}
+        }, delay + dur * 1000));
       }
-    });
-    seekOffsetRef.current = fromTime; playStartRef.current = performance.now(); setPlaybackTime(fromTime); setPlaying(true);
-    const tick = () => {
-      const elapsed = (performance.now() - playStartRef.current) / 1000 + seekOffsetRef.current;
-      setPlaybackTime(Math.min(elapsed, playEnd));
-      if (elapsed < playEnd) playbackRafRef.current = requestAnimationFrame(tick); else setPlaying(false);
     };
-    playbackRafRef.current = requestAnimationFrame(tick);
-    playbackStopTimerRef.current = window.setTimeout(() => setPlaying(false), Math.max(0, (playEnd - fromTime) * 1000) + 40);
+    const pump = () => {
+      const now = songNow();
+      paint(now);
+      if (now - lastUiTimeRef.current >= 0.25) {
+        lastUiTimeRef.current = now;
+        setPlaybackTime(Math.min(now, playEnd));
+      }
+      if (now >= playEnd) {
+        setPlaybackTime(playEnd);
+        setPlaying(false);
+        return;
+      }
+      while (index < queue.length && queue[index].startTimeSeconds <= now + 0.18) {
+        const note = queue[index++];
+        if (note.startTimeSeconds + note.durationSeconds > now) armNote(note, now);
+      }
+      playbackRafRef.current = window.setTimeout(pump, 40);
+    };
+    pump();
   };
 
   const playArrangement = async () => {
@@ -1415,6 +1345,7 @@ function MusicAI() {
 
   const seekTo = async t => {
     const clamped = Math.max(0, Math.min(playbackDuration || t, t)); setPlaybackTime(clamped);
+    if (typeof playheadSinkRef.current === 'function') playheadSinkRef.current(clamped);
     if (playing) {
       try {
         const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
@@ -1538,7 +1469,7 @@ function MusicAI() {
           </div>
           <div style={{ ...panel, padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             {viewMode === 'roll' ? (
-              <PianoRoll notes={arrangement} onChange={updateArrangement} selectedId={selectedNoteId} onSelect={setSelectedNoteId} playhead={playing || playbackTime > 0 ? playbackTime : null} duration={playbackDuration} />
+              <PianoRoll notes={arrangement} onChange={updateArrangement} selectedId={selectedNoteId} onSelect={setSelectedNoteId} playhead={playbackTime > 0 ? playbackTime : null} playheadSink={playheadSinkRef} duration={playbackDuration} />
             ) : (
               <div style={{ overflow: 'auto', flex: 1 }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
