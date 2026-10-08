@@ -813,8 +813,22 @@ function noteOffCutsHeldNote(notes, note, offTime) {
 }
 
 
-function makeMidi(notes, programs, soundfontRoles) {
-  const midi = new Midi(); midi.name = 'Robloxify'; midi.header.setTempo(120);
+function placeNameFromFile(file) {
+  const raw = String(file && file.name ? file.name : '').replace(/\\/g, '/').split('/').pop();
+  const dot = raw.lastIndexOf('.');
+  const base = (dot > 0 ? raw.slice(0, dot) : raw).trim();
+  return base || 'Untitled Place';
+}
+
+function midiDownloadName(name) {
+  const cleaned = String(name || '').trim().replace(/[\\/:*?"<>|]/g, '').trim();
+  return (cleaned || 'Untitled Place') + '.mid';
+}
+
+function makeMidi(notes, programs, soundfontRoles, name) {
+  const midi = new Midi();
+  midi.name = (name && String(name).trim()) || 'Untitled Place';
+  midi.header.setTempo(120);
   roles.forEach(role => {
     const track = midi.addTrack();
     track.name = role.label;
@@ -1339,7 +1353,8 @@ function MusicAI() {
     if (inputFile.size > MAX_BYTES) { setStatus('File too large (max 50 MB)'); return; }
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
-    setFile(inputFile); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Checking the audio file.');
+    const placeName = placeNameFromFile(inputFile);
+    setFile(inputFile); setProjectName(placeName); writeCookie(COOKIE_KEY, placeName); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Checking the audio file.');
     const loadingStartedAt = performance.now();
     const loadingTimer = window.setInterval(() => {
       if (conversionId === conversionIdRef.current) {
@@ -1406,7 +1421,7 @@ function MusicAI() {
       };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
-      setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles));
+      setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles, placeName));
       setPlaybackDuration(heardEnd(fitted));
       setProgress(100);
       setStatus('Done — ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · ' + fontCount + ' SoundFonts mixed');
@@ -1426,7 +1441,7 @@ function MusicAI() {
     const cleaned = next.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
     setArrangement(cleaned);
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
-    setMidiBlob(makeMidi(cleaned, programs, planRef.current && planRef.current.soundfontRoles));
+    setMidiBlob(makeMidi(cleaned, programs, planRef.current && planRef.current.soundfontRoles, projectName));
     setWavBlob(null);
     setPlaybackDuration(heardEnd(cleaned));
   };
@@ -1480,7 +1495,7 @@ function MusicAI() {
       programs: { ...ORCHESTRA_PROGRAMS },
       drums: SOUND_FONT_ROLE_BANKS.drums,
     };
-    planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs, plan.soundfontRoles)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
+    planRef.current = plan; setActivePlan(plan); setMidiBlob(makeMidi(loaded, plan.programs, plan.soundfontRoles, project.name)); setWavBlob(null); writeCookie(COOKIE_KEY, project.name);
     setShowProjects(false); setStatus('Loaded — ' + project.name);
   };
 
@@ -1684,7 +1699,7 @@ function MusicAI() {
       <div style={{ height: 'auto', minHeight: 28, background: 'linear-gradient(180deg, #9ec4e8 0%, #6e99c9 100%)', borderBottom: '2px solid #000', display: 'flex', alignItems: 'center', padding: '4px 6px', gap: 5, flexShrink: 0, flexWrap: 'wrap', overflow: 'hidden' }}>
         <span style={{ fontWeight: 'bold', fontSize: 13, color: '#fff', textShadow: '1px 1px 0 #000' }}>ROBLOX<span style={{ color: rbx.yellow }}>ify</span></span>
         <label style={{ ...topBtn, display: 'inline-flex' }}>Open<input type="file" accept=".mp3,.wav,.m4a,.aac,.flac,.ogg,.oga,.aif,.aiff,.webm" onChange={onFileInput} disabled={working} style={{ display: 'none' }} /></label>
-        <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, 'robloxify.mid')}>Save MIDI</button>
+        <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, midiDownloadName(projectName))}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => downloadStem(roleId))}>Save Stems</button>
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
@@ -1732,7 +1747,7 @@ function MusicAI() {
             </div>
           )}
           <div style={{ ...panel, padding: '4px 8px', display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0 }}>
-            <label style={{ fontSize: 11 }}>Place <input value={projectName} onChange={e => setProjectName(e.target.value)} style={{ width: 140, border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }} /></label>
+            <label style={{ fontSize: 11 }}>Place <input value={projectName} onChange={e => { const nextName = e.target.value; setProjectName(nextName); writeCookie(COOKIE_KEY, nextName); if (arrangement.length) { const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS; setMidiBlob(makeMidi(arrangement, programs, planRef.current && planRef.current.soundfontRoles, nextName)); } }} style={{ width: 140, border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }} /></label>
             {selectedNote && (
               <>
                 <label style={{ fontSize: 11 }}>Role <select value={selectedNote.role} onChange={e => editSelected({ role: e.target.value })} style={{ border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }}>{roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</select></label>
