@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-08-site-fixes";
+const BACKEND_VERSION = "2026-10-09-bloxify-save-delete-fix";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -40,7 +40,7 @@ function setCors(req, res) {
     res.setHeader("Access-Control-Allow-Origin", "https://bagof.fish");
     res.setHeader("Vary", "Origin");
   }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type, X-Requested-With");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
@@ -57,7 +57,7 @@ app.use(cors({
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
     return callback(null, false);
   },
-  methods: ["GET", "POST", "OPTIONS"],
+  methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Accept", "Content-Type", "X-Requested-With"],
   optionsSuccessStatus: 204,
 }));
@@ -331,6 +331,26 @@ app.post("/players/:name/projects", async (req, res) => {
   } catch (err) {
     console.warn("Player project save failed:", err.message);
     res.status(500).json({ error: "Could not save project." });
+  }
+});
+
+app.delete("/players/:name/projects/:id", async (req, res) => {
+  try {
+    const outcome = await enqueuePlayers(async () => {
+      await readPlayers();
+      const name = normalizePlayerName(req.params.name);
+      const player = memoryPlayers.get(playerKey(name));
+      if (!player) return { status: 404, body: { error: "Player name not found." } };
+      const before = projectsForPlayer(player);
+      const after = before.filter(item => String(item.id) !== String(req.params.id));
+      player.projects = after;
+      if (after.length !== before.length) await writePlayers(Array.from(memoryPlayers.values()));
+      return { status: 200, body: { ok: true, deleted: after.length !== before.length } };
+    });
+    res.status(outcome.status).json(outcome.body);
+  } catch (err) {
+    console.warn("Player project delete failed:", err.message);
+    res.status(500).json({ error: "Could not delete project." });
   }
 });
 
