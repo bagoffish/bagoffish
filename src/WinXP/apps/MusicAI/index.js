@@ -59,7 +59,9 @@ const SOUND_FONT_BY_ROLE = {
 // The three largest banks are left out of the automatic mix. Parsing them
 // with the rest of the catalog freezes the window before a note plays.
 const HEAVY_SOUNDFONT_IDS = new Set(['stealth-v2', 'strategy', 'beastmasters']);
-const CYCLE_ROLES = ['guitar', 'keys', 'pad', 'strings', 'arp'];
+// Strings stay on one saw the whole song. Cycling that harmony every few
+// seconds is what made the classic lead hard to follow.
+const CYCLE_ROLES = ['guitar', 'keys', 'pad', 'arp'];
 const ROLE_CHANNEL = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
 const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
   Object.entries(SOUND_FONT_BY_ROLE).map(([role, id]) => [role, SOUNDFONT_LIBRARY.find(bank => bank.id === id)])
@@ -184,6 +186,9 @@ function configureOrtWasm(ort) {
 }
 
 const ORCHESTRA_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
+// Channel volume (CC7). Classic Roblox MIDIs keep the square lead loudest,
+// the bass under it, and harmony and hats quiet enough that the tune stays clear.
+const ROLE_VOLUME = { drums: 96, bass: 108, guitar: 64, vocals: 122, keys: 52, pad: 36, strings: 78, arp: 56 };
 
 const roles = [
   { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
@@ -301,11 +306,9 @@ function voiceChord(rootPc, intervals, low, high) {
   return voices;
 }
 
-function bedIntervals(seg, withOctave) {
+function bedIntervals(seg) {
   const intervals = [0, 7];
   if (seg.hasThird) intervals.splice(1, 0, seg.minor ? 3 : 4);
-  if (withOctave) intervals.push(12);
-  if (seg.seventh != null) intervals.push(seg.seventh);
   return intervals;
 }
 
@@ -377,10 +380,10 @@ function buildChordSegments(ordered, gridStart, end, beat) {
 
 // One note per pitch for as long as that chord tone stays. Retriggering the
 // same pad every couple of seconds is what makes the SoundFont choke.
-function addSustainedPart(out, role, segments, low, high, amplitude, withOctave) {
+function addSustainedPart(out, role, segments, low, high, amplitude) {
   const spans = new Map();
   segments.forEach(seg => {
-    voiceChord(seg.rootPc, bedIntervals(seg, withOctave), low, high).forEach(pitch => {
+    voiceChord(seg.rootPc, bedIntervals(seg), low, high).forEach(pitch => {
       const list = spans.get(pitch) || [];
       const prev = list[list.length - 1];
       if (prev && seg.start <= prev.end + 0.06) prev.end = Math.max(prev.end, seg.end);
@@ -440,49 +443,40 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     const notesInCluster = cluster && cluster.notes.length ? cluster.notes : [note];
     const highest = Math.max.apply(null, notesInCluster.map(item => item.pitchMidi));
     const lowest = Math.min.apply(null, notesInCluster.map(item => item.pitchMidi));
-    let role = 'guitar';
-    if (note.pitchMidi === lowest && note.pitchMidi <= Math.min(52, medianPitch - 5) && note.durationSeconds >= 0.12) role = 'bass';
-    else if (note.pitchMidi === highest && highest >= medianPitch - 2) role = 'vocals';
-    else if (notesInCluster.length >= 3) role = 'keys';
-    const sourcePitch = role === 'vocals' && preserveMelody ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
-    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, Math.min(0.95, note.amplitude || 0.82));
+    const hasLineAbove = highest - note.pitchMidi >= 5;
+    let role = null;
+    if (note.pitchMidi === lowest && hasLineAbove && note.pitchMidi <= Math.min(52, medianPitch - 5) && note.durationSeconds >= 0.12) role = 'bass';
+    else if (notesInCluster.length === 1 || note.pitchMidi === highest) role = 'vocals';
+    if (!role) return;
+    let sourcePitch = role === 'vocals' && preserveMelody ? note.pitchMidi + melodyOctave * 12 : note.pitchMidi;
+    if (role === 'vocals') {
+      while (sourcePitch < 60) sourcePitch += 12;
+      while (sourcePitch > 96) sourcePitch -= 12;
+    }
+    if (role === 'bass') {
+      while (sourcePitch > 45) sourcePitch -= 12;
+      while (sourcePitch < 28) sourcePitch += 12;
+    }
+    pushNote(out, role, sourcePitch, note.startTimeSeconds, note.durationSeconds, role === 'vocals' ? 0.92 : 0.7);
   });
 
   if (!out.some(note => note.role === 'vocals')) {
     clusters.forEach(cluster => {
       const top = cluster.notes.slice().sort((a, b) => b.pitchMidi - a.pitchMidi)[0];
       if (!top) return;
-      pushNote(out, 'vocals', top.pitchMidi + melodyOctave * 12, top.startTimeSeconds, Math.max(0.36, top.durationSeconds), 0.72);
+      let pitch = top.pitchMidi + melodyOctave * 12;
+      while (pitch < 60) pitch += 12;
+      while (pitch > 96) pitch -= 12;
+      pushNote(out, 'vocals', pitch, top.startTimeSeconds, Math.max(0.36, top.durationSeconds), 0.92);
     });
   }
 
-  legatoRole(out, 'bass', Math.max(1.2, beat * 4));
-  legatoRole(out, 'vocals', Math.max(0.5, beat * 1.6));
-  legatoRole(out, 'guitar', Math.max(0.55, beat * 2));
-  legatoRole(out, 'keys', Math.max(0.7, beat * 2));
+  legatoRole(out, 'bass', Math.max(1.1, beat * 4));
+  legatoRole(out, 'vocals', Math.max(0.32, beat * 0.92));
 
   const segments = buildChordSegments(ordered, gridStart, end, beat);
-  addSustainedPart(out, 'keys', segments, 60, 76, 0.28, true);
-  addSustainedPart(out, 'pad', segments, 48, 67, 0.18, false);
-  addSustainedPart(out, 'strings', segments, 55, 79, 0.3, true);
-
-  out.filter(note => note.role === 'vocals' && note.durationSeconds >= 0.2).forEach(note => {
-    const shift = note.pitchMidi > 74 ? -12 : 12;
-    pushNote(out, 'strings', note.pitchMidi + shift, note.startTimeSeconds, note.durationSeconds, Math.min(0.42, (note.amplitude || 0.7) * 0.38));
-  });
-
-  const strumEvery = beat * 2;
-  segments.forEach(seg => {
-    for (let t = seg.start; t < seg.end - 0.18; t += strumEvery) {
-      const holdEnd = Math.min(seg.end, t + strumEvery);
-      if (roleCovers(out, 'guitar', t, holdEnd)) continue;
-      const room = holdEnd - t - 0.08;
-      if (room < 0.28) continue;
-      voiceChord(seg.rootPc, bedIntervals(seg, false).filter(interval => interval < 12), 52, 76).forEach((pitch, index) => {
-        pushNote(out, 'guitar', pitch, t + index * 0.018, Math.max(0.28, room - index * 0.018), 0.4 - index * 0.05);
-      });
-    }
-  });
+  // One saw harmony, under the lead (C3–B3) and above the bass.
+  addSustainedPart(out, 'strings', segments, 48, 59, 0.4);
 
   const bassStep = beat * 2;
   segments.forEach(seg => {
@@ -491,21 +485,11 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
       const holdEnd = Math.min(seg.end, t + bassStep);
       if (roleCovers(out, 'bass', t, holdEnd)) continue;
       let pitch = 36 + seg.rootPc;
-      if (index % 2 === 1) pitch += 12;
-      if (pitch < 30) pitch += 12;
-      const dur = holdEnd - t - 0.03;
-      if (dur >= 0.28) pushNote(out, 'bass', pitch, t, dur, 0.62);
-    }
-  });
-
-  segments.forEach(seg => {
-    const figure = seg.minor ? [0, 7, 3, 12] : [0, 7, 4, 12];
-    let index = 0;
-    for (let t = seg.start; t < seg.end - 0.08; t += beat, index++) {
-      const interval = figure[index % figure.length];
-      const pitch = 72 + ((seg.rootPc + (interval % 12)) % 12) + (interval >= 12 ? 12 : 0);
-      const dur = Math.min(beat * 0.94, seg.end - t - 0.015);
-      if (dur >= 0.16) pushNote(out, 'arp', pitch, t, dur, 0.34);
+      if (index % 2 === 1) pitch += 7;
+      while (pitch > 45) pitch -= 12;
+      while (pitch < 28) pitch += 12;
+      const dur = holdEnd - t - 0.04;
+      if (dur >= 0.28) pushNote(out, 'bass', pitch, t, dur, 0.7);
     }
   });
 
@@ -514,11 +498,14 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
     const beatIndex = Math.floor(step / 2);
     const onDown = step % 2 === 0;
     const remaining = end - t;
-    const kick = onDown && (fourOnFloor || beatIndex % 2 === 0);
-    if (kick) pushNote(out, 'drums', 36, t, Math.min((fourOnFloor ? beat * 0.78 : beat * 0.82), remaining), beatIndex % 4 === 0 ? 0.72 : 0.54);
-    if (onDown && beatIndex % 2 === 1) pushNote(out, 'drums', 38, t, Math.min(beat * 0.7, remaining), 0.6);
-    const openHat = !onDown && beatIndex % 4 === 3;
-    pushNote(out, 'drums', openHat ? 46 : 42, t, Math.min(hatStep * 0.86, remaining), openHat ? 0.3 : (onDown ? 0.36 : 0.24));
+    if (onDown) {
+      const kick = fourOnFloor || beatIndex % 2 === 0;
+      if (kick) pushNote(out, 'drums', 36, t, Math.min(beat * 0.72, remaining), beatIndex % 4 === 0 ? 0.62 : 0.48);
+      if (beatIndex % 2 === 1) pushNote(out, 'drums', 38, t, Math.min(beat * 0.55, remaining), fourOnFloor ? 0.4 : 0.52);
+    } else {
+      const openHat = beatIndex % 8 === 7;
+      pushNote(out, 'drums', openHat ? 46 : 42, t, Math.min(hatStep * 0.7, remaining), openHat ? 0.2 : 0.15);
+    }
   }
 
   return out
@@ -534,6 +521,9 @@ function makeStemMidi(notes, roleId, programs) {
   track.name = role ? role.label : roleId.toUpperCase();
   track.channel = role ? role.channel : 0;
   track.instrument.number = programs && programs[roleId] != null ? programs[roleId] : (role ? role.program : 0);
+  if (typeof track.addCC === 'function' && ROLE_VOLUME[roleId] != null) {
+    track.addCC({ controllerType: 7, value: ROLE_VOLUME[roleId] / 127, time: 0 });
+  }
   notes.filter(note => note.role === roleId).forEach(note => {
     track.addNote({
       midi: note.pitchMidi,
@@ -653,9 +643,10 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
           })}
           {notes.map(note => {
             const left = timeToX(note.startTimeSeconds), w = Math.max(4, timeToX(note.durationSeconds)), top = pitchToY(note.pitchMidi), sel = note.id === selectedId;
+            const loudness = 0.42 + 0.58 * Math.max(0.12, Math.min(1, note.amplitude || 0.7));
             return (
               <div key={note.id} onPointerDown={e => onNotePointerDown(e, note, 'move')} onPointerMove={onNotePointerMove} onPointerUp={onNotePointerUp} onPointerCancel={onNotePointerUp}
-                style={{ position: 'absolute', left, top, width: w, height: rowH - 2, marginTop: 1, background: roleColor(note.role), border: sel ? '2px solid #fff' : '1px solid #000', boxSizing: 'border-box', borderRadius: 2, cursor: 'grab', zIndex: sel ? 3 : 2, opacity: 0.92 }} title={note.role + ' · ' + note.pitchMidi}>
+                style={{ position: 'absolute', left, top, width: w, height: rowH - 2, marginTop: 1, background: roleColor(note.role), border: sel ? '2px solid #fff' : '1px solid #000', boxSizing: 'border-box', borderRadius: 2, cursor: 'grab', zIndex: sel ? 3 : 2, opacity: loudness }} title={note.role + ' · ' + note.pitchMidi + ' · vol ' + Math.round((note.amplitude || 0) * 100)}>
                 <div onPointerDown={e => onNotePointerDown(e, note, 'resize')} style={{ position: 'absolute', right: 0, top: 0, bottom: 0, width: 6, cursor: 'ew-resize', background: 'rgba(0,0,0,0.25)' }} />
               </div>
             );
@@ -769,27 +760,33 @@ function chunkRanges(sampleCount, sampleRate) {
   const overlapSeconds = 2;
   const chunkLength = Math.max(1, Math.floor(sampleRate * chunkSeconds));
   const hopLength = Math.max(1, Math.floor(sampleRate * (chunkSeconds - overlapSeconds)));
+  const minTail = Math.max(1, Math.floor(sampleRate * 8));
+  if (sampleCount <= chunkLength) return [{ start: 0, end: sampleCount }];
   const ranges = [];
-  if (sampleCount <= chunkLength) {
-    ranges.push({ start: 0, end: sampleCount });
-    return ranges;
-  }
   for (let start = 0; start < sampleCount; start += hopLength) {
-    ranges.push({ start, end: Math.min(sampleCount, start + chunkLength) });
-    if (start + chunkLength >= sampleCount) break;
+    const end = Math.min(sampleCount, start + chunkLength);
+    const shortTail = end === sampleCount && end - start < minTail;
+    const from = shortTail ? Math.max(0, sampleCount - chunkLength) : start;
+    const last = ranges[ranges.length - 1];
+    if (!last || last.start !== from || last.end !== end) ranges.push({ start: from, end });
+    if (end >= sampleCount) break;
   }
   return ranges;
 }
 
-function stitchChunkNotes(notes) {
+function stitchChunkNotes(notes, seams) {
+  const boundaries = (seams || []).filter(value => Number.isFinite(value));
   const sorted = (notes || []).slice().sort((a, b) => a.pitchMidi - b.pitchMidi || a.startTimeSeconds - b.startTimeSeconds);
   const out = [];
   sorted.forEach(note => {
     const prev = out[out.length - 1];
     const start = Math.max(0, Number(note.startTimeSeconds) || 0);
     const dur = Math.max(0.05, Number(note.durationSeconds) || 0);
-    if (prev && prev.pitchMidi === note.pitchMidi && start <= prev.startTimeSeconds + prev.durationSeconds + 0.16) {
-      const end = Math.max(prev.startTimeSeconds + prev.durationSeconds, start + dur);
+    const prevEnd = prev ? prev.startTimeSeconds + prev.durationSeconds : 0;
+    const nearSeam = prev && boundaries.some(boundary => Math.abs(prevEnd - boundary) <= 0.45 || Math.abs(start - boundary) <= 0.45);
+    const join = nearSeam ? 0.55 : 0.16;
+    if (prev && prev.pitchMidi === note.pitchMidi && start <= prevEnd + join) {
+      const end = Math.max(prevEnd, start + dur);
       prev.durationSeconds = end - prev.startTimeSeconds;
       prev.amplitude = Math.max(prev.amplitude || 0, note.amplitude || 0);
       return;
@@ -835,6 +832,10 @@ function makeMidi(notes, programs, soundfontRoles, name) {
     track.channel = role.channel;
     let lastBankId = null;
     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
+    if (typeof track.addCC === 'function' && ROLE_VOLUME[role.id] != null) {
+      track.addCC({ controllerType: 7, value: ROLE_VOLUME[role.id] / 127, time: 0 });
+      track.addCC({ controllerType: 10, value: 64 / 127, time: 0 });
+    }
     notes.filter(note => note.role === role.id).forEach(note => {
       const bank = bankForNote(note, { soundfontRoles });
       if (bank && bank.id !== lastBankId && typeof track.addCC === 'function') {
@@ -945,6 +946,8 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
         synth.controllerChange(role.channel, 32, 0);
       }
       synth.programChange(role.channel, programs[role.id] != null ? programs[role.id] : role.program);
+      synth.controllerChange(role.channel, 7, ROLE_VOLUME[role.id] != null ? ROLE_VOLUME[role.id] : 100);
+      synth.controllerChange(role.channel, 10, 64);
     });
 
     await context.resume();
@@ -960,6 +963,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       if (bank && lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
         synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
+        if (ROLE_VOLUME[note.role] != null) synth.controllerChange(channel, 7, ROLE_VOLUME[note.role], { time: baseTime + startTime });
         lastBankByChannel[channel] = bank.id;
       }
       const durationSeconds = Math.max(
@@ -1168,7 +1172,8 @@ async function transcribeOnBackend(file, onStatus) {
     if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
     notes.push(...usableNotes(data.notes, range.start / decoded.sampleRate));
   }
-  const stitched = stitchChunkNotes(notes);
+  const seams = ranges.slice(0, -1).map(range => range.end / decoded.sampleRate);
+  const stitched = stitchChunkNotes(notes, seams);
   if (!stitched.length) throw new Error('No notes detected — try a clearer song.');
   return { notes: stitched, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
 }
@@ -1391,7 +1396,7 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Splitting notes into drums, bass, guitar, lead, keys, pad, strings, and arp.'); await yieldToBrowser();
+      setStatus('Writing a clear lead, bass, harmony, and drums across the whole file.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = glueArrangement(smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid));
@@ -1409,7 +1414,7 @@ function MusicAI() {
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Robloxify',
-        reason: 'Pre-baked style · held chords, legato bass, connected arp · eight instruments.',
+        reason: 'Classic Roblox mix · clear lead, lower bass, quiet harmony, drums through the whole file.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1424,7 +1429,8 @@ function MusicAI() {
       setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles, placeName));
       setPlaybackDuration(heardEnd(fitted));
       setProgress(100);
-      setStatus('Done — ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · ' + fontCount + ' SoundFonts mixed');
+      const songEnd = Math.max(duration || 0, fitted.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0));
+      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · lead in front');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -1510,6 +1516,10 @@ function MusicAI() {
           synth.controllerChange(channel, 32, 0);
         }
         synth.programChange(channel, programs[role.id] != null ? programs[role.id] : role.program);
+        if (typeof synth.controllerChange === 'function' && ROLE_VOLUME[role.id] != null) {
+          synth.controllerChange(channel, 7, ROLE_VOLUME[role.id]);
+          synth.controllerChange(channel, 10, 64);
+        }
       } catch (error) {
         console.warn('Robloxify patch setup failed for', role.id, error);
       }
@@ -1593,6 +1603,7 @@ function MusicAI() {
               synth.controllerChange(ch, 0, bank.bankOffset || 0);
               synth.controllerChange(ch, 32, 0);
             }
+            if (ROLE_VOLUME[note.role] != null) synth.controllerChange(ch, 7, ROLE_VOLUME[note.role]);
             synth.noteOn(ch, note.pitchMidi, vel);
           } catch (e) {}
         }, noteStart * 1000)
@@ -1752,6 +1763,7 @@ function MusicAI() {
               <>
                 <label style={{ fontSize: 11 }}>Role <select value={selectedNote.role} onChange={e => editSelected({ role: e.target.value })} style={{ border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }}>{roles.map(r => <option key={r.id} value={r.id}>{r.label}</option>)}</select></label>
                 <label style={{ fontSize: 11 }}>Pitch <input type="number" min={0} max={127} value={selectedNote.pitchMidi} onChange={e => editSelected({ pitchMidi: Number(e.target.value) })} style={{ width: 48, border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }} /></label>
+                <label style={{ fontSize: 11 }}>Vol <input type="number" min={12} max={95} value={Math.round((selectedNote.amplitude || 0.7) * 100)} onChange={e => { const next = Number(e.target.value); if (!Number.isFinite(next)) return; editSelected({ amplitude: Math.max(0.12, Math.min(0.95, next / 100)) }); }} style={{ width: 48, border: '2px solid #000', fontFamily: rbx.font, fontSize: 11 }} /></label>
               </>
             )}
           </div>
