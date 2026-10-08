@@ -1,0 +1,42 @@
+{
+  "studiedFor": "Bloxify prebaked orchestra",
+  "reference": "https://www.youtube.com/watch?v=XWpqGrSfd_0",
+  "note": "Playback loads four banks so the desktop does not freeze. GeneralUser GS supplies the section. Roblox Soundfont 1, Wind of Fjords, and StealthPilot drums keep the classic Roblox color.",
+  "banks": [
+    {
+      "id": "roblox-1",
+      "file": "Instruments/WorkingR-Blox/Roblox Soundfont-1.sf2",
+      "instruments": [{ "name": "Violin", "gm": 40 }]
+    },
+    {
+      "id": "fjords",
+      "file": "Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2",
+      "instruments": [
+        { "name": "Contrabass", "gm": 43 },
+        { "name": "Cello", "gm": 42 }
+      ]
+    },
+    {
+      "id": "general-user",
+      "file": "Orchestra/GeneralUser-GS.sf2",
+      "instruments": [
+        { "name": "String ensemble", "gm": 48 },
+        { "name": "String ensemble 2", "gm": 49 },
+        { "name": "French horn", "gm": 60 },
+        { "name": "Flute", "gm": 73 },
+        { "name": "Oboe", "gm": 68 },
+        { "name": "Clarinet", "gm": 71 },
+        { "name": "Orchestral harp", "gm": 46 },
+        { "name": "Piano", "gm": 0 },
+        { "name": "Pizzicato strings", "gm": 45 },
+        { "name": "Trumpet", "gm": 56 },
+        { "name": "Timpani", "gm": 47 }
+      ]
+    },
+    {
+      "id": "stealth-drums",
+      "file": "Instruments/MIDI Compatible Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2",
+      "instruments": [{ "name": "Kit", "gm": 0 }]
+    }
+  ]
+}
