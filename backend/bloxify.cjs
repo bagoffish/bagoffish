@@ -9,7 +9,7 @@ const ROLES = ["drums", "bass", "guitar", "vocals", "keys", "pad", "strings", "a
 
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
 const REFERENCE_STYLE = {
-  name: "SEWH M.U.L.E / Robloxify Reference Style",
+  name: "SEWH M.U.L.E / Bloxify Reference Style",
   source: "SEWH:RECODE M.U.L.E rips",
   traits: [
     "classic M.U.L.E. / early-Roblox MIDI character",
@@ -264,7 +264,7 @@ function tensorApis() {
     });
     add(requireFromHere(pitchTfPath));
   } catch (err) {
-    console.warn("Robloxify Basic Pitch TensorFlow resolve failed:", err.message);
+    console.warn("Bloxify Basic Pitch TensorFlow resolve failed:", err.message);
   }
   return apis;
 }
@@ -281,7 +281,7 @@ function tensorSnapshot(apis) {
 async function evaluateWithoutLeaking(pitch, audio) {
   const apis = tensorApis();
   const before = tensorSnapshot(apis);
-  for (const tf of apis) tf.engine().startScope("robloxify");
+  for (const tf of apis) tf.engine().startScope("bloxify");
   const frames = [];
   const onsets = [];
   const contours = [];
@@ -301,11 +301,11 @@ async function evaluateWithoutLeaking(pitch, audio) {
       try {
         apis[i].engine().endScope();
       } catch (err) {
-        console.warn("Robloxify tensor scope cleanup failed:", err.message);
+        console.warn("Bloxify tensor scope cleanup failed:", err.message);
       }
     }
     const rss = Math.round(process.memoryUsage().rss / (1024 * 1024));
-    console.log(`Robloxify tensors ${before} -> ${tensorSnapshot(apis)}, rss ${rss}MB`);
+    console.log(`Bloxify tensors ${before} -> ${tensorSnapshot(apis)}, rss ${rss}MB`);
   }
 }
 
@@ -325,7 +325,7 @@ async function loadBasicPitch() {
 
     await tf.setBackend("tensorflow");
     await tf.ready();
-    console.log("Robloxify TensorFlow backend:", tf.getBackend());
+    console.log("Bloxify TensorFlow backend:", tf.getBackend());
 
     const urls = [
       process.env.BASIC_PITCH_MODEL_URL,
@@ -513,7 +513,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   const mono = toMono(decodedAudio);
   const samples = resample(mono.samples, mono.sampleRate, TARGET_RATE);
   console.log(
-    `Robloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`
+    `Bloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`
   );
   const pitchStartedAt = Date.now();
   const pitch = await loadBasicPitch();
@@ -523,7 +523,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   );
 
   console.log(
-    `Robloxify Basic Pitch inference: ${Date.now() - pitchStartedAt}ms`
+    `Bloxify Basic Pitch inference: ${Date.now() - pitchStartedAt}ms`
   );
 
   const notePostProcessStartedAt = Date.now();
@@ -539,7 +539,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
 
   const notes = mergeNotes(primary, sensitive);
   console.log(
-    `Robloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`
+    `Bloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`
   );
 
   return {
@@ -635,14 +635,14 @@ function fallbackPlan(notes, duration) {
     soundfontRoles: roleBanks,
     soundfontPalette: palette,
     soundfontCatalogSize: ROBLOX_SOUNDFONTS.length,
-    reason: "Pre-baked Robloxify arrangement with held chords, legato bass, a connected arp, and drums through the end of the song.",
+    reason: "Pre-baked Bloxify arrangement with held chords, legato bass, a connected arp, and drums through the end of the song.",
   };
 }
 
 // Style is deliberately NOT generated per upload.
 // Basic Pitch only supplies the user's notes; this fixed plan supplies the
-// musical identity every Robloxify conversion uses.
-async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
+// musical identity every Bloxify conversion uses.
+async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
   const plan = fallbackPlan(notes, duration);
   return {
     ...plan,
@@ -661,8 +661,8 @@ async function createRobloxifyStylePlan(notes, duration, referenceUrl = REFERENC
 
 module.exports = {
   transcribeAudioBuffer,
-  createRobloxifyStylePlan,
-  ROBLOXIFY_LIMITS: {
+  createBloxifyStylePlan,
+  BLOXIFY_LIMITS: {
     MAX_SECONDS,
     MAX_BYTES,
   },

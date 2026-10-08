@@ -11,7 +11,7 @@ const SKY_URL = '/images/sky.png';
 
 const SOUNDFONT_BUFFER_CACHE = new Map();
 const SOUNDFONT_LOAD_PROMISES = new Map();
-const BASIC_PITCH_IDB = 'robloxify-basic-pitch-v1';
+const BASIC_PITCH_IDB = 'bloxify-basic-pitch-v1';
 
 const SOUNDFONT_LIBRARY = [
   { id: 'stealth-drums', name: 'StealthPilot MIDI Drums', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2', bankOffset: 1 },
@@ -148,7 +148,7 @@ let demucsProcessorPromise = null;
 let demucsLibsPromise = null;
 
 // onnxruntime-web + demucs-web are large. Load them only when converting,
-// never when the Robloxify window first opens.
+// never when the Bloxify window first opens.
 function loadDemucsLibs() {
   if (!demucsLibsPromise) {
     demucsLibsPromise = Promise.all([
@@ -515,7 +515,7 @@ function buildFullArrangement(rawNotes, duration, stylePlan) {
 function makeStemMidi(notes, roleId, programs) {
   const role = roles.find(r => r.id === roleId);
   const midi = new Midi();
-  midi.name = 'Robloxify ' + (role ? role.label : roleId);
+  midi.name = 'Bloxify ' + (role ? role.label : roleId);
   midi.header.setTempo(120);
   const track = midi.addTrack();
   track.name = role ? role.label : roleId.toUpperCase();
@@ -1099,7 +1099,7 @@ async function decodeToMono(file) {
   }
 }
 
-async function postRobloxify(file) {
+async function postBloxify(file) {
   let lastError = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(4000);
@@ -1109,7 +1109,12 @@ async function postRobloxify(file) {
     try {
       const form = new FormData();
       form.append('audio', file, file.name || 'audio.wav');
-      const res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: form, signal: controller.signal });
+      let res = await fetch(API_BASE + '/bloxify', { method: 'POST', body: form, signal: controller.signal });
+      if (res.status === 404) {
+        const fallback = new FormData();
+        fallback.append('audio', file, file.name || 'audio.wav');
+        res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: fallback, signal: controller.signal });
+      }
       const data = await res.json().catch(() => ({}));
       if (res.status === 503) {
         lastError = new Error(data.error || 'Server busy');
@@ -1123,7 +1128,7 @@ async function postRobloxify(file) {
       const retryable = (error && (error.name === 'AbortError' || error.name === 'TypeError')) || /failed to fetch|network/i.test(message);
       if (!retryable) throw error;
       lastError = error && error.name === 'AbortError'
-        ? new Error('Robloxify timed out while processing the audio. Try a shorter file.')
+        ? new Error('Bloxify timed out while processing the audio. Try a shorter file.')
         : error;
     } finally {
       clearTimeout(timeout);
@@ -1147,7 +1152,7 @@ async function transcribeOnBackend(file, onStatus) {
   try { decoded = await decodeToMono(file); } catch (e) { decoded = null; }
   if (!decoded || !decoded.samples || !decoded.samples.length) {
     onStatus('Reading pitch, start time, and length.');
-    const data = await postRobloxify(file);
+    const data = await postBloxify(file);
     const notes = usableNotes(data.notes, 0);
     if (!notes.length) throw new Error('No notes detected — try a clearer song.');
     const duration = Number(data.duration);
@@ -1168,7 +1173,7 @@ async function transcribeOnBackend(file, onStatus) {
     const slice = decoded.samples.subarray(range.start, range.end);
     const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
     const piece = new File([wav], 'part-' + (part + 1) + '.wav', { type: 'audio/wav' });
-    const data = await postRobloxify(piece);
+    const data = await postBloxify(piece);
     if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
     notes.push(...usableNotes(data.notes, range.start / decoded.sampleRate));
   }
@@ -1254,17 +1259,19 @@ async function transcribeLocally(file, onStatus, onProgress) {
 }
 
 function MusicAI() {
-  const STORAGE_KEY = 'robloxify-projects-v2'; const COOKIE_KEY = 'robloxify-last-project'; const PLAYER_KEY = 'robloxify-player-name-v1';
+  const STORAGE_KEY = 'bloxify-projects-v2'; const COOKIE_KEY = 'bloxify-last-project'; const PLAYER_KEY = 'bloxify-player-name-v1';
   function readCookie(name) { const prefix = name + '='; const item = document.cookie.split('; ').find(v => v.indexOf(prefix) === 0); return item ? decodeURIComponent(item.slice(prefix.length)) : ''; }
   function writeCookie(name, value) { document.cookie = name + '=' + encodeURIComponent(value) + '; max-age=31536000; path=/; SameSite=Lax'; }
-  function loadProjects() { try { const value = window.localStorage.getItem(STORAGE_KEY); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
+  function readStorage(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
+  function adoptStorage(key, legacy) { const current = readStorage(key); if (current != null) return current; const previous = readStorage(legacy); if (previous != null) { try { window.localStorage.setItem(key, previous); } catch (e) {} } return previous; }
+  function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'robloxify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
   function persistProjects(value) { try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value)); } catch (e) {} }
   const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null);
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
-  const [status, setStatus] = useState('Drop audio → Roblox-style version of your song');
+  const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0);
-  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerInput, setPlayerInput] = useState(() => { try { return window.localStorage.getItem(PLAYER_KEY) || ''; } catch (e) { return ''; } }); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
+  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || readCookie('robloxify-last-project') || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => adoptStorage(PLAYER_KEY, 'robloxify-player-name-v1') || ''); const [playerInput, setPlayerInput] = useState(() => adoptStorage(PLAYER_KEY, 'robloxify-player-name-v1') || ''); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
@@ -1413,8 +1420,8 @@ function MusicAI() {
       const fontCount = new Set(fitted.map(note => note.bankId).filter(Boolean)).size;
       const plan = {
         ...(aiPlan || {}),
-        label: 'Pre-baked Robloxify',
-        reason: 'Classic Roblox mix · clear lead, lower bass, quiet harmony, drums through the whole file.',
+        label: 'Pre-baked Bloxify',
+        reason: 'Bloxify mix · clear lead, lower bass, quiet harmony, drums through the whole file.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1457,7 +1464,7 @@ function MusicAI() {
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     const role = roles.find(r => r.id === roleId);
     const blob = makeStemMidi(arrangement, roleId, programs);
-    downloadBlob(blob, 'robloxify-' + roleId + '.mid');
+    downloadBlob(blob, 'bloxify-' + roleId + '.mid');
   };
 
   const renderAndDownloadWav = async () => {
@@ -1468,7 +1475,7 @@ function MusicAI() {
       const duration = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
       const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), planRef.current);
       setWavBlob(blob);
-      downloadBlob(blob, 'robloxify-combined.wav');
+      downloadBlob(blob, 'bloxify-combined.wav');
       setStatus('Combined WAV ready · ' + Math.round(duration * 10) / 10 + 's');
     } catch (error) {
       console.error(error);
@@ -1483,7 +1490,7 @@ function MusicAI() {
 
   const saveProject = () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Robloxify Arrangement', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: activePlan ? { label: 'Bloxify Arrangement', programs: activePlan.programs } : null, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     setProjects(next); persistProjects(next); writeCookie(COOKIE_KEY, project.name); if (playerName) { fetch(API_BASE + '/players/' + encodeURIComponent(playerName) + '/projects', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project }) }).then(async response => { if (response.ok) { const data = await response.json(); setPlayerProjects(prev => [data.project, ...prev.filter(p => String(p.id) !== String(data.project.id))].slice(0, 100)); } }).catch(() => {}); } setStatus('Project saved');
   };
@@ -1494,7 +1501,7 @@ function MusicAI() {
     setArrangement(loaded); setSelectedNoteId(loaded[0] ? loaded[0].id : null);
     const plan = {
       ...(project.plan || {}),
-      label: 'Robloxify Arrangement',
+      label: 'Bloxify Arrangement',
       fixedStyle: true,
       soundfonts: SOUNDFONT_LIBRARY,
       soundfontId: FIXED_SOUNDFONT_ID,
@@ -1521,14 +1528,14 @@ function MusicAI() {
           synth.controllerChange(channel, 10, 64);
         }
       } catch (error) {
-        console.warn('Robloxify patch setup failed for', role.id, error);
+        console.warn('Bloxify patch setup failed for', role.id, error);
       }
     });
   };
 
   const ensureSynth = async plan => {
     const usePlan = plan || planRef.current || {
-      label: 'Robloxify Arrangement',
+      label: 'Bloxify Arrangement',
       fixedStyle: true,
       soundfonts: SOUNDFONT_LIBRARY,
       soundfontId: FIXED_SOUNDFONT_ID,
@@ -1628,7 +1635,7 @@ function MusicAI() {
     if (!arrangement.length) { setStatus('Nothing to play'); return; }
     try {
       const plan = planRef.current || {
-        label: 'Robloxify Arrangement',
+        label: 'Bloxify Arrangement',
         fixedStyle: true,
         soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
@@ -1648,7 +1655,7 @@ function MusicAI() {
     const clamped = Math.max(0, Math.min(playbackDuration || t, t)); setPlaybackTime(clamped);
     if (playing) {
       try {
-        const plan = planRef.current || { label: 'Robloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
+        const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
         scheduleFrom(synth, clamped);

@@ -6,7 +6,7 @@ import Minesweeper from "./Minesweeper";
 const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
-const Robloxify = lazyApp(() => import("./MusicAI"));
+const Bloxify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -120,8 +120,8 @@ export const defaultIconState = [
   {
     id: 7,
     icon: musicIcon,
-    title: "Robloxify",
-    component: Robloxify,
+    title: "Bloxify",
+    component: Bloxify,
     isFocus: false,
   },
   {
@@ -209,12 +209,12 @@ export const appSettings = {
     multiInstance: true,
   },
 
-  Robloxify: {
+  Bloxify: {
     header: {
       icon: musicIcon,
-      title: "Robloxify",
+      title: "Bloxify",
     },
-    component: Robloxify,
+    component: Bloxify,
     defaultSize: {
       width: 800,
       height: 520,
@@ -321,5 +321,5 @@ export {
   ErrorBox,
   Paint,
   Winamp,
-  Robloxify,
+  Bloxify,
 };

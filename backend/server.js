@@ -13,11 +13,11 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 3000;
 const BACKEND_VERSION = "2026-10-08-site-fixes";
-const ROBLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
+const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
 const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || path.join(DATA_ROOT, "visitor-count-v2.json");
-const COMMUNITY_DIR = process.env.COMMUNITY_DIR || path.join(DATA_ROOT, "robloxify-community");
+const COMMUNITY_DIR = process.env.COMMUNITY_DIR || path.join(DATA_ROOT, "bloxify-community");
 const COMMUNITY_AUDIO_DIR = path.join(COMMUNITY_DIR, "audio");
 const COMMUNITY_INDEX_PATH = path.join(COMMUNITY_DIR, "tracks.json");
 
@@ -192,7 +192,7 @@ app.get("/visitor-count/visit", async (req, res) => {
   }
 });
 
-const PLAYERS_DIR = process.env.PLAYERS_DIR || path.join(DATA_ROOT, "robloxify-players");
+const PLAYERS_DIR = process.env.PLAYERS_DIR || path.join(DATA_ROOT, "bloxify-players");
 const PLAYERS_INDEX_PATH = path.join(PLAYERS_DIR, "players.json");
 let memoryPlayers = new Map();
 
@@ -261,7 +261,7 @@ async function writePlayers(players) {
     playersGithubSha = await rendererGhPut(
       PLAYERS_GITHUB_PATH,
       Buffer.from(JSON.stringify(list)),
-      "Save Robloxify players",
+      "Save Bloxify players",
       playersGithubSha
     ) || playersGithubSha;
   }
@@ -520,54 +520,54 @@ app.post("/community/tracks", async (req, res) => {
   }
 });
 
-let robloxifyModulePromise = null;
-let robloxifyBusy = false;
-const robloxifyCache = new Map();
-function getRobloxifyCacheKey(buf) { return crypto.createHash("sha256").update(buf).digest("hex"); }
-function rememberRobloxifyResult(key, value) {
-  if (robloxifyCache.size > 20) {
-    const first = robloxifyCache.keys().next().value;
-    robloxifyCache.delete(first);
+let bloxifyModulePromise = null;
+let bloxifyBusy = false;
+const bloxifyCache = new Map();
+function getBloxifyCacheKey(buf) { return crypto.createHash("sha256").update(buf).digest("hex"); }
+function rememberBloxifyResult(key, value) {
+  if (bloxifyCache.size > 20) {
+    const first = bloxifyCache.keys().next().value;
+    bloxifyCache.delete(first);
   }
-  robloxifyCache.set(key, value);
+  bloxifyCache.set(key, value);
 }
-async function loadRobloxify() {
-  if (!robloxifyModulePromise) {
-    robloxifyModulePromise = (async () => {
+async function loadBloxify() {
+  if (!bloxifyModulePromise) {
+    bloxifyModulePromise = (async () => {
       const multer = (await import("multer")).default;
-      const loaded = await import("./robloxify.cjs");
-      const { transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = loaded.default || loaded;
-      return { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS };
-    })().catch((err) => { robloxifyModulePromise = null; throw err; });
+      const loaded = await import("./bloxify.cjs");
+      const { transcribeAudioBuffer, createBloxifyStylePlan, BLOXIFY_LIMITS } = loaded.default || loaded;
+      return { multer, transcribeAudioBuffer, createBloxifyStylePlan, BLOXIFY_LIMITS };
+    })().catch((err) => { bloxifyModulePromise = null; throw err; });
   }
-  return robloxifyModulePromise;
+  return bloxifyModulePromise;
 }
 
-app.post("/robloxify", async (req, res) => {
+app.post(["/bloxify", "/robloxify"], async (req, res) => {
   setCors(req, res);
-  if (robloxifyBusy) {
+  if (bloxifyBusy) {
     res.setHeader("Retry-After", "5");
-    return res.status(503).json({ error: "Robloxify is busy processing another file. Try again in a moment." });
+    return res.status(503).json({ error: "Bloxify is busy processing another file. Try again in a moment." });
   }
-  robloxifyBusy = true;
+  bloxifyBusy = true;
   try {
-    const { multer, transcribeAudioBuffer, createRobloxifyStylePlan, ROBLOXIFY_LIMITS } = await loadRobloxify();
+    const { multer, transcribeAudioBuffer, createBloxifyStylePlan, BLOXIFY_LIMITS } = await loadBloxify();
     const upload = multer({
       storage: multer.diskStorage({
         destination: (req, file, cb) => cb(null, os.tmpdir()),
         filename: (req, file, cb) => cb(null, crypto.randomUUID() + ".upload"),
       }),
-      limits: { fileSize: ROBLOXIFY_LIMITS.MAX_BYTES, files: 1 },
+      limits: { fileSize: BLOXIFY_LIMITS.MAX_BYTES, files: 1 },
     }).single("audio");
     await new Promise((resolve, reject) => { upload(req, res, (err) => (err ? reject(err) : resolve())); });
     if (!req.file) return res.status(400).json({ error: "Audio file required (field name: audio)" });
     const fileBuffer = await fs.promises.readFile(req.file.path);
     await fs.promises.unlink(req.file.path).catch(() => {});
-    const cacheKey = getRobloxifyCacheKey(fileBuffer);
-    const cachedResult = robloxifyCache.get(cacheKey);
+    const cacheKey = getBloxifyCacheKey(fileBuffer);
+    const cachedResult = bloxifyCache.get(cacheKey);
     if (cachedResult) {
-      robloxifyCache.delete(cacheKey);
-      robloxifyCache.set(cacheKey, cachedResult);
+      bloxifyCache.delete(cacheKey);
+      bloxifyCache.set(cacheKey, cachedResult);
       return res.json({ ...cachedResult, cached: true, ms: 0, version: BACKEND_VERSION });
     }
     const t0 = Date.now();
@@ -578,8 +578,8 @@ app.post("/robloxify", async (req, res) => {
     const transcriptionMime = req.file.mimetype;
     const stemSeparation = "browser";
     const result = await transcribeAudioBuffer(transcriptionBuffer, transcriptionMime);
-    console.log(`Robloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
-    const aiPlan = await createRobloxifyStylePlan(result.notes, result.duration);
+    console.log(`Bloxify transcription total: ${Date.now() - transcriptionStartedAt}ms`);
+    const aiPlan = await createBloxifyStylePlan(result.notes, result.duration);
     const response = {
       ok: true,
       notes: result.notes,
@@ -589,10 +589,10 @@ app.post("/robloxify", async (req, res) => {
       aiPlan,
       stemSeparation,
     };
-    rememberRobloxifyResult(cacheKey, response);
+    rememberBloxifyResult(cacheKey, response);
     res.json({ ...response, cached: false, ms: Date.now() - t0, version: BACKEND_VERSION });
   } catch (err) {
-    console.error("Robloxify failed:", err?.stack || err);
+    console.error("Bloxify failed:", err?.stack || err);
     setCors(req, res);
     const msg = err && err.message ? err.message : "Transcription failed";
     const isUploadError = err?.name === "MulterError" || /too large|shorter|empty|busy|decode|format|unsupported|invalid audio|could not determine|no usable samples/i.test(msg);
@@ -600,7 +600,7 @@ app.post("/robloxify", async (req, res) => {
     if (status === 503) res.setHeader("Retry-After", "5");
     if (!res.headersSent) res.status(status).json({ error: msg });
   } finally {
-    robloxifyBusy = false;
+    bloxifyBusy = false;
   }
 });
 
@@ -1081,7 +1081,7 @@ app.use((err, req, res, next) => {
 const server = app.listen(PORT, "0.0.0.0", () => {
   console.log(`Server running on port ${PORT} (${BACKEND_VERSION})`);
 });
-server.requestTimeout = ROBLOXIFY_REQUEST_TIMEOUT;
-server.timeout = ROBLOXIFY_REQUEST_TIMEOUT;
+server.requestTimeout = BLOXIFY_REQUEST_TIMEOUT;
+server.timeout = BLOXIFY_REQUEST_TIMEOUT;
 server.keepAliveTimeout = 120000;
-server.headersTimeout = ROBLOXIFY_REQUEST_TIMEOUT + 5000;
+server.headersTimeout = BLOXIFY_REQUEST_TIMEOUT + 5000;
