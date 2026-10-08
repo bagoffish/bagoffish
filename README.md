@@ -12,7 +12,7 @@
 <table>
   <tr>
     <td>
-      <a href="https://www.youtube.com/watch?v=ahHqFcrZuJ" target="_blank">
+      <a href="https://www.youtube.com/watch?v=ahHqFcrZuJI" target="_blank">
         <img src="/vinyl.gif" width="350">
       </a>
     </td>
