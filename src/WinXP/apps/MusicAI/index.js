@@ -831,12 +831,19 @@ async function decodeToMono(file) {
   }
 }
 
-async function postBloxify(file) {
+function serverGaveUp(error) {
+  const message = String(error && error.message || '');
+  return (error && (error.name === 'AbortError' || error.name === 'TypeError'))
+    || /failed to fetch|network|timed out|server busy|not answering/i.test(message);
+}
+
+async function postBloxify(file, timeoutMs, attempts) {
   let lastError = null;
-  for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(4000);
+  const tries = attempts || 2;
+  for (let attempt = 0; attempt < tries; attempt++) {
+    if (attempt > 0) await sleep(3000);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 180000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs || 90000);
     try {
       const form = new FormData();
       form.append('audio', file, file.name || 'audio.wav');
@@ -847,19 +854,17 @@ async function postBloxify(file) {
         res = await fetch(API_BASE + '/bloxify', { method: 'POST', body: fallback, signal: controller.signal });
       }
       const data = await res.json().catch(() => ({}));
-      if (res.status === 503) {
-        lastError = new Error(data.error || 'Server busy');
+      if (res.status === 502 || res.status === 503 || res.status === 504) {
+        lastError = new Error(data.error || 'Server not answering');
         continue;
       }
       if (!res.ok) throw new Error(data.error || 'Server error ' + res.status);
       if (!Array.isArray(data.notes)) throw new Error('Server returned no notes');
       return data;
     } catch (error) {
-      const message = String(error && error.message || '');
-      const retryable = (error && (error.name === 'AbortError' || error.name === 'TypeError')) || /failed to fetch|network/i.test(message);
-      if (!retryable) throw error;
+      if (!serverGaveUp(error)) throw error;
       lastError = error && error.name === 'AbortError'
-        ? new Error('Bloxify timed out while processing the audio. Try a shorter file.')
+        ? new Error('Bloxify timed out while the server was reading this part.')
         : error;
     } finally {
       clearTimeout(timeout);
@@ -877,14 +882,32 @@ function usableNotes(notes, offset) {
   ).map(note => ({ ...note, startTimeSeconds: Number(note.startTimeSeconds) + offset }));
 }
 
+async function serverIsAwake() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+  try {
+    const res = await fetch(API_BASE + '/health', { cache: 'no-store', signal: controller.signal });
+    return !!(res && res.ok);
+  } catch (e) {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function transcribeInBrowser(file, onStatus, onProgress) {
+  onStatus('Reading the song in this browser.');
+  const local = await transcribeLocally(file, onStatus, onProgress || (() => {}));
+  return { notes: local.notes, duration: local.duration, aiPlan: null, stemSeparation: 'browser' };
+}
+
 async function transcribeOnBackend(file, onStatus) {
-  onStatus('Uploading the audio.');
-  try { await fetch(API_BASE + '/health', { cache: 'no-store' }); } catch (e) {}
+  onStatus('Reading the audio.');
   let decoded = null;
   try { decoded = await decodeToMono(file); } catch (e) { decoded = null; }
   if (!decoded || !decoded.samples || !decoded.samples.length) {
-    onStatus('Reading pitch, start time, and length.');
-    const data = await postBloxify(file);
+    onStatus('Uploading the audio.');
+    const data = await postBloxify(file, 120000, 2);
     const notes = usableNotes(data.notes, 0);
     if (!notes.length) throw new Error('No notes detected — try a clearer song.');
     const duration = Number(data.duration);
@@ -898,21 +921,37 @@ async function transcribeOnBackend(file, onStatus) {
   let aiPlan = null;
   for (let part = 0; part < partCount; part++) {
     onStatus(partCount === 1
-      ? 'Reading pitch, start time, and length.'
-      : 'Reading pitch, start time, and length. Part ' + (part + 1) + ' of ' + partCount + '.');
+      ? 'Uploading the audio.'
+      : 'Uploading part ' + (part + 1) + ' of ' + partCount + '.');
     if (typeof document === 'undefined' || !document.hidden) await yieldToBrowser();
     const range = ranges[part];
     const slice = decoded.samples.subarray(range.start, range.end);
     const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
     const piece = new File([wav], 'part-' + (part + 1) + '.wav', { type: 'audio/wav' });
-    const data = await postBloxify(piece);
+    const data = await postBloxify(piece, part === 0 ? 120000 : 75000, part === 0 ? 2 : 1);
     if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
     notes.push(...usableNotes(data.notes, range.start / decoded.sampleRate));
+    onStatus(partCount === 1
+      ? 'Reading pitch, start time, and length.'
+      : 'Reading pitch, start time, and length. Part ' + (part + 1) + ' of ' + partCount + '.');
   }
   const seams = ranges.slice(0, -1).map(range => range.end / decoded.sampleRate);
   const stitched = stitchChunkNotes(notes, seams);
   if (!stitched.length) throw new Error('No notes detected — try a clearer song.');
   return { notes: stitched, duration: decoded.duration, aiPlan, stemSeparation: 'chunked' };
+}
+
+async function transcribeSong(file, onStatus, onProgress) {
+  onStatus('Waking the server.');
+  const awake = await serverIsAwake();
+  if (!awake) return transcribeInBrowser(file, onStatus, onProgress);
+  try {
+    return await transcribeOnBackend(file, onStatus);
+  } catch (error) {
+    if (!serverGaveUp(error)) throw error;
+    onStatus('Server stopped answering. Reading the song in this browser.');
+    return transcribeInBrowser(file, onStatus, onProgress);
+  }
 }
 
 async function transcribeLocally(file, onStatus, onProgress) {
@@ -1125,11 +1164,17 @@ function MusicAI() {
         // Stem separation downloads a large model and runs it in the browser
         // before the server can even start. The pre-baked style thinks from
         // the notes, so send the original file straight through.
-        setStatus('Uploading the audio.');
-        let result = await transcribeOnBackend(inputFile, msg => {
+        setStatus('Waking the server.');
+        let result = await transcribeSong(inputFile, msg => {
           if (conversionId === conversionIdRef.current) {
             setStatus(msg);
             setProgress(Math.max(displayedProgress, 30));
+          }
+        }, value => {
+          if (conversionId === conversionIdRef.current) {
+            const pct = Math.max(30, Math.min(90, Math.round(30 + (Number(value) || 0) * 60)));
+            displayedProgress = Math.max(displayedProgress, pct);
+            setProgress(displayedProgress);
           }
         });
         if (conversionId !== conversionIdRef.current) return;
