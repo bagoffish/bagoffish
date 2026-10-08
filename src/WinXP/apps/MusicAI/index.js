@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { WorkletSynthesizer } from 'spessasynth_lib';
-import { buildOrchestralArrangement, orchestraProgramsFor } from './orchestraArrange';
+import { buildRobloxArrangement, orchestraProgramsFor } from './orchestraArrange';
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
 const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
@@ -49,14 +49,14 @@ const SOUNDFONT_LIBRARY = [
 ];
 const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
 const SOUND_FONT_BY_ROLE = {
-  drums: 'general-user',
-  bass: 'general-user',
-  guitar: 'general-user',
-  vocals: 'general-user',
-  keys: 'general-user',
-  pad: 'general-user',
-  strings: 'general-user',
-  arp: 'general-user',
+  drums: 'stealth-drums',
+  bass: 'fjords',
+  guitar: 'gamehero',
+  vocals: 'roblox-1',
+  keys: 'classic-days',
+  pad: 'fjords-midi',
+  strings: 'fjords-hq',
+  arp: 'nokia',
 };
 const CLASSIC_ROLE_BANKS = {
   drums: 'stealth-drums',
@@ -68,7 +68,6 @@ const CLASSIC_ROLE_BANKS = {
   strings: 'fjords-hq',
   arp: 'nokia',
 };
-const CYCLE_ROLES = ['guitar', 'keys', 'pad', 'arp'];
 const ROLE_CHANNEL = { drums: 9, bass: 0, guitar: 1, vocals: 2, keys: 3, pad: 4, strings: 5, arp: 6 };
 const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
   Object.entries(SOUND_FONT_BY_ROLE).map(([role, id]) => [role, SOUNDFONT_LIBRARY.find(bank => bank.id === id)])
@@ -171,25 +170,12 @@ function assignRoleBanks() {
 }
 
 function stampSoundfontMix(notes, palette, soundfontRoles) {
-  const reserved = new Set([
-    'stealth-drums',
-    soundfontRoles && soundfontRoles.drums,
-    soundfontRoles && soundfontRoles.bass,
-    soundfontRoles && soundfontRoles.vocals,
-  ]);
-  const fonts = (palette || []).filter(font => font && font.id && SOUND_FONT_BY_ID[font.id] && !reserved.has(font.id));
   return notes.map(note => {
     let bankId = soundfontRoles && soundfontRoles[note.role];
-    const pinned = soundfontRoles && soundfontRoles[note.role];
-    if (pinned !== 'general-user' && fonts.length && CYCLE_ROLES.indexOf(note.role) !== -1) {
-      const section = Math.floor((note.startTimeSeconds || 0) / 8);
-      const roleShift = CYCLE_ROLES.indexOf(note.role);
-      bankId = fonts[(section * 3 + roleShift) % fonts.length].id;
-    }
-    // GeneralUser's standard kit is program 0 on channel 9. The first drum
-    // font to claim that program keeps it, so a new orchestra stays on
-    // general-user. Older places still pin the drums to stealth-drums.
-    if (note.role === 'drums' && pinned !== 'general-user' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
+    if (!bankId && palette && palette[0]) bankId = palette[0].id;
+    // GeneralUser's standard kit is program 0 on channel 9. A new Roblox
+    // song stays on stealth-drums so an old drum font cannot claim it.
+    if (note.role === 'drums' && bankId !== 'general-user' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
     if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
     if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
     return bankId ? { ...note, bankId } : note;
@@ -241,7 +227,7 @@ const CLASSIC_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80,
 const ORCHESTRA_PROGRAMS = { drums: 0, bass: 43, guitar: 42, vocals: 40, keys: 0, pad: 60, strings: 49, arp: 46 };
 // Channel volume (CC7). Saved Roblox-font places keep the older balance.
 // Orchestra places use the second table so the violin stays in front.
-const ROLE_VOLUME = { drums: 96, bass: 108, guitar: 64, vocals: 122, keys: 52, pad: 36, strings: 78, arp: 56 };
+const ROLE_VOLUME = { drums: 96, bass: 104, guitar: 64, vocals: 118, keys: 82, pad: 36, strings: 70, arp: 76 };
 const ORCHESTRA_VOLUME = { drums: 58, bass: 90, guitar: 62, vocals: 108, keys: 48, pad: 40, strings: 62, arp: 44 };
 const ORCHESTRA_REVERB = { drums: 6, bass: 10, guitar: 34, vocals: 22, keys: 18, pad: 36, strings: 48, arp: 30 };
 const ORCHESTRA_PAN = { drums: 64, bass: 64, guitar: 46, vocals: 80, keys: 58, pad: 90, strings: 64, arp: 100 };
@@ -255,13 +241,13 @@ function mixValue(roleId, notes, soundfontRoles, table, fallback) {
 
 const roles = [
   { id: 'drums', label: 'DRUMS', channel: 9, color: '#e07070', program: 0 },
-  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 43 },
-  { id: 'guitar', label: 'CELLO', channel: 1, color: '#70e070', program: 42 },
-  { id: 'vocals', label: 'VIOLIN', channel: 2, color: '#e0e070', program: 40 },
-  { id: 'keys', label: 'PIANO', channel: 3, color: '#c080e0', program: 0 },
-  { id: 'pad', label: 'HORNS', channel: 4, color: '#70d0d0', program: 60 },
-  { id: 'strings', label: 'STRINGS', channel: 5, color: '#e0a070', program: 49 },
-  { id: 'arp', label: 'HARP', channel: 6, color: '#d0d070', program: 46 },
+  { id: 'bass', label: 'BASS', channel: 0, color: '#70a0e0', program: 38 },
+  { id: 'guitar', label: 'GUITAR', channel: 1, color: '#70e070', program: 80 },
+  { id: 'vocals', label: 'LEAD', channel: 2, color: '#e0e070', program: 80 },
+  { id: 'keys', label: 'KEYS', channel: 3, color: '#c080e0', program: 80 },
+  { id: 'pad', label: 'PAD', channel: 4, color: '#70d0d0', program: 89 },
+  { id: 'strings', label: 'STRINGS', channel: 5, color: '#e0a070', program: 81 },
+  { id: 'arp', label: 'ARP', channel: 6, color: '#d0d070', program: 81 },
 ];
 
 const STEM_ORDER = roles.map(role => role.id);
@@ -277,8 +263,8 @@ function heardEnd(notes) {
   return maxEnd + RELEASE_TAIL;
 }
 
-function buildFullArrangement(rawNotes, duration, stylePlan) {
-  const out = buildOrchestralArrangement(rawNotes, duration, stylePlan);
+function buildFullArrangement(rawNotes, duration) {
+  const out = buildRobloxArrangement(rawNotes, duration);
   return out
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
     .map((note, index) => ({ ...note, id: index + 1 }));
@@ -433,28 +419,6 @@ function PianoRoll({ notes, onChange, selectedId, onSelect, playhead, duration }
   );
 }
 
-function smartQuantize(notes, preferredGrid) {
-  if (!notes.length) return notes;
-  const starts = notes.map(n => n.startTimeSeconds).sort((a, b) => a - b);
-  const gaps = [];
-  for (let i = 1; i < starts.length; i++) {
-    const d = starts[i] - starts[i - 1];
-    if (d >= 0.08 && d <= 1.5) gaps.push(d);
-  }
-  if (!gaps.length) return notes;
-  const median = gaps.slice().sort((a, b) => a - b)[Math.floor(gaps.length / 2)];
-  const requested = Number(preferredGrid);
-  const grid = [0.0625, 0.125, 0.25, 0.5].includes(requested)
-    ? requested
-    : Math.max(0.03125, Math.min(0.25, median / Math.max(1, Math.round(median / 0.125))));
-  const tolerance = Math.min(0.035, grid * 0.22);
-  return notes.map(note => {
-    const snapped = Math.round(note.startTimeSeconds / grid) * grid;
-    const start = Math.abs(snapped - note.startTimeSeconds) <= tolerance ? snapped : note.startTimeSeconds;
-    return { ...note, startTimeSeconds: Math.max(0, start), durationSeconds: Math.max(0.04, note.durationSeconds) };
-  });
-}
-
 // Overlapping notes on one channel and pitch share a noteOff, so the first
 // release kills whatever is still supposed to be sounding. Drums stay
 // separate hits; tonal parts join into a single hold.
@@ -496,8 +460,8 @@ function glueArrangement(notes) {
 }
 
 function chunkRanges(sampleCount, sampleRate) {
-  const chunkSeconds = 18;
-  const overlapSeconds = 2;
+  const chunkSeconds = 32;
+  const overlapSeconds = 1.5;
   const chunkLength = Math.max(1, Math.floor(sampleRate * chunkSeconds));
   const hopLength = Math.max(1, Math.floor(sampleRate * (chunkSeconds - overlapSeconds)));
   const minTail = Math.max(1, Math.floor(sampleRate * 8));
@@ -838,7 +802,6 @@ async function postBloxify(file) {
   let lastError = null;
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(4000);
-    try { await fetch(API_BASE + '/health', { cache: 'no-store' }); } catch (e) {}
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 120000);
     try {
@@ -883,6 +846,7 @@ function usableNotes(notes, offset) {
 
 async function transcribeOnBackend(file, onStatus) {
   onStatus('Uploading the audio.');
+  try { await fetch(API_BASE + '/health', { cache: 'no-store' }); } catch (e) {}
   let decoded = null;
   try { decoded = await decodeToMono(file); } catch (e) { decoded = null; }
   if (!decoded || !decoded.samples || !decoded.samples.length) {
@@ -1139,25 +1103,26 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Writing the violin from the tune, with bass and strings under it.'); await yieldToBrowser();
-      let fitted = buildFullArrangement(rawNotes, duration, aiPlan);
+      setStatus('Writing a Roblox MIDI lead from the tune.'); await yieldToBrowser();
+      let fitted = buildFullArrangement(rawNotes, duration);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
-      fitted = glueArrangement(smartQuantize(fitted, aiPlan && aiPlan.quantizeGrid));
-      setStatus('Mixing the orchestra.'); await yieldToBrowser();
+      fitted = glueArrangement(fitted);
+      setStatus('Loading the Roblox instruments.'); await yieldToBrowser();
       const soundfontRoles = assignRoleBanks();
+      const usedRoles = new Set(fitted.map(note => note.role));
       const palette = [];
-      Object.keys(soundfontRoles).forEach(roleId => {
+      usedRoles.forEach(roleId => {
         const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
         if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
       });
       fitted = stampSoundfontMix(fitted, palette, soundfontRoles);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       const instrumentCount = new Set(fitted.map(note => note.role)).size;
-      const programs = orchestraProgramsFor(fitted);
+      const programs = { ...CLASSIC_PROGRAMS };
       const plan = {
         ...(aiPlan || {}),
         label: 'Pre-baked Bloxify',
-        reason: 'Bloxify orchestra · violin on the tune, bass and strings from the chords that were heard.',
+        reason: 'Old Roblox MIDI · lead on the tune, octave bass, key stabs, Nokia arp, and a small kit.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1173,7 +1138,7 @@ function MusicAI() {
       setPlaybackDuration(heardEnd(fitted));
       setProgress(100);
       const songEnd = Math.max(duration || 0, fitted.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0));
-      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · orchestra');
+      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · Roblox MIDI');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -1287,7 +1252,7 @@ function MusicAI() {
     }
     const synth = synthRef.current;
     const pending = (usePlan.soundfontPalette || []).filter(bank => bank && !loadedBanksRef.current.has(bank.id));
-    if (pending.length) setStatus(pending.every(bank => bank.id === 'general-user') ? 'Loading the orchestra.' : 'Mixing the SoundFont catalog…');
+    if (pending.length) setStatus(pending.every(bank => bank.id === 'general-user') ? 'Loading the orchestra.' : 'Loading the Roblox instruments.');
     for (const bank of pending) {
       if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
     }
