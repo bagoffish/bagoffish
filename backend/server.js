@@ -668,6 +668,7 @@ function rendererJson(record) {
     oldAvatars: record.oldAvatars || [],
     hasAvatar: Boolean(record.hasAvatar),
     avatarSha256: record.avatarSha256 || "",
+    avatarCapturedAt: record.avatarCapturedAt || 0,
     refreshedAt: record.refreshedAt || 0,
     savedAt: record.savedAt || 0,
   };
@@ -812,6 +813,15 @@ async function saveRendererRecord(record, png) {
     record.avatarSha256 = hash;
     record.avatarCapturedAt = Date.now();
     record.hasAvatar = true;
+
+    // Keep one private rollover copy only so the next avatar change can
+    // archive this render. It is never returned as the current thumbnail.
+    await rendererGhPut(
+      `avatars/${id}.png`,
+      png,
+      `Update renderer avatar rollover ${id}`,
+      ""
+    );
     record.avatarPng = null;
   }
 
