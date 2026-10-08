@@ -674,12 +674,10 @@ function rendererJson(record) {
 }
 
 function rendererPayload(record, liveAvatarUrl) {
-  const savedAvatar = record.hasAvatar
-    ? `${RENDERER_PUBLIC_BASE}/renderer-avatar/${record.id}`
-    : "";
-  const avatarUrl = savedAvatar || (liveAvatarUrl
+  // Always show the live Roblox thumbnail. Saved PNGs are history only.
+  const avatarUrl = liveAvatarUrl
     ? `${RENDERER_PUBLIC_BASE}/proxy-roblox-avatar?url=${encodeURIComponent(liveAvatarUrl)}`
-    : "");
+    : "";
   return {
     roblox: {
       id: record.id,
@@ -780,7 +778,43 @@ async function saveRendererRecord(record, png) {
     rememberRenderer(record);
     return false;
   }
+
   const id = String(record.id);
+
+  // Current avatar images are not stored as the active renderer image.
+  // When Roblox changes the thumbnail, archive the previous render instead.
+  if (png && png.length) {
+    const hash = crypto.createHash("sha256").update(png).digest("hex");
+    const previousHash = String(record.avatarSha256 || "");
+
+    if (previousHash && previousHash !== hash) {
+      let previousPng = record.avatarPng || null;
+      if (!previousPng) previousPng = await rendererGhGetRaw(`avatars/${id}.png`).catch(() => null);
+
+      if (previousPng && previousPng.length) {
+        const archivePath = `avatars/${id}-${previousHash}.png`;
+        const existingArchive = await rendererGhGet(archivePath).catch(() => null);
+        if (!existingArchive) {
+          await rendererGhPut(archivePath, previousPng, `Archive old renderer avatar ${id}`, "");
+        }
+        const oldAvatars = Array.isArray(record.oldAvatars) ? record.oldAvatars.slice() : [];
+        if (!oldAvatars.some((item) => item && item.hash === previousHash)) {
+          oldAvatars.unshift({
+            hash: previousHash,
+            capturedAt: record.avatarCapturedAt || record.refreshedAt || Date.now(),
+            url: `${RENDERER_PUBLIC_BASE}/renderer-old-avatar/${id}/${previousHash}.png`,
+          });
+          record.oldAvatars = oldAvatars.slice(0, 100);
+        }
+      }
+    }
+
+    record.avatarSha256 = hash;
+    record.avatarCapturedAt = Date.now();
+    record.hasAvatar = true;
+    record.avatarPng = null;
+  }
+
   const json = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
   record._jsonSha = await rendererGhPut(
     `users/${id}.json`,
@@ -788,29 +822,6 @@ async function saveRendererRecord(record, png) {
     `Save renderer lookup ${record.username || id}`,
     record._jsonSha
   );
-  if (png && png.length) {
-    const hash = crypto.createHash("sha256").update(png).digest("hex");
-    if (hash !== record.avatarSha256 || !record.hasAvatar) {
-      record._pngSha = await rendererGhPut(
-        `avatars/${id}.png`,
-        png,
-        `Save renderer avatar ${id}`,
-        record._pngSha
-      );
-      record.avatarSha256 = hash;
-      record.hasAvatar = true;
-      record.avatarPng = png;
-      const again = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
-      record._jsonSha = await rendererGhPut(
-        `users/${id}.json`,
-        again,
-        `Save renderer avatar hash ${id}`,
-        record._jsonSha
-      );
-    } else {
-      record.avatarPng = png;
-    }
-  }
   const names = new Set([record.username, ...(record.pastUsernames || [])]);
   for (const name of names) {
     const key = rendererNameKey(name);
@@ -943,9 +954,27 @@ app.get("/proxy-roblox", async (req, res) => {
       return null;
     });
     if (stored) {
-      res.setHeader("Cache-Control", "private, max-age=60");
-      res.json(rendererPayload(stored));
-      refreshRendererRecord(stored);
+      // Re-query Roblox on every lookup so avatar changes appear immediately.
+      // Stored data is metadata/history only, never the current thumbnail.
+      const live = await fetchRobloxProfile(username);
+      if (!live) return res.status(404).json({ error: "Not found" });
+      const livePng = await downloadAvatarPng(live.liveAvatarUrl).catch(() => null);
+      stored.username = live.username || stored.username;
+      stored.displayName = live.displayName || stored.displayName;
+      stored.joinDate = live.joinDate || stored.joinDate;
+      const details = await fetchRobloxDetails(stored.id).catch(() => null);
+      if (details) {
+        if (details.pastUsernames.length) stored.pastUsernames = details.pastUsernames;
+        if (Object.keys(details.rolimons).length) stored.rolimons = details.rolimons;
+      }
+      stored.refreshedAt = Date.now();
+      try {
+        await enqueueRendererWrite(() => saveRendererRecord(stored, livePng));
+      } catch (err) {
+        console.warn("renderer live-avatar history save failed:", err.message);
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.json(rendererPayload(stored, live.liveAvatarUrl));
       return;
     }
 
@@ -1020,30 +1049,25 @@ app.get("/proxy-roblox-details", async (req, res) => {
   }
 });
 
-app.get("/renderer-avatar/:id", async (req, res) => {
+app.get("/renderer-old-avatar/:id/:hash.png", async (req, res) => {
   const id = String(req.params.id || "");
-  if (!/^\d+$/.test(id)) return res.status(400).end();
+  const hash = String(req.params.hash || "").toLowerCase();
+  if (!/^\d+$/.test(id) || !/^[a-f0-9]{64}$/.test(hash)) return res.status(400).end();
   try {
-    const record = rendererById.get(id) || await loadStoredRendererById(id);
-    if (record?.avatarPng) {
-      res.setHeader("Content-Type", "image/png");
-      res.setHeader("Cache-Control", "public, max-age=86400");
-      return res.send(record.avatarPng);
-    }
-    const file = await rendererGhGet(`avatars/${id}.png`);
-    if (!file) return res.status(404).end();
-    if (record) {
-      record.avatarPng = file.bytes;
-      record._pngSha = file.sha;
-      record.hasAvatar = true;
-    }
+    const file = await rendererGhGetRaw(`avatars/${id}-${hash}.png`);
+    if (!file || !file.length) return res.status(404).end();
     res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=86400");
-    res.send(file.bytes);
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.send(file);
   } catch (err) {
-    console.warn("renderer avatar read failed:", err.message);
+    console.warn("old renderer avatar read failed:", err.message);
     res.status(502).end();
   }
+});
+
+app.get("/renderer-avatar/:id", async (req, res) => {
+  // Current thumbnails are live-only. Do not serve a saved current avatar.
+  return res.status(404).end();
 });
 
 app.get("/proxy-roblox-avatar", async (req, res) => {
