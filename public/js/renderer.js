@@ -141,9 +141,9 @@
               var end = Math.min(shown + OLD_AVATAR_PAGE_SIZE, archived.length);
               var k;
               for (k = shown; k < end; k += 1) {
-                if (archived[k] && archived[k].wayback) {
+                if (archived[k] && (archived[k].url || archived[k].wayback)) {
                   var thumb = document.createElement("img");
-                  thumb.src = archived[k].wayback;
+                  thumb.src = archived[k].url || archived[k].wayback;
                   thumb.alt = "";
                   thumb.loading = "lazy";
                   thumb.decoding = "async";
