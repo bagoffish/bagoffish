@@ -481,6 +481,22 @@ export function buildRobloxArrangement(rawNotes, duration) {
       sourceDuration: Math.max(0.06, note.durationSeconds || beat),
     });
   });
+  // Preserve the source transcription's polyphony instead of replacing
+  // every simultaneous chord with a single extracted lead note. The keys part
+  // quietly carries the detected inner notes at their original pitches/timings.
+  source.forEach(note => {
+    if (note.startTimeSeconds >= end - 0.04) return;
+    const durationSeconds = Math.min(Math.max(0.06, note.durationSeconds), end - note.startTimeSeconds);
+    if (durationSeconds < 0.06) return;
+    const duplicatesLead = gridLead.some(lead =>
+      Math.abs(lead.start - note.startTimeSeconds) <= Math.max(0.075, sixteenth * 0.65) &&
+      Math.abs(lead.pitch - note.pitchMidi) <= 1
+    );
+    if (duplicatesLead) return;
+    const velocity = Math.max(0.16, Math.min(0.62, (note.amplitude || 0.45) * 0.72));
+    pushNote(out, 'keys', note.pitchMidi, note.startTimeSeconds, durationSeconds, velocity);
+  });
+
   gridLead.forEach((note, index) => {
     const next = gridLead[index + 1];
     const gap = next && next.start > note.start ? next.start - note.start : beat * 1.5;
