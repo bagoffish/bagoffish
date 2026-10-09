@@ -1,0 +1,858 @@
+{
+  "studiedAt": "2026-10-09",
+  "note": "Preset numbers are the real program indexes inside each shipped sf2, not General MIDI. 2009 covers use one soundtrack bank (or a Fjords+Strategy pair), not fourteen unrelated banks.",
+  "playlists": [
+    {
+      "title": "2009 SoundFonts (Roblox)",
+      "url": "https://www.youtube.com/playlist?list=PLORKmUVm-YEv3DCFyaIqBQY9i2sqi89OC",
+      "count": 162
+    },
+    {
+      "title": "Roblox old soundfont covers",
+      "url": "https://www.youtube.com/playlist?list=PLWNePkSU9jYhv_S_kYhWJfU5L0pguMOGr",
+      "count": 69
+    },
+    {
+      "title": "ROBLOX Soundtrack",
+      "url": "https://www.youtube.com/playlist?list=PLD7Qlehfjbg6C9aPnNjacrcDA-sIu885G",
+      "count": 63
+    },
+    {
+      "title": "every midi songs from the roblox game MIDI Player",
+      "url": "https://www.youtube.com/watch?v=sXcjDbRarVk",
+      "count": 80
+    }
+  ],
+  "playlistCount": 374,
+  "soundfonts": [
+    {
+      "id": "strategy",
+      "name": "The Great Strategy",
+      "file": "The Great Strategy.sf2",
+      "bankOffset": 1,
+      "presets": {
+        "keys": 0,
+        "horn": 1,
+        "trumpet": 2,
+        "vocals": 3,
+        "strings": 4,
+        "cello": 4,
+        "timpani": 5
+      },
+      "drumProgram": null,
+      "drumKit": "The Great Strategy",
+      "lead": "violin",
+      "pair": "beastmasters",
+      "url": "/audios/soundfonts/The%20Great%20Strategy.sf2"
+    },
+    {
+      "id": "beastmasters",
+      "name": "Beastmasters Tale",
+      "file": "Beastmasters Tale.sf2",
+      "bankOffset": 2,
+      "presets": {
+        "flute": 0,
+        "strings": 1,
+        "arp": 2,
+        "trumpet": 3,
+        "vocals": 4,
+        "cello": 5,
+        "oboe": 0
+      },
+      "drumProgram": null,
+      "drumKit": "Beastmasters Tale",
+      "lead": "violin",
+      "url": "/audios/soundfonts/Beastmasters%20Tale.sf2"
+    },
+    {
+      "id": "fjords-hq",
+      "name": "Wind of Fjords HQ",
+      "file": "Wind of fjords HQ.sf2",
+      "bankOffset": 3,
+      "presets": {
+        "arp": 0,
+        "vocals": 1,
+        "trumpet": 2,
+        "strings": 3,
+        "pad": 4,
+        "horn": 2,
+        "keys": 5
+      },
+      "drumProgram": null,
+      "drumKit": "Wind Of Fjords & Voyage of Eternity",
+      "lead": "choir",
+      "url": "/audios/soundfonts/Wind%20of%20fjords%20HQ.sf2"
+    },
+    {
+      "id": "fjords-voyage",
+      "name": "Wind of Fjords + Voyage to Eternity",
+      "file": "Wind of Fjords + Voyage to Eternity (They share same Instruments).sf2",
+      "bankOffset": 4,
+      "presets": {
+        "arp": 0,
+        "guitar": 1,
+        "vocals": 2,
+        "trumpet": 3,
+        "bass": 4,
+        "pad": 5,
+        "strings": 10,
+        "keys": 8
+      },
+      "drumProgram": 0,
+      "drumKit": "Wind Of Fjords & Voyage of Eternity",
+      "lead": "choir",
+      "url": "/audios/soundfonts/Wind%20of%20Fjords%20%2B%20Voyage%20to%20Eternity%20(They%20share%20same%20Instruments).sf2"
+    },
+    {
+      "id": "stealth",
+      "name": "StealthPilot",
+      "file": "StealthPilot.sf2",
+      "bankOffset": 5,
+      "presets": {
+        "bass": 0,
+        "guitar": 4,
+        "pad": 2,
+        "vocals": 4
+      },
+      "drumProgram": null,
+      "drumKit": "StealthPilot",
+      "lead": "guitar",
+      "url": "/audios/soundfonts/StealthPilot.sf2"
+    },
+    {
+      "id": "stealth-v2",
+      "name": "StealthPilot v2",
+      "file": "StealthPilot v2.sf2",
+      "bankOffset": 6,
+      "presets": {
+        "bass": 0,
+        "keys": 2,
+        "horn": 3,
+        "trumpet": 4,
+        "vocals": 8,
+        "pad": 9,
+        "guitar": 11
+      },
+      "drumProgram": null,
+      "drumKit": "StealthPilot",
+      "lead": "choir",
+      "url": "/audios/soundfonts/StealthPilot%20v2.sf2"
+    },
+    {
+      "id": "classic-days",
+      "name": "Classic Days",
+      "file": "Classic Days.sf2",
+      "bankOffset": 7,
+      "presets": {
+        "bass": 0,
+        "keys": 1,
+        "arp": 1
+      },
+      "drumProgram": null,
+      "drumKit": "Classic Days",
+      "lead": "xylophone",
+      "url": "/audios/soundfonts/Classic%20Days.sf2"
+    },
+    {
+      "id": "crossroad",
+      "name": "Crossroad Times",
+      "file": "Crossroad Times.sf2",
+      "bankOffset": 8,
+      "presets": {
+        "strings": 0,
+        "guitar": 1,
+        "vocals": 2,
+        "pizz": 0
+      },
+      "drumProgram": null,
+      "drumKit": "Crossroad Times",
+      "lead": "string",
+      "url": "/audios/soundfonts/Crossroad%20Times.sf2"
+    },
+    {
+      "id": "dance-potion",
+      "name": "Dance Potion",
+      "file": "Dance Potion.sf2",
+      "bankOffset": 9,
+      "presets": {
+        "guitar": 0,
+        "bass": 1,
+        "drums": 2,
+        "vocals": 0
+      },
+      "drumProgram": 2,
+      "drumKit": "Dance Potion",
+      "lead": "guitar",
+      "url": "/audios/soundfonts/Dance%20Potion.sf2"
+    },
+    {
+      "id": "explore-roblox",
+      "name": "Explore Roblox",
+      "file": "Explore Roblox.sf2",
+      "bankOffset": 10,
+      "presets": {
+        "vocals": 0,
+        "pad": 1,
+        "bass": 2,
+        "keys": 0
+      },
+      "drumProgram": null,
+      "drumKit": "Explore Roblox",
+      "lead": "square",
+      "url": "/audios/soundfonts/Explore%20Roblox.sf2"
+    },
+    {
+      "id": "gamehero",
+      "name": "GameHero",
+      "file": "GameHero Soundfont.sf2",
+      "bankOffset": 11,
+      "presets": {
+        "arp": 5,
+        "clarinet": 7,
+        "flute": 9,
+        "pizz": 4,
+        "guitar": 6,
+        "oboe": 7,
+        "vocals": 9
+      },
+      "drumProgram": null,
+      "drumKit": null,
+      "lead": "flute",
+      "url": "/audios/soundfonts/GameHero%20Soundfont.sf2"
+    },
+    {
+      "id": "monster-mash",
+      "name": "Monster Mash",
+      "file": "Monster Mash.sf2",
+      "bankOffset": 12,
+      "presets": {
+        "vocals": 0,
+        "flute": 0,
+        "bass": 1,
+        "drums": 2
+      },
+      "drumProgram": 2,
+      "drumKit": "Monster Mash",
+      "lead": "whistle",
+      "url": "/audios/soundfonts/Monster%20Mash.sf2"
+    },
+    {
+      "id": "noob-alert",
+      "name": "Noob Alert",
+      "file": "Noob Alert.sf2",
+      "bankOffset": 13,
+      "presets": {
+        "keys": 0,
+        "vocals": 0,
+        "pad": 1,
+        "bass": 1
+      },
+      "drumProgram": null,
+      "drumKit": "Noob Alert",
+      "lead": "piano",
+      "url": "/audios/soundfonts/Noob%20Alert.sf2"
+    },
+    {
+      "id": "party-music",
+      "name": "Party Music",
+      "file": "Party Music.sf2",
+      "bankOffset": 14,
+      "presets": {
+        "vocals": 0,
+        "pad": 1,
+        "keys": 2,
+        "strings": 2
+      },
+      "drumProgram": null,
+      "drumKit": "Party Music",
+      "lead": "synth",
+      "url": "/audios/soundfonts/Party%20Music.sf2"
+    },
+    {
+      "id": "roblox-horror",
+      "name": "Roblox Horror",
+      "file": "Roblox Horror.sf2",
+      "bankOffset": 15,
+      "presets": {
+        "pad": 0,
+        "strings": 1,
+        "vocals": 3,
+        "horn": 2
+      },
+      "drumProgram": null,
+      "drumKit": null,
+      "lead": "horror",
+      "url": "/audios/soundfonts/Roblox%20Horror.sf2"
+    },
+    {
+      "id": "roblox-old",
+      "name": "Roblox Old Sounds",
+      "file": "Roblox Old Sounds.sf2",
+      "bankOffset": 16,
+      "presets": {
+        "bass": 0,
+        "guitar": 3,
+        "keys": 1
+      },
+      "drumProgram": null,
+      "drumKit": null,
+      "lead": "bass",
+      "url": "/audios/soundfonts/Roblox%20Old%20Sounds.sf2"
+    },
+    {
+      "id": "training-day",
+      "name": "Training Day",
+      "file": "Training Day.sf2",
+      "bankOffset": 17,
+      "presets": {
+        "keys": 0,
+        "guitar": 1,
+        "vocals": 0
+      },
+      "drumProgram": null,
+      "drumKit": "Training Day",
+      "lead": "bell",
+      "url": "/audios/soundfonts/Training%20Day.sf2"
+    },
+    {
+      "id": "trouble-ahead",
+      "name": "Trouble Ahead",
+      "file": "Trouble Ahead.sf2",
+      "bankOffset": 18,
+      "presets": {
+        "vocals": 0,
+        "horn": 1,
+        "pad": 2
+      },
+      "drumProgram": null,
+      "drumKit": "Trouble Ahead",
+      "lead": "synth",
+      "url": "/audios/soundfonts/Trouble%20Ahead.sf2"
+    },
+    {
+      "id": "waapp",
+      "name": "WAAPP Whistle",
+      "file": "WAAPP Whistle.sf2",
+      "bankOffset": 19,
+      "presets": {
+        "vocals": 0,
+        "flute": 0
+      },
+      "drumProgram": null,
+      "drumKit": null,
+      "lead": "whistle",
+      "url": "/audios/soundfonts/WAAPP%20Whistle.sf2"
+    },
+    {
+      "id": "wiley-bricks",
+      "name": "Wiley Metal Bricks",
+      "file": "Wiley, Metal Bricks.sf2",
+      "bankOffset": 20,
+      "presets": {
+        "vocals": 0,
+        "pad": 1,
+        "keys": 2,
+        "drums": 3
+      },
+      "drumProgram": 3,
+      "drumKit": "Metal Bricks",
+      "lead": "square",
+      "url": "/audios/soundfonts/Wiley%2C%20Metal%20Bricks.sf2"
+    },
+    {
+      "id": "clan-raided",
+      "name": "Clan Being Raided",
+      "file": "Clan Being Raided.sf2",
+      "bankOffset": 21,
+      "presets": {
+        "vocals": 0,
+        "pad": 0
+      },
+      "drumProgram": null,
+      "drumKit": "Clan Being Raided",
+      "lead": "synth",
+      "url": "/audios/soundfonts/Clan%20Being%20Raided.sf2"
+    },
+    {
+      "id": "death-sounds",
+      "name": "Death Sounds",
+      "file": "Death Sounds.sf2",
+      "bankOffset": 22,
+      "presets": {
+        "pad": 0
+      },
+      "drumProgram": null,
+      "drumKit": null,
+      "lead": "sfx",
+      "url": "/audios/soundfonts/Death%20Sounds.sf2"
+    }
+  ],
+  "aliases": {
+    "stealth-drums": "stealth",
+    "strategy-midi": "strategy",
+    "fjords-midi": "fjords-hq",
+    "fjords": "fjords-hq",
+    "roblox-1": "strategy",
+    "nokia": "explore-roblox",
+    "general-user": "strategy",
+    "aqua-mod": "gamehero",
+    "roblox-other": "roblox-old"
+  },
+  "songs": [
+    {
+      "title": "BadLiZ - The Great Strategy (2006 Theme)",
+      "url": "https://www.youtube.com/watch?v=9gM6FhzjkNc",
+      "family": "strategy"
+    },
+    {
+      "title": "Stealth Pilot - Happy Day in Robloxia",
+      "url": "https://www.youtube.com/watch?v=X6NnUe8xwU0",
+      "family": "stealth"
+    },
+    {
+      "title": "Stealth Pilot - Laidback Danger",
+      "url": "https://www.youtube.com/watch?v=95mtGjamyuI",
+      "family": "stealth"
+    },
+    {
+      "title": "Stealth Pilot - Robloxia's Last Stand",
+      "url": "https://www.youtube.com/watch?v=Otnzps38HRc",
+      "family": "stealth"
+    },
+    {
+      "title": "Bashy - Classic Days",
+      "url": "https://www.youtube.com/watch?v=x-qPuW3JV5I",
+      "family": "classic-days"
+    },
+    {
+      "title": "minomus - Wind of Fjords",
+      "url": "https://www.youtube.com/watch?v=qDuW1bSOgLE",
+      "family": "fjords"
+    },
+    {
+      "title": "Badliz - The Great Strategy with the Winds Of Fjords Soundfont",
+      "url": "https://www.youtube.com/watch?v=Lb3VA9UcKLU",
+      "family": "fjords"
+    },
+    {
+      "title": "Bruno Mars - Treasure (Wind of Fjords + Great Strategy)",
+      "url": "https://www.youtube.com/watch?v=dA18Qho-SgE",
+      "family": "fjords"
+    },
+    {
+      "title": "Dan Bunten - M.U.L.E Theme",
+      "url": "https://youtu.be/XWpqGrSfd_0",
+      "family": "strategy"
+    },
+    {
+      "title": "Little Dark Age (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=WszlwDOnhEc",
+      "family": "fjords"
+    },
+    {
+      "title": "nobody here but in 2009 roblox soundfont",
+      "url": "https://www.youtube.com/watch?v=wbu4hGiAIQE",
+      "family": "explore"
+    },
+    {
+      "title": "Aphex Twin - Flim (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=6nQej3ZN6H4",
+      "family": "explore"
+    },
+    {
+      "title": "akiaura - Sleepwalker (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=ZYHBNaAPV_M",
+      "family": "fjords"
+    },
+    {
+      "title": "pal face (my original 2009 roblox composition)",
+      "url": "https://www.youtube.com/watch?v=3o240uZMpjc",
+      "family": "explore"
+    },
+    {
+      "title": "Crystal Castles - Untrust Us (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=N8w4409g0sc",
+      "family": "party"
+    },
+    {
+      "title": "Aphex Twin - Alberto Balsalm (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=oNBA5FFNoIQ",
+      "family": "explore"
+    },
+    {
+      "title": "Have a Nice Life - Bloodhail (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=i4xWH8QKJjE",
+      "family": "horror"
+    },
+    {
+      "title": "Yves Tumor - Limerence (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=7YenniR-Kuk",
+      "family": "fjords"
+    },
+    {
+      "title": "Duster - Me and the Birds (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=jN3q672AN1U",
+      "family": "fjords"
+    },
+    {
+      "title": "TV Girl - Lovers Rock (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=xF1f60Q-d5w",
+      "family": "party"
+    },
+    {
+      "title": "Mac Demarco - My Kind Of Woman (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=wCwMKXMAS0c",
+      "family": "classic-days"
+    },
+    {
+      "title": "Duster - Inside out (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=oqjqSA4TWoU",
+      "family": "fjords"
+    },
+    {
+      "title": "Mac Demarco - Passing Out Pieces (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=c9__-ZLDVCk",
+      "family": "classic-days"
+    },
+    {
+      "title": "Mac Demarco - Freaking Out The Neighborhood (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=Q-bWUcOYVx8",
+      "family": "explore"
+    },
+    {
+      "title": "Beach House - Space Song (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=zGuhwPn2K7I",
+      "family": "fjords"
+    },
+    {
+      "title": "frou frou - a new kind of love (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=pF2dBDfjaQk",
+      "family": "party"
+    },
+    {
+      "title": "Chamber of Reflection (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/watch?v=sgihx2NVmKg",
+      "family": "classic-days"
+    },
+    {
+      "title": "FNAF 1 song but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=KMT-iPbWr6A",
+      "family": "horror"
+    },
+    {
+      "title": "Bad Apple but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=nobU_aBDGts",
+      "family": "explore"
+    },
+    {
+      "title": "Glory but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=NjGsUQ2bMuQ",
+      "family": "strategy"
+    },
+    {
+      "title": "BIG SHOT but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=mISaaIWAJAE",
+      "family": "party"
+    },
+    {
+      "title": "Castle Vein but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=hNx0zQZKSh4",
+      "family": "horror"
+    },
+    {
+      "title": "You're Mine but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=5Xn__bOnO30",
+      "family": "monster"
+    },
+    {
+      "title": "Science Blaster but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=qB7Agyl4vRs",
+      "family": "explore"
+    },
+    {
+      "title": "Nirvana's Nevermind but with the 2009 Roblox soundfont",
+      "url": "https://www.youtube.com/watch?v=KMzNt2MDsZ8",
+      "family": "stealth"
+    },
+    {
+      "title": "Never Be Alone but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=BYGXyQfYqxY",
+      "family": "fjords"
+    },
+    {
+      "title": "It's been so long but it's an old Roblox remix",
+      "url": "https://www.youtube.com/watch?v=ZL6elNMd03Q",
+      "family": "horror"
+    },
+    {
+      "title": "Loonbloon but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=A1q25yvTFLQ",
+      "family": "explore"
+    },
+    {
+      "title": "SCP-3008 - Friday Theme but it's 2009 Roblox song",
+      "url": "https://www.youtube.com/watch?v=rXuLNb6yvBs",
+      "family": "horror"
+    },
+    {
+      "title": "Buddy Holly but it's supposed to sound like a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=BLD7vD2B2I4",
+      "family": "classic-days"
+    },
+    {
+      "title": "anybody can find love (except you.) (2009 ROBLOX cover/remix)",
+      "url": "https://www.youtube.com/watch?v=15ogyG8o2fo",
+      "family": "party"
+    },
+    {
+      "title": "Kick Back but its roblox 2009 soundfont",
+      "url": "https://www.youtube.com/watch?v=HenPTkY5Lqk",
+      "family": "party"
+    },
+    {
+      "title": "The Adults Are Talking but its the roblox 2009 soundfont",
+      "url": "https://www.youtube.com/watch?v=aP_X0SpJ8zI",
+      "family": "explore"
+    },
+    {
+      "title": "Dschinghis Khan - Moskau but it's sounds like straight out from a 2009 old Roblox song",
+      "url": "https://www.youtube.com/watch?v=4w_jmc2NxpA",
+      "family": "party"
+    },
+    {
+      "title": "French! - Tyler, The Creator ROBLOX old soundfont cover",
+      "url": "https://www.youtube.com/watch?v=dNcW3QpdNcQ",
+      "family": "party"
+    },
+    {
+      "title": "Ring Ring Ring - Tyler, the Creator but with ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=klj21jrq4yQ",
+      "family": "party"
+    },
+    {
+      "title": "Tyler, The Creator - Sucka Free but with ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=WXiaeSinU4Y",
+      "family": "stealth"
+    },
+    {
+      "title": "She - Tyler, The Creator but with ROBLOX soundfont",
+      "url": "https://www.youtube.com/watch?v=ZyGMi4NK_OY",
+      "family": "fjords"
+    },
+    {
+      "title": "Tyler, The Creator - PILOT but with ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=oQPbYeJwj7I",
+      "family": "stealth"
+    },
+    {
+      "title": "Tyler, The Creator - WUSYANAME but with ROBLOX soundfont",
+      "url": "https://www.youtube.com/watch?v=Sd2Kwds7JfA",
+      "family": "party"
+    },
+    {
+      "title": "The ENTIRE IGOR album but using ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=HaKQIfnW5zY",
+      "family": "party"
+    },
+    {
+      "title": "The ENTIRE Flower Boy album only using old ROBLOX soundfont",
+      "url": "https://www.youtube.com/watch?v=hn1L_goBYWM",
+      "family": "party"
+    },
+    {
+      "title": "DtMF - Bad Bunny but with ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=9WLDM6wqMzY",
+      "family": "party"
+    },
+    {
+      "title": "The ENTIRE Wolf album with ROBLOX old soundfont",
+      "url": "https://www.youtube.com/watch?v=1SdO5fY15Qg",
+      "family": "stealth"
+    },
+    {
+      "title": "Undertale - Once Upon a Time but it sounds like an old roblox song",
+      "url": "https://www.youtube.com/watch?v=CO1kTEPdOGg",
+      "family": "explore"
+    },
+    {
+      "title": "every midi songs from the roblox game MIDI Player",
+      "url": "https://www.youtube.com/watch?v=sXcjDbRarVk",
+      "family": "gamehero"
+    },
+    {
+      "title": "Beastmasters Tale (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Clan Being Raided (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Classic Days (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Crossroad Times (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Dance Potion (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Death Sounds (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Explore Roblox (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "GameHero Advanced MIDI Player (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Monster Mash (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Noob Alert (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Party Music (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Roblox Horror (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Roblox Old Sounds (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "StealthPilot (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "StealthPilot v2 (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "The Great Strategy (Roblox soundtrack source)",
+      "url": "",
+      "family": "strategy"
+    },
+    {
+      "title": "Training Day (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Trouble Ahead (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "WAAPP Whistle (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Wiley Metal Bricks (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Wind of Fjords (Roblox soundtrack source)",
+      "url": "",
+      "family": "fjords"
+    },
+    {
+      "title": "Voyage to Eternity (Roblox soundtrack source)",
+      "url": "",
+      "family": "fjords"
+    },
+    {
+      "title": "Xbox Theme (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "M.U.L.E (Roblox soundtrack source)",
+      "url": "",
+      "family": "strategy"
+    },
+    {
+      "title": "Happy Day in Robloxia (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Laidback Danger (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Robloxia's Last Stand (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Packet Power (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Power Move (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Music For a Film (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Gothic (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Flight of the Bumblebee (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "One-Winged Angel (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Halo Theme (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    },
+    {
+      "title": "Cursed Abbey (Roblox soundtrack source)",
+      "url": "",
+      "family": "stealth"
+    }
+  ]
+}
