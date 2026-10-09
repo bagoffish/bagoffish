@@ -486,6 +486,90 @@ export function buildRobloxArrangement(rawNotes, duration) {
     pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
   });
 
+  // Add a restrained, chord-aware 2008–2012 game-music backing around the
+  // transcribed source. The uploaded melody remains intact; these are new
+  // accompaniment parts, not replacements or a guessed rewrite of the song.
+  const beat = gameBeat(notes);
+  const downbeat = findDownbeat(notes, beat);
+  const key = inferKey(notes);
+  const harmonyNotes = notes.filter(note => !leadNotes.has(note));
+  const harmony = buildHarmonySegments(
+    leadNotes.size ? Array.from(leadNotes) : notes,
+    harmonyNotes.length ? harmonyNotes : notes,
+    downbeat,
+    end,
+    beat,
+    key
+  );
+  const generated = [];
+  const addLayerNote = (role, pitch, start, length, velocity) => {
+    if (start < 0 || start >= end) return;
+    const safeLength = Math.min(length, end - start);
+    if (safeLength < 0.07) return;
+    pushNote(generated, role, pitch, start, safeLength, velocity);
+  };
+
+  harmony.forEach((segment, segmentIndex) => {
+    const span = segment.end - segment.start;
+    if (span <= beat * 0.4 || !segment.pcs.length) return;
+    const pcs = segment.pcs.slice(0, 3);
+    const rootPc = pcs[0];
+    const rootBass = nearestPitch(rootPc, 34, 47, 40);
+    const fifthBass = nearestPitch((rootPc + 7) % 12, 34, 47, rootBass == null ? 40 : rootBass);
+    const chord = [];
+    pcs.forEach((pc, index) => {
+      const pitch = nearestPitch(pc, 53, 72, 60 + index * 3);
+      if (pitch != null && !chord.includes(pitch)) chord.push(pitch);
+    });
+
+    // Old Roblox MIDI covers often have a very audible, simple bass pulse.
+    // Root/fifth movement anchors the harmony without overpowering the source.
+    const bar = beat * 4;
+    for (let t = segment.start, slot = 0; t < segment.end - beat * 0.25; t += beat, slot++) {
+      const pitch = slot % 4 === 2 && fifthBass != null ? fifthBass : rootBass;
+      if (pitch != null) addLayerNote('bass', pitch, t, beat * (slot % 2 === 0 ? 0.78 : 0.55), slot % 2 === 0 ? 0.36 : 0.27);
+    }
+
+    // Short chord stabs provide the bright, bouncy MIDI-cover texture.
+    [0, 2].forEach((beatOffset, stabIndex) => {
+      const t = segment.start + beat * beatOffset;
+      if (t >= segment.end || t >= end) return;
+      chord.forEach((pitch, voice) => {
+        addLayerNote('keys', pitch, t, Math.min(beat * 0.68, segment.end - t), 0.18 + (voice === 0 ? 0.025 : 0));
+      });
+      // A quiet off-beat guitar/pizzicato accent adds motion without a drum loop.
+      const offbeat = t + beat * 0.5;
+      if (offbeat < segment.end) {
+        const accent = chord[(stabIndex + 1) % Math.max(1, chord.length)];
+        if (accent != null) addLayerNote('guitar', accent + 12, offbeat, beat * 0.28, 0.15);
+      }
+    });
+
+    // A light eighth-note arpeggio gives the arrangement the layered,
+    // playful sound of old game MIDI covers. Rotate notes so it doesn't loop
+    // the same pitch mechanically on every bar.
+    const arpPitches = chord.length >= 2 ? chord : [nearestPitch(rootPc, 55, 72, 60)];
+    let stepIndex = 0;
+    for (let t = segment.start + beat * 0.5; t < segment.end - beat * 0.18; t += beat * 0.5) {
+      const chordIndex = (stepIndex + segmentIndex) % arpPitches.length;
+      const base = arpPitches[chordIndex];
+      if (base != null) {
+        const pitch = clampMidi(base + (stepIndex % 4 === 3 ? 12 : 0));
+        addLayerNote('arp', pitch, t, beat * 0.24, stepIndex % 2 === 0 ? 0.13 : 0.095);
+      }
+      stepIndex++;
+    }
+
+    // Sustained, low-volume chord bed only on longer sections; this fills the
+    // gaps between stabs instead of turning every beat into a wall of sound.
+    if (span >= bar * 0.8 && chord.length >= 2) {
+      chord.slice(0, 3).forEach(pitch => {
+        addLayerNote('pad', pitch - 12, segment.start, Math.min(span, end - segment.start), 0.075);
+      });
+    }
+  });
+  generated.forEach(note => out.push(note));
+
   // Remove only near-identical duplicate events in the same part. Never merge
   // distinct pitches: octave doubles and quick repeated notes can be musical.
   const result = [];
