@@ -447,42 +447,52 @@ export function buildRobloxArrangement(rawNotes, duration) {
   const notes = (cleaned.length ? cleaned : source).slice()
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   const end = Math.min(300, Number(duration) > 0 ? Number(duration) : notes.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
-  const clusters = [];
-  notes.forEach(note => {
-    let cluster = clusters[clusters.length - 1];
-    if (!cluster || note.startTimeSeconds - cluster.start > 0.025) {
-      cluster = { start: note.startTimeSeconds, notes: [] };
-      clusters.push(cluster);
-    }
-    cluster.notes.push(note);
-  });
+
+  // Do not decide "lead" merely by which note started within 25 ms of another.
+  // Real performances and Basic Pitch often report chord tones a few frames
+  // apart; the old rule accidentally sent many melody notes to accompaniment.
+  // Follow one plausible melodic line across onset clusters, then route every
+  // remaining detected note by register so offset chord tones remain present.
+  const leadNotes = new Set(extractMelody(notes));
   const out = [];
-  clusters.forEach(cluster => {
-    const sorted = cluster.notes.slice().sort((a, b) =>
-      (Number(b.amplitude) || 0) - (Number(a.amplitude) || 0) || b.pitchMidi - a.pitchMidi
-    );
-    sorted.forEach((note, index) => {
-      const startTime = Math.max(0, note.startTimeSeconds);
-      if (startTime >= end) return;
-      const length = Math.max(0.045, Math.min(note.durationSeconds, end - startTime));
-      let role = 'vocals';
-      let velocityScale = 1;
-      if (index > 0) {
-        if (note.pitchMidi < 48) { role = 'bass'; velocityScale = 0.78; }
-        else if (note.pitchMidi < 64) { role = 'cello'; velocityScale = 0.62; }
-        else { role = 'strings'; velocityScale = 0.56; }
-      }
-      const amplitude = Math.max(0.12, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
-      pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
-    });
+  notes.forEach(note => {
+    const startTime = Math.max(0, note.startTimeSeconds);
+    if (startTime >= end) return;
+    const length = Math.max(0.045, Math.min(note.durationSeconds, end - startTime));
+    let role = 'strings';
+    let velocityScale = 0.56;
+    if (leadNotes.has(note)) {
+      role = 'vocals';
+      velocityScale = 1;
+    } else if (note.pitchMidi < 48) {
+      role = 'bass';
+      velocityScale = 0.78;
+    } else if (note.pitchMidi < 64) {
+      role = 'cello';
+      velocityScale = 0.68;
+    } else if (note.pitchMidi < 72) {
+      role = 'strings';
+      velocityScale = 0.62;
+    } else {
+      // Keep non-lead high notes quieter, rather than letting them compete
+      // with the melody at the same level.
+      role = 'strings';
+      velocityScale = 0.44;
+    }
+    const amplitude = Math.max(0.1, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
+    pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
   });
+
+  // Remove only near-identical duplicate events in the same part. Never merge
+  // distinct pitches: octave doubles and quick repeated notes can be musical.
   const result = [];
   const lastByPitchRole = new Map();
   out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).forEach(note => {
     const key = note.role + ':' + note.pitchMidi;
     const previous = lastByPitchRole.get(key);
-    if (previous && Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.025 &&
-        Math.abs(previous.durationSeconds - note.durationSeconds) < 0.06) return;
+    if (previous &&
+        Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.018 &&
+        Math.abs(previous.durationSeconds - note.durationSeconds) < 0.045) return;
     result.push(note);
     lastByPitchRole.set(key, note);
   });
