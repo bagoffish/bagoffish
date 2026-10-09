@@ -550,6 +550,30 @@ app.post("/community/tracks", async (req, res) => {
   }
 });
 
+
+app.delete("/community/tracks/:id", async (req, res) => {
+  setCors(req, res);
+  try {
+    const ownerName = String(req.query?.ownerName || "").replace(/[\\u0000-\\u001f]/g, "").trim().slice(0, 40);
+    const id = String(req.params.id || "").trim();
+    if (!ownerName) return res.status(400).json({ error: "Your Player List name is required to delete a published place." });
+    const outcome = await enqueueCommunity(async () => {
+      const tracks = await loadCommunityTracks();
+      const target = tracks.find(item => item && String(item.id) === id);
+      if (!target) return { status: 404, body: { error: "Published place not found." } };
+      if (String(target.ownerName || "").trim().toLowerCase() !== ownerName.toLowerCase()) {
+        return { status: 403, body: { error: "Only the publishing Player List name can delete this place." } };
+      }
+      await saveCommunityIndex(tracks.filter(item => !item || String(item.id) !== id));
+      return { status: 200, body: { ok: true, deleted: true } };
+    });
+    res.status(outcome.status).json(outcome.body);
+  } catch (err) {
+    console.warn("Community place delete failed:", err.message);
+    res.status(500).json({ error: "Could not delete this published place." });
+  }
+});
+
 let bloxifyModulePromise = null;
 let bloxifyBusy = false;
 const bloxifyCache = new Map();
