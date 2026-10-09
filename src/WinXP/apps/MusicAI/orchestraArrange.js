@@ -420,8 +420,14 @@ function scalePitch(pitch, key, low, high) {
 }
 
 function feel(base, phrase, slot) {
-  const wobble = ((phrase * 5 + slot * 3) % 5) * 0.012;
-  return Math.max(0.12, base + wobble - 0.015);
+  // Deterministic, phrase-aware velocity shaping: stable across re-renders,
+  // but not every note lands at the same intensity like a quantized demo MIDI.
+  const seed = (phrase * 17 + slot * 11 + (phrase % 3) * 7) % 13;
+  const variation = (seed - 6) * 0.012;
+  const downbeat = slot % 4 === 0 ? 0.045 : 0;
+  const phraseLift = phrase === 0 || phrase === 4 ? 0.025 : 0;
+  const breath = phrase === 3 ? -0.08 : 0;
+  return Math.max(0.1, Math.min(0.82, base + variation + downbeat + phraseLift + breath));
 }
 
 export function buildRobloxArrangement(rawNotes, duration) {
@@ -464,6 +470,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
       if ((note.amplitude || 0) >= (prev.amplitude || 0)) {
         prev.pitch = pitch;
         prev.amplitude = note.amplitude || prev.amplitude;
+        prev.sourceDuration = Math.max(0.06, note.durationSeconds || prev.sourceDuration || beat);
       }
       return;
     }
@@ -471,14 +478,22 @@ export function buildRobloxArrangement(rawNotes, duration) {
       start,
       pitch,
       amplitude: note.amplitude || 0.7,
+      sourceDuration: Math.max(0.06, note.durationSeconds || beat),
     });
   });
   gridLead.forEach((note, index) => {
     const next = gridLead[index + 1];
-    let length = beat * 1.5;
-    if (next && next.start > note.start) length = Math.min(beat * 2, Math.max(sixteenth, next.start - note.start - 0.02));
-    else length = Math.min(length, Math.max(sixteenth, end - note.start));
-    pushNote(out, 'vocals', note.pitch, note.start, length, Math.max(0.78, Math.min(0.92, 0.72 + (note.amplitude || 0.7) * 0.16)));
+    const gap = next && next.start > note.start ? next.start - note.start : beat * 1.5;
+    // Keep the transcription's note shape, while preventing muddy overlaps.
+    // Longer notes can breathe; short notes remain short instead of being
+    // stretched into identical, synthetic legato notes.
+    const sourceLength = Math.min(note.sourceDuration || beat, beat * 2.25);
+    const phraseEnd = !next || next.start - note.start > beat * 1.45;
+    const articulation = phraseEnd ? 0.94 : (sourceLength < beat * 0.55 ? 0.82 : 0.91);
+    const length = Math.min(sourceLength * articulation, Math.max(sixteenth, gap - Math.min(0.035, beat * 0.07)), Math.max(sixteenth, end - note.start));
+    const phraseAccent = phraseEnd ? 0.025 : 0;
+    const velocity = Math.max(0.62, Math.min(0.94, 0.66 + (note.amplitude || 0.7) * 0.22 + phraseAccent));
+    pushNote(out, 'vocals', note.pitch, note.start, length, velocity);
   });
 
   function pcsAt(time) {
