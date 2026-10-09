@@ -576,11 +576,22 @@ export function buildRobloxArrangement(rawNotes, duration) {
     const arpPitches = chord.length >= 2 ? chord : [nearestPitch(rootPc, 55, 72, 60)];
     let stepIndex = 0;
     for (let t = segment.start + beat * 0.5; t < segment.end - beat * 0.18; t += beat * 0.5) {
-      const chordIndex = (stepIndex + segmentIndex) % arpPitches.length;
-      const base = arpPitches[chordIndex];
-      if (base != null) {
-        const pitch = clampMidi(base + (stepIndex % 4 === 3 ? 12 : 0));
-        addLayerNote('arp', pitch, t, beat * 0.24, stepIndex % 2 === 0 ? 0.13 : 0.095);
+      // Alternate the arpeggio direction between phrases and leave a tiny
+      // breath before some phrase turns, instead of repeating a rigid loop.
+      const phraseTurnRest = segmentIndex % 3 === 2 && stepIndex % 8 === 7;
+      if (!phraseTurnRest) {
+        const forward = segmentIndex % 2 === 0;
+        const offset = stepIndex % arpPitches.length;
+        const chordIndex = forward
+          ? offset
+          : (arpPitches.length - 1 - offset + arpPitches.length) % arpPitches.length;
+        const base = arpPitches[chordIndex];
+        if (base != null) {
+          const octaveLift = stepIndex % 4 === 3 || (segmentIndex % 2 === 1 && stepIndex % 8 === 4);
+          const pitch = clampMidi(base + (octaveLift ? 12 : 0));
+          const accent = stepIndex % 4 === 0 ? 0.025 : 0;
+          addLayerNote('arp', pitch, t, beat * 0.24, (stepIndex % 2 === 0 ? 0.105 : 0.085) + accent);
+        }
       }
       stepIndex++;
     }
