@@ -1290,11 +1290,11 @@ function MusicAI() {
       } finally {
         window.clearInterval(progressTimer);
       }
-      setStatus('Writing the orchestra under the tune.'); await yieldToBrowser();
+      setStatus('Building the full arrangement.'); await yieldToBrowser();
       let fitted = buildFullArrangement(rawNotes, duration);
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = glueArrangement(fitted);
-      setStatus('Loading violin, bass, drums, and the orchestra bank.'); await yieldToBrowser();
+      setStatus('Loading lead, bass, drums, and instrument banks.'); await yieldToBrowser();
       const soundfontRoles = { ...assignRoleBanks(), ...((aiPlan && aiPlan.soundfontRoles) || {}) };
       const usedRoles = new Set(fitted.map(note => note.role));
       const palette = [];
@@ -1309,7 +1309,7 @@ function MusicAI() {
       const plan = {
         ...(aiPlan || {}),
         label: 'Bloxify Arrangement',
-        reason: (aiPlan && aiPlan.reason) || 'Bloxify selects Roblox SoundFonts and WAV samples per song, then builds a violin-led orchestra around the detected melody.',
+        reason: (aiPlan && aiPlan.reason) || 'Bloxify selects Roblox SoundFonts and WAV samples per song, then builds a layered arrangement around the detected melody.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
         soundfonts: SOUNDFONT_LIBRARY,
@@ -1325,7 +1325,7 @@ function MusicAI() {
       setPlaybackDuration(Math.max(duration, heardEnd(fitted)));
       setProgress(100);
       const songEnd = Math.max(duration || 0, fitted.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0));
-      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · Roblox orchestra');
+      setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · Roblox sound');
     } catch (error) {
       console.error(error);
       setStatus('Failed — ' + (error && error.message ? error.message : 'unknown'));
@@ -1486,7 +1486,7 @@ function MusicAI() {
     }
     const synth = synthRef.current;
     const pending = (usePlan.soundfontPalette || []).filter(bank => bank && !loadedBanksRef.current.has(bank.id));
-    if (pending.length) setStatus(pending.some(bank => bank.id === 'general-user') ? 'Loading the orchestra.' : 'Loading the Roblox instruments.');
+    if (pending.length) setStatus(pending.some(bank => bank.id === 'general-user') ? 'Loading the instrument banks.' : 'Loading the Roblox instruments.');
     for (const bank of pending) {
       if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
     }
@@ -1687,7 +1687,7 @@ function MusicAI() {
           <div style={{ ...panel, padding: 8, flexShrink: 0 }}>
             <div style={{ background: rbx.blue, color: '#fff', fontWeight: 'bold', fontSize: 11, padding: '2px 6px', margin: '-8px -8px 6px', borderBottom: '2px solid #000' }}>Status</div>
             <div style={{ fontSize: 11, marginBottom: 4, lineHeight: 1.35 }}>{status}</div>
-            <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: orchestra · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
+            <div style={{ fontSize: 10, marginBottom: 4 }}>Stems: {STEM_ORDER.map(id => (arrangement.some(n => n.role === id) ? 1 : 0)).reduce((a, b) => a + b, 0)} · MIDI: multi-instrument · WAV: {wavBlob ? 'ready' : 'not rendered'}</div>
             <HealthBar value={progress} max={100} label={
               <span style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
                 <span>Loading</span>
