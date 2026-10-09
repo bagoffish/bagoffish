@@ -25,7 +25,7 @@ const REFERENCE_STYLE = {
     "vocal-less instrumental MIDI",
   ],
   arrangement: "Keep the uploaded melody recognizable on the violin. Write the other parts as an orchestra that breathes: one color instrument at a time, rests in the fourth bar of a phrase, and no machine-gun accompaniment.",
-  instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Play them from four banks: Roblox Soundfont 1, Wind of Fjords, GeneralUser GS, and StealthPilot drums.",
+  instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
   tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
   density: "violin lead plus a small orchestra, thinner when the tune is sparse",
 };
@@ -709,9 +709,8 @@ function fallbackPlan(notes, duration) {
   };
 }
 
-// Style is deliberately NOT generated per upload.
-// Basic Pitch only supplies the user's notes; this fixed plan supplies the
-// musical identity every Bloxify conversion uses.
+// Keep Bloxify's recognizable orchestral identity consistent, while adapting
+// its SoundFont roles and WAV sample layers to each upload's detected notes.
 async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
   const plan = fallbackPlan(notes, duration);
   return {
