@@ -440,7 +440,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
     Number.isFinite(note.startTimeSeconds) &&
     Number.isFinite(note.durationSeconds) &&
     Number.isFinite(note.pitchMidi) &&
-    note.durationSeconds >= 0.055 &&
+    note.durationSeconds >= 0.035 &&
     note.pitchMidi >= 0 && note.pitchMidi <= 127 &&
     note.startTimeSeconds >= 0 &&
     note.startTimeSeconds < Math.min(300, Number(duration) || 300)
