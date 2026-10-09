@@ -1010,7 +1010,6 @@ function MusicAI() {
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null);
-  const [viewMode, setViewMode] = useState('roll');
   const savePlayerLocal = name => { try { window.localStorage.setItem(PLAYER_KEY, name); } catch (e) {} };
   const loadPlayer = useCallback(async name => {
     const clean = String(name || '').trim(); if (!clean) return false;
@@ -1519,7 +1518,6 @@ function MusicAI() {
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
         <button type="button" aria-label="Places" title="Places" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
-        <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#fff', textShadow: '1px 1px 0 #000' }}>{projectName}</span>
       </div>
 
@@ -1571,22 +1569,7 @@ function MusicAI() {
             )}
           </div>
           <div style={{ ...panel, padding: 0, flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {viewMode === 'roll' ? (
-              <PianoRoll notes={arrangement} onChange={updateArrangement} selectedId={selectedNoteId} onSelect={setSelectedNoteId} playhead={playbackTime > 0 ? playbackTime : null} playheadSink={playheadSinkRef} duration={playbackDuration} />
-            ) : (
-              <div style={{ overflow: 'auto', flex: 1 }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-                  <thead><tr style={{ background: '#c5d8ec' }}><th style={{ textAlign: 'left', padding: 4 }}>#</th><th style={{ textAlign: 'left', padding: 4 }}>Role</th><th style={{ textAlign: 'left', padding: 4 }}>Pitch</th><th style={{ textAlign: 'left', padding: 4 }}>Start</th><th style={{ textAlign: 'left', padding: 4 }}>Dur</th></tr></thead>
-                  <tbody>
-                    {arrangement.slice(0, 300).map(note => (
-                      <tr key={note.id} onClick={() => setSelectedNoteId(note.id)} style={{ background: note.id === selectedNoteId ? rbx.blue : '#fff', color: note.id === selectedNoteId ? '#fff' : '#000', cursor: 'pointer' }}>
-                        <td style={{ padding: 3 }}>{note.id}</td><td style={{ padding: 3 }}>{note.role}</td><td style={{ padding: 3 }}>{note.pitchMidi}</td><td style={{ padding: 3 }}>{note.startTimeSeconds.toFixed(2)}</td><td style={{ padding: 3 }}>{note.durationSeconds.toFixed(2)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+            <PianoRoll notes={arrangement} onChange={updateArrangement} selectedId={selectedNoteId} onSelect={setSelectedNoteId} playhead={playbackTime > 0 ? playbackTime : null} playheadSink={playheadSinkRef} duration={playbackDuration} />
           </div>
         </div>
         <div style={{ width: 130, flexShrink: 0, padding: '10px 8px', display: 'flex', flexDirection: 'column', gap: 12, background: 'rgba(0,0,0,0.25)', borderLeft: '2px solid #000' }}>
