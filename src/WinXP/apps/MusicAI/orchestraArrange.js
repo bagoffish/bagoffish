@@ -433,6 +433,31 @@ function feel(base, phrase, slot) {
   return Math.max(0.1, Math.min(0.82, base + variation + downbeat + phraseLift + breath));
 }
 
+
+// A pitch-class list is ranked by how often notes were heard, not by chord
+// function. Choose a bass root separately so the loudest melody note does not
+// automatically become the bass note for an entire bar.
+function inferSegmentRoot(pcs, notes, start, end, key) {
+  if (!pcs.length) return key.rootPc;
+  const weights = pitchClassWeights(notes, start, end);
+  const candidates = [];
+  pcs.forEach(pc => {
+    const scaleDegree = (pc - key.rootPc + 12) % 12;
+    const inScale = scaleFor(key.minor).includes(scaleDegree) ? 0.35 : -0.45;
+    [false, true].forEach(minor => {
+      const fit = triadFit(pc, minor, weights);
+      const rootSupport = weights[pc] || 0;
+      candidates.push({
+        pc,
+        minor,
+        score: fit + inScale + Math.min(0.25, rootSupport / Math.max(1, weights.reduce((sum, value) => sum + value, 0))),
+      });
+    });
+  });
+  candidates.sort((a, b) => b.score - a.score);
+  return candidates[0].pc;
+}
+
 export function buildRobloxArrangement(rawNotes, duration) {
   // Keep the transcription recognizable: use detected notes and timing, not
   // guessed chord progressions, transposed melody notes, or a fixed drum loop.
@@ -513,7 +538,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
     const span = segment.end - segment.start;
     if (span <= beat * 0.4 || !segment.pcs.length) return;
     const pcs = segment.pcs.slice(0, 3);
-    const rootPc = pcs[0];
+    const rootPc = inferSegmentRoot(pcs, harmonyNotes.length ? harmonyNotes : notes, segment.start, segment.end, key);
     const rootBass = nearestPitch(rootPc, 34, 47, 40);
     const fifthBass = nearestPitch((rootPc + 7) % 12, 34, 47, rootBass == null ? 40 : rootBass);
     const chord = [];
