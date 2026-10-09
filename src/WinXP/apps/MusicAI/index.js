@@ -18,7 +18,7 @@ function loadWorkletSynthesizer() {
 
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
-const API_BASE = window.RENDERER_API_BASE || 'https://winxp-backend-live.onrender.com';
+const API_BASE = window.RENDERER_API_BASE || 'https://bloxify-backend-2apa.onrender.com';
 const MAX_SECONDS = 300;
 const MAX_BYTES = 120 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
