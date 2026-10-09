@@ -446,18 +446,22 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
 
   const notePostProcessStartedAt = Date.now();
   const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.29, 0.35, 6);
-  // Keep a lower-threshold pass so quieter inner notes and chord tones survive.
-  // The primary pass remains the clean anchor; mergeNotes removes near-duplicates.
+  // The primary pass anchors clean attacks; the sensitive pass recovers quieter
+  // inner notes and chord tones that are easy to lose in dense arrangements.
   const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.21, 0.27, 4);
+  // A third, conservative recovery pass catches short/quiet attacks missed by
+  // both passes. It uses the same model output, so it adds post-processing work
+  // rather than another expensive neural-network inference.
+  const recoveryRaw = pitch.outputToNotesPoly(frames, onsets, 0.17, 0.22, 3);
 
-  const primary = pitch.noteFramesToTime(
-    pitch.addPitchBendsToNoteEvents(contours, primaryRaw)
+  const toTimedNotes = raw => pitch.noteFramesToTime(
+    pitch.addPitchBendsToNoteEvents(contours, raw)
   );
-  const sensitive = pitch.noteFramesToTime(
-    pitch.addPitchBendsToNoteEvents(contours, sensitiveRaw)
-  );
+  const primary = toTimedNotes(primaryRaw);
+  const sensitive = toTimedNotes(sensitiveRaw);
+  const recovery = toTimedNotes(recoveryRaw);
 
-  const notes = mergeNotes(primary, sensitive);
+  const notes = mergeNotes(mergeNotes(primary, sensitive), recovery);
   console.log(
     `Bloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`
   );
