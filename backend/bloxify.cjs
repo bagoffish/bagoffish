@@ -535,7 +535,7 @@ function fallbackPlan(notes, duration) {
   const selected = programsForFamily(family);
   const soundfontRoles = selected.roles;
   const soundfontPalette = selected.fonts;
-  const sampleAssets = [];
+  const sampleAssets = chooseSongAssets(analysis);
   const studied = (study.songs || []).filter((song) => song.family === family.id || (family.id === "strategy" && song.family === "strategy"));
   return {
     primaryRole: "vocals",
