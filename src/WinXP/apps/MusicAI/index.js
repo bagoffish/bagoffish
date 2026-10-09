@@ -161,7 +161,10 @@ function planWithSoundBanks(notes, savedPlan) {
     label: 'Bloxify Arrangement',
     fixedStyle: true,
     preBakedSoundFontCatalog: true,
-    sampleAssets: Array.isArray(saved.sampleAssets) ? saved.sampleAssets : [],
+    sampleAssets: [
+      ...MULE_AUDIO_SAMPLE_ASSETS,
+      ...(Array.isArray(saved.sampleAssets) ? saved.sampleAssets : []),
+    ].filter((asset, index, list) => asset && asset.url && list.findIndex(other => other && other.url === asset.url) === index),
     tempoBpm: Number(saved.tempoBpm) || 120,
     soundfonts: SOUNDFONT_LIBRARY,
     soundfontId: FIXED_SOUNDFONT_ID,
@@ -1316,6 +1319,10 @@ function MusicAI() {
         soundfontPalette: palette,
         soundfontRoles,
         programs,
+        sampleAssets: [
+          ...MULE_AUDIO_SAMPLE_ASSETS,
+          ...((aiPlan && Array.isArray(aiPlan.sampleAssets)) ? aiPlan.sampleAssets : []),
+        ].filter((asset, index, list) => asset && asset.url && list.findIndex(other => other && other.url === asset.url) === index),
         drums: SOUND_FONT_ROLE_BANKS.drums,
       };
       planRef.current = plan; setActivePlan(plan);
