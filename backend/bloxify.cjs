@@ -446,7 +446,9 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
 
   const notePostProcessStartedAt = Date.now();
   const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.32, 0.38, 8);
-  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.22, 0.30, 6);
+  // Keep a lower-threshold pass so quieter inner notes and chord tones survive.
+  // The primary pass remains the clean anchor; mergeNotes removes near-duplicates.
+  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.18, 0.24, 4);
 
   const primary = pitch.noteFramesToTime(
     pitch.addPitchBendsToNoteEvents(contours, primaryRaw)
