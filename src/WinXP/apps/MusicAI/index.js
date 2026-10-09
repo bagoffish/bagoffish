@@ -746,7 +746,6 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     const selectedSamples = [];
     const sampleAssets = [
       ...(activePlan.sampleAssets || []),
-      ...MULE_AUDIO_SAMPLE_ASSETS,
     ];
     for (const asset of sampleAssets) {
       try {
