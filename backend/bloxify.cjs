@@ -326,12 +326,12 @@ function mergeNotes(primary, secondary) {
 
   for (const note of notes) {
     const key =
-      Math.round(note.startTimeSeconds / 0.045) + ":" + Math.round(note.pitchMidi);
+      Math.round(note.startTimeSeconds / 0.03) + ":" + Math.round(note.pitchMidi);
     buckets.set(key, note);
   }
 
   for (const note of secondary || []) {
-    const time = Math.round(note.startTimeSeconds / 0.045);
+    const time = Math.round(note.startTimeSeconds / 0.03);
     const pitch = Math.round(note.pitchMidi);
     let duplicate = false;
 
@@ -339,8 +339,8 @@ function mergeNotes(primary, secondary) {
       const existing = buckets.get(bucket + ":" + pitch);
       if (
         existing &&
-        Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.045 &&
-        Math.abs(existing.durationSeconds - note.durationSeconds) < 0.12
+        Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.03 &&
+        Math.abs(existing.durationSeconds - note.durationSeconds) < 0.1
       ) {
         duplicate = true;
         break;
@@ -445,10 +445,10 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   );
 
   const notePostProcessStartedAt = Date.now();
-  const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.32, 0.38, 8);
+  const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.29, 0.35, 6);
   // Keep a lower-threshold pass so quieter inner notes and chord tones survive.
   // The primary pass remains the clean anchor; mergeNotes removes near-duplicates.
-  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.26, 0.32, 6);
+  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.21, 0.27, 4);
 
   const primary = pitch.noteFramesToTime(
     pitch.addPitchBendsToNoteEvents(contours, primaryRaw)
