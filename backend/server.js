@@ -142,12 +142,17 @@ async function getVisitorState() {
 async function persistVisitorState(count, visitors) {
   const body = Buffer.from(JSON.stringify({ count, visitors }));
   if (rendererCacheEnabled()) {
-    visitorGithubSha = await rendererGhPut(
-      VISITOR_GITHUB_PATH,
-      body,
-      "Save visitor count",
-      visitorGithubSha
-    ) || visitorGithubSha;
+    try {
+      visitorGithubSha = await rendererGhPut(
+        VISITOR_GITHUB_PATH,
+        body,
+        "Save visitor count",
+        visitorGithubSha
+      ) || visitorGithubSha;
+    } catch (err) {
+      // Keep the counter usable even if GitHub persistence is temporarily unavailable.
+      console.warn("Visitor counter GitHub save failed; using local fallback:", err.message);
+    }
   }
   await writeVisitorDisk(count, visitors);
 }
