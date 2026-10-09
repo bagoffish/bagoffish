@@ -144,10 +144,33 @@ function planWithSoundBanks(notes, savedPlan) {
     if (note && note.role && usedRoles.indexOf(note.role) === -1) usedRoles.push(note.role);
   });
   const soundfontRoles = {};
+  const preferredPalette = Array.isArray(saved.soundfontPalette) ? saved.soundfontPalette : [];
   usedRoles.forEach(roleId => {
-    const stamped = list.find(note => note && note.role === roleId && note.bankId && SOUND_FONT_BY_ID[note.bankId]);
+    const stamped = list.find(note =>
+      note && note.role === roleId && note.bankId &&
+      SOUND_FONT_BY_ID[note.bankId] &&
+      SOUND_FONT_BY_ID[note.bankId].presets &&
+      SOUND_FONT_BY_ID[note.bankId].presets[roleId] != null
+    );
     const savedId = savedRoles[roleId];
-    const id = (stamped && stamped.bankId) || (SOUND_FONT_BY_ID[savedId] ? savedId : '') || CLASSIC_ROLE_BANKS[roleId];
+    const savedBank = SOUND_FONT_BY_ID[resolveBankId(savedId)];
+    const savedHasPreset = savedBank && savedBank.presets && savedBank.presets[roleId] != null;
+    // Generated roles should reuse the upload's selected one-or-two-bank
+    // palette whenever that bank contains the required preset. This prevents
+    // one new layer from unexpectedly loading an unrelated soundfont.
+    const compatible = preferredPalette.find(font =>
+      font && SOUND_FONT_BY_ID[font.id] &&
+      SOUND_FONT_BY_ID[font.id].presets &&
+      SOUND_FONT_BY_ID[font.id].presets[roleId] != null
+    );
+    const catalogCompatible = SOUNDFONT_LIBRARY.find(font =>
+      font && font.presets && font.presets[roleId] != null
+    );
+    const id = (stamped && stamped.bankId) ||
+      (savedHasPreset ? resolveBankId(savedId) : '') ||
+      (compatible && compatible.id) ||
+      (catalogCompatible && catalogCompatible.id) ||
+      CLASSIC_ROLE_BANKS[roleId];
     if (id && SOUND_FONT_BY_ID[id]) soundfontRoles[roleId] = id;
   });
   const draft = { soundfontRoles };
@@ -182,18 +205,19 @@ function usesOrchestra(notes, savedRoles) {
 
 function programsForPlan(notes, saved, soundfontRoles) {
   const savedPrograms = saved && saved.programs && typeof saved.programs === 'object' ? saved.programs : null;
-  // Studied Roblox fonts are not General MIDI. A saved or detected plan already
-  // carries the preset index that exists inside the selected sf2.
-  if (savedPrograms && savedPrograms.studied) {
-    const next = { ...savedPrograms };
-    delete next.studied;
-    return next;
-  }
   const fromBanks = {};
   Object.entries(soundfontRoles || {}).forEach(([roleId, bankId]) => {
     const bank = SOUND_FONT_BY_ID[resolveBankId(bankId)];
     if (bank && bank.presets && bank.presets[roleId] != null) fromBanks[roleId] = bank.presets[roleId];
   });
+  // Saved SoundFont presets are not General MIDI. Keep the original preset
+  // choices, but fill any newly-generated roles from the compatible bank map;
+  // otherwise a fresh arp/keys layer can have no program at all.
+  if (savedPrograms && savedPrograms.studied) {
+    const next = { ...CLASSIC_PROGRAMS, ...savedPrograms, ...fromBanks, drums: 0 };
+    delete next.studied;
+    return next;
+  }
   if (Object.keys(fromBanks).length) return { ...CLASSIC_PROGRAMS, ...fromBanks, drums: 0 };
   if (!usesOrchestra(notes, soundfontRoles)) return { ...CLASSIC_PROGRAMS };
   const tuned = orchestraProgramsFor(notes);
