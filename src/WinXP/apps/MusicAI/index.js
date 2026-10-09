@@ -1547,6 +1547,20 @@ function MusicAI() {
     if (showProjects) loadCommunityTracks();
   }, [showProjects, loadCommunityTracks]);
 
+  const deletePublishedTrack = useCallback(async track => {
+    if (!track || !playerName) { setStatus('Choose your Player List name to manage published places.'); return; }
+    if (!window.confirm('Delete "' + track.name + '" from Community Places? This cannot be undone.')) return;
+    try {
+      const response = await fetch(API_BASE + '/community/tracks/' + encodeURIComponent(track.id) + '?ownerName=' + encodeURIComponent(playerName), { method: 'DELETE' });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.error || 'Delete failed');
+      setStatus('Deleted "' + track.name + '" from Community Places.');
+      await loadCommunityTracks();
+    } catch (error) {
+      setStatus(error.message || 'Could not delete this published place.');
+    }
+  }, [playerName, loadCommunityTracks]);
+
   const publishTrack = useCallback(async project => {
     if (!project || publishing) return;
     if (!playerName) { setStatus('Choose your Player List name before publishing.'); return; }
@@ -1631,6 +1645,7 @@ function MusicAI() {
                 <div key={track.id} style={{ display: 'flex', alignItems: 'center', gap: 5, marginBottom: 4 }}>
                   <audio controls preload="none" src={API_BASE + track.audioUrl} style={{ width: 180, height: 26 }} />
                   <span style={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{track.name}</span>{track.ownerName && <span style={{ marginLeft: 5, color: '#666' }}>by {track.ownerName}</span>}
+                  {playerName && track.ownerName && track.ownerName.trim().toLowerCase() === playerName.trim().toLowerCase() && <button type="button" style={{ ...topBtn, background: '#e8a0a0' }} onClick={() => deletePublishedTrack(track)}>Delete</button>}
                 </div>
               ))}
             </div>
