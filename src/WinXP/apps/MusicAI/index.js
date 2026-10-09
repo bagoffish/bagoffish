@@ -726,7 +726,6 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     });
 
     await context.resume();
-    const baseTime = context.currentTime + 0.12;
 
     // The server's per-song plan chooses real WAV layers from public/audios.
     // Decode them once and schedule a restrained, tempo-aware rhythm/accent layer.
@@ -741,6 +740,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
         console.warn('Bloxify sample unavailable:', asset && asset.url, sampleError);
       }
     }
+    const baseTime = context.currentTime + 0.12;
     const beat = 60 / Math.max(60, Math.min(180, Number(activePlan.tempoBpm) || 120));
     const sampleByRole = Object.fromEntries(selectedSamples.map(sample => [sample.role, sample]));
     const scheduleSample = (sample, at) => {
