@@ -450,7 +450,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
   const clusters = [];
   notes.forEach(note => {
     let cluster = clusters[clusters.length - 1];
-    if (!cluster || note.startTimeSeconds - cluster.start > 0.045) {
+    if (!cluster || note.startTimeSeconds - cluster.start > 0.025) {
       cluster = { start: note.startTimeSeconds, notes: [] };
       clusters.push(cluster);
     }
