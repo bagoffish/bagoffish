@@ -261,7 +261,7 @@ function choosePrebakedSoundfontPalette() {
 }
 
 const TARGET_RATE = 22050;
-const MAX_SECONDS = 600;
+const MAX_SECONDS = 300;
 const MAX_BYTES = 120 * 1024 * 1024;
 
 let modelPromise = null;
@@ -515,7 +515,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
     );
   }
   if (duration > MAX_SECONDS) {
-    throw new Error("Audio must be 600 seconds or shorter (10 minutes)");
+    throw new Error("Audio must be shorter than 5 minutes");
   }
 
   if (
