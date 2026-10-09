@@ -1518,7 +1518,7 @@ function MusicAI() {
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
-        <button type="button" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
+        <button type="button" aria-label="Places" title="Places" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
         <button type="button" style={topBtnGray} onClick={() => setViewMode(v => (v === 'roll' ? 'list' : 'roll'))}>{viewMode === 'roll' ? 'List' : 'Piano Roll'}</button>
         <span style={{ marginLeft: 'auto', fontSize: 10, color: '#fff', textShadow: '1px 1px 0 #000' }}>{projectName}</span>
       </div>
@@ -1549,7 +1549,7 @@ function MusicAI() {
                   <span style={{ fontWeight: 'bold', minWidth: 0, overflowWrap: 'anywhere' }}>{p.name}</span>
                 </div>
               ))}
-              <div style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community Places</div>
+              <div aria-label="Community Places" title="Community Places" style={{ borderTop: '1px solid #999', margin: '7px 0', paddingTop: 5, fontWeight: 'bold' }}>Community Places</div>
               {communityLoading && <div style={{ color: '#666' }}>Loading places…</div>}
               {!communityLoading && communityTracks.length === 0 && <div style={{ color: '#777' }}>No public places yet.</div>}
               {communityTracks.map(track => (
