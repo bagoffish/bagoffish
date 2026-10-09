@@ -68,7 +68,7 @@ function AboutMe({ onClose }) {
     const fetchVisitorCount = () => {
       if (cancelled) return;
       fetch(
-        "https://winxp-backend-live.onrender.com" +
+        "https://bloxify-backend-sg.onrender.com" +
           endpoint +
           "?visitor=" +
           encodeURIComponent(visitorId),
