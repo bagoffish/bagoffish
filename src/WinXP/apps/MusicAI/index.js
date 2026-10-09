@@ -25,6 +25,19 @@ const MAX_BYTES = 120 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
 const SKY_URL = '/images/sky.png';
 
+const MULE_AUDIO_SAMPLE_ASSETS = [
+  { id: 'mule-kick', url: '/audios/WAV/MULE/Kick.wav', role: 'muleKick', gain: 0.16 },
+  { id: 'mule-snare', url: '/audios/WAV/MULE/Snare.wav', role: 'muleSnare', gain: 0.12 },
+  { id: 'mule-closed-hat', url: '/audios/WAV/MULE/Closed%20Hat.wav', role: 'muleHat', gain: 0.055 },
+  { id: 'mule-clap', url: '/audios/WAV/MULE/Clap.wav', role: 'muleClap', gain: 0.07 },
+  { id: 'mule-crash', url: '/audios/WAV/MULE/Crash.wav', role: 'muleCrash', gain: 0.075 },
+  { id: 'mule-impact', url: '/audios/WAV/MULE/Impact.wav', role: 'muleImpact', gain: 0.045 },
+  { id: 'mule-reverse', url: '/audios/WAV/MULE/Reverse.wav', role: 'muleReverse', gain: 0.035 },
+  { id: 'mule-explosion', url: '/audios/WAV/MULE/Explosion.wav', role: 'muleExplosion', gain: 0.025 },
+  { id: 'mule-square', url: '/audios/WAV/MULE/C64%20Square.wav', role: 'muleSquare', gain: 0.11, pitched: true },
+  { id: 'mule-saw', url: '/audios/WAV/MULE/C64%20Saw.wav', role: 'muleSaw', gain: 0.065, pitched: true },
+];
+
 const SOUNDFONT_BUFFER_CACHE = new Map();
 const SOUNDFONT_LOAD_PROMISES = new Map();
 const BASIC_PITCH_IDB = 'muleify-basic-pitch-v1';
@@ -728,8 +741,14 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
 
     // The server's per-song plan chooses real WAV layers from public/audios.
     // Decode them once and schedule a restrained, tempo-aware rhythm/accent layer.
+    // Combine the analysis-selected kit with the local M.U.L.E sample library.
+    // These are short instrument/percussion samples, not whole reference songs.
     const selectedSamples = [];
-    for (const asset of (activePlan.sampleAssets || [])) {
+    const sampleAssets = [
+      ...(activePlan.sampleAssets || []),
+      ...MULE_AUDIO_SAMPLE_ASSETS,
+    ];
+    for (const asset of sampleAssets) {
       try {
         const response = await fetch(asset.url, { cache: 'force-cache' });
         if (!response.ok) continue;
@@ -742,25 +761,76 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     const baseTime = context.currentTime + 0.12;
     const beat = 60 / Math.max(60, Math.min(180, Number(activePlan.tempoBpm) || 120));
     const sampleByRole = Object.fromEntries(selectedSamples.map(sample => [sample.role, sample]));
-    const scheduleSample = (sample, at) => {
-      if (!sample || at >= musicalEnd) return;
+    const scheduleSample = (sample, at, gainScale = 1) => {
+      if (!sample || at < 0 || at >= musicalEnd) return;
       const source = context.createBufferSource();
       const gain = context.createGain();
       source.buffer = sample.buffer;
-      gain.gain.value = Math.max(0, Math.min(0.7, Number(sample.gain) || 0.1));
+      gain.gain.value = Math.max(0, Math.min(0.7, (Number(sample.gain) || 0.1) * gainScale));
       source.connect(gain);
       gain.connect(destination);
       source.start(baseTime + at);
     };
+    const schedulePitchedSample = (sample, note, at, gainScale) => {
+      if (!sample || !note || at >= musicalEnd) return;
+      const duration = Math.max(0.055, Math.min(Number(note.durationSeconds) || 0.12, musicalEnd - at));
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = sample.buffer;
+      source.loop = true;
+      source.loopStart = 0;
+      source.loopEnd = Math.min(sample.buffer.duration, 0.12);
+      source.playbackRate.setValueAtTime(Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12), baseTime + at);
+      const peak = Math.max(0, Math.min(0.24, (Number(sample.gain) || 0.08) * gainScale));
+      gain.gain.setValueAtTime(0, baseTime + at);
+      gain.gain.linearRampToValueAtTime(peak, baseTime + at + Math.min(0.015, duration * 0.25));
+      gain.gain.setValueAtTime(peak, baseTime + at + Math.max(duration * 0.5, duration - 0.035));
+      gain.gain.linearRampToValueAtTime(0, baseTime + at + duration);
+      source.connect(gain);
+      gain.connect(destination);
+      source.start(baseTime + at);
+      source.stop(baseTime + at + duration + 0.01);
+    };
     const beats = Math.ceil(musicalEnd / beat);
     for (let beatIndex = 0; beatIndex < beats; beatIndex++) {
       const at = beatIndex * beat;
-      if (beatIndex % 2 === 0) scheduleSample(sampleByRole.kick, at);
-      if (beatIndex % 4 === 1 || beatIndex % 4 === 3) scheduleSample(sampleByRole.snare, at);
+      const backbeat = beatIndex % 4 === 1 || beatIndex % 4 === 3;
+      if (beatIndex % 2 === 0) {
+        scheduleSample(sampleByRole.kick, at);
+        scheduleSample(sampleByRole.muleKick, at);
+        scheduleSample(sampleByRole.muleHat, at);
+      }
+      if (backbeat) {
+        scheduleSample(sampleByRole.snare, at);
+        scheduleSample(sampleByRole.muleSnare, at);
+      }
+      if (beatIndex % 4 === 2) scheduleSample(sampleByRole.muleClap, at);
       if (beatIndex % 2 === 0) scheduleSample(sampleByRole.hat, at);
-      if (beatIndex % 16 === 0 && beatIndex > 0) scheduleSample(sampleByRole.crash, at);
-      if (beatIndex % 32 === 0 && beatIndex > 0) scheduleSample(sampleByRole.accent, at);
+      if (beatIndex % 16 === 0 && beatIndex > 0) {
+        scheduleSample(sampleByRole.crash, at);
+        scheduleSample(sampleByRole.muleCrash, at);
+        scheduleSample(sampleByRole.muleReverse, at - beat * 0.5, 0.7);
+      }
+      if (beatIndex % 8 === 4) scheduleSample(sampleByRole.muleImpact, at);
+      if (beatIndex % 32 === 0 && beatIndex > 0) {
+        scheduleSample(sampleByRole.accent, at);
+        scheduleSample(sampleByRole.muleExplosion, at, 0.65);
+      }
     }
+
+    // Add quiet, pitch-tracked C64 layers to selected parts. The MIDI notes
+    // remain the source of the arrangement; these WAVs add a crunchy sound
+    // layer to the rendered WAV without changing the exported MIDI notes.
+    const squareSample = sampleByRole.muleSquare;
+    const sawSample = sampleByRole.muleSaw;
+    notes.forEach(note => {
+      const at = Math.max(0, Number(note.startTimeSeconds) || 0);
+      if (['arp', 'keys', 'pizz'].includes(note.role)) {
+        schedulePitchedSample(squareSample, note, at, note.role === 'arp' ? 1 : 0.62);
+      } else if (['guitar', 'bass', 'pad'].includes(note.role)) {
+        schedulePitchedSample(sawSample, note, at, note.role === 'bass' ? 0.58 : 0.72);
+      }
+    });
 
     recorder.start();
     const total = Math.max(1, notes.length);
