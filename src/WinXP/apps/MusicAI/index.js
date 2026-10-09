@@ -163,9 +163,13 @@ function planWithSoundBanks(notes, savedPlan) {
       SOUND_FONT_BY_ID[font.id].presets &&
       SOUND_FONT_BY_ID[font.id].presets[roleId] != null
     );
+    const catalogCompatible = SOUNDFONT_LIBRARY.find(font =>
+      font && font.presets && font.presets[roleId] != null
+    );
     const id = (stamped && stamped.bankId) ||
       (savedHasPreset ? resolveBankId(savedId) : '') ||
       (compatible && compatible.id) ||
+      (catalogCompatible && catalogCompatible.id) ||
       CLASSIC_ROLE_BANKS[roleId];
     if (id && SOUND_FONT_BY_ID[id]) soundfontRoles[roleId] = id;
   });
