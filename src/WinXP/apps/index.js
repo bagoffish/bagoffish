@@ -6,7 +6,7 @@ import Minesweeper from "./Minesweeper";
 const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
-const Bloxify = lazyApp(() => import("./MusicAI"));
+const MULEify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -120,8 +120,8 @@ export const defaultIconState = [
   {
     id: 7,
     icon: musicIcon,
-    title: "Bloxify",
-    component: Bloxify,
+    title: "MULEify",
+    component: MULEify,
     isFocus: false,
   },
   {
@@ -209,12 +209,12 @@ export const appSettings = {
     multiInstance: true,
   },
 
-  Bloxify: {
+  MULEify: {
     header: {
       icon: musicIcon,
-      title: "Bloxify",
+      title: "MULEify",
     },
-    component: Bloxify,
+    component: MULEify,
     defaultSize: {
       width: 800,
       height: 520,
@@ -321,5 +321,5 @@ export {
   ErrorBox,
   Paint,
   Winamp,
-  Bloxify,
+  MULEify,
 };
