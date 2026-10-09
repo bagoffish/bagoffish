@@ -9,10 +9,10 @@ const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "
 
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
 const REFERENCE_STYLE = {
-  name: "SEWH M.U.L.E / Bloxify Orchestra",
+  name: "SEWH M.U.L.E / Bloxify",
   source: "SEWH:RECODE M.U.L.E rips",
   traits: [
-    "classic Roblox MIDI orchestra, not a square-wave loop",
+    "classic Roblox MIDI sound, not just a square-wave loop",
     "violin lead that follows the heard tune and stays in front",
     "contrabass and cello in long notes, not constant eighths",
     "string ensemble, horn, flute, oboe, and clarinet answering in phrases",
@@ -24,10 +24,10 @@ const REFERENCE_STYLE = {
     "lo-fi SoundFont crunch from the Roblox banks plus GeneralUser GS",
     "vocal-less instrumental MIDI",
   ],
-  arrangement: "Keep the uploaded melody recognizable on the violin. Write the other parts as an orchestra that breathes: one color instrument at a time, rests in the fourth bar of a phrase, and no machine-gun accompaniment.",
+  arrangement: "Keep the uploaded melody recognizable. Build supporting parts that breathe: vary instrument colors, leave rests at phrase ends, and avoid machine-gun accompaniment.",
   instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
   tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
-  density: "violin lead plus a small orchestra, thinner when the tune is sparse",
+  density: "a clear lead with layered supporting instruments, thinner when the tune is sparse",
 };
 
 const study = require("../src/WinXP/apps/MusicAI/robloxStudy.json");
