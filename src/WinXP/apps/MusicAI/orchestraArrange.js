@@ -431,30 +431,22 @@ function feel(base, phrase, slot) {
 }
 
 export function buildRobloxArrangement(rawNotes, duration) {
-  // Faithfulness comes first: do not invent chords, transpose the tune, quantize
-  // expressive timing, or force a drum pattern onto music that may not have one.
+  // Keep the transcription recognizable: use detected notes and timing, not
+  // guessed chord progressions, transposed melody notes, or a fixed drum loop.
   const source = (rawNotes || []).filter(note =>
     Number.isFinite(note.startTimeSeconds) &&
     Number.isFinite(note.durationSeconds) &&
     Number.isFinite(note.pitchMidi) &&
     note.durationSeconds >= 0.055 &&
-    note.pitchMidi >= 0 &&
-    note.pitchMidi <= 127 &&
+    note.pitchMidi >= 0 && note.pitchMidi <= 127 &&
     note.startTimeSeconds >= 0 &&
     note.startTimeSeconds < Math.min(300, Number(duration) || 300)
   );
   if (!source.length) return [];
-
   const cleaned = cleanSource(source);
-  const notes = (cleaned.length ? cleaned : source)
-    .slice()
+  const notes = (cleaned.length ? cleaned : source).slice()
     .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  const out = [];
-  const end = Math.min(300, Number(duration) > 0 ? Number(duration) : Math.max(...notes.map(n => n.startTimeSeconds + n.durationSeconds)));
-
-  // Group only genuinely near-simultaneous notes. The strongest note stays
-  // in the lead; detected inner notes keep their own pitches and onset times.
-  // No guessed harmony, transposition, or fixed drum pattern is added.
+  const end = Math.min(300, Number(duration) > 0 ? Number(duration) : notes.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
   const clusters = [];
   notes.forEach(note => {
     let cluster = clusters[clusters.length - 1];
@@ -464,51 +456,36 @@ export function buildRobloxArrangement(rawNotes, duration) {
     }
     cluster.notes.push(note);
   });
-
+  const out = [];
   clusters.forEach(cluster => {
     const sorted = cluster.notes.slice().sort((a, b) =>
-      (Number(b.amplitude) || 0) - (Number(a.amplitude) || 0) ||
-      b.pitchMidi - a.pitchMidi
+      (Number(b.amplitude) || 0) - (Number(a.amplitude) || 0) || b.pitchMidi - a.pitchMidi
     );
     sorted.forEach((note, index) => {
       const startTime = Math.max(0, note.startTimeSeconds);
       if (startTime >= end) return;
       const length = Math.max(0.045, Math.min(note.durationSeconds, end - startTime));
-      if (length <= 0) return;
       let role = 'vocals';
       let velocityScale = 1;
       if (index > 0) {
-        if (note.pitchMidi < 48) {
-          role = 'bass';
-          velocityScale = 0.78;
-        } else if (note.pitchMidi < 64) {
-          role = 'cello';
-          velocityScale = 0.62;
-        } else {
-          role = 'strings';
-          velocityScale = 0.56;
-        }
+        if (note.pitchMidi < 48) { role = 'bass'; velocityScale = 0.78; }
+        else if (note.pitchMidi < 64) { role = 'cello'; velocityScale = 0.62; }
+        else { role = 'strings'; velocityScale = 0.56; }
       }
       const amplitude = Math.max(0.12, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
       pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
     });
   });
-
-  // Remove near-identical retriggers from overlapping analysis frames without
-  // shifting the note or deleting legitimate simultaneous chord tones.
   const result = [];
   const lastByPitchRole = new Map();
-  out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
-    .forEach(note => {
-      const key = note.role + ':' + note.pitchMidi;
-      const previous = lastByPitchRole.get(key);
-      if (previous &&
-          Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.025 &&
-          Math.abs(previous.durationSeconds - note.durationSeconds) < 0.06) return;
-      result.push(note);
-      lastByPitchRole.set(key, note);
-    });
-
+  out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).forEach(note => {
+    const key = note.role + ':' + note.pitchMidi;
+    const previous = lastByPitchRole.get(key);
+    if (previous && Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.025 &&
+        Math.abs(previous.durationSeconds - note.durationSeconds) < 0.06) return;
+    result.push(note);
+    lastByPitchRole.set(key, note);
+  });
   return result;
 }
 
