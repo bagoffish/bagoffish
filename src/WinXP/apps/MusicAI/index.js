@@ -1019,7 +1019,7 @@ function MusicAI() {
   function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'robloxify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
   function persistProjects(value) { try { const serialized = JSON.stringify(value); window.localStorage.setItem(STORAGE_KEY, serialized); return window.localStorage.getItem(STORAGE_KEY) === serialized; } catch (e) { return false; } }
   const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
-  const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]);
+  const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]); const [sourceDuration, setSourceDuration] = useState(0);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0);
@@ -1131,7 +1131,7 @@ function MusicAI() {
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
     const placeName = placeNameFromFile(inputFile);
-    setFile(inputFile); setProjectName(placeName); writeCookie(COOKIE_KEY, placeName); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setStatus('Checking the audio file.');
+    setFile(inputFile); setProjectName(placeName); writeCookie(COOKIE_KEY, placeName); setWorking(true); setProgress(0); setLoadingSeconds(0); setPlaybackTime(0); setPlaybackDuration(0); setSourceDuration(0); setStatus('Checking the audio file.');
     const stopKeepAlive = startConversionKeepAlive();
     const loadingStartedAt = performance.now();
     const paintLoadingSeconds = () => {
@@ -1173,6 +1173,8 @@ function MusicAI() {
         if (conversionId !== conversionIdRef.current) return;
         rawNotes = result.notes;
         duration = result.duration || 0;
+        if (!(duration > 0) || duration >= MAX_SECONDS) throw new Error('Audio must be shorter than 5 minutes.');
+        setSourceDuration(duration);
         aiPlan = result.aiPlan || null;
       } finally {
         window.clearInterval(progressTimer);
@@ -1209,7 +1211,7 @@ function MusicAI() {
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
       setMidiBlob(makeMidi(fitted, plan.programs, plan.soundfontRoles, placeName));
-      setPlaybackDuration(heardEnd(fitted));
+      setPlaybackDuration(Math.max(duration, heardEnd(fitted)));
       setProgress(100);
       const songEnd = Math.max(duration || 0, fitted.reduce((max, note) => Math.max(max, note.startTimeSeconds + note.durationSeconds), 0));
       setStatus('Done — full ' + (Math.round(songEnd * 10) / 10) + 's · ' + fitted.length + ' notes · ' + instrumentCount + ' instruments · Roblox orchestra');
@@ -1249,7 +1251,10 @@ function MusicAI() {
     setRenderingWav(true);
     setStatus('Rendering combined WAV…');
     try {
-      const duration = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
+      // Keep the rendered file the same length as the uploaded song, even if
+      // the final detected note ends before a quiet tail in the original.
+      const arrangementEnd = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
+      const duration = Math.max(sourceDuration, arrangementEnd);
       const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), planRef.current);
       setWavBlob(blob);
       downloadBlob(blob, 'bloxify-combined.wav');
