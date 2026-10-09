@@ -1,6 +1,6 @@
 {
   "studiedAt": "2026-10-09",
-  "note": "Preset numbers are the real program indexes inside each shipped sf2, not General MIDI. 2009 covers use one soundtrack bank (or a Fjords+Strategy pair), not fourteen unrelated banks.",
+  "note": "Preset numbers are the real program indexes inside each shipped sf2, not General MIDI. 2009 covers use one soundtrack bank (or a Fjords+Strategy pair), not fourteen unrelated banks. Reference catalog expanded with additional Roblox-style cover searches. Search links are discovery references, not downloaded training data; the runtime model is not retrained by adding these entries.",
   "playlists": [
     {
       "title": "2009 SoundFonts (Roblox)",
@@ -853,6 +853,146 @@
       "title": "Cursed Abbey (Roblox soundtrack source)",
       "url": "",
       "family": "stealth"
+    },
+    {
+      "title": "Mesmerizer (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Mesmerizer+2009+ROBLOX+Cover+soundfont",
+      "family": "explore",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Lagtrain (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Lagtrain+2009+Roblox+soundfont+cover",
+      "family": "fjords",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Rabbit Hole (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=DECO27+Rabbit+Hole+2009+Roblox+soundfont+cover",
+      "family": "party",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "THE WORLD REVOLVING (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=THE+WORLD+REVOLVING+2009+Roblox+soundfont+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Turn the Lights Off (2009 Roblox Soundfont)",
+      "url": "https://www.youtube.com/results?search_query=Turn+The+Lights+Off+2009+ROBLOX+Soundfont",
+      "family": "explore",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Jump Up, Super Star! (2009 Roblox Soundfont)",
+      "url": "https://www.youtube.com/results?search_query=Jump+Up+Super+Star+2009+ROBLOX+soundfont",
+      "family": "party",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Give It to Me (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Give+It+To+Me+2009+Roblox+soundfont+cover",
+      "family": "stealth",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Young Girl A (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Young+Girl+A+2009+Roblox+soundfont+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Caramelldansen (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Caramelldansen+2009+Roblox+soundfont+cover",
+      "family": "party",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Taking What's Not Yours (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Taking+What's+Not+Yours+2009+Roblox+cover",
+      "family": "fjords",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Just the Two of Us (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Just+the+Two+of+Us+2009+Roblox+soundfont+cover",
+      "family": "classic-days",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "The Entire Undertale OST (2009 Roblox Soundfont)",
+      "url": "https://www.youtube.com/results?search_query=The+Entire+Undertale+OST+2009+Roblox+soundfont",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Monitoring (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Monitoring+2009+Roblox+soundfont+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "I Can't Fix You (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=I+Can't+Fix+You+2009+Roblox+soundfont+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Butcher Vanity (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=Butcher+Vanity+2009+Roblox+soundfont+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "KATAMARI (2009 Roblox Soundfont)",
+      "url": "https://www.youtube.com/results?search_query=KATAMARI+Femtanyl+2009+Roblox+soundfont",
+      "family": "stealth",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "My Bread Was Burnt to a Crisp (2009 Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=My+Bread+Was+Burnt+To+A+Crisp+2009+Roblox+soundfont+cover",
+      "family": "explore",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "The ##### (Eek!) Roblox Cover",
+      "url": "https://www.youtube.com/results?search_query=The+Eek+Roblox+cover+2009+soundfont",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "Hello John Doe - Devilish (Roblox Cover)",
+      "url": "https://www.youtube.com/results?search_query=hello+john+doe+devilish+roblox+cover",
+      "family": "horror",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
+    },
+    {
+      "title": "D.A.A.N.A.C.C.E. (2009 Roblox Soundfont Cover)",
+      "url": "https://www.youtube.com/results?search_query=NegaRen+D.A.A.N.A.C.C.E.+2009+Roblox+soundfont+cover",
+      "family": "party",
+      "sourceType": "search",
+      "note": "Reference search link; choose a specific cover before using it as a verified audio/MIDI training example."
     }
   ]
 }
