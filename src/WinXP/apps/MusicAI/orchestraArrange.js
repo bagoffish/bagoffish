@@ -507,7 +507,11 @@ export function buildRobloxArrangement(rawNotes, duration) {
       role = 'strings';
       velocityScale = 0.44;
     }
-    const amplitude = Math.max(0.1, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
+    // Basic Pitch confidence/amplitude values can be very small for real
+    // inner notes. Keep a modest audibility floor so those notes remain in the
+    // arrangement instead of seeming to vanish behind the generated layers.
+    const amplitudeFloor = leadNotes.has(note) ? 0.22 : 0.16;
+    const amplitude = Math.max(amplitudeFloor, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
     pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
   });
 
