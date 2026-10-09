@@ -658,7 +658,9 @@ function encodeWav(audioBuffer) {
 async function renderCombinedWav(notes, duration, onProgress, plan) {
   const activePlan = plan || {};
   const musicalEnd = Math.max(0.25, Math.min(MAX_SECONDS, duration || 0));
-  const recordSeconds = Math.min(MAX_SECONDS, musicalEnd + RELEASE_TAIL);
+  // The five-minute limit applies to the uploaded source, not the rendered release tail.
+  // Let the final note ring out instead of cutting the end of the song off.
+  const recordSeconds = musicalEnd + RELEASE_TAIL;
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) throw new Error('Web Audio is unavailable in this browser.');
   if (typeof MediaRecorder === 'undefined') {
@@ -839,6 +841,23 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+async function readAudioDuration(file) {
+  return await new Promise((resolve, reject) => {
+    const audio = document.createElement('audio');
+    const url = URL.createObjectURL(file);
+    const cleanup = () => { audio.removeAttribute('src'); audio.load(); URL.revokeObjectURL(url); };
+    audio.preload = 'metadata';
+    audio.onloadedmetadata = () => {
+      const duration = Number(audio.duration);
+      cleanup();
+      if (Number.isFinite(duration) && duration > 0) resolve(duration);
+      else reject(new Error('Could not determine audio duration'));
+    };
+    audio.onerror = () => { cleanup(); reject(new Error('Could not read audio duration')); };
+    audio.src = url;
+  });
+}
+
 async function decodeToMono(file) {
   const bytes = await file.arrayBuffer();
   const context = new AudioContext();
@@ -938,7 +957,7 @@ async function transcribeOnBackend(file, onStatus) {
     if (!Number.isFinite(duration) || duration <= 0) throw new Error('Server returned an invalid audio duration');
     return { notes, duration, aiPlan: data.aiPlan || null, stemSeparation: data.stemSeparation || 'unknown' };
   }
-  if (decoded.duration > MAX_SECONDS) throw new Error('Audio must be under 5 minutes.');
+  if (decoded.duration >= MAX_SECONDS) throw new Error('Audio must be shorter than 5 minutes.');
   const ranges = chunkRanges(decoded.samples.length, decoded.sampleRate);
   const partCount = ranges.length;
   const notes = [];
@@ -1097,6 +1116,18 @@ function MusicAI() {
     const isAudio = !!inputFile && ((inputFile.type || '').startsWith('audio/') || allowedExtensions.has(extension));
     if (!isAudio) { setStatus('Choose an audio file'); return; }
     if (inputFile.size > MAX_BYTES) { setStatus('File too large (max 50 MB)'); return; }
+    // Reject oversized tracks before starting conversion. The backend enforces
+    // the same limit for formats this browser cannot decode.
+    try {
+      const metadataDuration = await readAudioDuration(inputFile);
+      if (metadataDuration >= MAX_SECONDS) {
+        setStatus('Audio must be shorter than 5 minutes.');
+        return;
+      }
+    } catch (durationError) {
+      // Some formats cannot be inspected by this browser; the backend still
+      // validates duration after decoding before transcription.
+    }
     const conversionId = ++conversionIdRef.current;
     if (working) { setStatus('Already converting…'); return; }
     const placeName = placeNameFromFile(inputFile);
