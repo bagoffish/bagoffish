@@ -448,7 +448,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   const primaryRaw = pitch.outputToNotesPoly(frames, onsets, 0.32, 0.38, 8);
   // Keep a lower-threshold pass so quieter inner notes and chord tones survive.
   // The primary pass remains the clean anchor; mergeNotes removes near-duplicates.
-  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.18, 0.24, 4);
+  const sensitiveRaw = pitch.outputToNotesPoly(frames, onsets, 0.26, 0.32, 6);
 
   const primary = pitch.noteFramesToTime(
     pitch.addPitchBendsToNoteEvents(contours, primaryRaw)
@@ -535,18 +535,18 @@ function fallbackPlan(notes, duration) {
   const selected = programsForFamily(family);
   const soundfontRoles = selected.roles;
   const soundfontPalette = selected.fonts;
-  const sampleAssets = chooseSongAssets(analysis);
+  const sampleAssets = [];
   const studied = (study.songs || []).filter((song) => song.family === family.id || (family.id === "strategy" && song.family === "strategy"));
   return {
     primaryRole: "vocals",
     supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"],
-    drums: true,
-    density: 0.62,
+    drums: false,
+    density: 0.38,
     swing: 0,
     quantizeGrid: 0.25,
     preserveMelody: true,
     tempoBpm: 120,
-    harmonicComplexity: 0.72,
+    harmonicComplexity: 0.28,
     bassPattern: "half-notes",
     chordRhythm: "phrases",
     melodyOctave: 0,
@@ -562,7 +562,7 @@ function fallbackPlan(notes, duration) {
     studiedFamily: family.id,
     studiedSongs: studied.slice(0, 8).map((song) => song.title),
     studiedCorpus: study.playlistCount,
-    reason: "Studied " + study.playlistCount + " Roblox soundfont videos. This song matches the " + family.id + " bank (" + (soundfontPalette[0] && soundfontPalette[0].name) + "), using that font's real presets and " + sampleAssets.length + " WAV kit layers. Basic Pitch still supplies the heard melody.",
+    reason: "Bloxify prioritizes detected notes, original timing, and chord tones, using a restrained Roblox SoundFont palette without a fixed drum loop.",
   };
 }
 
