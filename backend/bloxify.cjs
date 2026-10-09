@@ -30,262 +30,129 @@ const REFERENCE_STYLE = {
   density: "violin lead plus a small orchestra, thinner when the tune is sparse",
 };
 
-const ROBLOX_SOUNDFONTS = [
-  {
-    "id": "stealth-drums",
-    "name": "StealthPilot MIDI Drums",
-    "url": "/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2",
-    "bankOffset": 1
-  },
-  {
-    "id": "strategy-midi",
-    "name": "The Great Strategy MIDI",
-    "url": "/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/The_Great_Strategy_MIDI.sf2",
-    "bankOffset": 2
-  },
-  {
-    "id": "fjords-midi",
-    "name": "Wind of Fjords MIDI",
-    "url": "/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2",
-    "bankOffset": 3
-  },
-  {
-    "id": "aqua-mod",
-    "name": "AquaDoesStuff Modified",
-    "url": "/audios/soundfonts/Instruments/Other%20People/AquaDoesStuff%20-%20Modified.sf2",
-    "bankOffset": 4
-  },
-  {
-    "id": "roblox-other",
-    "name": "Roblox Soundfont",
-    "url": "/audios/soundfonts/Instruments/Other%20People/Roblox%20Soundfont.sf2",
-    "bankOffset": 5
-  },
-  {
-    "id": "beastmasters",
-    "name": "Beastmasters Tale",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Beastmasters%20Tale.sf2",
-    "bankOffset": 6
-  },
-  {
-    "id": "clan-raided",
-    "name": "Clan Being Raided",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Clan%20Being%20Raided.sf2",
-    "bankOffset": 7
-  },
-  {
-    "id": "classic-days",
-    "name": "Classic Days",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Classic%20Days.sf2",
-    "bankOffset": 8
-  },
-  {
-    "id": "crossroad",
-    "name": "Crossroad Times",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Crossroad%20Times.sf2",
-    "bankOffset": 9
-  },
-  {
-    "id": "dance-potion",
-    "name": "Dance Potion",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Dance%20Potion.sf2",
-    "bankOffset": 10
-  },
-  {
-    "id": "death-sounds",
-    "name": "Death Sounds",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Death%20Sounds.sf2",
-    "bankOffset": 11
-  },
-  {
-    "id": "explore-roblox",
-    "name": "Explore Roblox",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Explore%20Roblox.sf2",
-    "bankOffset": 12
-  },
-  {
-    "id": "gamehero",
-    "name": "GameHero",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/GameHero%20Soundfont.sf2",
-    "bankOffset": 13
-  },
-  {
-    "id": "monster-mash",
-    "name": "Monster Mash",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Monster%20Mash.sf2",
-    "bankOffset": 14
-  },
-  {
-    "id": "noob-alert",
-    "name": "Noob Alert",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Noob%20Alert.sf2",
-    "bankOffset": 15
-  },
-  {
-    "id": "party-music",
-    "name": "Party Music",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Party%20Music.sf2",
-    "bankOffset": 16
-  },
-  {
-    "id": "roblox-horror",
-    "name": "Roblox Horror",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Roblox%20Horror.sf2",
-    "bankOffset": 17
-  },
-  {
-    "id": "roblox-old",
-    "name": "Roblox Old Sounds",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Roblox%20Old%20Sounds.sf2",
-    "bankOffset": 18
-  },
-  {
-    "id": "stealth-v2",
-    "name": "StealthPilot v2",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/StealthPilot%20v2.sf2",
-    "bankOffset": 19
-  },
-  {
-    "id": "stealth",
-    "name": "StealthPilot",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/StealthPilot.sf2",
-    "bankOffset": 20
-  },
-  {
-    "id": "strategy",
-    "name": "The Great Strategy",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/The%20Great%20Strategy.sf2",
-    "bankOffset": 21
-  },
-  {
-    "id": "training-day",
-    "name": "Training Day",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Training%20Day.sf2",
-    "bankOffset": 22
-  },
-  {
-    "id": "trouble-ahead",
-    "name": "Trouble Ahead",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Trouble%20Ahead.sf2",
-    "bankOffset": 23
-  },
-  {
-    "id": "waapp",
-    "name": "WAAPP Whistle",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/WAAPP%20Whistle.sf2",
-    "bankOffset": 24
-  },
-  {
-    "id": "wiley-bricks",
-    "name": "Wiley Metal Bricks",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Wiley,%20Metal%20Bricks.sf2",
-    "bankOffset": 25
-  },
-  {
-    "id": "fjords-voyage",
-    "name": "Wind of Fjords + Voyage to Eternity",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Wind%20of%20Fjords%20%2B%20Voyage%20to%20Eternity%20(They%20share%20same%20Instruments).sf2",
-    "bankOffset": 26
-  },
-  {
-    "id": "fjords-hq",
-    "name": "Wind of Fjords HQ",
-    "url": "/audios/soundfonts/Instruments/Soundfonts/Wind%20of%20fjords%20HQ.sf2",
-    "bankOffset": 27
-  },
-  {
-    "id": "nokia",
-    "name": "Nokia Tongbao Bank",
-    "url": "/audios/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2",
-    "bankOffset": 28
-  },
-  {
-    "id": "roblox-1",
-    "name": "Roblox Soundfont 1",
-    "url": "/audios/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2",
-    "bankOffset": 29
-  },
-  {
-    "id": "fjords",
-    "name": "Wind of Fjords v2.5.1a",
-    "url": "/audios/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2",
-    "bankOffset": 30
-  },
-  {
-    "id": "general-user",
-    "name": "GeneralUser GS Orchestra",
-    "url": "/audios/soundfonts/Orchestra/GeneralUser-GS.sf2",
-    "bankOffset": 31
-  }
-];
+const study = require("../src/WinXP/apps/MusicAI/robloxStudy.json");
+const ROBLOX_SOUNDFONTS = study.soundfonts.map((font) => ({
+  id: font.id,
+  name: font.name,
+  url: font.url,
+  bankOffset: font.bankOffset,
+  presets: font.presets || {},
+  drumProgram: font.drumProgram,
+  drumKit: font.drumKit || null,
+  lead: font.lead || "",
+}));
+const SOUNDFONT_BY_ID = Object.fromEntries(ROBLOX_SOUNDFONTS.map((font) => [font.id, font]));
+const SOUNDFONT_ALIASES = study.aliases || {};
+function resolveBankId(id) {
+  if (SOUNDFONT_BY_ID[id]) return id;
+  return SOUNDFONT_ALIASES[id] || id;
+}
+function encodeAudioPath(path) {
+  return path.split("/").map((part) => encodeURIComponent(part)).join("/");
+}
 
 const SOUND_FONT_BY_ROLE = {
-  drums: "stealth-drums",
-  bass: "fjords",
-  cello: "fjords",
-  vocals: "roblox-1",
-  strings: "general-user",
-  horn: "general-user",
-  flute: "general-user",
-  oboe: "general-user",
-  clarinet: "general-user",
-  arp: "general-user",
-  keys: "general-user",
-  pizz: "general-user",
-  trumpet: "general-user",
-  timpani: "general-user",
-  guitar: "gamehero",
-  pad: "fjords-midi",
+  drums: "stealth",
+  bass: "strategy",
+  cello: "strategy",
+  vocals: "strategy",
+  strings: "strategy",
+  horn: "strategy",
+  flute: "beastmasters",
+  oboe: "beastmasters",
+  clarinet: "gamehero",
+  arp: "beastmasters",
+  keys: "strategy",
+  pizz: "gamehero",
+  trumpet: "strategy",
+  timpani: "strategy",
+  guitar: "stealth",
+  pad: "fjords-hq",
 };
 
 const STUDIED_INSTRUMENTS = [
-  { role: "vocals", name: "Violin", program: 40, bank: "roblox-1" },
-  { role: "bass", name: "Contrabass", program: 43, bank: "fjords" },
-  { role: "cello", name: "Cello", program: 42, bank: "fjords" },
-  { role: "strings", name: "String ensemble", program: 48, bank: "general-user" },
-  { role: "horn", name: "French horn", program: 60, bank: "general-user" },
-  { role: "flute", name: "Flute", program: 73, bank: "general-user" },
-  { role: "oboe", name: "Oboe", program: 68, bank: "general-user" },
-  { role: "clarinet", name: "Clarinet", program: 71, bank: "general-user" },
-  { role: "arp", name: "Orchestral harp", program: 46, bank: "general-user" },
-  { role: "keys", name: "Piano", program: 0, bank: "general-user" },
-  { role: "pizz", name: "Pizzicato strings", program: 45, bank: "general-user" },
-  { role: "trumpet", name: "Trumpet", program: 56, bank: "general-user" },
-  { role: "timpani", name: "Timpani", program: 47, bank: "general-user" },
-  { role: "drums", name: "Kit", program: 0, bank: "stealth-drums" },
+  { role: "vocals", name: "Violin", program: 3, bank: "strategy" },
+  { role: "strings", name: "String", program: 4, bank: "strategy" },
+  { role: "horn", name: "Brass", program: 1, bank: "strategy" },
+  { role: "trumpet", name: "Trumpet", program: 2, bank: "strategy" },
+  { role: "keys", name: "Digo Piano", program: 0, bank: "strategy" },
+  { role: "flute", name: "Flute", program: 0, bank: "beastmasters" },
+  { role: "arp", name: "Harp", program: 2, bank: "beastmasters" },
+  { role: "bass", name: "Bass", program: 4, bank: "fjords-voyage" },
+  { role: "drums", name: "Soundtrack kit WAV", program: 0, bank: "stealth" },
 ];
 
-function choosePrebakedSoundfontPalette(analysis) {
-  // Select a compact, coherent bank palette from the full catalog using detected
-  // pitch range, note density, and sustain. Only selected banks are downloaded.
+function chooseStudiedFamily(analysis) {
   const a = analysis || {};
-  const dense = Number(a.notesPerSecond || 0) > 4.5 || Number(a.shortNoteRatio || 0) > 0.48;
-  const lowHeavy = Number(a.lowRatio || 0) > 0.28;
+  const dense = Number(a.notesPerSecond || 0) > 4.5 || Number(a.shortNoteRatio || 0) > 0.5;
+  const lowHeavy = Number(a.lowRatio || 0) > 0.34;
   const sustained = Number(a.longNoteRatio || 0) > 0.28;
-  const bright = Number(a.highRatio || 0) > 0.38;
-  const ids = [
-    "stealth-drums", lowHeavy ? "fjords" : "beastmasters",
-    bright ? "gamehero" : "roblox-1",
-    sustained ? "fjords-hq" : "classic-days",
-    dense ? "nokia" : "fjords-midi",
-    dense ? "dance-potion" : "roblox-old",
-    bright ? "waapp" : "explore-roblox", "strategy", "general-user",
-  ];
-  return [...new Set(ids)].map((id) => ROBLOX_SOUNDFONTS.find((font) => font.id === id)).filter(Boolean);
+  const bright = Number(a.highRatio || 0) > 0.42;
+  // Studied 2009 covers and the soundtrack itself stay on one bank, or a
+  // Fjords + Strategy pair. Spreading every role across a different song
+  // is what made the orchestra sound like the wrong game.
+  if (lowHeavy && sustained) return { id: "horror", primary: "roblox-horror", pair: "trouble-ahead", kit: null };
+  if (dense && bright) return { id: "dance", primary: "dance-potion", pair: "party-music", kit: "Dance Potion" };
+  if (bright && !lowHeavy) return { id: "whistle", primary: "waapp", pair: "monster-mash", kit: "Monster Mash" };
+  if (dense) return { id: "explore", primary: "explore-roblox", pair: "wiley-bricks", kit: "Explore Roblox" };
+  if (sustained) return { id: "fjords", primary: "fjords-hq", pair: "strategy", kit: "Wind Of Fjords & Voyage of Eternity" };
+  return { id: "strategy", primary: "strategy", pair: "beastmasters", kit: "The Great Strategy" };
 }
 
+function programsForFamily(family) {
+  const primary = SOUNDFONT_BY_ID[family.primary] || SOUNDFONT_BY_ID.strategy;
+  const pair = SOUNDFONT_BY_ID[family.pair] || primary;
+  const programs = {};
+  const roles = {};
+  const use = (roleId, font) => {
+    if (!font || !font.presets || font.presets[roleId] == null) return;
+    programs[roleId] = font.presets[roleId];
+    roles[roleId] = font.id;
+  };
+  ["vocals", "strings", "horn", "trumpet", "keys", "cello", "timpani", "bass", "guitar", "pad"].forEach((roleId) => use(roleId, primary));
+  ["flute", "oboe", "arp", "clarinet", "pizz"].forEach((roleId) => use(roleId, pair.presets && pair.presets[roleId] != null ? pair : primary));
+  if (!roles.vocals) use("vocals", pair);
+  if (!roles.bass) use("bass", pair);
+  roles.drums = primary.id;
+  programs.drums = primary.drumProgram == null ? 0 : primary.drumProgram;
+  programs.studied = true;
+  return { programs, roles, fonts: [primary, pair].filter((font, index, list) => font && list.findIndex((item) => item.id === font.id) === index) };
+}
+
+const DRUM_KITS = {
+  "The Great Strategy": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav", crash: "Cymbal.wav" },
+  "Beastmasters Tale": { kick: "KICK_LEFT.wav", snare: "Snare.wav", hat: "HI_HAT.wav", crash: "LOW_CYMBAL.wav" },
+  "Wind Of Fjords & Voyage of Eternity": { kick: "Bass hit.wav", snare: "Snare.wav", hat: "Hi Hat.wav", crash: "Cymbal.wav" },
+  "StealthPilot": { kick: "StealthPilot Kick.mp3", snare: "StealthPilot Snare.mp3", hat: "Single Drum/HiHat Closed.wav", crash: "Single Drum/Crash1.wav" },
+  "Classic Days": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Crossroad Times": { kick: "Kick.wav", snare: "Snare.wav", hat: "Snare Cymbal.wav" },
+  "Dance Potion": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav", crash: "Impact.wav" },
+  "Explore Roblox": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Monster Mash": { kick: "Kick.wav", snare: "Clap.wav", hat: "Hat.wav" },
+  "Noob Alert": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Party Music": { kick: "Kick.wav", snare: "Snare.wav", hat: "Snare Impact.wav" },
+  "Metal Bricks": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Training Day": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Trouble Ahead": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "Clan Being Raided": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav" },
+  "MULE": { kick: "Kick.wav", snare: "Snare.wav", hat: "Hat.wav", crash: "Impact.wav" },
+};
+
 function chooseSongAssets(analysis) {
-  const a = analysis || {};
-  const dense = Number(a.notesPerSecond || 0) > 4.5 || Number(a.shortNoteRatio || 0) > 0.48;
-  const horror = Number(a.lowRatio || 0) > 0.4 && Number(a.longNoteRatio || 0) > 0.25;
-  const assets = [
-    { id: "kick", url: "/audios/WAV/MULE/Kick.wav", role: "kick", gain: 0.36 },
-    { id: "snare", url: "/audios/WAV/MULE/Snare.wav", role: "snare", gain: 0.23 },
-  ];
-  if (dense) assets.push({ id: "closed-hat", url: "/audios/WAV/MULE/Closed%20Hat.wav", role: "hat", gain: 0.09 });
-  if (Number(a.highRatio || 0) > 0.22) assets.push({ id: "crash", url: "/audios/WAV/MULE/Crash.wav", role: "crash", gain: 0.12 });
-  if (horror) assets.push({ id: "impact", url: "/audios/WAV/MULE/Impact.wav", role: "accent", gain: 0.10 });
-  return assets;
+  const family = chooseStudiedFamily(analysis);
+  const kit = DRUM_KITS[family.kit];
+  if (!kit) return [];
+  const root = "/audios/soundeffects/Drums/" + family.kit;
+  return Object.entries(kit).map(([role, file]) => ({
+    id: role,
+    url: encodeAudioPath(root + "/" + file),
+    role: role === "crash" ? "crash" : role,
+    gain: role === "kick" ? 0.34 : role === "snare" ? 0.22 : role === "crash" ? 0.1 : 0.08,
+  }));
+}
+
+function choosePrebakedSoundfontPalette(analysis) {
+  return programsForFamily(chooseStudiedFamily(analysis)).fonts;
 }
 
 const TARGET_RATE = 22050;
@@ -662,28 +529,12 @@ function summarize(notes, duration) {
 
 function fallbackPlan(notes, duration) {
   const analysis = summarize(notes, duration);
-  const palette = choosePrebakedSoundfontPalette(analysis);
-  const soundfontRoles = {
-    drums: "stealth-drums",
-    bass: analysis.lowRatio > 0.28 ? "fjords" : "beastmasters",
-    cello: analysis.longNoteRatio > 0.25 ? "fjords-hq" : "fjords",
-    vocals: analysis.highRatio > 0.38 ? "gamehero" : "roblox-1",
-    strings: analysis.longNoteRatio > 0.28 ? "fjords-hq" : "classic-days",
-    horn: "strategy",
-    flute: analysis.highRatio > 0.22 ? "waapp" : "explore-roblox",
-    oboe: "explore-roblox",
-    clarinet: "roblox-old",
-    arp: analysis.notesPerSecond > 4.5 ? "nokia" : "fjords-midi",
-    keys: "classic-days",
-    pizz: analysis.shortNoteRatio > 0.4 ? "dance-potion" : "crossroad",
-    trumpet: "crossroad",
-    timpani: "stealth-v2",
-    guitar: "gamehero",
-    pad: "fjords-midi",
-  };
-  const soundfontPalette = [...new Set([...Object.values(soundfontRoles), ...palette.map((font) => font.id)])]
-    .map((id) => ROBLOX_SOUNDFONTS.find((font) => font.id === id)).filter(Boolean);
+  const family = chooseStudiedFamily(analysis);
+  const selected = programsForFamily(family);
+  const soundfontRoles = selected.roles;
+  const soundfontPalette = selected.fonts;
   const sampleAssets = chooseSongAssets(analysis);
+  const studied = (study.songs || []).filter((song) => song.family === family.id || (family.id === "strategy" && song.family === "strategy"));
   return {
     primaryRole: "vocals",
     supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"],
@@ -705,7 +556,11 @@ function fallbackPlan(notes, duration) {
     soundfontPalette,
     sampleAssets,
     soundfontCatalogSize: ROBLOX_SOUNDFONTS.length,
-    reason: "Bloxify selected " + soundfontPalette.length + " SoundFonts and " + sampleAssets.length + " WAV layers from public/audios using note density, pitch range, and sustain analysis. Violin-led Roblox orchestra with bass, cello, winds, harp, piano, pizzicato, trumpet, timpani, and a restrained sampled kit.",
+    programs: selected.programs,
+    studiedFamily: family.id,
+    studiedSongs: studied.slice(0, 8).map((song) => song.title),
+    studiedCorpus: study.playlistCount,
+    reason: "Studied " + study.playlistCount + " Roblox soundfont videos. This song matches the " + family.id + " bank (" + (soundfontPalette[0] && soundfontPalette[0].name) + "), using that font's real presets and " + sampleAssets.length + " WAV kit layers. Basic Pitch still supplies the heard melody.",
   };
 }
 

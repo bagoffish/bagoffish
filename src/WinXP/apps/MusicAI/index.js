@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Midi } from '@tonejs/midi';
 import { buildRobloxArrangement, orchestraProgramsFor } from './orchestraArrange';
+import study from './robloxStudy.json';
 let workletSynthesizerPromise = null;
 function loadWorkletSynthesizer() {
   if (!workletSynthesizerPromise) {
@@ -28,79 +29,61 @@ const SOUNDFONT_BUFFER_CACHE = new Map();
 const SOUNDFONT_LOAD_PROMISES = new Map();
 const BASIC_PITCH_IDB = 'muleify-basic-pitch-v1';
 
-const SOUNDFONT_LIBRARY = [
-  { id: 'stealth-drums', name: 'StealthPilot MIDI Drums', url: '/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2', bankOffset: 1 },
-  { id: 'strategy-midi', name: 'The Great Strategy MIDI', url: '/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/The_Great_Strategy_MIDI.sf2', bankOffset: 2 },
-  { id: 'fjords-midi', name: 'Wind of Fjords MIDI', url: '/audios/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/Wind_of_Fjords_MIDI.sf2', bankOffset: 3 },
-  { id: 'aqua-mod', name: 'AquaDoesStuff Modified', url: '/audios/soundfonts/Instruments/Other%20People/AquaDoesStuff%20-%20Modified.sf2', bankOffset: 4 },
-  { id: 'roblox-other', name: 'Roblox Soundfont', url: '/audios/soundfonts/Instruments/Other%20People/Roblox%20Soundfont.sf2', bankOffset: 5 },
-  { id: 'beastmasters', name: 'Beastmasters Tale', url: '/audios/soundfonts/Instruments/Soundfonts/Beastmasters%20Tale.sf2', bankOffset: 6 },
-  { id: 'clan-raided', name: 'Clan Being Raided', url: '/audios/soundfonts/Instruments/Soundfonts/Clan%20Being%20Raided.sf2', bankOffset: 7 },
-  { id: 'classic-days', name: 'Classic Days', url: '/audios/soundfonts/Instruments/Soundfonts/Classic%20Days.sf2', bankOffset: 8 },
-  { id: 'crossroad', name: 'Crossroad Times', url: '/audios/soundfonts/Instruments/Soundfonts/Crossroad%20Times.sf2', bankOffset: 9 },
-  { id: 'dance-potion', name: 'Dance Potion', url: '/audios/soundfonts/Instruments/Soundfonts/Dance%20Potion.sf2', bankOffset: 10 },
-  { id: 'death-sounds', name: 'Death Sounds', url: '/audios/soundfonts/Instruments/Soundfonts/Death%20Sounds.sf2', bankOffset: 11 },
-  { id: 'explore-roblox', name: 'Explore Roblox', url: '/audios/soundfonts/Instruments/Soundfonts/Explore%20Roblox.sf2', bankOffset: 12 },
-  { id: 'gamehero', name: 'GameHero', url: '/audios/soundfonts/Instruments/Soundfonts/GameHero%20Soundfont.sf2', bankOffset: 13 },
-  { id: 'monster-mash', name: 'Monster Mash', url: '/audios/soundfonts/Instruments/Soundfonts/Monster%20Mash.sf2', bankOffset: 14 },
-  { id: 'noob-alert', name: 'Noob Alert', url: '/audios/soundfonts/Instruments/Soundfonts/Noob%20Alert.sf2', bankOffset: 15 },
-  { id: 'party-music', name: 'Party Music', url: '/audios/soundfonts/Instruments/Soundfonts/Party%20Music.sf2', bankOffset: 16 },
-  { id: 'roblox-horror', name: 'Roblox Horror', url: '/audios/soundfonts/Instruments/Soundfonts/Roblox%20Horror.sf2', bankOffset: 17 },
-  { id: 'roblox-old', name: 'Roblox Old Sounds', url: '/audios/soundfonts/Instruments/Soundfonts/Roblox%20Old%20Sounds.sf2', bankOffset: 18 },
-  { id: 'stealth-v2', name: 'StealthPilot v2', url: '/audios/soundfonts/Instruments/Soundfonts/StealthPilot%20v2.sf2', bankOffset: 19 },
-  { id: 'stealth', name: 'StealthPilot', url: '/audios/soundfonts/Instruments/Soundfonts/StealthPilot.sf2', bankOffset: 20 },
-  { id: 'strategy', name: 'The Great Strategy', url: '/audios/soundfonts/Instruments/Soundfonts/The%20Great%20Strategy.sf2', bankOffset: 21 },
-  { id: 'training-day', name: 'Training Day', url: '/audios/soundfonts/Instruments/Soundfonts/Training%20Day.sf2', bankOffset: 22 },
-  { id: 'trouble-ahead', name: 'Trouble Ahead', url: '/audios/soundfonts/Instruments/Soundfonts/Trouble%20Ahead.sf2', bankOffset: 23 },
-  { id: 'waapp', name: 'WAAPP Whistle', url: '/audios/soundfonts/Instruments/Soundfonts/WAAPP%20Whistle.sf2', bankOffset: 24 },
-  { id: 'wiley-bricks', name: 'Wiley Metal Bricks', url: '/audios/soundfonts/Instruments/Soundfonts/Wiley,%20Metal%20Bricks.sf2', bankOffset: 25 },
-  { id: 'fjords-voyage', name: 'Wind of Fjords + Voyage to Eternity', url: '/audios/soundfonts/Instruments/Soundfonts/Wind%20of%20Fjords%20%2B%20Voyage%20to%20Eternity%20(They%20share%20same%20Instruments).sf2', bankOffset: 26 },
-  { id: 'fjords-hq', name: 'Wind of Fjords HQ', url: '/audios/soundfonts/Instruments/Soundfonts/Wind%20of%20fjords%20HQ.sf2', bankOffset: 27 },
-  { id: 'nokia', name: 'Nokia Tongbao Bank', url: '/audios/soundfonts/Instruments/WorkingR-Blox/Nokia_Tongbao_Bank.sf2', bankOffset: 28 },
-  { id: 'roblox-1', name: 'Roblox Soundfont 1', url: '/audios/soundfonts/Instruments/WorkingR-Blox/Roblox%20Soundfont-1.sf2', bankOffset: 29 },
-  { id: 'fjords', name: 'Wind of Fjords v2.5.1a', url: '/audios/soundfonts/Instruments/WorkingR-Blox/Wind_Of_Fjords_V2.5.1a/WindOfFjordsV2.5.1a.sf2', bankOffset: 30 },
-  { id: 'general-user', name: 'GeneralUser GS Orchestra', url: '/audios/soundfonts/Orchestra/GeneralUser-GS.sf2', bankOffset: 31 },
-];
+const SOUNDFONT_LIBRARY = study.soundfonts.map(font => ({
+  id: font.id,
+  name: font.name,
+  url: font.url,
+  bankOffset: font.bankOffset,
+  presets: font.presets || {},
+  drumProgram: font.drumProgram,
+  drumKit: font.drumKit || null,
+}));
+const SOUNDFONT_ALIASES = study.aliases || {};
+function resolveBankId(id) {
+  if (!id) return id;
+  if (SOUNDFONT_LIBRARY.some(font => font.id === id)) return id;
+  return SOUNDFONT_ALIASES[id] || id;
+}
 const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
 // Spread the classic-Roblox collection across the arrangement instead of
 // routing nearly every orchestral part through GeneralUser. Each role uses a
 // coherent instrument bank, while the complete catalog remains available for
 // future arrangements and the renderer only downloads banks actually needed.
 const SOUND_FONT_BY_ROLE = {
-  drums: 'stealth-drums',
-  bass: 'fjords',
-  guitar: 'gamehero',
-  vocals: 'roblox-1',
+  drums: 'stealth',
+  bass: 'strategy',
+  guitar: 'stealth',
+  vocals: 'strategy',
   keys: 'classic-days',
-  pad: 'fjords-midi',
-  strings: 'fjords-hq',
-  arp: 'nokia',
-  cello: 'beastmasters',
+  pad: 'fjords-hq',
+  strings: 'strategy',
+  arp: 'beastmasters',
+  cello: 'strategy',
   horn: 'strategy',
-  flute: 'waapp',
-  oboe: 'explore-roblox',
-  clarinet: 'roblox-old',
-  timpani: 'stealth-v2',
-  pizz: 'dance-potion',
-  trumpet: 'crossroad',
+  flute: 'beastmasters',
+  oboe: 'beastmasters',
+  clarinet: 'gamehero',
+  timpani: 'strategy',
+  pizz: 'gamehero',
+  trumpet: 'strategy',
 };
 const CLASSIC_ROLE_BANKS = {
-  drums: 'stealth-drums',
-  bass: 'fjords',
-  guitar: 'gamehero',
-  vocals: 'roblox-1',
+  drums: 'stealth',
+  bass: 'strategy',
+  guitar: 'stealth',
+  vocals: 'strategy',
   keys: 'classic-days',
-  pad: 'fjords-midi',
-  strings: 'fjords-hq',
-  arp: 'nokia',
-  cello: 'beastmasters',
+  pad: 'fjords-hq',
+  strings: 'strategy',
+  arp: 'beastmasters',
+  cello: 'strategy',
   horn: 'strategy',
-  flute: 'waapp',
-  oboe: 'explore-roblox',
-  clarinet: 'roblox-old',
-  timpani: 'stealth-v2',
-  pizz: 'dance-potion',
-  trumpet: 'crossroad',
+  flute: 'beastmasters',
+  oboe: 'beastmasters',
+  clarinet: 'gamehero',
+  timpani: 'strategy',
+  pizz: 'gamehero',
+  trumpet: 'strategy',
 };
 const ROLE_CHANNEL = {
   drums: 9,
@@ -125,12 +108,13 @@ const SOUND_FONT_ROLE_BANKS = Object.fromEntries(
 );
 const SOUND_FONT_BY_ID = Object.fromEntries(SOUNDFONT_LIBRARY.map(bank => [bank.id, bank]));
 const getRoleBank = (roleId, plan) => {
-  const id = plan && plan.soundfontRoles && plan.soundfontRoles[roleId];
+  const raw = plan && plan.soundfontRoles && plan.soundfontRoles[roleId];
+  const id = resolveBankId(raw) || resolveBankId(CLASSIC_ROLE_BANKS[roleId]);
   return SOUND_FONT_BY_ID[id] || SOUND_FONT_ROLE_BANKS[roleId] || SOUNDFONT_LIBRARY[0];
 };
 
 function bankForNote(note, plan) {
-  const id = (note && note.bankId) || (plan && plan.soundfontRoles && note && plan.soundfontRoles[note.role]);
+  const id = resolveBankId((note && note.bankId) || (plan && plan.soundfontRoles && note && plan.soundfontRoles[note.role]));
   return SOUND_FONT_BY_ID[id] || getRoleBank(note && note.role, plan);
 }
 
@@ -182,6 +166,19 @@ function usesOrchestra(notes, savedRoles) {
 
 function programsForPlan(notes, saved, soundfontRoles) {
   const savedPrograms = saved && saved.programs && typeof saved.programs === 'object' ? saved.programs : null;
+  // Studied Roblox fonts are not General MIDI. A saved or detected plan already
+  // carries the preset index that exists inside the selected sf2.
+  if (savedPrograms && savedPrograms.studied) {
+    const next = { ...savedPrograms };
+    delete next.studied;
+    return next;
+  }
+  const fromBanks = {};
+  Object.entries(soundfontRoles || {}).forEach(([roleId, bankId]) => {
+    const bank = SOUND_FONT_BY_ID[resolveBankId(bankId)];
+    if (bank && bank.presets && bank.presets[roleId] != null) fromBanks[roleId] = bank.presets[roleId];
+  });
+  if (Object.keys(fromBanks).length) return { ...CLASSIC_PROGRAMS, ...fromBanks, drums: 0 };
   if (!usesOrchestra(notes, soundfontRoles)) return { ...CLASSIC_PROGRAMS };
   const tuned = orchestraProgramsFor(notes);
   const vocals = savedPrograms && (savedPrograms.vocals === 40 || savedPrograms.vocals === 73) ? savedPrograms.vocals : tuned.vocals;
@@ -228,7 +225,7 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
     if (!bankId && palette && palette[0]) bankId = palette[0].id;
     // GeneralUser's standard kit is program 0 on channel 9. A new Roblox
     // song stays on stealth-drums so an old drum font cannot claim it.
-    if (note.role === 'drums' && bankId !== 'general-user' && SOUND_FONT_BY_ID['stealth-drums']) bankId = 'stealth-drums';
+    if (note.role === 'drums') bankId = resolveBankId(bankId) || 'stealth';
     if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
     if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
     return bankId ? { ...note, bankId } : note;
@@ -772,10 +769,13 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
       const startTime = Math.max(0, Math.min(musicalEnd - 0.001, Number(note.startTimeSeconds) || 0));
       const bank = bankForNote(note, playable);
+      if (note.role === 'drums' && sampleByRole.kick) return;
       if (!bank || !loadedBanks.has(bank.id)) return;
       if (lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
         synth.controllerChange(channel, 32, 0, { time: baseTime + startTime });
+        const preset = bank.presets && bank.presets[note.role] != null ? bank.presets[note.role] : programs[note.role];
+        if (preset != null) synth.programChange(channel, preset, { time: baseTime + startTime });
         const noteVolume = mixValue(note.role, notes, playable.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
         if (noteVolume != null) synth.controllerChange(channel, 7, noteVolume, { time: baseTime + startTime });
         lastBankByChannel[channel] = bank.id;
@@ -1235,7 +1235,7 @@ function MusicAI() {
       fitted = stampSoundfontMix(fitted, palette, soundfontRoles);
       fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       const instrumentCount = new Set(fitted.map(note => note.role)).size;
-      const programs = programsForPlan(fitted, null, soundfontRoles);
+      const programs = (aiPlan && aiPlan.programs) || programsForPlan(fitted, aiPlan, soundfontRoles);
       const plan = {
         ...(aiPlan || {}),
         label: 'Bloxify Arrangement',
