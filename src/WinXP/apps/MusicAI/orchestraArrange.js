@@ -156,17 +156,20 @@ function isHarmonicOf(high, low) {
 }
 
 function cleanSource(notes) {
+  // Preserve quiet grace notes, short repeated notes, high-register notes, and
+  // octave doubles from the transcription. Basic Pitch can report legitimate
+  // attacks only briefly, so aggressive duration/amplitude/overtonal pruning
+  // erases real melody details. Remove only near-identical duplicate detections.
   const sorted = notes.slice().sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   const kept = [];
   sorted.forEach(note => {
-    if (note.durationSeconds < 0.06) return;
-    if ((note.amplitude || 0) < 0.16 && note.durationSeconds < 0.14) return;
-    if (note.pitchMidi >= 96 && (note.amplitude || 0) < 0.55) return;
-    for (let i = kept.length - 1; i >= 0; i--) {
-      if (isHarmonicOf(note, kept[i])) return;
-      if (isHarmonicOf(kept[i], note)) kept.splice(i, 1);
-    }
-    kept.push(note);
+    if (note.durationSeconds < 0.035) return;
+    const duplicate = kept.some(previous =>
+      previous.pitchMidi === note.pitchMidi &&
+      Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.012 &&
+      Math.abs(previous.durationSeconds - note.durationSeconds) < 0.025
+    );
+    if (!duplicate) kept.push(note);
   });
   return kept;
 }
