@@ -18,7 +18,7 @@ function loadWorkletSynthesizer() {
 
 
 const SPESSA_PROCESSOR_URL = '/spessasynth_processor.min.js';
-const API_BASE = window.RENDERER_API_BASE || 'https://bloxify-backend-sg.onrender.com';
+const API_BASE = window.RENDERER_API_BASE || 'https://muleify-backend-sg.onrender.com';
 const MAX_SECONDS = 300;
 const MAX_BYTES = 120 * 1024 * 1024;
 const MODEL_URL = '/basic-pitch-model/model.json';
@@ -26,7 +26,7 @@ const SKY_URL = '/images/sky.png';
 
 const SOUNDFONT_BUFFER_CACHE = new Map();
 const SOUNDFONT_LOAD_PROMISES = new Map();
-const BASIC_PITCH_IDB = 'bloxify-basic-pitch-v1';
+const BASIC_PITCH_IDB = 'muleify-basic-pitch-v1';
 
 const SOUNDFONT_LIBRARY = [
   { id: 'stealth-drums', name: 'StealthPilot MIDI Drums', url: '/soundfonts/Instruments/MIDI%20Compatible%20Soundfonts/StealthPilot_MIDI_DRUMS_ONLY.sf2', bankOffset: 1 },
@@ -157,7 +157,7 @@ function planWithSoundBanks(notes, savedPlan) {
   list.forEach(note => push(bankForNote(note, draft)));
   usedRoles.forEach(roleId => push(getRoleBank(roleId, draft)));
   return {
-    label: 'Bloxify Arrangement',
+    label: 'MULEify Arrangement',
     fixedStyle: true,
     preBakedSoundFontCatalog: true,
     soundfonts: SOUNDFONT_LIBRARY,
@@ -299,7 +299,7 @@ function buildFullArrangement(rawNotes, duration) {
 function makeStemMidi(notes, roleId, programs) {
   const role = roles.find(r => r.id === roleId);
   const midi = new Midi();
-  midi.name = 'Bloxify ' + (role ? role.label : roleId);
+  midi.name = 'MULEify ' + (role ? role.label : roleId);
   midi.header.setTempo(120);
   const track = midi.addTrack();
   track.name = role ? role.label : roleId.toUpperCase();
@@ -886,7 +886,7 @@ function serverGaveUp(error) {
     || /failed to fetch|network|timed out|server busy|not answering/i.test(message);
 }
 
-async function postBloxify(file, timeoutMs, attempts) {
+async function postMULEify(file, timeoutMs, attempts) {
   let lastError = null;
   const tries = attempts || 2;
   for (let attempt = 0; attempt < tries; attempt++) {
@@ -896,11 +896,11 @@ async function postBloxify(file, timeoutMs, attempts) {
     try {
       const form = new FormData();
       form.append('audio', file, file.name || 'audio.wav');
-      let res = await fetch(API_BASE + '/robloxify', { method: 'POST', body: form, signal: controller.signal });
+      let res = await fetch(API_BASE + '/romuleify', { method: 'POST', body: form, signal: controller.signal });
       if (res.status === 404) {
         const fallback = new FormData();
         fallback.append('audio', file, file.name || 'audio.wav');
-        res = await fetch(API_BASE + '/bloxify', { method: 'POST', body: fallback, signal: controller.signal });
+        res = await fetch(API_BASE + '/muleify', { method: 'POST', body: fallback, signal: controller.signal });
       }
       const data = await res.json().catch(() => ({}));
       if (res.status === 502 || res.status === 503 || res.status === 504) {
@@ -913,7 +913,7 @@ async function postBloxify(file, timeoutMs, attempts) {
     } catch (error) {
       if (!serverGaveUp(error)) throw error;
       lastError = error && error.name === 'AbortError'
-        ? new Error('Bloxify timed out while the server was reading this part.')
+        ? new Error('MULEify timed out while the server was reading this part.')
         : error;
     } finally {
       clearTimeout(timeout);
@@ -950,7 +950,7 @@ async function transcribeOnBackend(file, onStatus) {
   try { decoded = await decodeToMono(file); } catch (e) { decoded = null; }
   if (!decoded || !decoded.samples || !decoded.samples.length) {
     onStatus('Uploading the audio.');
-    const data = await postBloxify(file, 120000, 2);
+    const data = await postMULEify(file, 120000, 2);
     const notes = usableNotes(data.notes, 0);
     if (!notes.length) throw new Error('No notes detected — try a clearer song.');
     const duration = Number(data.duration);
@@ -971,7 +971,7 @@ async function transcribeOnBackend(file, onStatus) {
     const slice = decoded.samples.subarray(range.start, range.end);
     const wav = encodeMonoFloatWav(slice, slice, decoded.sampleRate);
     const piece = new File([wav], 'part-' + (part + 1) + '.wav', { type: 'audio/wav' });
-    const data = await postBloxify(piece, part === 0 ? 120000 : 75000, part === 0 ? 2 : 1);
+    const data = await postMULEify(piece, part === 0 ? 120000 : 75000, part === 0 ? 2 : 1);
     if (!aiPlan && data.aiPlan) aiPlan = data.aiPlan;
     notes.push(...usableNotes(data.notes, range.start / decoded.sampleRate));
     onStatus(partCount === 1
@@ -996,7 +996,7 @@ async function transcribeSong(file, onStatus) {
     }
     const awake = await serverIsAwake();
     if (!awake) {
-      lastError = new Error('Bloxify server is still starting. Try again in a minute.');
+      lastError = new Error('MULEify server is still starting. Try again in a minute.');
       continue;
     }
     try {
@@ -1007,23 +1007,23 @@ async function transcribeSong(file, onStatus) {
       onStatus('Server stopped answering. Trying again.');
     }
   }
-  throw lastError || new Error('Bloxify server is still starting. Try again in a minute.');
+  throw lastError || new Error('MULEify server is still starting. Try again in a minute.');
 }
 
 function MusicAI() {
-  const STORAGE_KEY = 'bloxify-projects-v2'; const COOKIE_KEY = 'bloxify-last-project'; const PLAYER_KEY = 'bloxify-player-name-v1';
+  const STORAGE_KEY = 'muleify-projects-v2'; const COOKIE_KEY = 'muleify-last-project'; const PLAYER_KEY = 'muleify-player-name-v1';
   function readCookie(name) { const prefix = name + '='; const item = document.cookie.split('; ').find(v => v.indexOf(prefix) === 0); return item ? decodeURIComponent(item.slice(prefix.length)) : ''; }
   function writeCookie(name, value) { document.cookie = name + '=' + encodeURIComponent(value) + '; max-age=31536000; path=/; SameSite=Lax'; }
   function readStorage(key) { try { return window.localStorage.getItem(key); } catch (e) { return null; } }
   function adoptStorage(key, legacy) { const current = readStorage(key); if (current != null) return current; const previous = readStorage(legacy); if (previous != null) { try { window.localStorage.setItem(key, previous); } catch (e) {} } return previous; }
-  function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'robloxify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
+  function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'romuleify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
   function persistProjects(value) { try { const serialized = JSON.stringify(value); window.localStorage.setItem(STORAGE_KEY, serialized); return window.localStorage.getItem(STORAGE_KEY) === serialized; } catch (e) { return false; } }
   const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]); const [sourceDuration, setSourceDuration] = useState(0);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
-  const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
+  const [status, setStatus] = useState('Drop audio → MULEify version of your song');
   const [progress, setProgress] = useState(0); const [working, setWorking] = useState(false); const [playing, setPlaying] = useState(false); const [loadingSeconds, setLoadingSeconds] = useState(0);
-  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || readCookie('robloxify-last-project') || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => adoptStorage(PLAYER_KEY, 'robloxify-player-name-v1') || ''); const [playerInput, setPlayerInput] = useState(() => adoptStorage(PLAYER_KEY, 'robloxify-player-name-v1') || ''); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
+  const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || readCookie('romuleify-last-project') || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => adoptStorage(PLAYER_KEY, 'romuleify-player-name-v1') || ''); const [playerInput, setPlayerInput] = useState(() => adoptStorage(PLAYER_KEY, 'romuleify-player-name-v1') || ''); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
@@ -1197,7 +1197,7 @@ function MusicAI() {
       const programs = programsForPlan(fitted, null, soundfontRoles);
       const plan = {
         ...(aiPlan || {}),
-        label: 'Pre-baked Bloxify',
+        label: 'Pre-baked MULEify',
         reason: 'Classic Roblox orchestra. The violin follows the tune. Bass and cello move with the harmony, and strings, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, and timpani answer in phrases over a light kit.',
         fixedStyle: true,
         preBakedSoundFontCatalog: true,
@@ -1243,7 +1243,7 @@ function MusicAI() {
     const programs = (planRef.current && planRef.current.programs) || ORCHESTRA_PROGRAMS;
     const role = roles.find(r => r.id === roleId);
     const blob = makeStemMidi(arrangement, roleId, programs);
-    downloadBlob(blob, 'bloxify-' + roleId + '.mid');
+    downloadBlob(blob, 'muleify-' + roleId + '.mid');
   };
 
   const renderAndDownloadWav = async () => {
@@ -1257,7 +1257,7 @@ function MusicAI() {
       const duration = Math.max(sourceDuration, arrangementEnd);
       const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), planRef.current);
       setWavBlob(blob);
-      downloadBlob(blob, 'bloxify-combined.wav');
+      downloadBlob(blob, 'muleify-combined.wav');
       setStatus('Combined WAV ready · ' + Math.round(duration * 10) / 10 + 's');
     } catch (error) {
       console.error(error);
@@ -1280,7 +1280,7 @@ function MusicAI() {
   const saveProject = async () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
     const playable = planWithSoundBanks(arrangement, activePlan || planRef.current);
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'Bloxify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id) }, savedAt: new Date().toISOString() };
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'MULEify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id) }, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     if (!persistProjects(next)) { setStatus('Could not save: browser storage is full or unavailable. Delete old saved places and try again.'); return; }
     setProjects(next);
@@ -1352,7 +1352,7 @@ function MusicAI() {
           }
         }
       } catch (error) {
-        console.warn('Bloxify patch setup failed for', role.id, error);
+        console.warn('MULEify patch setup failed for', role.id, error);
       }
     });
   };
@@ -1459,7 +1459,7 @@ function MusicAI() {
     if (!arrangement.length) { setStatus('Nothing to play'); return; }
     try {
       const plan = planRef.current || {
-        label: 'Bloxify Arrangement',
+        label: 'MULEify Arrangement',
         fixedStyle: true,
         soundfonts: SOUNDFONT_LIBRARY,
         soundfontId: FIXED_SOUNDFONT_ID,
@@ -1480,7 +1480,7 @@ function MusicAI() {
     if (typeof playheadSinkRef.current === 'function') playheadSinkRef.current(clamped);
     if (playing) {
       try {
-        const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
+        const plan = planRef.current || { label: 'MULEify Arrangement', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan, arrangement);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
         scheduleFrom(synth, clamped);
