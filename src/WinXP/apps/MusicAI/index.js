@@ -164,6 +164,8 @@ function planWithSoundBanks(notes, savedPlan) {
     label: 'Bloxify Arrangement',
     fixedStyle: true,
     preBakedSoundFontCatalog: true,
+    sampleAssets: Array.isArray(saved.sampleAssets) ? saved.sampleAssets : [],
+    tempoBpm: Number(saved.tempoBpm) || 120,
     soundfonts: SOUNDFONT_LIBRARY,
     soundfontId: FIXED_SOUNDFONT_ID,
     soundfontRoles,
@@ -1319,7 +1321,7 @@ function MusicAI() {
   const saveProject = async () => {
     if (!arrangement.length) { setStatus('Convert audio first'); return; }
     const playable = planWithSoundBanks(arrangement, activePlan || planRef.current);
-    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'Bloxify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id) }, savedAt: new Date().toISOString() };
+    const project = { id: Date.now(), name: projectName.trim() || 'Untitled Place', sourceName: file ? file.name : 'Unknown', arrangement, plan: { label: 'Bloxify Arrangement', programs: playable.programs, soundfontRoles: playable.soundfontRoles, soundfontPalette: playable.soundfontPalette.map(font => font.id), sampleAssets: playable.sampleAssets || (planRef.current && planRef.current.sampleAssets) || [], tempoBpm: playable.tempoBpm || (planRef.current && planRef.current.tempoBpm) || 120 }, savedAt: new Date().toISOString() };
     const next = [project, ...projects.filter(p => p.name !== project.name)].slice(0, 25);
     if (!persistProjects(next)) { setStatus('Could not save: browser storage is full or unavailable. Delete old saved places and try again.'); return; }
     setProjects(next);
