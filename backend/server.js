@@ -128,12 +128,17 @@ async function writeVisitorDisk(count, visitors) {
 async function getVisitorState() {
   if (visitorHydrated) return { count: memoryVisitorCount, seen: memoryVisitorIds };
   if (rendererCacheEnabled()) {
-    const file = await rendererGhGet(VISITOR_GITHUB_PATH);
-    if (!file) return rememberVisitorState(0, [], "");
-    const parsed = JSON.parse(file.bytes.toString("utf8"));
-    const count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
-    const visitors = Array.isArray(parsed.visitors) ? parsed.visitors.map(String).slice(-100000) : [];
-    return rememberVisitorState(count, visitors, file.sha);
+    try {
+      const file = await rendererGhGet(VISITOR_GITHUB_PATH);
+      if (file) {
+        const parsed = JSON.parse(file.bytes.toString("utf8"));
+        const count = Number.isFinite(Number(parsed.count)) ? Number(parsed.count) : 0;
+        const visitors = Array.isArray(parsed.visitors) ? parsed.visitors.map(String).slice(-100000) : [];
+        return rememberVisitorState(count, visitors, file.sha);
+      }
+    } catch (err) {
+      console.warn("Visitor counter GitHub read failed; using local fallback:", err.message);
+    }
   }
   const disk = await readVisitorDisk();
   return rememberVisitorState(disk.count, disk.visitors, "");
