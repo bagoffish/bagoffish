@@ -62,23 +62,27 @@ const SOUNDFONT_LIBRARY = [
   { id: 'general-user', name: 'GeneralUser GS Orchestra', url: '/soundfonts/Orchestra/GeneralUser-GS.sf2', bankOffset: 31 },
 ];
 const FIXED_SOUNDFONT_ID = 'classic-roblox-palette';
+// Spread the classic-Roblox collection across the arrangement instead of
+// routing nearly every orchestral part through GeneralUser. Each role uses a
+// coherent instrument bank, while the complete catalog remains available for
+// future arrangements and the renderer only downloads banks actually needed.
 const SOUND_FONT_BY_ROLE = {
   drums: 'stealth-drums',
   bass: 'fjords',
   guitar: 'gamehero',
   vocals: 'roblox-1',
-  keys: 'general-user',
+  keys: 'classic-days',
   pad: 'fjords-midi',
-  strings: 'general-user',
-  arp: 'general-user',
-  cello: 'fjords',
-  horn: 'general-user',
-  flute: 'general-user',
-  oboe: 'general-user',
-  clarinet: 'general-user',
-  timpani: 'general-user',
-  pizz: 'general-user',
-  trumpet: 'general-user',
+  strings: 'fjords-hq',
+  arp: 'nokia',
+  cello: 'beastmasters',
+  horn: 'strategy',
+  flute: 'waapp',
+  oboe: 'explore-roblox',
+  clarinet: 'roblox-old',
+  timpani: 'stealth-v2',
+  pizz: 'dance-potion',
+  trumpet: 'crossroad',
 };
 const CLASSIC_ROLE_BANKS = {
   drums: 'stealth-drums',
@@ -89,14 +93,14 @@ const CLASSIC_ROLE_BANKS = {
   pad: 'fjords-midi',
   strings: 'fjords-hq',
   arp: 'nokia',
-  cello: 'fjords',
-  horn: 'general-user',
-  flute: 'general-user',
-  oboe: 'general-user',
-  clarinet: 'general-user',
-  timpani: 'general-user',
-  pizz: 'general-user',
-  trumpet: 'general-user',
+  cello: 'beastmasters',
+  horn: 'strategy',
+  flute: 'waapp',
+  oboe: 'explore-roblox',
+  clarinet: 'roblox-old',
+  timpani: 'stealth-v2',
+  pizz: 'dance-potion',
+  trumpet: 'crossroad',
 };
 const ROLE_CHANNEL = {
   drums: 9,
