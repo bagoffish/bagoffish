@@ -770,7 +770,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       source.buffer = sample.buffer;
       gain.gain.value = Math.max(0, Math.min(0.7, (Number(sample.gain) || 0.1) * gainScale));
       source.connect(gain);
-      gain.connect(destination);
+      gain.connect(masterGainRef.current || destination);
       source.start(baseTime + at);
     };
     const schedulePitchedSample = (sample, note, at, gainScale) => {
@@ -789,7 +789,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       gain.gain.setValueAtTime(peak, baseTime + at + Math.max(duration * 0.5, duration - 0.035));
       gain.gain.linearRampToValueAtTime(0, baseTime + at + duration);
       source.connect(gain);
-      gain.connect(destination);
+      gain.connect(masterGainRef.current || destination);
       source.start(baseTime + at);
       source.stop(baseTime + at + duration + 0.01);
     };
@@ -1131,7 +1131,8 @@ function MusicAI() {
   function adoptStorage(key, legacy) { const current = readStorage(key); if (current != null) return current; const previous = readStorage(legacy); if (previous != null) { try { window.localStorage.setItem(key, previous); } catch (e) {} } return previous; }
   function loadProjects() { try { const value = adoptStorage(STORAGE_KEY, 'romuleify-projects-v2'); return value ? JSON.parse(value) : []; } catch (e) { return []; } }
   function persistProjects(value) { try { const serialized = JSON.stringify(value); window.localStorage.setItem(STORAGE_KEY, serialized); return window.localStorage.getItem(STORAGE_KEY) === serialized; } catch (e) { return false; } }
-  const synthRef = useRef(null); const contextRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
+  const synthRef = useRef(null); const contextRef = useRef(null);
+  const masterGainRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]); const [sourceDuration, setSourceDuration] = useState(0);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
@@ -1139,7 +1140,7 @@ function MusicAI() {
   const [projectName, setProjectName] = useState(() => readCookie(COOKIE_KEY) || readCookie('romuleify-last-project') || 'Untitled Place'); const [playerName, setPlayerName] = useState(() => adoptStorage(PLAYER_KEY, 'romuleify-player-name-v1') || ''); const [playerInput, setPlayerInput] = useState(() => adoptStorage(PLAYER_KEY, 'romuleify-player-name-v1') || ''); const [playerProjects, setPlayerProjects] = useState([]); const [playerTracks, setPlayerTracks] = useState([]); const [playerBusy, setPlayerBusy] = useState(false);
   const [projects, setProjects] = useState(() => loadProjects()); const [showProjects, setShowProjects] = useState(false);
   const [communityTracks, setCommunityTracks] = useState([]); const [communityLoading, setCommunityLoading] = useState(false); const [publishing, setPublishing] = useState(false);
-  const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(0.85);
+  const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(1);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null);
   const savePlayerLocal = name => { try { window.localStorage.setItem(PLAYER_KEY, name); } catch (e) {} };
@@ -1220,7 +1221,7 @@ function MusicAI() {
     stopPlaybackInternal();
     if (synthRef.current) { try { synthRef.current.destroy(); } catch (e) {} synthRef.current = null; }
     loadedBanksRef.current = new Set();
-    if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; }
+    if (contextRef.current) { contextRef.current.close().catch(() => {}); contextRef.current = null; masterGainRef.current = null; }
   }, []);
 
   const convert = async inputFile => {
@@ -1485,6 +1486,10 @@ function MusicAI() {
       if (contextRef.current) { try { await contextRef.current.close(); } catch (e) {} contextRef.current = null; }
       loadedBanksRef.current = new Set();
       const context = new AudioContext(); contextRef.current = context;
+      const masterGain = context.createGain();
+      masterGain.gain.value = volume;
+      masterGain.connect(context.destination);
+      masterGainRef.current = masterGain;
       await context.audioWorklet.addModule(SPESSA_PROCESSOR_URL);
       const WorkletSynthesizer = await loadWorkletSynthesizer();
       synthRef.current = new WorkletSynthesizer(context);
@@ -1497,7 +1502,7 @@ function MusicAI() {
       if (await addBankToSynth(synth, bank)) loadedBanksRef.current.add(bank.id);
     }
     if ((created || pending.length) && synth.isReady) await synth.isReady;
-    if (created && contextRef.current && typeof synth.connect === 'function') synth.connect(contextRef.current.destination);
+    if (created && contextRef.current && typeof synth.connect === 'function') synth.connect(masterGainRef.current || contextRef.current.destination);
 
     // Do not parse every SF2 file in parallel here. Large soundfonts can
     // consume enough memory/CPU to freeze the XP window. Extra banks are
@@ -1750,7 +1755,7 @@ function MusicAI() {
             <div style={{ marginTop: 5, fontWeight: 'normal' }}>{playerName || 'No name selected'}</div>
             {playerName && <div style={{ marginTop: 3, fontSize: 9, fontWeight: 'normal' }}>{playerProjects.length} saved song{playerProjects.length === 1 ? '' : 's'}</div>}
           </div>
-          <HealthBar value={volume} max={1} label="Volume" width="100%" height={18} onChange={v => { setVolume(v); if (synthRef.current && typeof synthRef.current.setMainVolume === 'function') { try { synthRef.current.setMainVolume(v); } catch (e) {} } }} />
+          <HealthBar value={volume} max={1} label={'Volume ' + Math.round(volume * 100) + '%'} width="100%" height={18} onChange={v => { const next = Math.max(0, Math.min(1, Number(v) || 0)); setVolume(next); if (masterGainRef.current) { try { masterGainRef.current.gain.setTargetAtTime(next, contextRef.current.currentTime, 0.015); } catch (e) { masterGainRef.current.gain.value = next; } } if (synthRef.current && typeof synthRef.current.setMainVolume === 'function') { try { synthRef.current.setMainVolume(1); } catch (e) {} } }} />
           <HealthBar value={playbackTime} max={Math.max(playbackDuration, 0.01)} label={'Time ' + playbackTime.toFixed(1) + ' / ' + (playbackDuration || 0).toFixed(1) + 's'} width="100%" height={18} onChange={seekTo} />
         </div>
       </div>
