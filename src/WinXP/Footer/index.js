@@ -64,7 +64,7 @@ function Footer({
   }, [menuOn]);
 
   return (
-    <Container onMouseDown={_onMouseDown}>
+    <Container data-xp-taskbar="true" onMouseDown={_onMouseDown}>
       <div className="footer__items left">
         <div ref={menu} className="footer__start__menu">
           {menuOn && <FooterMenu onClick={_onClickMenuItem} />}
