@@ -338,7 +338,6 @@ export default function CoyChat({ initialImage }) {
         />
         <button type="submit" aria-label="Send message" title="Send message" style={{ ...styles.button, ...styles.attachButton, fontSize: 24, opacity: busy || (!draft.trim() && !attachments.length) ? 0.65 : 1 }} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : '>'}</button>
       </form>
-      <div style={styles.status}>Chat log is saved on this browser and should remain when you close this tab.</div>
     </div>
   );
 }
