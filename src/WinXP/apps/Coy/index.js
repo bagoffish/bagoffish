@@ -87,7 +87,7 @@ export default function CoyChat({ initialImage }) {
       setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-18));
     } catch (err) {
       setError(err.name === 'AbortError'
-        ? 'Coy took too long to answer (55 seconds). The AI service may be unavailable; try again shortly.'
+        ? 'coy took too long to answer. try again in a bit.'
         : (err.message === 'Failed to fetch'
           ? 'couldn’t reach coy just now. check the connection and try again.'
           : (err.message || 'couldn’t send that just now. try again in a bit.')));
@@ -123,7 +123,7 @@ export default function CoyChat({ initialImage }) {
           aria-label="Message Coy"
           rows={2}
           maxLength={2000}
-          placeholder="say something... / 메시지를 입력해줘..."
+          placeholder="say something..."
           value={draft}
           onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event); } }}
