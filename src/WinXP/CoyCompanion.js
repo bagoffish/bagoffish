@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "https://winxp-7yes.onrender.com";
+const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
   ["Annoyed", "im judging u a normal amount"], ["Sleepy", "five more minutes…"],
@@ -26,6 +26,7 @@ export default function CoyCompanion() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [foundImage, setFoundImage] = useState(null);
+  const [holdingImage, setHoldingImage] = useState(false);
   const [mischief, setMischief] = useState(true);
   const inputRef = useRef(null);
   const seenImages = useRef(new Set());
@@ -60,6 +61,7 @@ export default function CoyCompanion() {
       else if (detail.type === "error") announce("uhh. something broke. should we pretend we didnt see that");
       else if (detail.type === "image" && detail.src) {
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
+        setHoldingImage(true);
         announce("WAIT. image. i am looking respectfully. (lie)", { image: detail.src });
       }
     };
@@ -68,16 +70,17 @@ export default function CoyCompanion() {
     // Coy can notice images rendered inside this website, especially the avatar renderer.
     // He never reads outside the page or tries to access private browser data.
     const scanImages = () => {
-      const candidates = Array.from(document.querySelectorAll("img"))
+      const candidates = Array.from(document.querySelectorAll(".avatar-container img, .old-avatar-thumb, img"))
         .filter(img => img.complete && img.naturalWidth > 100 && img.naturalHeight > 100)
         .filter(img => !img.closest("[data-coy-ui]"))
-        .filter(img => /renderer|avatar|render|thumbnail|roblox/i.test(
+        .filter(img => img.matches(".avatar-container img, .old-avatar-thumb") || /renderer|avatar|render|thumbnail|roblox/i.test(
           [img.alt, img.className, img.closest("[class]")?.className, img.src].join(" ")
         ));
       const img = candidates.find(item => item.src && !seenImages.current.has(item.src));
       if (!img) return;
       seenImages.current.add(img.src);
       setFoundImage({ src: img.src, alt: img.alt || "Roblox avatar render" });
+      setHoldingImage(true);
       if (Date.now() - lastActivity.current > 9000) {
         lastActivity.current = Date.now();
         announce("psst. i found an avatar render. can i yoink it for the chat?");
@@ -129,7 +132,11 @@ export default function CoyCompanion() {
     setBusy(true);
     setError("");
     try {
-      const response = await fetch(API_BASE + "/personal-ai/chat", {
+      const controller = new AbortController();
+      const requestTimeout = window.setTimeout(() => controller.abort(), 25000);
+      let response;
+      try {
+        response = await fetch(API_BASE + "/personal-ai/chat", { signal: controller.signal,
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         body: JSON.stringify({
@@ -142,13 +149,14 @@ export default function CoyCompanion() {
           }
         })
       });
+      } finally { window.clearTimeout(requestTimeout); }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Couldn't reach Coy right now.");
       const answer = typeof data.answer === "string" && data.answer.trim() ? data.answer.trim() : "…";
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
       setLine(answer);
     } catch (err) {
-      setError(err.message || "Connection failed");
+      setError(err.name === "AbortError" ? "Coy took too long to answer. Try again in a moment." : (err.message === "Failed to fetch" ? "Coy’s chat server could not be reached. The server may be waking up; try again shortly." : (err.message || "Connection failed")));
     } finally {
       setBusy(false);
     }
@@ -165,12 +173,14 @@ export default function CoyCompanion() {
     setChatOpen(true);
     setShowBubble(false);
     setFoundImage(null);
+    setHoldingImage(false);
   }
 
   const styles = {
     root: { position: "fixed", right: 14, bottom: 18, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
-    imageButton: { pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "min(35vw, 220px)", maxWidth: 220, maxHeight: "48vh", touchAction: "manipulation" },
+    imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "min(35vw, 220px)", maxWidth: 220, maxHeight: "48vh", touchAction: "manipulation" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "48vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "relative", pointerEvents: "auto", width: "min(78vw, 310px)", marginBottom: 4 },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "10px 12px", border: "2px solid #222", borderRadius: 12, background: "#fff", color: "#111", boxShadow: "0 2px 0 rgba(0,0,0,.12)", fontSize: 13, lineHeight: 1.35, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
     tail: { position: "absolute", right: 24, bottom: -9, width: 14, height: 14, background: "#fff", borderRight: "2px solid #222", borderBottom: "2px solid #222", transform: "rotate(45deg)", borderBottomRightRadius: 2 },
@@ -200,7 +210,7 @@ export default function CoyCompanion() {
           <div>psst. i found an image</div>
           <img src={foundImage.src} alt={foundImage.alt} style={{ maxWidth: "100%", maxHeight: 100, display: "block", margin: "5px 0" }} />
           <button style={styles.button} type="button" onClick={yoinkImage}>Yoink into chat</button>
-          <button style={styles.button} type="button" onClick={() => setFoundImage(null)}>Leave it</button>
+          <button style={styles.button} type="button" onClick={() => { setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
         </div>}
       </div>
       <form style={{ ...styles.form, padding: 8, marginTop: 0 }} onSubmit={send}>
@@ -230,7 +240,9 @@ export default function CoyCompanion() {
       <button type="button" style={styles.button} onClick={() => { setMischief(v => !v); setShowMenu(false); }}>{mischief ? "Disable mischief" : "Enable mischief"}</button>
     </div>}
     <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine("pat pat pat"); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for actions">
-      <img src="/images/coy.png" alt="Coy" style={styles.image} />
+      <img src={process.env.PUBLIC_URL + "/images/coy.png"} alt="Coy" style={styles.image} />
+      {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
+      }
     </button>
   </div>;
 }
