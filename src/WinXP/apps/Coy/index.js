@@ -20,7 +20,7 @@ const styles = {
 
 export default function CoyChat({ initialImage }) {
   const [messages, setMessages] = useState(() => initialImage
-    ? [{ role: 'assistant', content: 'yoink. look what i found:', image: initialImage.src }]
+    ? [{ role: 'assistant', content: 'look what i found:', image: initialImage.src }]
     : []);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
