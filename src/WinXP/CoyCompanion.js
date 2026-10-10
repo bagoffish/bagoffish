@@ -57,7 +57,7 @@ export default function CoyCompanion() {
   const dragState = useRef(null);
   const dragged = useRef(false);
   const clickTimer = useRef(null);
-  // Render Coy at exactly half the source image width, independent of viewport size.
+  // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(76);
 
   const [position, setPosition] = useState(() => ({
@@ -426,13 +426,13 @@ export default function CoyCompanion() {
   }, []);
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
-    bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(88vw, 360px)", minWidth: 0, marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
+    bubbleWrap: { position: "absolute", left: "50%", bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(88vw, 360px)", minWidth: 0, marginBottom: 0, transform: "translateX(-50%)", transformOrigin: "bottom center", animation: "coyBubbleIn 140ms ease-out" },
     bubble: { position: "relative", boxSizing: "border-box", display: "block", width: "fit-content", minWidth: 0, maxWidth: "min(88vw, 360px)", height: "auto", padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", right: `clamp(0px, calc(50% - 10px), ${spriteSize / 2 - 10}px)`, bottom: -13, width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
+    tail: { position: "absolute", left: "50%", bottom: -13, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -7, top: -13, width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
@@ -451,7 +451,7 @@ export default function CoyCompanion() {
     </div>}
 
     <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } if (clickTimer.current) window.clearTimeout(clickTimer.current); clickTimer.current = window.setTimeout(() => { clickTimer.current = null; openChat(); }, 230); }} onDoubleClick={() => { if (dragged.current) return; if (clickTimer.current) { window.clearTimeout(clickTimer.current); clickTimer.current = null; } patCoy(); }} aria-label="Coy">
-      <img src={COY_SPRITE} alt="Coy" draggable={false} onLoad={event => { const nativeWidth = event.currentTarget.naturalWidth; if (nativeWidth > 0) setSpriteSize(Math.max(1, nativeWidth / 2)); }} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
+      <img src={COY_SPRITE} alt="Coy" draggable={false} onLoad={event => { const nativeWidth = event.currentTarget.naturalWidth; if (nativeWidth > 0) setSpriteSize(Math.max(1, nativeWidth / 4)); }} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
     </button>
