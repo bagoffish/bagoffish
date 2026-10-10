@@ -4,6 +4,7 @@ process.env.TF_NUM_INTEROP_THREADS = process.env.TF_NUM_INTEROP_THREADS || "1";
 
 const { createRequire } = require("module");
 const requireFromHere = createRequire(__filename);
+const { downmixChannels, resample, mergeNotePasses } = requireFromHere("./bloxify-core.cjs");
 
 const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"];
 
@@ -275,41 +276,6 @@ async function loadBasicPitch() {
   return modelPromise;
 }
 
-function toMono(audio) {
-  const channels = Number(audio.numberOfChannels) || 1;
-  const length = Number(audio.length) || 0;
-  const rate = Number(audio.sampleRate) || TARGET_RATE;
-
-  if (channels === 1) {
-    return { samples: audio.getChannelData(0).slice(), sampleRate: rate };
-  }
-
-  const mono = new Float32Array(length);
-  for (let channel = 0; channel < channels; channel += 1) {
-    const data = audio.getChannelData(channel);
-    for (let i = 0; i < length; i += 1) mono[i] += data[i] / channels;
-  }
-  return { samples: mono, sampleRate: rate };
-}
-
-function resample(samples, fromRate, toRate) {
-  if (fromRate === toRate) return samples;
-
-  const ratio = fromRate / toRate;
-  const length = Math.max(1, Math.floor(samples.length / ratio));
-  const output = new Float32Array(length);
-
-  for (let i = 0; i < length; i += 1) {
-    const source = i * ratio;
-    const left = Math.floor(source);
-    const right = Math.min(left + 1, samples.length - 1);
-    const amount = source - left;
-    output[i] = samples[left] * (1 - amount) + samples[right] * amount;
-  }
-
-  return output;
-}
-
 function audioLike(samples, sampleRate) {
   return {
     sampleRate,
@@ -318,52 +284,6 @@ function audioLike(samples, sampleRate) {
     numberOfChannels: 1,
     getChannelData: () => samples,
   };
-}
-
-function mergeNotes(primary, secondary) {
-  const notes = [...(primary || [])];
-  const buckets = new Map();
-
-  for (const note of notes) {
-    const key =
-      Math.round(note.startTimeSeconds / 0.03) + ":" + Math.round(note.pitchMidi);
-    buckets.set(key, note);
-  }
-
-  for (const note of secondary || []) {
-    const time = Math.round(note.startTimeSeconds / 0.03);
-    const pitch = Math.round(note.pitchMidi);
-    let duplicate = false;
-
-    for (let bucket = time - 1; bucket <= time + 1; bucket += 1) {
-      const existing = buckets.get(bucket + ":" + pitch);
-      if (
-        existing &&
-        Math.abs(existing.startTimeSeconds - note.startTimeSeconds) < 0.03 &&
-        Math.abs(existing.durationSeconds - note.durationSeconds) < 0.1
-      ) {
-        duplicate = true;
-        break;
-      }
-    }
-
-    if (!duplicate) {
-      notes.push(note);
-      buckets.set(time + ":" + pitch, note);
-    }
-  }
-
-  return notes
-    .filter(
-      (note) =>
-        Number.isFinite(note.pitchMidi) &&
-        Number.isFinite(note.startTimeSeconds) &&
-        Number.isFinite(note.durationSeconds)
-    )
-    .sort(
-      (a, b) =>
-        a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
-    );
 }
 
 async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
@@ -428,8 +348,8 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
     sampleRate: decodedSampleRate,
     getChannelData: (index) => channelData[index],
   };
-  const mono = toMono(decodedAudio);
-  const samples = resample(mono.samples, mono.sampleRate, TARGET_RATE);
+  const mono = downmixChannels(channelData);
+  const samples = resample(mono, decodedSampleRate, TARGET_RATE);
   console.log(
     `Bloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`
   );
@@ -461,7 +381,7 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   const sensitive = toTimedNotes(sensitiveRaw);
   const recovery = toTimedNotes(recoveryRaw);
 
-  const notes = mergeNotes(mergeNotes(primary, sensitive), recovery);
+  const notes = mergeNotePasses([primary, sensitive, recovery]);
   console.log(
     `Bloxify note extraction: ${Date.now() - notePostProcessStartedAt}ms (${notes.length} notes)`
   );
