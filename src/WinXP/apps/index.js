@@ -113,7 +113,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   "About Me": {
@@ -124,7 +124,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Poems: {
@@ -135,7 +135,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Renderer: {
@@ -146,7 +146,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Bloxify: {
@@ -157,7 +157,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Minesweeper: {
@@ -168,7 +168,7 @@ export const appSettings = {
     resizable: false,
     minimized: false,
     maximized: false,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Error: {
@@ -179,7 +179,7 @@ export const appSettings = {
     resizable: false,
     minimized: false,
     maximized: false,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Paint: {
@@ -190,7 +190,7 @@ export const appSettings = {
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Winamp: {
