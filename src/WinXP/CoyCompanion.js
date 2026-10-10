@@ -183,22 +183,8 @@ export default function CoyCompanion() {
     // Use both the app-state event and the rendered window DOM. The DOM check
     // is a fallback for app windows opened by another launcher/tab that doesn't
     // publish coy:activity, and MutationObserver keeps it in sync on mobile.
-    const isMobileViewport = () => window.matchMedia("(max-width: 700px)").matches;
-    const hasVisibleAppWindow = () => {
-      try {
-        return Array.from(document.querySelectorAll("[data-app-title]")).some(node => {
-          if (!node.getClientRects().length) return false;
-          const style = window.getComputedStyle(node);
-          return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
-        });
-      } catch (_) { return false; }
-    };
-    const syncMobileAppVisibility = () => {
-      const anyAppOpen = openAppsRef.current.length > 0 || hasVisibleAppWindow();
-      // Full-tab/maximized windows hide the desktop companion on every device.
-      // Keep Coy reachable above app windows so headpats and speech bubbles still work.
-      setHideForMobileApp(false);
-    };
+    // Coy stays visible and interactive above app windows on every viewport.
+    const syncMobileAppVisibility = () => setHideForMobileApp(false);
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-state") {
