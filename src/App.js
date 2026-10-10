@@ -1,15 +1,10 @@
 import React from 'react';
 import WinXP from 'WinXP';
-import WinterLetterVN from './components/WinterLetterVN';
-import CoyPage from './coy';
 
 function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
-  if (path === '/coy') return <CoyPage />;
-  if (path === '/vn') return <WinterLetterVN standalone />;
-
-  // Redirect unknown paths to the homepage.
+  // The XP desktop is the only app entry point. Unknown URLs return home.
   if (path !== '/') {
     window.location.replace('/');
     return null;
