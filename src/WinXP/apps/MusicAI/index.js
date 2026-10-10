@@ -272,8 +272,8 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
 
 // Auto uses the song analysis palette. Manual prioritizes the chosen SoundFont
 // for every role it actually contains, then uses the classic role fallback.
-// Hybrid prioritizes the chosen bank but lets the song-aware AI pick compatible
-// supporting banks for roles the chosen bank does not contain. No notes change.
+// Hybrid prioritizes the chosen bank and selects compatible supporting banks
+// for roles the chosen bank does not contain. No notes change.
 function buildSoundfontChoice(notes, basePlan, mode, selectedId) {
   const sourcePlan = basePlan && typeof basePlan === 'object' ? basePlan : {};
   const aiRoles = { ...assignRoleBanks(), ...(sourcePlan.aiSoundfontRoles || sourcePlan.soundfontRoles || {}) };
@@ -305,7 +305,7 @@ function buildSoundfontChoice(notes, basePlan, mode, selectedId) {
     ...sourcePlan,
     programs: mode === 'auto' ? sourcePlan.programs : null,
   }, soundfontRoles);
-  // Keep the AI's own preset decisions in Auto mode; Manual/Hybrid must use
+  // Keep automatic preset decisions in Auto mode; Manual/Hybrid must use
   // the actual preset indexes advertised by the chosen SoundFont catalog.
   const programs = mode === 'auto' && sourcePlan.programs
     ? { ...resolvedPrograms, ...sourcePlan.programs }
@@ -1818,7 +1818,7 @@ function MusicAI() {
         <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, midiDownloadName(projectName))}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => { if (arrangement.some(n => n.role === roleId)) downloadStem(roleId); })}>Save Stems</button>
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
-        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Choose AI selection or prioritize a specific Roblox-era SoundFont.">SF <select aria-label="SoundFont mode" value={soundfontMode} onChange={e => setSoundfontMode(e.target.value)} style={{ ...topSelect, width: 82 }}><option value="auto">AI Auto</option><option value="manual">Manual</option><option value="hybrid">Hybrid</option></select></label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Choose automatic selection or prioritize a specific Roblox-era SoundFont.">SF <select aria-label="SoundFont mode" value={soundfontMode} onChange={e => setSoundfontMode(e.target.value)} style={{ ...topSelect, width: 82 }}><option value="auto">Auto</option><option value="manual">Manual</option><option value="hybrid">Hybrid</option></select></label>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Manual and Hybrid prioritize this bank for roles it contains."><select aria-label="Primary SoundFont" value={selectedSoundfontId} onChange={e => setSelectedSoundfontId(e.target.value)} disabled={soundfontMode === 'auto'} style={{ ...topSelect, maxWidth: 170 }}>{SOUNDFONT_LIBRARY.map(font => <option key={font.id} value={font.id}>{font.name}</option>)}</select></label>
         <button type="button" style={topBtnGray} disabled={!arrangement.length || working} onClick={applySoundfontSettings}>Apply SF</button>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Optional C64 WAV layer. Off by default for maximum transcription fidelity."><input type="checkbox" checked={wavTextureEnabled} onChange={e => setWavTextureEnabled(e.target.checked)} /> C64 WAV layer</label>
