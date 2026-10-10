@@ -23,6 +23,8 @@ import poemsIcon from "assets/windowsIcons/327(32x32).png";
 import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
+import coyBotIcon from "assets/windowsIcons/coybot.svg";
+import winterLetterIcon from "assets/windowsIcons/winter-letter.svg";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
 
 // Heavy apps are loaded only when opened. This keeps the XP desktop fast
@@ -84,8 +86,8 @@ export const defaultIconState = [
   { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
   { id: 2, icon: poemsIcon, title: "Poems", component: Poems, isFocus: false },
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
-  { id: 8, icon: socialsIcon, title: "CoyBot", component: PersonalAI, isFocus: false },
-  { id: 9, icon: poemsIcon, title: "Winter_Letter", component: WinterLetterVN, isFocus: false },
+  { id: 8, icon: coyBotIcon, title: "CoyBot", component: PersonalAI, isFocus: false },
+  { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetterVN, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 4, icon: mine, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
@@ -95,7 +97,7 @@ export const defaultIconState = [
 /* start menu / openApp settings */
 export const appSettings = {
   CoyBot: {
-    header: { icon: socialsIconSmall, title: "CoyBot" },
+    header: { icon: coyBotIcon, title: "CoyBot" },
     component: PersonalAI,
     defaultSize: { width: 560, height: 520 },
     defaultOffset: { x: 180, y: 45 },
@@ -106,7 +108,7 @@ export const appSettings = {
   },
 
   Winter_Letter: {
-    header: { icon: poemsIconSmall, title: "Winter_Letter" },
+    header: { icon: winterLetterIcon, title: "Winter_Letter" },
     component: WinterLetterVN,
     defaultSize: { width: 760, height: 520 },
     defaultOffset: { x: 100, y: 45 },
