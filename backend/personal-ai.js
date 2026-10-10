@@ -535,10 +535,12 @@ function availableAiProviders() {
   const providers = [];
   if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: "openrouter", key: process.env.OPENROUTER_API_KEY });
+  if (process.env.OPENROUTER_API_KEY_2) providers.push({ name: "openrouter-2", key: process.env.OPENROUTER_API_KEY_2 });
   if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", key: process.env.GEMINI_API_KEY });
   if (process.env.OPENAI_API_KEY) providers.push({ name: "openai", key: process.env.OPENAI_API_KEY });
   if (process.env.XAI_API_KEY) providers.push({ name: "xai", key: process.env.XAI_API_KEY });
   if (process.env.COHERE_API_KEY) providers.push({ name: "cohere", key: process.env.COHERE_API_KEY });
+  if (process.env.COHERE_API_KEY_2) providers.push({ name: "cohere-2", key: process.env.COHERE_API_KEY_2 });
   return providers;
 }
 
@@ -546,7 +548,7 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
   let url;
   let headers;
   let body;
-  if (provider.name === "cohere") {
+  if (provider.name === "cohere" || provider.name === "cohere-2") {
     // Cohere trial API is text-only in this integration; let other providers handle attachments.
     if (mediaInputs.length) {
       const error = new Error("Cohere fallback currently supports text-only requests.");
@@ -759,6 +761,7 @@ router.post("/chat", rateLimit, async (req, res) => {
     "Follow these instructions carefully:",
     buildPersonality(),
     "CUSTOM ONO EMOJI: When you want the user's custom nail-biting Ono reaction, output the exact token :ono: instead of a Unicode emoji or describing it in words. The website replaces :ono: with the supplied /images/ono.png image. Use it occasionally for nervous, awkward, startled, scared, or shocked reactions; do not overuse it.",
+    "ROBLOX LOOKUP CONTEXT: The user may search Roblox profiles or numeric user IDs, including their own profile. Do not assume a Roblox user ID belongs to Coy, and never react with lines like \"Searching me up?\" or \"Looking me up?\" just because a Roblox lookup is happening. Treat the ID as an ordinary lookup unless the user explicitly says they are searching for Coy or gives evidence that the profile is his. Do not claim that any arbitrary numeric ID is Coy's ID.",
     "MEDIA AND LINKS: When sharing a web page, output its full https:// URL as plain text so the website can make it clickable. When sharing an image, use Markdown image syntax ![short description](https://direct-image-url) only when you have a real direct image URL; otherwise share a normal link and never invent a URL. When asked to inspect a link or attached image/audio, use the supplied fetched content or media inputs and be honest if it could not be accessed.",
     githubMemoryContext,
     "LINK INSPECTION RESULTS — use this actual fetched page/image content when answering link-checking requests; never claim success for links marked failed:",
