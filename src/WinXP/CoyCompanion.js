@@ -30,6 +30,16 @@ export default function CoyCompanion() {
   const lastActivity = useRef(0);
   const lastPickupAttempt = useRef(0);
   const hasHeldImage = useRef(false);
+  const dragState = useRef(null);
+  const dragged = useRef(false);
+  const [position, setPosition] = useState({ right: 14, bottom: 48 });
+  const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (!showBubble || chatOpen) return undefined;
+    const timer = window.setTimeout(() => setShowBubble(false), 3000);
+    return () => window.clearTimeout(timer);
+  }, [showBubble, chatOpen, line]);
 
   useEffect(() => {
     if (chatOpen) inputRef.current?.focus();
@@ -116,6 +126,34 @@ export default function CoyCompanion() {
     };
   }, []);
 
+  function startDrag(event) {
+    if (event.button !== 0) return;
+    dragState.current = { x: event.clientX, y: event.clientY, right: position.right, bottom: position.bottom };
+    dragged.current = false;
+    setIsDragging(true);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  }
+
+  function moveDrag(event) {
+    if (!dragState.current) return;
+    const deltaX = event.clientX - dragState.current.x;
+    const deltaY = event.clientY - dragState.current.y;
+    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) dragged.current = true;
+    if (!dragged.current) return;
+    const width = event.currentTarget.getBoundingClientRect().width;
+    const height = event.currentTarget.getBoundingClientRect().height;
+    setPosition({
+      right: Math.max(0, Math.min(window.innerWidth - width, dragState.current.right - deltaX)),
+      bottom: Math.max(0, Math.min(window.innerHeight - height, dragState.current.bottom + deltaY))
+    });
+  }
+
+  function endDrag() {
+    dragState.current = null;
+    setIsDragging(false);
+    window.setTimeout(() => { dragged.current = false; }, 0);
+  }
+
   function openChat(image = null) {
     setShowBubble(false);
     setShowMenu(false);
@@ -177,7 +215,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", right: 14, bottom: 48, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", right: position.right, bottom: position.bottom, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "manipulation" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
@@ -227,7 +265,7 @@ export default function CoyCompanion() {
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine(formatCoyText("pat pat pat")); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for expressions">
+    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; setLine(formatCoyText("pat pat pat")); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag to move Coy; click to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
