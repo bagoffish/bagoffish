@@ -141,7 +141,7 @@ export default function CoyCompanion() {
     }
   }
 
-  function yoinkImage() {
+  function addImageToChat() {
     if (!foundImage?.src) return;
     const image = foundImage;
     setLine("look what i found:");
@@ -176,14 +176,14 @@ export default function CoyCompanion() {
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
           <div style={{ fontWeight: "bold", marginBottom: 3 }}>{item.role === "user" ? "You" : "Coy"}</div>
           {item.content}
-          {item.image && <img src={item.image} alt="Coy's yoinked image" style={{ display: "block", maxWidth: "100%", maxHeight: 220, marginTop: 6, objectFit: "contain" }} />}
+          {item.image && <img src={item.image} alt="Image Coy found" style={{ display: "block", maxWidth: "100%", maxHeight: 220, marginTop: 6, objectFit: "contain" }} />}
         </div>)}
         {busy && <div style={styles.message}>Coy is typing…</div>}
         {error && <div role="alert" style={{ color: "#9b1c1c" }}>{error}</div>}
         {foundImage && <div style={{ border: "1px dashed #777", padding: 7, background: "#fffbe8" }}>
           <div>psst. i found an image</div>
           <img src={foundImage.src} alt={foundImage.alt} style={{ maxWidth: "100%", maxHeight: 100, display: "block", margin: "5px 0" }} />
-          <button style={styles.button} type="button" onClick={yoinkImage}>Add image to chat</button>
+          <button style={styles.button} type="button" onClick={addImageToChat}>Add image to chat</button>
           <button style={styles.button} type="button" onClick={() => { setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
         </div>}
       </div>
@@ -197,7 +197,7 @@ export default function CoyCompanion() {
         <div>{line}</div>
         {foundImage && <div style={{ marginTop: 7 }}>
           <img src={foundImage.src} alt={foundImage.alt} style={{ display: "block", maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />
-          <button style={styles.button} type="button" onClick={yoinkImage}>Add image to chat</button>
+          <button style={styles.button} type="button" onClick={addImageToChat}>Add image to chat</button>
         </div>}
         <div style={styles.tail} />
       </div>
