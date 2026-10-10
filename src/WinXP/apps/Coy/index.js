@@ -23,7 +23,7 @@ function youtubeEmbedUrl(value) {
   }
   return /^[\w-]{11}$/.test(id) ? "https://www.youtube-nocookie.com/embed/" + id : null;
 }
-function renderCoyContent(value) {
+function renderCoyInline(value) {
   const pattern = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"']+)/g;
   const pieces = String(value ?? "").split(pattern);
   return pieces.map((piece, index) => {
@@ -72,6 +72,18 @@ function renderCoyContent(value) {
       </span>;
     }
     return <React.Fragment key={index}><a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", textDecoration: "underline", overflowWrap: "anywhere" }}>{renderCoyEmoji(markdownLink?.[1] || href)}</a>{trailing}</React.Fragment>;
+  });
+}
+
+// Discord-style headings: a leading # plus a space enlarges that line.
+// Keep normal text and existing link/image rendering unchanged.
+function renderCoyContent(value) {
+  return String(value ?? '').split('\\n').map((line, index) => {
+    const heading = line.match(/^(#{1,3})\\s+(.+)$/);
+    if (!heading) return <React.Fragment key={index}>{renderCoyInline(line)}{index < String(value ?? '').split('\\n').length - 1 ? '\\n' : ''}</React.Fragment>;
+    const level = heading[1].length;
+    const fontSize = level === 1 ? '1.35em' : level === 2 ? '1.2em' : '1.08em';
+    return <React.Fragment key={index}><span style={{ fontSize, fontWeight: 'bold' }}>{renderCoyInline(heading[2])}</span>{index < String(value ?? '').split('\\n').length - 1 ? '\\n' : ''}</React.Fragment>;
   });
 }
 
