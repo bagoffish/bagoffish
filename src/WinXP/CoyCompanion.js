@@ -357,7 +357,7 @@ export default function CoyCompanion() {
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
       setLine(answer);
     } catch (err) {
-      setError(err.name === "AbortError" ? "Coy took too long to answer. Try again in a moment." : (err.message === "Failed to fetch" ? "Coy’s chat server could not be reached. The server may be waking up; try again shortly." : (err.message || "Connection failed")));
+      setError(err.name === "AbortError" ? "Hold on, I got distracted. Try me again in a sec." : (err.message === "Failed to fetch" ? randomLine(["Hold on, I’m busy...", "I’m tryna sleep dude.", "Give me a sec, I’m not awake yet."]) : (err.message || "Hold on, something went wrong.")));
     } finally {
       setBusy(false);
     }
