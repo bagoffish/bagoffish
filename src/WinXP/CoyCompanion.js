@@ -7,6 +7,26 @@ const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.leng
 const PICKUP_LINES = ["HEY— where are we going?", "Oh! You’re moving me?", "Wheee— wait, put me down somewhere nice.", "Eep! Got me.", "Okay okay, I’m coming.", "Oh, we’re relocating now?"];
 const PAT_LINES = ["Hehe, again.", "…okay that’s kinda nice.", "Heyy. :3", "You’re messing up my hair.", "*happy little wiggle*", "Hm? Oh. hi.", "Eep— didn’t expect that.", "Okay, you can stay."];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
+const COY_COMPANION_COOKIE = 'coy_companion_chat';
+function readCompanionChatCookie() {
+  try {
+    const match = document.cookie.split('; ').find(part => part.startsWith(COY_COMPANION_COOKIE + '='));
+    if (!match) return [];
+    const parsed = JSON.parse(decodeURIComponent(match.slice(COY_COMPANION_COOKIE.length + 1)));
+    return Array.isArray(parsed) ? parsed.filter(item => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string').slice(-12) : [];
+  } catch (_) { return []; }
+}
+function writeCompanionChatCookie(messages) {
+  try {
+    let kept = messages.slice(-12);
+    let encoded = encodeURIComponent(JSON.stringify(kept));
+    while (encoded.length > 3500 && kept.length > 2) {
+      kept = kept.slice(1);
+      encoded = encodeURIComponent(JSON.stringify(kept));
+    }
+    document.cookie = COY_COMPANION_COOKIE + '=' + encoded + '; Max-Age=2592000; Path=/; SameSite=Lax';
+  } catch (_) {}
+}
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
@@ -27,7 +47,7 @@ export default function CoyCompanion() {
   const [line, setLine] = useState(randomGreeting);
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
-  const [history, setHistory] = useState([]);
+  const [history, setHistory] = useState(() => readCompanionChatCookie());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [foundImage, setFoundImage] = useState(null);
@@ -48,6 +68,10 @@ export default function CoyCompanion() {
     const timer = window.setTimeout(() => setShowBubble(false), readingTime);
     return () => window.clearTimeout(timer);
   }, [showBubble, chatOpen, line]);
+
+  useEffect(() => {
+    writeCompanionChatCookie(history);
+  }, [history]);
 
   useEffect(() => {
     if (chatOpen) inputRef.current?.focus();
