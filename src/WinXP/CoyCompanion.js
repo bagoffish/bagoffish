@@ -563,7 +563,6 @@ export default function CoyCompanion() {
     tailInner: bubblePlacement.side === "right"
       ? { position: "absolute", left: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderRight: "8px solid #0a0a0a" }
       : { position: "absolute", right: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "8px solid #0a0a0a" },
-    nameplate: { position: "absolute", bottom: -16, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(90deg,#0a246a,#3a6ea5)", color: "#fff", fontSize: 10, fontWeight: "bold", padding: "1px 6px", borderRadius: 2, border: "1px solid #fff", boxShadow: "1px 1px 0 rgba(0,0,0,.4)", pointerEvents: "none", whiteSpace: "nowrap", letterSpacing: "0.4px" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
     button: { border: "1px solid #777", borderRadius: 2, background: "#eee", color: "#111", padding: "5px 9px", fontSize: 12, cursor: "pointer" },
@@ -597,7 +596,6 @@ export default function CoyCompanion() {
       <img src={COY_SPRITE} alt="Coy" draggable={false} onLoad={event => { const nativeWidth = event.currentTarget.naturalWidth; if (nativeWidth > 0) setSpriteSize(Math.max(1, nativeWidth / 4)); }} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
-      <span style={styles.nameplate}>Coy</span>
     </button>
   </div>, document.body);
 }
