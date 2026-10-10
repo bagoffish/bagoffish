@@ -58,6 +58,7 @@ export default function CoyCompanion() {
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
   const openAppsRef = useRef([]);
+  const fullTabActiveRef = useRef(false);
   const lastPickupAttempt = useRef(0);
   const hasHeldImage = useRef(false);
   const dragState = useRef(null);
@@ -104,12 +105,14 @@ export default function CoyCompanion() {
     };
     const syncMobileAppVisibility = () => {
       const anyAppOpen = openAppsRef.current.length > 0 || hasVisibleAppWindow();
-      setHideForMobileApp(isMobileViewport() && anyAppOpen);
+      // Full-tab/maximized windows hide the desktop companion on every device.
+      setHideForMobileApp(fullTabActiveRef.current || (isMobileViewport() && anyAppOpen));
     };
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-state") {
         openAppsRef.current = Array.isArray(detail.openApps) ? detail.openApps : [];
+        fullTabActiveRef.current = Boolean(detail.fullTabActive);
         syncMobileAppVisibility();
         return;
       }
@@ -171,8 +174,7 @@ export default function CoyCompanion() {
       if (!candidates.length || Math.random() > 0.06) return;
       const img = candidates[Math.floor(Math.random() * candidates.length)];
       seenImages.current.add(img.src);
-      const original = img.closest(".old-avatar-thumb") || img;
-      original.style.visibility = "hidden";
+      // Coy carries a copy of the image. Never hide, move, or mutate the original page image.
       hasHeldImage.current = true;
       setFoundImage({ src: img.src, alt: img.alt || "Roblox avatar render" });
       setHoldingImage(true);
@@ -206,11 +208,13 @@ export default function CoyCompanion() {
     dragState.current = {
       x: event.clientX, y: event.clientY,
       left: position.left, top: position.top,
-      startsOnHead, patGesture: false, movedCharacter: false
+      startsOnHead, patGesture: false, movedCharacter: false,
+      pointerId: event.pointerId
     };
     dragged.current = false;
     setIsDragging(false);
-    event.currentTarget.setPointerCapture?.(event.pointerId);\n    event.preventDefault();
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    event.preventDefault();
   }
 
   function moveDrag(event) {
@@ -219,22 +223,33 @@ export default function CoyCompanion() {
     const deltaX = event.clientX - state.x;
     const deltaY = event.clientY - state.y;
     const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+    const spriteRect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - spriteRect.left;
+    const y = event.clientY - spriteRect.top;
+    const stillOnHead = y >= 0 && y <= spriteRect.height * 0.48 &&
+      x >= spriteRect.width * 0.12 && x <= spriteRect.width * 0.88;
 
-    // Start dragging after only a few pixels. Head strokes no longer get
-    // mistaken for pats, which made desktop dragging feel unresponsive.
-    if (distance >= 4) {
+    // A short stroke across Coy's head is a pat. If the gesture gets longer
+    // or leaves the head area, it becomes a drag instead.
+    if (state.startsOnHead && !state.movedCharacter && distance >= 4 && distance <= 28 && stillOnHead) {
+      state.patGesture = true;
+      return;
+    }
+    const dragThreshold = state.startsOnHead ? 29 : 4;
+    if (distance >= dragThreshold || (state.startsOnHead && distance >= 4 && !stillOnHead)) {
       state.movedCharacter = true;
       state.patGesture = false;
       dragged.current = true;
       setIsDragging(true);
     }
     if (!state.movedCharacter) return;
-    // Position is applied to the whole fixed companion wrapper, so clamp using
-    // the wrapper's size (speech bubble/menu included), not just the sprite.
+
+    // Position the companion wrapper, not the image element; preserve grab offset
+    // and clamp against the viewport so desktop dragging feels responsive.
     const wrapper = event.currentTarget.parentElement;
     const rect = wrapper?.getBoundingClientRect();
-    const width = rect?.width || event.currentTarget.getBoundingClientRect().width;
-    const height = rect?.height || event.currentTarget.getBoundingClientRect().height;
+    const width = rect?.width || spriteRect.width;
+    const height = rect?.height || spriteRect.height;
     const maxRight = Math.max(0, window.innerWidth - width);
     const maxBottom = Math.max(0, window.innerHeight - height);
     setPosition({
@@ -254,7 +269,7 @@ export default function CoyCompanion() {
       setLine(formatCoyText(randomLine(PICKUP_LINES)));
       setShowBubble(true);
     }
-    window.setTimeout(() => { dragged.current = false; }, 200);
+    window.setTimeout(() => { dragged.current = false; }, 250);
   }
 
   function patCoy() {
@@ -327,7 +342,7 @@ export default function CoyCompanion() {
 
   const styles = {
     root: { position: "fixed", left: position.left, top: position.top, zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
-    imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "manipulation" },
+    imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "relative", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 5, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
@@ -355,7 +370,7 @@ export default function CoyCompanion() {
       
     </div>}
     <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag Coy to move; click to chat; double-click to pat; right-click for expressions">
-      <img src={COY_SPRITE} alt="Coy" style={styles.image} />
+      <img src={COY_SPRITE} alt="Coy" draggable={false} style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
     </button>
