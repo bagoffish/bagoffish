@@ -2,16 +2,28 @@
 
 This feature adds the Windows XP desktop app named **Coy** and a backend endpoint at `POST /personal-ai/chat`.
 
-## Required server environment variables
+## Server environment variables
 
-Configure these on the existing Render backend service (never in React or a public GitHub file):
+Configure provider keys on the existing Render backend service (never in React or a public GitHub file). At least one AI provider key is required:
 
-- `GEMINI_API_KEY`: API key created in Google AI Studio.
-- `GEMINI_FILE_SEARCH_STORE_NAME`: optional Gemini File Search store name for prepared, privacy-reviewed archive files.
+- `GROQ_API_KEY`: optional; tried first. Create a key at https://console.groq.com/keys.
+- `OPENROUTER_API_KEY`: optional; tried after Groq. Create a key at https://openrouter.ai/keys. The default model is `openrouter/free`.
+- `GEMINI_API_KEY`: optional fallback, tried after Groq and OpenRouter. Create a key in Google AI Studio.
+- `GROQ_MODEL`: optional model override. Defaults to `llama-3.3-70b-versatile` for text and `meta-llama/llama-4-scout-17b-16e-instruct` for image messages.
+- `OPENROUTER_MODEL`: optional model override. Defaults to `openrouter/free`.
+- `GEMINI_MODEL`: optional Gemini model override; defaults to `gemini-3.8-flash`.
+- `GEMINI_FILE_SEARCH_STORE_NAME`: optional Gemini File Search store name for prepared, privacy-reviewed archive files. This feature only runs on Gemini requests.
 - `PERSONAL_AI_BIRTH_DATE`: optional private date in `YYYY-MM-DD` format. The server calculates the current age per request and only supplies the age to the model; never commit the date to source control or expose it in frontend variables.
-- Optional `GEMINI_MODEL`: Gemini model ID to use; defaults to `gemini-3.5-flash-lite`.
 
-Chat works when `GEMINI_API_KEY` is configured. Knowledge search is enabled when `GEMINI_FILE_SEARCH_STORE_NAME` is also configured.
+## Automatic provider failover
+
+Coy tries configured providers in this order: Groq, OpenRouter, then Gemini. If a provider returns an error, is rate-limited, times out, or returns an empty response, Coy automatically tries the next configured provider. Missing provider keys are skipped. The endpoint health response lists configured provider names but never exposes keys.
+
+Coy's private GitHub memory is loaded independently of the AI provider, so switching models does not move or erase that memory. Each provider receives the same composed personality, approved memory index, relevant Discord-style excerpts, and recent chat history. Gemini-only tools (Google Search, URL context, and Gemini File Search) are available only when Gemini is the provider that successfully answers.
+
+Image uploads are sent to Groq/OpenRouter using OpenAI-compatible image input when possible; provider/model compatibility can vary. Audio uploads are routed past Groq and OpenRouter to Gemini because their audio request formats are not interchangeable. If Gemini is rate-limited too, the request can still fail until a provider becomes available.
+
+Chat works when at least one provider key is configured.
 
 ## Language support
 
