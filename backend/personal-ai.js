@@ -645,9 +645,6 @@ router.post("/chat", rateLimit, async (req, res) => {
     mediaInputs.push({ type: mimeType.startsWith("image/") ? "image" : "audio", data, mime_type: mimeType });
   }
 
-  const linkInspection = await inspectMessageLinks(message);
-  mediaInputs.push(...linkInspection.mediaInputs);
-
   const providers = availableAiProviders();
   const fileSearchStoreName = process.env.GEMINI_FILE_SEARCH_STORE_NAME;
   if (!providers.length) {
@@ -663,6 +660,12 @@ router.post("/chat", rateLimit, async (req, res) => {
           content: item.content.slice(0, MAX_MESSAGE_LENGTH),
         }))
     : [];
+
+  // Inspect links from the current message and recent user turns, so a follow-up
+  // like "what's on that page?" can still use a URL sent a message earlier.
+  const recentUserMessages = history.filter(item => item.role === "user").slice(-5).map(item => item.content);
+  const linkInspection = await inspectMessageLinks([message, ...recentUserMessages].filter(Boolean).join("\n"));
+  mediaInputs.push(...linkInspection.mediaInputs);
 
   const websiteContext = req.body?.websiteContext && typeof req.body.websiteContext === "object"
     ? req.body.websiteContext
