@@ -36,7 +36,7 @@ function renderCoyContent(value) {
       while (/[.,!?;:]$/.test(rawUrl)) { trailing = rawUrl.slice(-1) + trailing; rawUrl = rawUrl.slice(0, -1); }
     }
     const url = rawUrl ? safeWebUrl(rawUrl) : null;
-    if (!url) return <React.Fragment key={index}>{piece}</React.Fragment>;
+    if (!url) return <React.Fragment key={index}>{renderCoyEmoji(piece)}</React.Fragment>;
     const href = url.href;
     const embed = youtubeEmbedUrl(href);
     const isImage = Boolean(markdownImage) || /\.(?:png|jpe?g|gif|webp|avif|svg)(?:$|[?#])/i.test(url.pathname + url.search + url.hash);
@@ -56,7 +56,7 @@ function renderCoyContent(value) {
         </span>
       </span>;
     }
-    return <React.Fragment key={index}><a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", textDecoration: "underline", overflowWrap: "anywhere" }}>{markdownLink?.[1] || href}</a>{trailing}</React.Fragment>;
+    return <React.Fragment key={index}><a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", textDecoration: "underline", overflowWrap: "anywhere" }}>{renderCoyEmoji(markdownLink?.[1] || href)}</a>{trailing}</React.Fragment>;
   });
 }
 
