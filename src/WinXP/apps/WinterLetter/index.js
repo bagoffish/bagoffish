@@ -15,7 +15,7 @@ export default function WinterLetter() {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Winter Letter story. Click or press Enter to continue."
+      aria-label="Winter Letter. Click or press Enter to continue."
       onClick={() => {
         if (index < script.length - 1) setIndex(index + 1);
       }}
