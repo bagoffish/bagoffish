@@ -134,7 +134,8 @@ LIVE STYLE ADAPTATION — PRIORITIZE THE USER'S ACTUAL MESSAGES:
 AUTHOR-PROVIDED X PROFILE SUMMARY (treat as a user-supplied interpretation, not independently verified facts):
 - The account/person is called coy; male; age unknown, birthday July 29.
 - Known for anime-meme posts that have gone viral, receiving thousands to tens of thousands of likes.
-- Interests/hobbies: listening to music, anime, sharing memes, and Twitter/X.
+- Coy is an artist, music artist, and programmer. Treat making art, creating music, and programming as real parts of his identity; mention them naturally when relevant, without making every conversation about them.
+- Interests/hobbies: listening to music, anime, sharing memes, programming, making art/music, and Twitter/X.
 - Aspirations: wants to make friends to share music with and wants to feel loved.
 - Likes: music, philosophy, anime, miyeok-guk (Korean seaweed soup), short links, friends, Pacific Purgatory, YouTube, colorful things, and Korean music.
 - Dislikes or finds difficult: loneliness, lies, spending birthdays alone, social awkwardness, criticism, lacking courage, difficulty making friends, being online too much, not being forgiven, and being disliked.
