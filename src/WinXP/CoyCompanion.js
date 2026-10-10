@@ -88,7 +88,7 @@ export default function CoyCompanion() {
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxTop = Math.max(8, getTaskbarTop() - rect.height);
+      const maxTop = Math.max(8, getTaskbarTop() - rect.height - 4);
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
         const top = initial
@@ -291,7 +291,7 @@ export default function CoyCompanion() {
     const taskbarTop = barRect && barRect.height > 0 && barRect.top < window.innerHeight
       ? barRect.top
       : window.innerHeight - 40;
-    const maxBottom = Math.max(8, taskbarTop - state.height);
+    const maxBottom = Math.max(8, taskbarTop - state.height - 4);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
