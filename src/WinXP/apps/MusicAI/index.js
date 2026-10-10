@@ -301,10 +301,15 @@ function buildSoundfontChoice(notes, basePlan, mode, selectedId) {
     const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
     if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
   });
-  const programs = programsForPlan(stampedNotes, {
+  const resolvedPrograms = programsForPlan(stampedNotes, {
     ...sourcePlan,
     programs: mode === 'auto' ? sourcePlan.programs : null,
   }, soundfontRoles);
+  // Keep the AI's own preset decisions in Auto mode; Manual/Hybrid must use
+  // the actual preset indexes advertised by the chosen SoundFont catalog.
+  const programs = mode === 'auto' && sourcePlan.programs
+    ? { ...resolvedPrograms, ...sourcePlan.programs }
+    : resolvedPrograms;
   return {
     notes: stampedNotes,
     plan: {
