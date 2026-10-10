@@ -37,7 +37,7 @@ function pushNote(target, role, pitchMidi, startTimeSeconds, durationSeconds, am
     pitchMidi: clampMidi(pitchMidi),
     startTimeSeconds: Math.max(0, startTimeSeconds),
     durationSeconds,
-    amplitude: Math.max(0.08, Math.min(0.92, amplitude)),
+    amplitude: Math.max(0.035, Math.min(0.92, amplitude)),
   });
 }
 
@@ -556,7 +556,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
     const bar = beat * 4;
     for (let t = segment.start, slot = 0; t < segment.end - beat * 0.25; t += beat, slot++) {
       const pitch = slot % 4 === 2 && fifthBass != null ? fifthBass : rootBass;
-      if (pitch != null) addLayerNote('bass', pitch, t, beat * (slot % 2 === 0 ? 0.78 : 0.55), slot % 2 === 0 ? 0.36 : 0.27);
+      if (pitch != null) addLayerNote('bass', pitch, t, beat * (slot % 2 === 0 ? 0.78 : 0.55), slot % 2 === 0 ? 0.18 : 0.13);
     }
 
     // Short chord stabs provide the bright, bouncy MIDI-cover texture.
@@ -564,13 +564,13 @@ export function buildRobloxArrangement(rawNotes, duration) {
       const t = segment.start + beat * beatOffset;
       if (t >= segment.end || t >= end) return;
       chord.forEach((pitch, voice) => {
-        addLayerNote('keys', pitch, t, Math.min(beat * 0.68, segment.end - t), 0.18 + (voice === 0 ? 0.025 : 0));
+        addLayerNote('keys', pitch, t, Math.min(beat * 0.68, segment.end - t), 0.095 + (voice === 0 ? 0.015 : 0));
       });
       // A quiet off-beat guitar/pizzicato accent adds motion without a drum loop.
       const offbeat = t + beat * 0.5;
       if (offbeat < segment.end) {
         const accent = chord[(stabIndex + 1) % Math.max(1, chord.length)];
-        if (accent != null) addLayerNote('guitar', accent + 12, offbeat, beat * 0.28, 0.15);
+        if (accent != null) addLayerNote('guitar', accent + 12, offbeat, beat * 0.28, 0.075);
       }
     });
 
@@ -594,7 +594,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
           const octaveLift = stepIndex % 4 === 3 || (segmentIndex % 2 === 1 && stepIndex % 8 === 4);
           const pitch = clampMidi(base + (octaveLift ? 12 : 0));
           const accent = stepIndex % 4 === 0 ? 0.025 : 0;
-          addLayerNote('arp', pitch, t, beat * 0.24, (stepIndex % 2 === 0 ? 0.105 : 0.085) + accent);
+          addLayerNote('arp', pitch, t, beat * 0.24, (stepIndex % 2 === 0 ? 0.055 : 0.045) + accent * 0.5);
         }
       }
       stepIndex++;
@@ -604,7 +604,7 @@ export function buildRobloxArrangement(rawNotes, duration) {
     // gaps between stabs instead of turning every beat into a wall of sound.
     if (span >= bar * 0.8 && chord.length >= 2) {
       chord.slice(0, 3).forEach(pitch => {
-        addLayerNote('pad', pitch - 12, segment.start, Math.min(span, end - segment.start), 0.075);
+        addLayerNote('pad', pitch - 12, segment.start, Math.min(span, end - segment.start), 0.04);
       });
     }
   });
