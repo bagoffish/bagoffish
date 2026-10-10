@@ -26,10 +26,24 @@ export default function CoyChat({ initialImage }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
+  const rootRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
+    const onOutsidePointer = event => {
+      const root = rootRef.current;
+      if (!root) return;
+      const windowElement = root.closest('.app__content')?.parentElement;
+      if (windowElement?.contains(event.target)) return;
+      if (event.target?.closest?.('[data-coy-ui]')) return;
+      window.dispatchEvent(new CustomEvent('coy:close-chat'));
+    };
+    document.addEventListener('pointerdown', onOutsidePointer);
+    return () => document.removeEventListener('pointerdown', onOutsidePointer);
   }, []);
 
   useEffect(() => {
@@ -82,7 +96,7 @@ export default function CoyChat({ initialImage }) {
   }
 
   return (
-    <div style={styles.root}>
+    <div ref={rootRef} style={styles.root} data-coy-chat-window="true">
       <div style={styles.intro}>
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
