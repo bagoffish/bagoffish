@@ -234,11 +234,21 @@ export default function CoyChat({ initialImage }) {
   const sendLockRef = useRef(false);
   const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
+  const [voiceCallActive, setVoiceCallActive] = useState(false);
+  const [voiceStatus, setVoiceStatus] = useState('');
+  const recognitionRef = useRef(null);
+  const voiceCallActiveRef = useRef(false);
+  const voiceTurnRef = useRef(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    return () => {
+      voiceCallActiveRef.current = false;
+      try { recognitionRef.current?.stop(); } catch (_) {}
+      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    };
   }, []);
 
   useEffect(() => {
@@ -389,9 +399,105 @@ export default function CoyChat({ initialImage }) {
     finally { addFilesInProgressRef.current = false; }
   }
 
-  async function send(event) {
-    event.preventDefault();
-    const message = draft.trim();
+
+  function stopVoiceCall() {
+    voiceCallActiveRef.current = false;
+    voiceTurnRef.current = false;
+    setVoiceCallActive(false);
+    setVoiceStatus('');
+    try { recognitionRef.current?.stop(); } catch (_) {}
+    recognitionRef.current = null;
+    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+  }
+
+  function startVoiceRecognition() {
+    if (!voiceCallActiveRef.current) return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError('Voice input needs a browser with speech recognition, such as desktop Chrome');
+      stopVoiceCall();
+      return;
+    }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => setVoiceStatus('Listening...');
+      recognition.onresult = event => {
+        const transcript = Array.from(event.results || [])
+          .map(result => result[0]?.transcript || '')
+          .join(' ')
+          .trim();
+        if (!transcript || !voiceCallActiveRef.current) return;
+        voiceTurnRef.current = true;
+        setVoiceStatus('Thinking...');
+        void send({ preventDefault() {} }, transcript);
+      };
+      recognition.onerror = event => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setError('Microphone access was blocked. Allow microphone access for this site, then try calling again');
+          stopVoiceCall();
+        } else if (event.error !== 'no-speech' && voiceCallActiveRef.current) {
+          setVoiceStatus('Voice input paused');
+        }
+      };
+      recognition.onend = () => {
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+        if (voiceCallActiveRef.current && !voiceTurnRef.current) {
+          window.setTimeout(() => {
+            if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
+          }, 350);
+        }
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (_) {
+      setError('Could not start the microphone. Check site permissions and try again');
+      stopVoiceCall();
+    }
+  }
+
+  function toggleVoiceCall() {
+    setError('');
+    if (voiceCallActiveRef.current) {
+      stopVoiceCall();
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setError('Voice input needs a browser with speech recognition, such as desktop Chrome');
+      return;
+    }
+    voiceCallActiveRef.current = true;
+    setVoiceCallActive(true);
+    setVoiceStatus('Connecting...');
+    startVoiceRecognition();
+  }
+
+  function speakCoyReply(text) {
+    return new Promise(resolve => {
+      if (!voiceCallActiveRef.current || !text || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') {
+        resolve();
+        return;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new window.SpeechSynthesisUtterance(String(text).slice(0, 4000));
+      utterance.rate = 1.02;
+      utterance.pitch = 1.08;
+      utterance.onstart = () => setVoiceStatus('Coy is talking...');
+      utterance.onend = resolve;
+      utterance.onerror = resolve;
+      window.speechSynthesis.speak(utterance);
+    });
+  }
+
+  async function send(event, forcedMessage) {
+    event?.preventDefault?.();
+    const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
+    const voiceInputTurn = typeof forcedMessage === 'string';
+    let voiceReply = '';
     // React state updates after this handler returns; use a synchronous lock so
     // Enter + click or rapid repeated events cannot launch duplicate requests.
     if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) return;
@@ -456,6 +562,7 @@ export default function CoyChat({ initialImage }) {
       if (!response.ok) throw new Error(data.error || 'I’m tryna sleep dude.');
       const rawAnswer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
       const answer = removeUnwantedCoyEmojis(rawAnswer);
+      if (voiceInputTurn) voiceReply = answer;
       // Only deliberate blank-line-separated messages become separate bubbles.
       // Hard-cap each response at three bubbles to prevent accidental mass-sends;
       // any extra paragraphs are combined into the third bubble.
@@ -485,6 +592,13 @@ export default function CoyChat({ initialImage }) {
     } finally {
       sendLockRef.current = false;
       setBusy(false);
+      if (voiceInputTurn) {
+        voiceTurnRef.current = false;
+        if (voiceCallActiveRef.current) {
+          if (voiceReply) await speakCoyReply(voiceReply);
+          if (voiceCallActiveRef.current) startVoiceRecognition();
+        }
+      }
     }
   }
 
@@ -494,15 +608,17 @@ export default function CoyChat({ initialImage }) {
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
           <div style={styles.title}>Coy</div>
+          {voiceCallActive && <div role="status" style={{ fontSize: 10, color: '#333', marginTop: 2 }}>{voiceStatus || 'Voice call active'}</div>}
         </div>
         <button
           type="button"
-          style={styles.callButton}
-          aria-label="Call Coy"
-          title="Call Coy"
-          onClick={() => setError('Voice calling is not connected yet.')}
+          style={{ ...styles.callButton, ...(voiceCallActive ? { background: 'linear-gradient(#ffe5e5,#e9bcbc)', borderColor: '#8b0000' } : {}) }}
+          aria-label={voiceCallActive ? 'End voice call with Coy' : 'Call Coy'}
+          aria-pressed={voiceCallActive}
+          title={voiceCallActive ? 'End call' : 'Call Coy'}
+          onClick={toggleVoiceCall}
         >
-          ☏
+          {voiceCallActive ? '■' : '☏'}
         </button>
       </div>
       <div style={styles.messages} aria-live="polite">
