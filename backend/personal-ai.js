@@ -631,7 +631,7 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
     method: "POST",
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(20_000),
+    signal: AbortSignal.timeout(12_000),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
