@@ -620,7 +620,7 @@ router.post("/chat", rateLimit, async (req, res) => {
   if (!message && !attachments.length) return res.status(400).json({ error: "Write a message or attach an image/audio file first." });
   if (message.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: "Message is too long (maximum 2,000 characters)." });
 
-  const supportedMime = /^(?:image\/(?:png|jpeg|webp|heic|heif|gif|bmp|tiff)|audio\/(?:mpeg|mp3|wav|x-wav|mp4|m4a|aac|ogg|flac|webm|aiff|3gpp))$/i;
+  const supportedMime = /^(?:image\/(?:png|jpeg|webp|heic|heif|gif|bmp|tiff)|audio\/(?:mpeg|mp3|wav|x-wav|mp4|m4a|x-m4a|aac|x-aac|ogg|opus|flac|webm|aiff|3gpp|pcm|l16|alaw|mulaw))$/i;
   let attachmentBytes = 0;
   const mediaInputs = [];
   for (const attachment of attachments) {
