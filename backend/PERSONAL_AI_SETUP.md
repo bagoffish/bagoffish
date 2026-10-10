@@ -9,7 +9,7 @@ Configure provider keys on the existing Render backend service (never in React o
 - `GROQ_API_KEY`: optional; tried first. Create a key at https://console.groq.com/keys.
 - `OPENROUTER_API_KEY`: optional; tried after Groq. Create a key at https://openrouter.ai/keys. The default model is `openrouter/free`.
 - `GEMINI_API_KEY`: optional fallback, tried after Groq and OpenRouter. Create a key in Google AI Studio.
-- `GROQ_MODEL`: optional model override. Defaults to `llama-3.3-70b-versatile` for text and `meta-llama/llama-4-scout-17b-16e-instruct` for image messages.
+- `GROQ_MODEL`: optional model override. Defaults to `openai/gpt-oss-120b` for text and `qwen/qwen3.8-27b` for image messages.
 - `OPENROUTER_MODEL`: optional model override. Defaults to `openrouter/free`.
 - `GEMINI_MODEL`: optional Gemini model override; defaults to `gemini-3.8-flash`.
 - `GEMINI_FILE_SEARCH_STORE_NAME`: optional Gemini File Search store name for prepared, privacy-reviewed archive files. This feature only runs on Gemini requests.
