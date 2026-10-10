@@ -4,6 +4,7 @@ const router = express.Router();
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+const COHERE_API_URL = "https://api.cohere.com/v2/chat";
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 32;
 const requests = new Map();
@@ -533,6 +534,7 @@ function availableAiProviders() {
   if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: "openrouter", key: process.env.OPENROUTER_API_KEY });
   if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", key: process.env.GEMINI_API_KEY });
+  if (process.env.COHERE_API_KEY) providers.push({ name: "cohere", key: process.env.COHERE_API_KEY });
   return providers;
 }
 
@@ -540,7 +542,21 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
   let url;
   let headers;
   let body;
-  if (provider.name === "gemini") {
+  if (provider.name === "cohere") {
+    // Cohere trial API is text-only in this integration; let other providers handle attachments.
+    if (mediaInputs.length) {
+      const error = new Error("Cohere fallback currently supports text-only requests.");
+      error.status = 415;
+      throw error;
+    }
+    url = COHERE_API_URL;
+    headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
+    body = {
+      model: process.env.COHERE_MODEL || "command-a-03-2025",
+      messages: [{ role: "user", content: conversation }],
+      temperature: 0.8,
+    };
+  } else if (provider.name === "gemini") {
     url = GEMINI_API_URL;
     headers = { "x-goog-api-key": provider.key, "Content-Type": "application/json" };
     body = {
@@ -610,6 +626,11 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
 
 function extractProviderAnswer(provider, data) {
   if (provider.name === "gemini") return extractAnswer(data);
+  if (provider.name === "cohere") {
+    const parts = data?.message?.content;
+    if (Array.isArray(parts)) return parts.map(part => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\n").trim();
+    return "";
+  }
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content.trim();
   if (Array.isArray(content)) {
@@ -722,7 +743,7 @@ router.post("/chat", rateLimit, async (req, res) => {
   try {
     let answer = "";
     const failedProviders = [];
-    // Try Groq first, then OpenRouter, then Gemini. Missing keys are simply skipped.
+    // Try Groq first, then OpenRouter, Gemini, and Cohere. Missing keys are simply skipped.
     for (const provider of providers) {
       try {
         const data = await callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName);
