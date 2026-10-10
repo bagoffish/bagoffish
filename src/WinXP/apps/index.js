@@ -109,7 +109,7 @@ export const appSettings = {
 
   Winter_Letter: {
     header: { icon: winterLetterIcon, title: "Winter_Letter" },
-    component: WinterLetterVN,
+    component: WinterLetter,
     defaultSize: { width: 760, height: 520 },
     defaultOffset: { x: 100, y: 45 },
     resizable: true,
