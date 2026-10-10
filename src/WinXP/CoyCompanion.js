@@ -186,23 +186,31 @@ export default function CoyCompanion() {
     const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
 
     // A short stroke starting over Coy's head is a pat, not a character drag.
-    if (state.startsOnHead && !state.movedCharacter && distance >= 7 && distance <= 54) {
+    // Let a small head stroke count as a pat, but start moving Coy after a
+    // short drag instead of making the user drag more than 54px first.
+    if (state.startsOnHead && !state.movedCharacter && distance >= 7 && distance < 20) {
       state.patGesture = true;
       dragged.current = true;
       return;
     }
-    if (distance > 54 || (!state.startsOnHead && distance > 4)) {
+    if (distance >= (state.startsOnHead ? 20 : 5)) {
       state.movedCharacter = true;
       state.patGesture = false;
       dragged.current = true;
       setIsDragging(true);
     }
     if (!state.movedCharacter) return;
-    const width = event.currentTarget.getBoundingClientRect().width;
-    const height = event.currentTarget.getBoundingClientRect().height;
+    // Position is applied to the whole fixed companion wrapper, so clamp using
+    // the wrapper's size (speech bubble/menu included), not just the sprite.
+    const wrapper = event.currentTarget.parentElement;
+    const rect = wrapper?.getBoundingClientRect();
+    const width = rect?.width || event.currentTarget.getBoundingClientRect().width;
+    const height = rect?.height || event.currentTarget.getBoundingClientRect().height;
+    const maxRight = Math.max(0, window.innerWidth - width);
+    const maxBottom = Math.max(0, window.innerHeight - height);
     setPosition({
-      right: Math.max(0, Math.min(window.innerWidth - width, state.right - deltaX)),
-      bottom: Math.max(0, Math.min(window.innerHeight - height, state.bottom + deltaY))
+      right: Math.max(0, Math.min(maxRight, state.right - deltaX)),
+      bottom: Math.max(0, Math.min(maxBottom, state.bottom + deltaY))
     });
   }
 
