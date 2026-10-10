@@ -119,11 +119,24 @@ router.post("/chat", rateLimit, async (req, res) => {
         }))
     : [];
 
+  const websiteContext = req.body?.websiteContext && typeof req.body.websiteContext === "object"
+    ? req.body.websiteContext
+    : {};
+  const currentLocalTime = typeof websiteContext.currentLocalTime === "string"
+    ? websiteContext.currentLocalTime.slice(0, 100)
+    : "not provided";
+  const timeZone = typeof websiteContext.timeZone === "string"
+    ? websiteContext.timeZone.slice(0, 80)
+    : "unknown";
+
   const conversation = [
     "Follow these instructions carefully:",
     buildPersonality(),
-    ...history.map(item => `${item.role === "assistant" ? "Coy" : "User"}: ${item.content}`),
-    `User: ${message}`,
+    "CURRENT USER DEVICE TIME: " + currentLocalTime,
+    "USER DEVICE TIME ZONE: " + timeZone,
+    "Use the provided current device time and time zone when the user asks what time it is or asks time-relative questions. This is the user browser-local time, not a guessed server time. If it is not provided, do not guess.",
+    ...history.map(item => (item.role === "assistant" ? "Coy" : "User") + ": " + item.content),
+    "User: " + message,
     "Coy:",
   ].join("\n\n");
 
