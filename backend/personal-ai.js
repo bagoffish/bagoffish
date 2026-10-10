@@ -441,7 +441,7 @@ router.get("/health", (req, res) => {
     ok: true,
     configured: availableAiProviders().length > 0,
     providersConfigured: availableAiProviders().map(provider => provider.name),
-    knowledgeConfigured: false,
+    knowledgeConfigured: Boolean(process.env.GEMINI_FILE_SEARCH_STORE_NAME),
     githubMemoryConfigured: Boolean(process.env.COY_MEMORY_GITHUB_TOKEN),
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
   });
