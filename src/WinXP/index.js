@@ -268,15 +268,26 @@ function WinXP() {
 
   // Publish desktop activity so Coy can react to the apps the visitor actually opens.
   useEffect(() => {
-    const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);
-    const newlyOpened = openApps.filter(name => !previousOpenApps.current.includes(name));
-    previousOpenApps.current = openApps;
-    window.dispatchEvent(new CustomEvent('coy:activity', {
-      detail: { type: 'app-state', openApps },
-    }));
-    newlyOpened.forEach(name => {
-      window.dispatchEvent(new CustomEvent('coy:activity', { detail: { type: 'app-open', name } }));
-    });
+    const publishAppState = () => {
+      const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);
+      const newlyOpened = openApps.filter(name => !previousOpenApps.current.includes(name));
+      previousOpenApps.current = openApps;
+      window.dispatchEvent(new CustomEvent('coy:activity', {
+        detail: { type: 'app-state', openApps },
+      }));
+      newlyOpened.forEach(name => {
+        window.dispatchEvent(new CustomEvent('coy:activity', { detail: { type: 'app-open', name } }));
+      });
+    };
+    const onRequestAppState = () => {
+      const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);
+      window.dispatchEvent(new CustomEvent('coy:activity', {
+        detail: { type: 'app-state', openApps },
+      }));
+    };
+    window.addEventListener('coy:request-app-state', onRequestAppState);
+    publishAppState();
+    return () => window.removeEventListener('coy:request-app-state', onRequestAppState);
   }, [state.apps]);
 
 
