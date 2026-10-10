@@ -410,9 +410,49 @@ function getStyleCorpusLines(corpus) {
   return lines;
 }
 
+function analyzeFullDiscordStyleCorpus(lines) {
+  if (!lines.length) return "No usable Discord messages were loaded.";
+  const total = lines.length;
+  const lengths = lines.map(line => line.length).sort((a, b) => a - b);
+  const percentile = p => lengths[Math.min(lengths.length - 1, Math.floor((lengths.length - 1) * p))];
+  const count = regex => lines.reduce((sum, line) => sum + (regex.test(line) ? 1 : 0), 0);
+  const rates = [
+    ["short messages (≤40 chars)", lines.filter(line => line.length <= 40).length],
+    ["medium messages (41–120 chars)", lines.filter(line => line.length > 40 && line.length <= 120).length],
+    ["long messages (>120 chars)", lines.filter(line => line.length > 120).length],
+    ["start lowercase", count(/^[a-z]/)],
+    ["start uppercase", count(/^[A-Z]/)],
+    ["contain repeated letters for emphasis", count(/([a-z])\\1{2,}/i)],
+    ["contain ALL-CAPS words", count(/\\b[A-Z]{2,}\\b/)],
+    ["contain contractions", count(/\\b(?:I'm|I've|I'll|I'd|you're|you've|you'll|we're|we've|they're|it's|that's|don't|doesn't|didn't|can't|couldn't|won't|wouldn't|isn't|aren't|haven't|hasn't|wasn't|weren't|ain't|gonna|wanna|gotta|lemme|kinda|sorta)\\b/i)],
+    ["contain casual shorthand", count(/\\b(?:idk|idek|imo|tbh|ngl|rn|bc|fr|lmao|lol|bruh|omg|wtf|wym|ig|tho|ur|u|r)\\b/i)],
+    ["contain expressive punctuation", count(/[!?]{2,}|\\.{3,}|[-—]{2,}/)],
+    ["contain emoji or emoticon", count(/[\\p{Extended_Pictographic}]|(?::3|:D|:P|T_T|;-;|:'\\))/u)],
+  ];
+  const commonTokens = new Map();
+  const ignored = new Set(["the","and","that","this","with","from","have","your","you","for","was","are","but","not","just","like","what","when","then","they","them","there","here","would","could","should","about","into","have","has","had","its","it's","im","i'm","ive","i've","ill","i'll","dont","don't","didnt","didn't","cant","can't","youre","you're"]);
+  for (const line of lines) {
+    for (const token of (line.toLowerCase().match(/[a-z][a-z']{1,}/g) || [])) {
+      if (token.length < 2 || ignored.has(token) || /^https?$/.test(token)) continue;
+      commonTokens.set(token, (commonTokens.get(token) || 0) + 1);
+    }
+  }
+  const frequent = [...commonTokens.entries()].sort((a, b) => b[1] - a[1]).slice(0, 28)
+    .map(([token, frequency]) => token + " (" + frequency + ")").join(", ");
+  const distribution = rates.map(([label, value]) => label + ": " + Math.round(value / total * 100) + "%").join("; ");
+  return [
+    "FULL-ARCHIVE STYLE ANALYSIS (computed across all " + total.toLocaleString("en-US") + " usable messages, not just the excerpts below):",
+    "Message length: median " + percentile(0.5) + " characters; 25th percentile " + percentile(0.25) + "; 90th percentile " + percentile(0.9) + ".",
+    "Observed habits: " + distribution + ".",
+    "Frequently used vocabulary from the entire archive (frequency is not a command to force these words): " + frequent + ".",
+    "Use these measurements to guide rhythm, directness, capitalization, shorthand, emphasis, and message length. Don't blindly reproduce frequent tokens, and don't let historical topics or old moods override the current conversation.",
+  ].join("\\n");
+}
+
 function findGithubMemoryExcerpts(corpus, query) {
   const lines = getStyleCorpusLines(corpus);
-  if (!lines.length) return { relevant: [], styleAnchors: [] };
+  if (!lines.length) return { relevant: [], styleAnchors: [], styleProfile: "No usable Discord messages were loaded." };
+  const styleProfile = analyzeFullDiscordStyleCorpus(lines);
 
   // Query matches help with topic-specific recollection, while style anchors
   // are sampled across the whole archive on EVERY reply, even if no words match.
@@ -439,7 +479,7 @@ function findGithubMemoryExcerpts(corpus, query) {
 
   const styleAnchors = [];
   const used = new Set();
-  const targetCount = Math.min(10, lines.length);
+  const targetCount = Math.min(24, lines.length);
   for (let i = 0; i < targetCount; i++) {
     const target = Math.floor(((i + 0.5) / targetCount) * lines.length);
     let index = target;
@@ -448,7 +488,7 @@ function findGithubMemoryExcerpts(corpus, query) {
     used.add(index);
     styleAnchors.push(lines[index].slice(0, 420));
   }
-  return { relevant, styleAnchors };
+  return { relevant, styleAnchors, styleProfile };
 }
 
 async function getGithubMemoryContext(query) {
@@ -459,11 +499,12 @@ async function getGithubMemoryContext(query) {
     const factsStart = corpus.lastIndexOf(factsMarker);
     const approvedMemory = factsStart >= 0 ? corpus.slice(factsStart + factsMarker.length).trim() : "";
     const styleCorpus = factsStart >= 0 ? corpus.slice(0, factsStart) : corpus;
-    const { relevant, styleAnchors } = findGithubMemoryExcerpts(styleCorpus, query);
+    const { relevant, styleAnchors, styleProfile } = findGithubMemoryExcerpts(styleCorpus, query);
     return [
       "APPROVED PERSONAL MEMORY INDEX — use this grounded information whenever relevant:",
       approvedMemory || "(Approved memory index was not available.)",
       "DISCORD VOICE EXAMPLES — ALWAYS USE THESE TO CALIBRATE HOW COY TALKS:",
+      styleProfile,
       "These are style evidence sampled across the user's own Discord-style corpus. Apply the rhythm, wording tendencies, directness, punctuation, humor, and natural level of energy to this reply even when the user's current message shares no keywords with the examples. Never copy an example verbatim or expose private conversation content. Match the user's message cadence: they usually send short, separate messages in quick succession. Most replies should be short and natural. Almost always send one short chat message. Only when it genuinely feels natural, send at most 2–3 separate messages by putting a blank line between them. Never produce a burst of many tiny messages, repeat the same thought, or split one sentence/answer into lots of bubbles. Longer explanations should normally stay in one message. NEVER prefix any output with a speaker label such as Coy:, Cotto:, Assistant:, or User:, and never narrate the transcript format. Output only the words Coy would send.",
       ...styleAnchors.map((excerpt, index) => "[STYLE " + (index + 1) + "] " + excerpt),
       "TOPIC-RELEVANT DISCORD ARCHIVE EXCERPTS:",
