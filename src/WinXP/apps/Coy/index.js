@@ -200,7 +200,7 @@ export default function CoyChat({ initialImage }) {
       setError('Attach up to 3 files at a time.');
       return;
     }
-    if (combined.some(file => !/^(image|audio)\\//i.test(file.type))) {
+    if (combined.some(file => !/^(image|audio)\//i.test(file.type))) {
       setError('Coy can inspect image and audio files for now.');
       return;
     }
