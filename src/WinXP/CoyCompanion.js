@@ -196,7 +196,8 @@ export default function CoyCompanion() {
     const syncMobileAppVisibility = () => {
       const anyAppOpen = openAppsRef.current.length > 0 || hasVisibleAppWindow();
       // Full-tab/maximized windows hide the desktop companion on every device.
-      setHideForMobileApp(fullTabActiveRef.current || (isMobileViewport() && anyAppOpen));
+      // Keep Coy reachable above app windows so headpats and speech bubbles still work.
+      setHideForMobileApp(false);
     };
     const onActivity = event => {
       const detail = event.detail || {};
@@ -227,7 +228,7 @@ export default function CoyCompanion() {
         announce(options[Math.floor(Math.random() * options.length)]);
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
-      else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.06) {
+      else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
         lastPickupAttempt.current = now;
         hasHeldImage.current = true;
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
@@ -261,7 +262,7 @@ export default function CoyCompanion() {
         ))
         .filter(img => img.src && !seenImages.current.has(img.src) && img.style.visibility !== "hidden");
       // Keep this genuinely rare even on pages with lots of avatar thumbnails.
-      if (!candidates.length || Math.random() > 0.06) return;
+      if (!candidates.length || Math.random() > 0.1) return;
       const img = candidates[Math.floor(Math.random() * candidates.length)];
       seenImages.current.add(img.src);
       // Coy carries a copy of the image. Never hide, move, or mutate the original page image.
@@ -315,9 +316,14 @@ export default function CoyCompanion() {
     // Headpats are double-click only. Any actual pointer movement is reserved
     // for dragging so tiny strokes never get mistaken for a pat.
     if (distance >= 5) {
+      const justPickedUp = !state.movedCharacter;
       state.movedCharacter = true;
       dragged.current = true;
       setIsDragging(true);
+      if (justPickedUp) {
+        setLine(formatCoyText(randomLine(PICKUP_LINES)));
+        setShowBubble(true);
+      }
     }
     if (!state.movedCharacter) return;
 
@@ -340,10 +346,6 @@ export default function CoyCompanion() {
     const state = dragState.current;
     dragState.current = null;
     setIsDragging(false);
-    if (state?.movedCharacter) {
-      setLine(formatCoyText(randomLine(PICKUP_LINES)));
-      setShowBubble(true);
-    }
     window.setTimeout(() => { dragged.current = false; }, 250);
   }
 
@@ -457,7 +459,7 @@ export default function CoyCompanion() {
   };
 
   return createPortal(<div ref={rootRef} style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
-    {((!chatOpen && showBubble) || busy) && <div style={styles.bubbleWrap} role="status" aria-live="polite">
+    {(showBubble || busy) && <div style={styles.bubbleWrap} role="status" aria-live="polite">
       <div style={{ ...styles.bubble, width: "fit-content", maxWidth: "min(78vw, 240px)", textAlign: "left", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400 }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
