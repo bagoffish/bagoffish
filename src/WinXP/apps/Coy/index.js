@@ -451,7 +451,7 @@ export default function CoyChat({ initialImage }) {
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
             <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, ...(item.role === 'user' ? { right: -8, borderTop: '7px solid transparent', borderLeft: '8px solid #9ab8e8' } : { left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #000' }), width: 0, height: 0, pointerEvents: 'none' }} />
             <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, ...(item.role === 'user' ? { right: -5, borderTop: '5px solid transparent', borderLeft: '6px solid #e7f0ff' } : { left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb' }), width: 0, height: 0, pointerEvents: 'none' }} />
-            {item.content && <><strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}</>}
+            {item.content && renderCoyContent(item.content)}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
               {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
               {attachment.textContent !== undefined && <pre style={{ margin: '5px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 260, overflow: 'auto', font: '11px Consolas, monospace' }}>{attachment.textContent.slice(0, 12000)}{attachment.textContent.length > 12000 ? '\n… preview truncated' : ''}</pre>}
