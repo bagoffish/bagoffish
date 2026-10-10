@@ -647,7 +647,7 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
 
 function extractProviderAnswer(provider, data) {
   if (provider.name === "gemini") return extractAnswer(data);
-  if (provider.name === "cohere") {
+  if (provider.name === "cohere" || provider.name === "cohere-2") {
     const parts = data?.message?.content;
     if (Array.isArray(parts)) return parts.map(part => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\n").trim();
     return "";
