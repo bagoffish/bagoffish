@@ -296,7 +296,7 @@ export default function CoyChat({ initialImage }) {
         window.clearTimeout(timeout);
       }
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'couldn’t reach coy just now. try again in a bit.');
+      if (!response.ok) throw new Error(data.error || 'I’m tryna sleep dude.');
       const answer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
       // Blank lines from Coy represent separate chat bubbles. Single paragraphs
       // remain one message, so longer explanations still render as one bubble.
@@ -308,10 +308,10 @@ export default function CoyChat({ initialImage }) {
       setMessages(previous => [...previous, ...replyMessages].slice(-100));
     } catch (err) {
       setError(err.name === 'AbortError'
-        ? 'coy took too long to answer. try again in a bit.'
+        ? 'I’m tryna sleep dude.'
         : (err.message === 'Failed to fetch'
-          ? 'couldn’t reach coy just now. check the connection and try again.'
-          : (err.message || 'couldn’t send that just now. try again in a bit.')));
+          ? 'I’m tryna sleep dude.'
+          : (err.message || 'I’m tryna sleep dude.')));
     } finally {
       setBusy(false);
     }
@@ -363,7 +363,7 @@ export default function CoyChat({ initialImage }) {
           style={styles.input}
           disabled={busy}
         />
-        <button type="submit" aria-label="Send message" title="Send message" style={{ ...styles.button, ...styles.attachButton, fontSize: 24, opacity: busy || (!draft.trim() && !attachments.length) ? 0.65 : 1 }} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : '▷'}</button>
+        <button type="submit" aria-label="Send message" title="Send message" style={{ ...styles.button, ...styles.attachButton, fontSize: 24, opacity: busy || (!draft.trim() && !attachments.length) ? 0.65 : 1 }} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : '>'}</button>
       </form>
     </div>
   );
