@@ -172,7 +172,14 @@ export default function CoyChat({ initialImage }) {
   });
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const attachmentsRef = useRef([]);
+  const addFilesInProgressRef = useRef(false);
   const fileInputRef = useRef(null);
+  const updateAttachments = next => {
+    const value = typeof next === 'function' ? next(attachmentsRef.current) : next;
+    attachmentsRef.current = value;
+    setAttachments(value);
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
@@ -193,14 +200,28 @@ export default function CoyChat({ initialImage }) {
   async function addFiles(files) {
     const picked = Array.from(files || []).filter(file => file && typeof file.size === 'number' && typeof file.name === 'string');
     if (!picked.length) return;
-    const combined = [...attachments, ...picked];
+    // Collapse duplicate clipboard entries by stable metadata. Clipboard APIs can
+    // expose one pasted file as multiple distinct File objects.
+    const uniquePicked = [];
+    const seenPicked = new Set();
+    for (const file of picked) {
+      const key = [file.name || '', (file.type || '').toLowerCase(), file.size].join('|');
+      if (seenPicked.has(key)) continue;
+      seenPicked.add(key);
+      uniquePicked.push(file);
+    }
+    const existingAttachments = attachmentsRef.current;
+    const existingKeys = new Set(existingAttachments.map(item => [item.name || '', (item.type || '').toLowerCase(), item.size].join('|')));
+    const freshPicked = uniquePicked.filter(file => !existingKeys.has([file.name || '', (file.type || '').toLowerCase(), file.size].join('|')));
+    if (!freshPicked.length) return;
+    const combined = [...existingAttachments, ...freshPicked];
     if (combined.length > 3) {
       setError('Attach up to 3 files at a time.');
       return;
     }
 
     const textExtensions = new Set(['txt','md','markdown','csv','tsv','json','jsonl','xml','html','htm','css','js','jsx','ts','tsx','mjs','cjs','py','java','c','h','cpp','hpp','cs','go','rs','php','rb','sql','log','yaml','yml','toml','ini','conf','sh','bash','bat','ps1','diff','patch','env','gitignore']);
-    const normalized = picked.map(file => {
+    const normalized = freshPicked.map(file => {
       const extension = (file.name.split('.').pop() || '').toLowerCase();
       let type = (file.type || '').toLowerCase();
       if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
@@ -238,7 +259,7 @@ export default function CoyChat({ initialImage }) {
       return;
     }
     const textFiles = normalized.filter(item => item.kind === 'text');
-    const existingTextBytes = attachments.reduce((sum, item) => sum + (item.textContent ? new Blob([item.textContent]).size : 0), 0);
+    const existingTextBytes = existingAttachments.reduce((sum, item) => sum + (item.textContent ? new Blob([item.textContent]).size : 0), 0);
     const pickedTextBytes = textFiles.reduce((sum, item) => sum + item.file.size, 0);
     if (textFiles.some(item => item.file.size > 50 * 1024) || existingTextBytes + pickedTextBytes > 80 * 1024) {
       setError('Text/code files must be under 50 KB each and 80 KB total so Coy can read them reliably.');
@@ -263,7 +284,18 @@ export default function CoyChat({ initialImage }) {
           dataUrl: await readFileAsDataUrl(normalizedFile),
         };
       }));
-      setAttachments(previous => [...previous, ...loaded].slice(0, 3));
+      updateAttachments(previous => {
+        const known = new Set(previous.map(item => [item.name || '', (item.type || '').toLowerCase(), item.size].join('|')));
+        const merged = [...previous];
+        for (const item of loaded) {
+          const key = [item.name || '', (item.type || '').toLowerCase(), item.size].join('|');
+          if (!known.has(key) && merged.length < 3) {
+            known.add(key);
+            merged.push(item);
+          }
+        }
+        return merged;
+      });
       setError('');
     } catch (err) {
       setError(err.message || 'Couldn’t read that file.');
@@ -295,18 +327,22 @@ export default function CoyChat({ initialImage }) {
     });
     if (!picked.length) return;
     event.preventDefault();
-    await addFiles(picked);
+    // Ignore overlapping paste events while files are being read.
+    if (addFilesInProgressRef.current) return;
+    addFilesInProgressRef.current = true;
+    try { await addFiles(picked); }
+    finally { addFilesInProgressRef.current = false; }
   }
 
   async function send(event) {
     event.preventDefault();
     const message = draft.trim();
     if ((!message && !attachments.length) || busy) return;
-    const filesToSend = attachments;
+    const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
     // Remove the pending chips as soon as send starts. If the request fails,
     // put them back so the user can retry without re-attaching.
-    setAttachments([]);
+    updateAttachments([]);
     setMessages(previous => [...previous, {
       role: 'user',
       content: message,
@@ -365,7 +401,7 @@ export default function CoyChat({ initialImage }) {
         .map(content => ({ role: 'assistant', content }));
       setMessages(previous => [...previous, ...replyMessages].slice(-100));
     } catch (err) {
-      if (filesToSend.length) setAttachments(previous => previous.length ? previous : filesToSend);
+      if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
       setError(err.name === 'AbortError'
         ? 'I’m tryna sleep dude.'
@@ -405,7 +441,7 @@ export default function CoyChat({ initialImage }) {
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
         {attachments.map((file, index) => <div key={index} style={styles.attachmentChip}>
           <span>{file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🔊' : '📄'} {file.name}</span>
-          <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => setAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
+          <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => updateAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
         </div>)}
       </div>}
       <form style={styles.form} onSubmit={send}>
