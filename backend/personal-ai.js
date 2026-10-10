@@ -122,7 +122,7 @@ function normalizeCoyReply(value) {
   // Strip leaked provider diagnostics and special control tokens before a reply
   // reaches the chat UI. These are formatting artifacts, not Coy's message.
   const diagnosticHeader = /^\s*(?:user\s+safety|response\s+safety|safety\s+categories?|moderation(?:\s+(?:label|category|result|status))?|classifier(?:\s+(?:result|label|score))?|risk(?:\s+(?:label|score|category))?|intent|sentiment|policy)\s*:/i;
-  const aiBoilerplate = /^\s*(?:(?:as an ai(?: language model| assistant)?|i am an ai(?: language model| assistant)?|i'm an ai(?: language model| assistant)?|as a large language model|i(?:'m| am) just a bot|i(?:'m| am) only a bot|i(?:'m| am) a bot|i(?:'m| am) just an? (?:ai|artificial intelligence|program|language model)|i(?:'m| am) not a real person|i(?:'m| am) not real)\b[.!?]?\s*/i;
+  const aiBoilerplate = /^\s*(?:(?:well[, ]+|honestly[, ]+|look[, ]+)?(?:as an ai(?: language model| assistant)?|i am an ai(?: language model| assistant)?|i'm an ai(?: language model| assistant)?|as a large language model|i(?:'m| am) (?:just |only )?(?:a bot|an? (?:ai|artificial intelligence|program|language model))|i(?:'m| am) not (?:a real person|real))\b[.!?]?\s*/i;
   return String(value ?? "")
     .split(/\r?\n/)
     .filter(line => !diagnosticHeader.test(line) && !aiBoilerplate.test(line))
