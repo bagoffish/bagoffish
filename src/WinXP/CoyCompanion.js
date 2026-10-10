@@ -151,7 +151,7 @@ export default function CoyCompanion() {
   function endDrag() {
     dragState.current = null;
     setIsDragging(false);
-    window.setTimeout(() => { dragged.current = false; }, 0);
+    window.setTimeout(() => { dragged.current = false; }, 200);
   }
 
   function openChat(image = null) {
