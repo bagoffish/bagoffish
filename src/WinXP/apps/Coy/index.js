@@ -21,9 +21,17 @@ const styles = {
 };
 
 export default function CoyChat({ initialImage }) {
-  const [messages, setMessages] = useState(() => initialImage
-    ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
-    : []);
+  const STORAGE_KEY = 'bagof-fish-coy-app-chat-v1';
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : null;
+      if (Array.isArray(parsed)) return parsed.slice(-100);
+    } catch (e) {}
+    return initialImage
+      ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
+      : [];
+  });
   const [greeting] = useState(randomGreeting);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
@@ -38,6 +46,12 @@ export default function CoyChat({ initialImage }) {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages, busy, error]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
+    } catch (e) {}
+  }, [messages]);
 
   async function send(event) {
     event.preventDefault();
@@ -119,7 +133,7 @@ export default function CoyChat({ initialImage }) {
         />
         <button type="submit" style={styles.button} disabled={busy || !draft.trim()}>{busy ? '…' : 'Send'}</button>
       </form>
-      <div style={styles.status}>Coy stays on the desktop even when this window is closed.</div>
+      <div style={styles.status}>Chat history is saved on this device and stays when you close this window or browser tab.</div>
     </div>
   );
 }
