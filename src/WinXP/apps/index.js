@@ -23,6 +23,7 @@ import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
 import winterLetterIcon from "assets/windowsIcons/mail.png";
+import coyChatIcon from "assets/windowsIcons/at.png";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
 
 // Heavy apps are loaded only when opened. This keeps the XP desktop fast
@@ -95,7 +96,7 @@ export const defaultIconState = [
 /* start menu / openApp settings */
 export const appSettings = {
   Coy: {
-    header: { icon: "/images/coy.png", title: "Coy", buttons: ["minimize", "maximize", "close"] },
+    header: { icon: coyChatIcon, title: "Coy", buttons: ["minimize", "maximize", "close"] },
     component: CoyChat,
     defaultSize: { width: 500, height: 520 },
     defaultOffset: { x: 180, y: 45 },
