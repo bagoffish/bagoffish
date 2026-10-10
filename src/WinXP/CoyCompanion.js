@@ -19,6 +19,7 @@ export default function CoyCompanion() {
   const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [line, setLine] = useState(randomGreeting);
+  const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -156,6 +157,8 @@ export default function CoyCompanion() {
   }
 
   function openChat(image = null) {
+    if (history.length === 0) setChatGreeting(randomGreeting());
+    setChatOpen(true);
     setShowBubble(false);
     setShowMenu(false);
     window.dispatchEvent(new CustomEvent("coy:open-chat", {
@@ -242,7 +245,7 @@ export default function CoyCompanion() {
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
       <div style={styles.titlebar}><span>Coy</span></div>
       <div style={styles.messages} aria-live="polite">
-        {!history.length && <div style={{ color: "#555" }}>{line}</div>}
+        {!history.length && <div style={{ color: "#555" }}>{chatGreeting}</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
           <div style={{ fontWeight: "bold", marginBottom: 3 }}>{item.role === "user" ? "You" : "Coy"}</div>
           {item.role === "assistant" ? formatCoyText(item.content) : item.content}
