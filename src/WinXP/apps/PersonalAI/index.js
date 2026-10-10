@@ -20,12 +20,24 @@ const styles = {
 };
 
 export default function PersonalAI({ standalone = false }) {
-  const [messages, setMessages] = useState([
-  ]);
+  const STORAGE_KEY = "bagof-fish-personal-ai-chat-v1";
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = window.localStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : [];
+      return Array.isArray(parsed) ? parsed.slice(-100) : [];
+    } catch {
+      return [];
+    }
+  });
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const bottomRef = useRef(null);
+
+  useEffect(() => {
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100))); } catch (e) {}
+  }, [messages]);
 
   useEffect(() => {
     if (!standalone) return undefined;
@@ -91,7 +103,7 @@ export default function PersonalAI({ standalone = false }) {
           {busy ? "..." : "Send"}
         </button>
       </form>
-      <div style={styles.note}>Don’t share passwords or private information. Conversations are not saved between visits.</div>
+      <div style={styles.note}>Don’t share passwords or private information. Your chat is saved on this device and stays here when you close Coy or this browser tab.</div>
     </div>
   );
 
