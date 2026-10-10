@@ -208,7 +208,13 @@ export default function CoyChat({ initialImage }) {
       if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
       if (type === 'audio/x-wav') type = 'audio/wav';
       if (type === 'audio/mp3') type = 'audio/mpeg';
-      return { file, type, kind: /^(image|audio)\//i.test(type) ? 'media' : 'unsupported' };
+      const allowedMediaTypes = new Set([
+        'image/png','image/jpeg','image/webp','image/heic','image/heif','image/gif','image/bmp','image/tiff',
+        'audio/mpeg','audio/mp3','audio/wav','audio/x-wav','audio/mp4','audio/m4a','audio/x-m4a',
+        'audio/aac','audio/x-aac','audio/ogg','audio/opus','audio/flac','audio/webm','audio/aiff',
+        'audio/3gpp','audio/pcm','audio/l16','audio/alaw','audio/mulaw'
+      ]);
+      return { file, type, kind: allowedMediaTypes.has(type) ? 'media' : 'unsupported' };
     });
 
     if (normalized.some(item => item.kind === 'unsupported')) {
@@ -283,7 +289,6 @@ export default function CoyChat({ initialImage }) {
       attachments: filesToSend.map(({ name, type, dataUrl, textContent }) => ({ name, type, dataUrl, textContent })),
     }].slice(-100));
     setDraft('');
-    setAttachments([]);
     setBusy(true);
     setError('');
     try {
@@ -335,7 +340,9 @@ export default function CoyChat({ initialImage }) {
         .filter(Boolean)
         .map(content => ({ role: 'assistant', content }));
       setMessages(previous => [...previous, ...replyMessages].slice(-100));
+      setAttachments([]);
     } catch (err) {
+      if (message) setDraft(previous => previous || message);
       setError(err.name === 'AbortError'
         ? 'I’m tryna sleep dude.'
         : (err.message === 'Failed to fetch'
