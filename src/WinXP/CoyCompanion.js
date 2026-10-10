@@ -3,10 +3,34 @@ import { createPortal } from "react-dom";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
-const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
+const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo", "Hey"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PICKUP_LINES = ["HEY— where are we going?", "Oh! You’re moving me?", "Wheee— wait, put me down somewhere nice.", "Eep! Got me.", "Okay okay, I’m coming.", "Oh, we’re relocating now?"];
-const PAT_LINES = ["Hehe, again.", "…okay that’s kinda nice.", "Heyy. :3", "You’re messing up my hair.", "*happy little wiggle*", "Hm? Oh. hi.", "Eep— didn’t expect that.", "Okay, you can stay."];
+const PICKUP_LINES = [
+  "Where we going",
+  "Oh you moving me",
+  "Okay okay",
+  "Eep",
+  "Put me down somewhere nice",
+  "Relocating huh"
+];
+const PAT_LINES = [
+  "Hehe",
+  "Again?",
+  "Heyy",
+  "Messing up my hair",
+  "Hm",
+  "Didn't expect that",
+  "Okay you can stay",
+  "Eep"
+];
+const APP_QUIPS = {
+  Winamp: ["Oh music", "What we listening to", "Song time", "Ooh"],
+  Renderer: ["Looking someone up?", "Avatar check", "Who's that", "Found the account?"],
+  Bloxify: ["Making music again", "Songmaking", "Cooking something", "Ooh music stuff"],
+  Winter_Letter: ["Back to Winter Letter", "Writing time", "Winter Letter again"],
+  Paint: ["Drawing something", "Art time", "Whatcha making"],
+  Minesweeper: ["Good luck", "Don't explode", "Minesweeper time"]
+};
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
@@ -32,7 +56,37 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
   ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
 
-const formatCoyText = value => String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
+
+async function fetchAiQuip(context) {
+  try {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), 4500);
+    const response = await fetch(API_BASE + "/personal-ai/chat", {
+      signal: controller.signal,
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({
+        message: "Reply as Coy in one short natural chat message (under 40 characters if possible). Context: " + context + ". Do not ask a question unless it fits. No quotes, no labels.",
+        history: [],
+        websiteContext: { source: "companion-bubble" }
+      })
+    });
+    window.clearTimeout(timer);
+    if (!response.ok) return null;
+    const data = await response.json().catch(() => ({}));
+    const answer = typeof data.answer === "string" ? data.answer.trim() : "";
+    if (!answer || answer.length > 80) return null;
+    return answer;
+  } catch (_) {
+    return null;
+  }
+}
+
+const formatCoyText = value => {
+  const text = String(value ?? "").trim();
+  if (!text) return "";
+  return text.charAt(0).toLocaleUpperCase() + text.slice(1);
+};
 
 export default function CoyCompanion() {
   const [showBubble, setShowBubble] = useState(true);
@@ -236,20 +290,18 @@ export default function CoyCompanion() {
       if (now - lastActivity.current < 18000) return;
       lastActivity.current = now;
       if (detail.type === "app-open") {
-        const quips = {
-          Winamp: ["Oh, music.", "What are we listening to?", "Music time.", "Ooh, song time."],
-          Renderer: ["Looking up a Roblox profile?", "Checking an avatar?", "Who's that profile for?", "Found the account you wanted?"],
-          Bloxify: ["Making music again?", "Songmaking time.", "Ooh, music stuff.", "Cooking up a track?"],
-          Winter_Letter: ["Back to Winter Letter?", "Ooh, writing time.", "Winter Letter again :3"],
-          Paint: ["Drawing something?", "Ooh, art time.", "Whatcha making?"],
-          Minesweeper: ["Good luck with this one.", "Don't explode :p", "Minesweeper time."]
-        };
-        const options = quips[detail.name] || [
-          "Oh, " + (detail.name || "an app") + ".",
-          "Whatcha doing in " + (detail.name || "there") + "?",
-          "Ooh, checking this out?"
+        const options = APP_QUIPS[detail.name] || [
+          "Oh " + (detail.name || "an app"),
+          "Whatcha doing",
+          "Ooh"
         ];
-        announce(options[Math.floor(Math.random() * options.length)]);
+        const fallback = randomLine(options);
+        announce(fallback);
+        if (Math.random() < 0.45) {
+          fetchAiQuip("User just opened the " + (detail.name || "an app") + " app on the desktop").then(ai => {
+            if (ai) announce(ai);
+          });
+        }
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
       else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
@@ -345,8 +397,17 @@ export default function CoyCompanion() {
       dragged.current = true;
       setIsDragging(true);
       if (justPickedUp) {
-        setLine(formatCoyText(randomLine(PICKUP_LINES)));
+        const fallback = randomLine(PICKUP_LINES);
+        setLine(formatCoyText(fallback));
         setShowBubble(true);
+        if (Math.random() < 0.4) {
+          fetchAiQuip("User just picked up and started dragging Coy around the desktop. React short.").then(ai => {
+            if (ai) {
+              setLine(formatCoyText(ai));
+              setShowBubble(true);
+            }
+          });
+        }
       }
     }
     if (!state.movedCharacter) return;
@@ -374,8 +435,17 @@ export default function CoyCompanion() {
   }
 
   function patCoy() {
-    setLine(formatCoyText(randomLine(PAT_LINES)));
+    const fallback = randomLine(PAT_LINES);
+    setLine(formatCoyText(fallback));
     setShowBubble(true);
+    if (Math.random() < 0.55) {
+      fetchAiQuip("User just headpatted Coy (double-click). React short and natural, a little soft or playful.").then(ai => {
+        if (ai) {
+          setLine(formatCoyText(ai));
+          setShowBubble(true);
+        }
+      });
+    }
   }
 
   function openChat(image = null) {
