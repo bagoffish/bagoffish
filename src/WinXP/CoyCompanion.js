@@ -45,6 +45,7 @@ export default function CoyCompanion() {
   const [showMenu, setShowMenu] = useState(false);
   const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
+  const [hideForMobileApp, setHideForMobileApp] = useState(false);
   const [line, setLine] = useState(randomGreeting);
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
@@ -88,6 +89,10 @@ export default function CoyCompanion() {
     window.addEventListener("coy:close-chat", onCloseChat);
     const onActivity = event => {
       const detail = event.detail || {};
+      if (detail.type === "app-state") {
+        setHideForMobileApp(window.innerWidth <= 700 && Array.isArray(detail.openApps) && detail.openApps.length > 0);
+        return;
+      }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       const now = Date.now();
       if (now - lastActivity.current < 18000) return;
@@ -315,7 +320,7 @@ export default function CoyCompanion() {
     message: { padding: "7px 9px", border: "1px solid #d1d1d1", borderRadius: 3, whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: "92%" }
   };
 
-  return <div style={styles.root} data-coy-ui="true">
+  return <div style={{ ...styles.root, display: hideForMobileApp && window.innerWidth <= 700 ? "none" : "flex" }} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
       <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{renderCoyEmoji(line)}</button>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
