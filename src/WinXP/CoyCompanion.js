@@ -4,7 +4,7 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const formatCoyText = value => String(value ?? "").replace(/\\p{L}/u, letter => letter.toLocaleUpperCase());
+const formatCoyText = value => String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
@@ -158,7 +158,7 @@ export default function CoyCompanion() {
       if (!response.ok) throw new Error(data.error || "Couldn't reach Coy right now.");
       const answer = typeof data.answer === "string" && data.answer.trim() ? data.answer.trim() : "…";
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
-      setLine(answer);
+      setLine(formatCoyText(answer));
     } catch (err) {
       setError(err.name === "AbortError" ? "Coy took too long to answer. Try again in a moment." : (err.message === "Failed to fetch" ? "Coy’s chat server could not be reached. The server may be waking up; try again shortly." : (err.message || "Connection failed")));
     } finally {
@@ -169,7 +169,7 @@ export default function CoyCompanion() {
   function addImageToChat() {
     if (!foundImage?.src) return;
     const image = foundImage;
-    setLine(randomGreeting());
+    setLine(formatCoyText(randomGreeting()));
     hasHeldImage.current = false;
     setFoundImage(null);
     setHoldingImage(false);
@@ -224,10 +224,10 @@ export default function CoyCompanion() {
       </form>
     </section>}
     {showMenu && <div role="menu" aria-label="Coy expressions" style={styles.menu}>
-      {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(text); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
+      {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine("pat pat pat"); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for expressions">
+    <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine(formatCoyText("pat pat pat")); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
