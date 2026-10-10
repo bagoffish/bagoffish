@@ -8,7 +8,6 @@ const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
 const Bloxify = lazyApp(() => import("./MusicAI"));
-import WinterLetterVN from "../../components/WinterLetterVN";
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -38,6 +37,8 @@ function lazyApp(loader) {
     );
   };
 }
+
+const WinterLetterVN = lazyApp(() => import("../../components/WinterLetterVN"));
 
 import RendererIconSmall from "assets/windowsIcons/299(32x32).png";
 
