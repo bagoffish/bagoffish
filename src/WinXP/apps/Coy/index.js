@@ -449,7 +449,7 @@ export default function CoyChat({ initialImage }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, ...(item.role === 'user' ? { right: -8, borderTop: '7px solid transparent', borderLeft: '8px solid #9ab8e8' } : { left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #b7b7b7' }), width: 0, height: 0, pointerEvents: 'none' }} />
+            <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, ...(item.role === 'user' ? { right: -8, borderTop: '7px solid transparent', borderLeft: '8px solid #9ab8e8' } : { left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #000' }), width: 0, height: 0, pointerEvents: 'none' }} />
             <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, ...(item.role === 'user' ? { right: -5, borderTop: '5px solid transparent', borderLeft: '6px solid #e7f0ff' } : { left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb' }), width: 0, height: 0, pointerEvents: 'none' }} />
             {item.content && <><strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}</>}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
@@ -462,7 +462,7 @@ export default function CoyChat({ initialImage }) {
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #b7b7b7', width: 0, height: 0, pointerEvents: 'none' }} />
+          <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #000', width: 0, height: 0, pointerEvents: 'none' }} />
           <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb', width: 0, height: 0, pointerEvents: 'none' }} />
           Typing...
         </div>}
