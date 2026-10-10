@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
+const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
+const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
   ["Annoyed", "im a little annoyed."], ["Sleepy", "five more minutes…"],
@@ -12,9 +15,9 @@ const EXPRESSIONS = [
 
 export default function CoyCompanion() {
   const [showMenu, setShowMenu] = useState(false);
-  const [showBubble, setShowBubble] = useState(false);
+  const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
-  const [line, setLine] = useState("hey. click me if u wanna talk");
+  const [line, setLine] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -158,7 +161,7 @@ export default function CoyCompanion() {
   function addImageToChat() {
     if (!foundImage?.src) return;
     const image = foundImage;
-    setLine("look what i found:");
+    setLine(randomGreeting());
     hasHeldImage.current = false;
     setFoundImage(null);
     setHoldingImage(false);
