@@ -198,7 +198,7 @@ export default function CoyCompanion() {
 
   return <div style={styles.root} data-coy-ui="true">
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
-      <div style={styles.titlebar}><span>Coy — Desktop Companion</span><button style={{ ...styles.button, padding: "1px 7px", fontWeight: "bold" }} onClick={() => setChatOpen(false)} aria-label="Close Coy chat">×</button></div>
+      <div style={styles.titlebar}><span>Coy</span><button style={{ ...styles.button, padding: "1px 7px", fontWeight: "bold" }} onClick={() => setChatOpen(false)} aria-label="Close Coy chat">×</button></div>
       <div style={styles.messages} aria-live="polite">
         {!history.length && <div style={{ color: "#555" }}>Coy is here. he may or may not behave.</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
@@ -219,9 +219,6 @@ export default function CoyCompanion() {
         <input ref={inputRef} style={styles.input} aria-label="Message Coy" value={draft} onChange={e => setDraft(e.target.value)} placeholder="Say something..." maxLength={2000} />
         <button style={styles.button} type="submit" disabled={busy || !draft.trim()}>{busy ? "…" : "Send"}</button>
       </form>
-      <div style={{ padding: "0 8px 8px", display: "flex", gap: 6, alignItems: "center" }}>
-        <label style={{ display: "flex", gap: 5, alignItems: "center" }}><input type="checkbox" checked={mischief} onChange={e => setMischief(e.target.checked)} /> Desktop Goose mode</label>
-      </div>
     </section>}
     {!chatOpen && showBubble && <div style={styles.bubbleWrap}>
       <div role="status" aria-live="polite" style={styles.bubble}>
