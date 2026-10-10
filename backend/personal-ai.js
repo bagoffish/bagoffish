@@ -92,7 +92,7 @@ router.post("/chat", rateLimit, async (req, res) => {
   const apiKey = process.env.OPENAI_API_KEY;
   const vectorStoreId = process.env.PERSONAL_AI_VECTOR_STORE_ID;
   if (!apiKey || !vectorStoreId) {
-    return res.status(503).json({ error: "The personal chatbot is not configured yet. Its archive and API settings still need to be connected." });
+    return res.status(503).json({ error: "Coy is unavailable right now. Please try again later." });
   }
 
   const history = Array.isArray(req.body?.history)
@@ -128,16 +128,16 @@ router.post("/chat", rateLimit, async (req, res) => {
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      console.error("Personal AI upstream error:", upstream.status, data?.error?.code || data?.error?.type || "unknown");
-      return res.status(502).json({ error: "The AI service could not answer right now. Please try again shortly." });
+      console.error("Coy upstream request failed:", upstream.status, data?.error?.code || data?.error?.type || "unknown");
+      return res.status(502).json({ error: "Coy couldn’t answer right now. Please try again shortly." });
     }
     const answer = typeof data.output_text === "string" ? data.output_text.trim() : "";
-    if (!answer) return res.status(502).json({ error: "The AI returned an empty reply. Please try again." });
+    if (!answer) return res.status(502).json({ error: "Coy didn’t send a reply. Please try again." });
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
   } catch (error) {
-    console.error("Personal AI request failed:", error?.name || "Error");
-    return res.status(502).json({ error: "Could not reach the AI service. Please try again." });
+    console.error("Coy request failed:", error?.name || "Error");
+    return res.status(502).json({ error: "Couldn’t reach Coy right now. Please try again." });
   }
 });
 
