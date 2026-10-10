@@ -4,6 +4,9 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
+  ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  : part);
 const formatCoyText = value => String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 
 const EXPRESSIONS = [
@@ -242,7 +245,7 @@ export default function CoyCompanion() {
 
   return <div style={styles.root} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
-      <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{line}</button>
+      <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{renderCoyEmoji(line)}</button>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
 
