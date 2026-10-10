@@ -343,7 +343,7 @@ export default function CoyCompanion() {
     setError("");
     try {
       const controller = new AbortController();
-      const requestTimeout = window.setTimeout(() => controller.abort(), 25000);
+      const requestTimeout = window.setTimeout(() => controller.abort(), 90000);
       let response;
       try {
         response = await fetch(API_BASE + "/personal-ai/chat", { signal: controller.signal,
