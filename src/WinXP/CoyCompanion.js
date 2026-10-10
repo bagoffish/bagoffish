@@ -113,6 +113,21 @@ export default function CoyCompanion() {
     if (chatOpen) inputRef.current?.focus();
   }, [chatOpen]);
 
+  // Press / anywhere on the desktop to open Coy chat. Never steal the key
+  // while the user is already typing into a field or an editable element.
+  useEffect(() => {
+    const onShortcut = event => {
+      if (event.key !== "/" || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
+      const target = event.target;
+      const tag = String(target?.tagName || "").toLowerCase();
+      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
+      event.preventDefault();
+      openChat();
+    };
+    window.addEventListener("keydown", onShortcut);
+    return () => window.removeEventListener("keydown", onShortcut);
+  }, []);
+
   useEffect(() => {
     const announce = (text, options = {}) => {
       setLine(formatCoyText(text));
