@@ -3,6 +3,9 @@ import React, { useEffect, useRef, useState } from 'react';
 const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.onrender.com').replace(/\/$/, '');
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
+  ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  : part);
 // Keep chat while the in-site app is closed, but start fresh on a full page load.
 let coyChatSessionInitialized = false;
 
@@ -128,7 +131,7 @@ export default function CoyChat({ initialImage }) {
         {!messages.length && <div style={{ ...styles.bubble, ...styles.coy }}><strong>Coy:</strong> {greeting}</div>}
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{item.content}
+            <strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyEmoji(item.content)}
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
           </div>
         ))}
