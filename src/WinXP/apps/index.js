@@ -40,7 +40,7 @@ function lazyApp(loader) {
   };
 }
 
-const WinterLetterVN = lazyApp(() => import("../../components/WinterLetterVN"));
+const WinterLetter = lazyApp(() => import("./WinterLetter"));
 
 import RendererIconSmall from "assets/windowsIcons/299(32x32).png";
 
@@ -87,7 +87,7 @@ export const defaultIconState = [
   { id: 2, icon: poemsIcon, title: "Poems", component: Poems, isFocus: false },
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
   { id: 8, icon: coyBotIcon, title: "CoyBot", component: PersonalAI, isFocus: false },
-  { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetterVN, isFocus: false },
+  { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 4, icon: mine, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
@@ -109,7 +109,7 @@ export const appSettings = {
 
   Winter_Letter: {
     header: { icon: winterLetterIcon, title: "Winter_Letter" },
-    component: WinterLetterVN,
+    component: WinterLetter,
     defaultSize: { width: 760, height: 520 },
     defaultOffset: { x: 100, y: 45 },
     resizable: true,
@@ -217,5 +217,5 @@ export {
   Paint,
   Winamp,
   Bloxify,
-  WinterLetterVN,
+  WinterLetter,
 };
