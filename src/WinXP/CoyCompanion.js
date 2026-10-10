@@ -57,6 +57,7 @@ export default function CoyCompanion() {
   const inputRef = useRef(null);
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
+  const openAppsRef = useRef([]);
   const lastPickupAttempt = useRef(0);
   const hasHeldImage = useRef(false);
   const dragState = useRef(null);
@@ -90,7 +91,8 @@ export default function CoyCompanion() {
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-state") {
-        setHideForMobileApp(window.innerWidth <= 700 && Array.isArray(detail.openApps) && detail.openApps.length > 0);
+        openAppsRef.current = Array.isArray(detail.openApps) ? detail.openApps : [];
+        setHideForMobileApp(window.innerWidth <= 700 && openAppsRef.current.length > 0);
         return;
       }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
@@ -123,6 +125,11 @@ export default function CoyCompanion() {
       }
     };
     window.addEventListener("coy:activity", onActivity);
+    // Keep the companion state correct if the viewport rotates/resizes, and
+    // catch the initial app-state event even if it fired before this listener.
+    const onResize = () => setHideForMobileApp(window.innerWidth <= 700 && openAppsRef.current.length > 0);
+    window.addEventListener("resize", onResize);
+    window.dispatchEvent(new CustomEvent("coy:request-app-state"));
 
     // Coy can notice images rendered inside this website, especially the avatar renderer.
     // He never reads outside the page or tries to access private browser data.
@@ -161,6 +168,7 @@ export default function CoyCompanion() {
     scanImages();
     return () => {
       window.removeEventListener("coy:activity", onActivity);
+      window.removeEventListener("resize", onResize);
       window.removeEventListener("coy:close-chat", onCloseChat);
       document.removeEventListener("load", scanImages, true);
       observer.disconnect();
@@ -302,7 +310,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", right: position.right, bottom: position.bottom, zIndex: 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", right: position.right, bottom: position.bottom, zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "manipulation" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
