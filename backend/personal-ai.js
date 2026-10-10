@@ -7,7 +7,7 @@ const MAX_HISTORY_ITEMS = 16;
 const requests = new Map();
 
 function calculateAge(birthDate, now = new Date()) {
-  if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(birthDate || "")) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birthDate || "")) return null;
   const [year, month, day] = birthDate.split("-").map(Number);
   const birthday = new Date(Date.UTC(year, month - 1, day));
   if (birthday.getUTCFullYear() !== year || birthday.getUTCMonth() !== month - 1 || birthday.getUTCDate() !== day) return null;
