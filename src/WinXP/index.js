@@ -72,7 +72,8 @@ const reducer = (state, action = { type: '' }) => {
       };
     }
     case DEL_APP:
-      if (state.focusing !== FOCUSING.WINDOW) return state;
+      // Closing is an explicit action from the app itself (e.g. Winamp's
+      // custom close button), so it must work even when the desktop is focused.
       return {
         ...state,
         apps: state.apps.filter(app => app.id !== action.payload),
@@ -241,14 +242,9 @@ function WinXP() {
     [focusedAppId],
   );
 
-  const onCloseApp = useCallback(
-    id => {
-      if (focusedAppId === id) {
-        dispatch({ type: DEL_APP, payload: id });
-      }
-    },
-    [focusedAppId],
-  );
+  const onCloseApp = useCallback(id => {
+    dispatch({ type: DEL_APP, payload: id });
+  }, []);
 
   function onMouseDownFooterApp(id) {
     if (focusedAppId === id) {
