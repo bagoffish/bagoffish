@@ -5,6 +5,7 @@ const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.
 const styles = {
   root: { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#ece9d8', color: '#111', font: '12px Tahoma, Arial, sans-serif' },
   intro: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'linear-gradient(#fff,#e7e4d6)', borderBottom: '1px solid #9b9b9b', flexShrink: 0 },
+  closeButton: { marginLeft: 'auto', alignSelf: 'flex-start', width: 24, height: 22, padding: 0, border: '1px solid #003c74', borderRadius: 2, background: 'linear-gradient(#fff,#e1e1e1)', color: '#111', font: 'bold 15px Tahoma, Arial', lineHeight: '18px', cursor: 'pointer' },
   portrait: { width: 58, height: 70, objectFit: 'contain', objectPosition: 'bottom', flexShrink: 0 },
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#444' },
@@ -101,8 +102,8 @@ export default function CoyChat({ initialImage }) {
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
           <div style={styles.title}>Coy</div>
-          
         </div>
+        <button type="button" aria-label="Close Coy chat" title="Close" style={styles.closeButton} onClick={() => window.dispatchEvent(new CustomEvent('coy:close-chat'))}>×</button>
       </div>
       <div style={styles.messages} aria-live="polite">
         {!messages.length && <div style={{ ...styles.bubble, ...styles.coy }}><strong>Coy:</strong> hey. click the textbox and say something. im listening (probably)</div>}
