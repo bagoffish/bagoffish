@@ -30,12 +30,14 @@ Chat works when at least one provider key is configured.
 
 ## Language support
 
-The chatbot is instructed to use **Korean and English only**:
+The chatbot follows the user's language:
 
-- It replies in natural Korean when the user writes in Korean, and natural English when the user writes in English.
-- It can follow a Korean-English mix or an explicit request to use either supported language.
-- It must not produce prose in other languages; if asked to use another language, it politely asks the user to continue in Korean or English.
-- Its personality, archive-grounded memories, and privacy safeguards stay consistent across both languages.
+- Korean input gets a natural Korean reply.
+- English input gets an English reply.
+- Chinese input gets a mostly English reply with some natural Chinese mixed in.
+- Any other language gets an English reply.
+- Korean-English mixed messages can receive a natural mix. Coy should not ask the user to choose a language or say "or in English if you prefer."
+- Coy's personality, approved memories, and privacy safeguards stay consistent across languages.
 
 This is enforced in the server-side model instructions, not just the interface.
 
