@@ -6,8 +6,27 @@ const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.leng
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
-// Keep chat while the in-site app is closed, but start fresh on a full page load.
-let coyChatSessionInitialized = false;
+// Cookie-backed chat log. Keep it compact because browsers limit each cookie to ~4 KB.
+const COY_CHAT_COOKIE = 'coy_chat_log';
+function readCoyChatCookie() {
+  try {
+    const match = document.cookie.split('; ').find(part => part.startsWith(COY_CHAT_COOKIE + '='));
+    if (!match) return [];
+    const parsed = JSON.parse(decodeURIComponent(match.slice(COY_CHAT_COOKIE.length + 1)));
+    return Array.isArray(parsed) ? parsed.filter(item => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string').slice(-12) : [];
+  } catch (_) { return []; }
+}
+function writeCoyChatCookie(messages) {
+  try {
+    let kept = messages.slice(-12);
+    let encoded = encodeURIComponent(JSON.stringify(kept));
+    while (encoded.length > 3500 && kept.length > 2) {
+      kept = kept.slice(1);
+      encoded = encodeURIComponent(JSON.stringify(kept));
+    }
+    document.cookie = COY_CHAT_COOKIE + '=' + encoded + '; Max-Age=2592000; Path=/; SameSite=Lax';
+  } catch (_) {}
+}
 
 const styles = {
   root: { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#ece9d8', color: '#111', font: '12px Tahoma, Arial, sans-serif' },
@@ -26,22 +45,11 @@ const styles = {
 };
 
 export default function CoyChat({ initialImage }) {
-  const STORAGE_KEY = 'bagof-fish-coy-app-chat-v1';
   const [messages, setMessages] = useState(() => {
-    try {
-      // A module-level flag survives closing/reopening this app component, but resets
-      // on a full website reload. Clear old session data before restoring this page's chat.
-      if (!coyChatSessionInitialized) {
-        window.sessionStorage.removeItem(STORAGE_KEY);
-        coyChatSessionInitialized = true;
-      }
-      const saved = window.sessionStorage.getItem(STORAGE_KEY);
-      const parsed = saved ? JSON.parse(saved) : null;
-      if (Array.isArray(parsed)) return parsed.slice(-100);
-    } catch (e) {}
-    return initialImage
+    const saved = readCoyChatCookie();
+    return saved.length ? saved : (initialImage
       ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
-      : [];
+      : []);
   });
   const [greeting] = useState(randomGreeting);
   const [draft, setDraft] = useState('');
@@ -59,20 +67,8 @@ export default function CoyChat({ initialImage }) {
   }, [messages, busy, error]);
 
   useEffect(() => {
-    try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
-    } catch (e) {}
+    writeCoyChatCookie(messages);
   }, [messages]);
-
-  useEffect(() => {
-    // Leaving/reloading the actual website clears temporary chat history. Closing only
-    // the Coy app component does not trigger pagehide, so its history can be restored.
-    const clearChatWhenLeavingSite = () => {
-      try { window.sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
-    };
-    window.addEventListener('pagehide', clearChatWhenLeavingSite);
-    return () => window.removeEventListener('pagehide', clearChatWhenLeavingSite);
-  }, []);
 
   async function send(event) {
     event.preventDefault();
@@ -154,7 +150,7 @@ export default function CoyChat({ initialImage }) {
         />
         <button type="submit" style={styles.button} disabled={busy || !draft.trim()}>{busy ? '…' : 'Send'}</button>
       </form>
-      <div style={styles.status}>Chat stays if you close and reopen Coy. It clears when you reload or leave the website.</div>
+      <div style={styles.status}>Chat log is saved in a cookie for 30 days on this browser.</div>
     </div>
   );
 }
