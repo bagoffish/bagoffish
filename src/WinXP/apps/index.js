@@ -1,5 +1,6 @@
 import React, { lazy, Suspense } from "react";
 import AboutMe from "./AboutMe";
+const PersonalAI = lazyApp(() => import("./PersonalAI"));
 const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
@@ -118,6 +119,13 @@ export const defaultIconState = [
     isFocus: false,
   },
   {
+    id: 8,
+    icon: socialsIcon,
+    title: "Talk to Coy",
+    component: PersonalAI,
+    isFocus: false,
+  },
+  {
     id: 7,
     icon: musicIcon,
     title: "Bloxify",
@@ -149,6 +157,17 @@ export const defaultIconState = [
 
 /* start menu / openApp settings */
 export const appSettings = {
+  "Talk to Coy": {
+    header: { icon: socialsIconSmall, title: "Talk to Coy" },
+    component: PersonalAI,
+    defaultSize: { width: 560, height: 520 },
+    defaultOffset: { x: 180, y: 45 },
+    resizable: true,
+    minimized: false,
+    maximized: window.innerWidth < 800,
+    multiInstance: true,
+  },
+
   "About Me": {
     header: {
       icon: socialsIconSmall,
@@ -315,6 +334,7 @@ export const appSettings = {
 
 export {
   AboutMe,
+  PersonalAI,
   Poems,
   Renderer,
   Minesweeper,
