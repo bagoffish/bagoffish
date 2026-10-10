@@ -28,7 +28,7 @@ function writeCompanionChatCookie(messages) {
   } catch (_) {}
 }
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
-  ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.style.visibility = "hidden"; }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
 
 const formatCoyText = value => String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
@@ -223,7 +223,7 @@ export default function CoyCompanion() {
     const maxBottom = Math.max(0, window.innerHeight - height);
     setPosition({
       right: Math.max(0, Math.min(maxRight, state.right - deltaX)),
-      bottom: Math.max(0, Math.min(maxBottom, state.bottom + deltaY))
+      bottom: Math.max(0, Math.min(maxBottom, state.bottom - deltaY))
     });
   }
 
