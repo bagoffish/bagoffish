@@ -65,9 +65,16 @@ export default function CoyCompanion() {
   const dragState = useRef(null);
   const dragged = useRef(false);
   const clickTimer = useRef(null);
+  const [spriteSize, setSpriteSize] = useState(() => window.innerWidth <= 700 ? 124 : 160);
+  useEffect(() => {
+    const updateSpriteSize = () => setSpriteSize(window.innerWidth <= 700 ? 124 : 160);
+    window.addEventListener("resize", updateSpriteSize);
+    return () => window.removeEventListener("resize", updateSpriteSize);
+  }, []);
+
   const [position, setPosition] = useState(() => ({
     // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
-    left: Math.max(8, window.innerWidth - Math.min(Math.max(120, window.innerWidth * 0.14), 170) - 8),
+    left: Math.max(8, window.innerWidth - (window.innerWidth <= 700 ? 124 : 160) - 8),
     top: Math.max(8, window.innerHeight - 80 - 170 - 8)
   }));
   const [isDragging, setIsDragging] = useState(false);
@@ -378,13 +385,13 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: "clamp(120px, 14vw, 170px)", maxWidth: "170px", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
-    imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
-    image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
+    image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "8px 12px", border: "1px solid #666", borderRadius: 7, background: "#fff", color: "#333", boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", right: "calc(clamp(120px, 14vw, 170px) / 2 - 8px)", bottom: -10, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "10px solid #666", pointerEvents: "none" },
+    tail: { position: "absolute", right: spriteSize / 2 - 8, bottom: -10, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "10px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -6, top: -10, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "8px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
