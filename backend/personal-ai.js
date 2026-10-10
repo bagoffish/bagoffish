@@ -390,7 +390,7 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
       url = GROQ_API_URL;
       headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
       body = {
-        model: process.env.GROQ_MODEL || (hasImages ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile"),
+        model: process.env.GROQ_MODEL || (hasImages ? "qwen/qwen3.8-27b" : "openai/gpt-oss-120b"),
         messages: [{ role: "user", content: hasImages ? content : conversation }],
         temperature: 0.8,
       };
