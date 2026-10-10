@@ -271,6 +271,9 @@ function WinXP() {
     const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);
     const newlyOpened = openApps.filter(name => !previousOpenApps.current.includes(name));
     previousOpenApps.current = openApps;
+    window.dispatchEvent(new CustomEvent('coy:activity', {
+      detail: { type: 'app-state', openApps },
+    }));
     newlyOpened.forEach(name => {
       window.dispatchEvent(new CustomEvent('coy:activity', { detail: { type: 'app-open', name } }));
     });
