@@ -238,7 +238,7 @@ const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000;
 let githubMemoryCache = { text: "", loadedAt: 0 };
 
 async function loadGithubMemory() {
-  const token = process.env.COY_MEMORY_GITHUB_TOKEN || process.env.GITHUB_TOKEN;
+  const token = process.env.COY_MEMORY_GITHUB_TOKEN;
   if (!token) return "";
   if (githubMemoryCache.text && Date.now() - githubMemoryCache.loadedAt < MEMORY_CACHE_TTL_MS) {
     return githubMemoryCache.text;
@@ -321,6 +321,7 @@ router.get("/health", (req, res) => {
     ok: true,
     configured: Boolean(process.env.GEMINI_API_KEY),
     knowledgeConfigured: Boolean(process.env.GEMINI_FILE_SEARCH_STORE_NAME),
+    githubMemoryConfigured: Boolean(process.env.COY_MEMORY_GITHUB_TOKEN),
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
   });
 });
