@@ -338,11 +338,12 @@ function findGithubMemoryExcerpts(corpus, query) {
     }
   }
   candidates.sort((a, b) => b.score - a.score || a.index - b.index);
-  const relevant = candidates.slice(0, 8).map(item => item.text.slice(0, 650));
+  const relevant = candidates.slice(0, 12).map(item => item.text.slice(0, 650));
 
+  // Sample twice as many spread-out examples so Coy sees a broader range of the author's real wording each turn.
   const styleAnchors = [];
   const used = new Set();
-  const targetCount = Math.min(24, lines.length);
+  const targetCount = Math.min(48, lines.length);
   for (let i = 0; i < targetCount; i++) {
     const target = Math.floor(((i + 0.5) / targetCount) * lines.length);
     let index = target;
