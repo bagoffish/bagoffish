@@ -5,29 +5,52 @@ import { initialTracks } from './config';
 function Winamp({ onClose, onMinimize }) {
   const ref = useRef(null);
   const webamp = useRef(null);
+  const handlers = useRef({ onClose, onMinimize });
+
+  // Keep the callbacks fresh without repeatedly registering Webamp listeners.
+  handlers.current = { onClose, onMinimize };
+
   useEffect(() => {
     const target = ref.current;
-    if (!target) {
-      return;
-    }
-    webamp.current = new Webamp({
-      initialTracks,
+    if (!target) return undefined;
+
+    let disposed = false;
+    const instance = new Webamp({ initialTracks });
+    webamp.current = instance;
+
+    instance.onClose(() => {
+      if (!disposed) handlers.current.onClose?.();
     });
-    webamp.current.renderWhenReady(target);
+    instance.onMinimize(() => {
+      if (!disposed) handlers.current.onMinimize?.();
+    });
+
+    // renderWhenReady can reject if the component is removed before Webamp
+    // finishes loading; handle that path instead of leaving an unhandled error.
+    Promise.resolve(instance.renderWhenReady(target)).catch(error => {
+      if (!disposed) {
+        // Disposal is still handled by the effect cleanup below.
+        console.error('Winamp failed to initialize:', error);
+      }
+    });
+
     return () => {
-      webamp.current.dispose();
+      disposed = true;
+      if (webamp.current === instance) webamp.current = null;
+      try {
+        instance.dispose();
+      } catch (error) {
+        // Webamp may already have partially disposed itself during initialization.
+        console.warn('Winamp cleanup encountered an error:', error);
+      }
     };
   }, []);
-  useEffect(() => {
-    if (webamp.current) {
-      webamp.current.onClose(onClose);
-      webamp.current.onMinimize(onMinimize);
-    }
-  });
+
   return (
     <div
-      style={{ position: 'fixed', left: 0, top: 0, right: 0, bottom: 0 }}
       ref={ref}
+      style={{ position: 'fixed', inset: 0 }}
+      aria-label="Winamp player"
     />
   );
 }
