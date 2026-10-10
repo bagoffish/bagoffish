@@ -4,6 +4,9 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const PICKUP_LINES = ["HEY— where are we going?", "Oh! You’re moving me?", "Wheee— wait, put me down somewhere nice.", "Eep! Got me.", "Okay okay, I’m coming.", "Oh, we’re relocating now?"];
+const PAT_LINES = ["Hehe, again.", "…okay that’s kinda nice.", "Heyy. :3", "You’re messing up my hair.", "*happy little wiggle*", "Hm? Oh. hi.", "Eep— didn’t expect that.", "Okay, you can stay."];
+const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
@@ -157,9 +160,20 @@ export default function CoyCompanion() {
   }
 
   function endDrag() {
+    const wasDragged = dragged.current;
     dragState.current = null;
     setIsDragging(false);
+    if (wasDragged) {
+      setLine(formatCoyText(randomLine(PICKUP_LINES)));
+      setShowBubble(true);
+    }
     window.setTimeout(() => { dragged.current = false; }, 200);
+  }
+
+  function patCoy() {
+    setLine(formatCoyText(randomLine(PAT_LINES)));
+    setShowBubble(true);
+    setShowMenu(false);
   }
 
   function openChat(image = null) {
@@ -253,7 +267,8 @@ export default function CoyCompanion() {
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; setLine(formatCoyText("pat pat pat")); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag to move Coy; click to chat; double-click to pat; right-click for expressions">
+    <button type="button" onPointerDown={event => event.stopPropagation()} onClick={patCoy} aria-label="Pat Coy" title="Pat Coy" style={{ pointerEvents: "auto", border: "1px solid #777", borderRadius: 3, padding: "5px 9px", background: "#fff", color: "#333", font: "12px Tahoma, Arial, sans-serif", cursor: "pointer", marginBottom: 2 }}>♡ Pat</button>
+    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag to move Coy; click to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
