@@ -1,7 +1,7 @@
 import express from "express";
 
 const router = express.Router();
-const OPENAI_API_URL = "https://api.openai.com/v1/responses";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 16;
 const requests = new Map();
@@ -76,10 +76,24 @@ function rateLimit(req, res, next) {
   next();
 }
 
+function extractAnswer(data) {
+  if (typeof data?.output_text === "string" && data.output_text.trim()) return data.output_text.trim();
+  const steps = Array.isArray(data?.steps) ? data.steps : [];
+  return steps
+    .filter(step => step?.type === "model_output")
+    .flatMap(step => Array.isArray(step.content) ? step.content : [])
+    .filter(block => block?.type === "text" && typeof block.text === "string")
+    .map(block => block.text.trim())
+    .filter(Boolean)
+    .join("\n")
+    .trim();
+}
+
 router.get("/health", (req, res) => {
   res.json({
     ok: true,
-    configured: Boolean(process.env.OPENAI_API_KEY && process.env.PERSONAL_AI_VECTOR_STORE_ID),
+    configured: Boolean(process.env.GEMINI_API_KEY),
+    knowledgeConfigured: Boolean(process.env.GEMINI_FILE_SEARCH_STORE_NAME),
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
   });
 });
@@ -89,9 +103,9 @@ router.post("/chat", rateLimit, async (req, res) => {
   if (!message) return res.status(400).json({ error: "Write a message first." });
   if (message.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: "Message is too long (maximum 2,000 characters)." });
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  const vectorStoreId = process.env.PERSONAL_AI_VECTOR_STORE_ID;
-  if (!apiKey || !vectorStoreId) {
+  const apiKey = process.env.GEMINI_API_KEY;
+  const fileSearchStoreName = process.env.GEMINI_FILE_SEARCH_STORE_NAME;
+  if (!apiKey) {
     return res.status(503).json({ error: "Coy is unavailable right now. Please try again later." });
   }
 
@@ -99,39 +113,43 @@ router.post("/chat", rateLimit, async (req, res) => {
     ? req.body.history
         .filter(item => item && ["user", "assistant"].includes(item.role) && typeof item.content === "string")
         .slice(-MAX_HISTORY_ITEMS)
-        .map(item => ({ role: item.role, content: item.content.slice(0, MAX_MESSAGE_LENGTH) }))
+        .map(item => ({
+          role: item.role,
+          content: item.content.slice(0, MAX_MESSAGE_LENGTH),
+        }))
     : [];
 
+  const conversation = [
+    "Follow these instructions carefully:",
+    buildPersonality(),
+    ...history.map(item => `${item.role === "assistant" ? "Coy" : "User"}: ${item.content}`),
+    `User: ${message}`,
+    "Coy:",
+  ].join("\n\n");
+
   try {
-    const upstream = await fetch(OPENAI_API_URL, {
+    const requestBody = {
+      model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+      input: conversation,
+      tools: fileSearchStoreName
+        ? [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }]
+        : [],
+    };
+    const upstream = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "x-goog-api-key": apiKey,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({
-        model: process.env.PERSONAL_AI_MODEL || "gpt-5.5",
-        instructions: buildPersonality(),
-        input: [
-          ...history,
-          { role: "user", content: message },
-        ],
-        tools: [{
-          type: "file_search",
-          vector_store_ids: [vectorStoreId],
-          max_num_results: 8,
-        }],
-        max_output_tokens: 700,
-        store: false,
-      }),
+      body: JSON.stringify(requestBody),
       signal: AbortSignal.timeout(45_000),
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      console.error("Coy upstream request failed:", upstream.status, data?.error?.code || data?.error?.type || "unknown");
+      console.error("Coy request failed:", upstream.status, data?.error?.status || data?.error?.code || "unknown");
       return res.status(502).json({ error: "Coy couldn’t answer right now. Please try again shortly." });
     }
-    const answer = typeof data.output_text === "string" ? data.output_text.trim() : "";
+    const answer = extractAnswer(data);
     if (!answer) return res.status(502).json({ error: "Coy didn’t send a reply. Please try again." });
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
