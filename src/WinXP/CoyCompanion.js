@@ -34,20 +34,12 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
 
 const formatCoyText = value => String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 
-const EXPRESSIONS = [
-  ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
-  ["Annoyed", "im a little annoyed."], ["Sleepy", "five more minutes…"],
-  ["Surprised", "oh, didnt expect that."], ["Smug", "i might know something."],
-  ["Embarrassed", "okay, dont look at me."], ["Thinking", "hold on, thinking."],
-  ["Waving", "heyy"], ["Cute pose", "hi :3"]
-];
-
 export default function CoyCompanion() {
-  const [showMenu, setShowMenu] = useState(false);
   const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
   const [hideForMobileApp, setHideForMobileApp] = useState(false);
   const [line, setLine] = useState(randomGreeting);
+  const [idleMood, setIdleMood] = useState("normal");
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState(() => readCompanionChatCookie());
@@ -330,7 +322,6 @@ export default function CoyCompanion() {
   function patCoy() {
     setLine(formatCoyText(randomLine(PAT_LINES)));
     setShowBubble(true);
-    setShowMenu(false);
   }
 
   function openChat(image = null) {
@@ -395,10 +386,34 @@ export default function CoyCompanion() {
     openChat(image);
   }
 
+  // Coy has one base sprite, so idle moods use restrained body language while
+  // the speech bubble changes naturally. No manual expression menu is needed.
+  const idleMoodStyles = {
+    normal: { transform: "translateY(0) rotate(0deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    curious: { transform: "translateY(-2px) rotate(-1.2deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    happy: { transform: "translateY(-3px) rotate(1deg)", filter: "drop-shadow(0 2px 3px rgba(0,0,0,.2)) brightness(1.025)" },
+    sleepy: { transform: "translateY(1px) rotate(0.5deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(.96)" },
+    surprised: { transform: "translateY(-3px) scale(1.015)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(1.035)" },
+    annoyed: { transform: "translateY(0) rotate(-0.6deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) saturate(.92)" }
+  };
+
+  useEffect(() => {
+    const moods = ["normal", "curious", "happy", "sleepy", "surprised", "annoyed"];
+    let timer;
+    const scheduleMood = () => {
+      timer = window.setTimeout(() => {
+        setIdleMood(moods[Math.floor(Math.random() * moods.length)]);
+        scheduleMood();
+      }, 9000 + Math.random() * 17000);
+    };
+    scheduleMood();
+    return () => window.clearTimeout(timer);
+  }, []);
+
   const styles = {
     root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
-    image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "transform 450ms ease, filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "8px 12px", border: "1px solid #777", borderRadius: 8, background: "#fff", color: "#222", boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
@@ -420,12 +435,8 @@ export default function CoyCompanion() {
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
 
-    {showMenu && <div role="menu" aria-label="Coy expressions" style={styles.menu}>
-      {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
-      
-    </div>}
-    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } if (clickTimer.current) window.clearTimeout(clickTimer.current); clickTimer.current = window.setTimeout(() => { clickTimer.current = null; openChat(); }, 230); }} onDoubleClick={() => { if (dragged.current) return; if (clickTimer.current) { window.clearTimeout(clickTimer.current); clickTimer.current = null; } patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy">
-      <img src={COY_SPRITE} alt="Coy" draggable={false} style={styles.image} />
+    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } if (clickTimer.current) window.clearTimeout(clickTimer.current); clickTimer.current = window.setTimeout(() => { clickTimer.current = null; openChat(); }, 230); }} onDoubleClick={() => { if (dragged.current) return; if (clickTimer.current) { window.clearTimeout(clickTimer.current); clickTimer.current = null; } patCoy(); }} aria-label="Coy">
+      <img src={COY_SPRITE} alt="Coy" draggable={false} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
     </button>
