@@ -20,7 +20,13 @@ const SPRITE_ACTIONS = [
   { id: 'sleep', label: 'Sleepy', mood: 'sleepy', line: 'five more minutes...' },
   { id: 'think', label: 'Thinking', mood: 'happy', line: 'hold on. brain loading...' },
   { id: 'surprised', label: 'Surprised', mood: 'happy', line: 'HUH??' },
-  { id: 'smoke', label: 'Smoking / idle prop', mood: 'mischief', line: 'bro is contemplating the universe.' },
+  { id: 'talking', label: 'Talking', mood: 'talking', line: 'mhm mhm. i am saying words.' },
+  { id: 'smug', label: 'Smug', mood: 'smug', line: 'i know something you don’t. probably.' },
+  { id: 'embarrassed', label: 'Embarrassed', mood: 'embarrassed', line: 'w-wait. don’t look at me.' },
+  { id: 'petting', label: 'Petting', mood: 'petting', line: '...okay that is actually nice.' },
+  { id: 'flustered', label: 'Flustered petting', mood: 'flustered', line: 'i am NOT blushing. shut up.' },
+  { id: 'sleeping', label: 'Sleeping', mood: 'sleeping', line: 'zzz...' },
+  { id: 'cute', label: 'Cute pose / :3', mood: 'cute', line: 'behold. the creature.' },
 ];
 
 const styles = {
@@ -36,10 +42,10 @@ const styles = {
     animation: 'coy-float 3.6s ease-in-out infinite', touchAction: 'manipulation',
   },
   bubble: {
-    pointerEvents: 'auto', maxWidth: 230, padding: '10px 13px',
-    border: '2px solid #5276ad', borderRadius: 12, background: '#fffdf5',
-    boxShadow: '2px 3px 0 rgba(18,49,102,.25)', fontSize: 12, lineHeight: 1.45,
-    position: 'relative', cursor: 'pointer', textAlign: 'left',
+    pointerEvents: 'auto', maxWidth: 250, padding: '9px 13px',
+    border: '2px solid #555b63', borderRadius: 15, background: '#fff', color: '#202124',
+    boxShadow: '1px 2px 0 rgba(0,0,0,.18)', fontSize: 12, lineHeight: 1.45,
+    position: 'relative', cursor: 'pointer', textAlign: 'left', overflowWrap: 'anywhere',
   },
   panel: {
     pointerEvents: 'auto', width: 'min(340px, calc(100vw - 24px))',
@@ -223,7 +229,7 @@ export default function CoyCompanion() {
             background: '#fffdf5', border: '2px solid #5276ad', borderRadius: 8, boxShadow: '2px 3px 0 rgba(18,49,102,.25)',
           }}>
             <div style={{ gridColumn: '1 / -1', fontSize: 10, color: '#52617a', padding: '2px 3px' }}>
-              SPRITE PLACEHOLDERS · right-click Coy to open
+              14 EXPRESSIONS · right-click Coy to open
             </div>
             {SPRITE_ACTIONS.map(action => (
               <button key={action.id} type="button" role="menuitem" onClick={() => {
@@ -247,7 +253,7 @@ export default function CoyCompanion() {
             aria-label="Open a chat with Coy"
           >
             {bubble}
-            <span style={{ position: 'absolute', right: 25, bottom: -7, width: 11, height: 11, background: '#fffdf5', borderRight: '2px solid #5276ad', borderBottom: '2px solid #5276ad', transform: 'rotate(45deg)' }} />
+            <span style={{ position: 'absolute', right: 25, bottom: -7, width: 11, height: 11, background: '#fff', borderRight: '2px solid #555b63', borderBottom: '2px solid #555b63', transform: 'rotate(45deg)' }} />
           </button>
         )}
         <button
@@ -257,7 +263,7 @@ export default function CoyCompanion() {
           onContextMenu={event => { event.preventDefault(); setPoseMenu(value => !value); }}
           onClick={() => { setPoseMenu(false); setOpen(value => !value); setBubble('hehe hi :3'); }}
           aria-label={open ? 'Hide Coy chat' : 'Talk to Coy'}
-          title="Click to chat · right-click for sprite action placeholders"
+          title="Click to chat · double-click to pet · right-click for expressions"
         >
           <CoyGhost mood={mood} />
         </button>
