@@ -1,4 +1,4 @@
-import React, { useReducer, useRef, useCallback } from 'react';
+import React, { useReducer, useRef, useCallback, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import useMouse from 'react-use/lib/useMouse';
 
@@ -220,6 +220,29 @@ function WinXP() {
   const ref = useRef(null);
   const mouse = useMouse(ref);
   const focusedAppId = getFocusedAppId();
+  const previousOpenApps = useRef([]);
+
+  // Let Coy open real XP-shell apps without reaching outside the website/browser.
+  useEffect(() => {
+    const onCoyOpenApp = event => {
+      const name = event.detail && event.detail.name;
+      const setting = name && appSettings[name];
+      if (setting) dispatch({ type: ADD_APP, payload: setting });
+    };
+    window.addEventListener('coy:open-app', onCoyOpenApp);
+    return () => window.removeEventListener('coy:open-app', onCoyOpenApp);
+  }, []);
+
+  // Publish desktop activity so Coy can react to the apps the visitor actually opens.
+  useEffect(() => {
+    const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);
+    const newlyOpened = openApps.filter(name => !previousOpenApps.current.includes(name));
+    previousOpenApps.current = openApps;
+    newlyOpened.forEach(name => {
+      window.dispatchEvent(new CustomEvent('coy:activity', { detail: { type: 'app-open', name } }));
+    });
+  }, [state.apps]);
+
 
   const onFocusApp = useCallback(id => {
     dispatch({ type: FOCUS_APP, payload: id });
