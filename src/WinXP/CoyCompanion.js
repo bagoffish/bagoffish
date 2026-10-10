@@ -11,21 +11,21 @@ const IDLE_LINES = [
   'status: silly',
 ];
 
-// Replace these named slots with transparent OC sprites as they are drawn.
+// Fourteen expression slots; finished transparent OC art can replace these vector placeholders later.
 const SPRITE_ACTIONS = [
-  { id: 'idle', label: 'Idle / neutral', mood: 'happy', line: 'just standing here. existing. :3' },
-  { id: 'wave', label: 'Wave hello', mood: 'happy', line: 'oh hi!! you noticed me :3' },
-  { id: 'laugh', label: 'Laughing', mood: 'mischief', line: 'LMAOOO okay wait' },
-  { id: 'annoyed', label: 'Annoyed / deadpan', mood: 'mischief', line: 'i am judging you a normal amount.' },
-  { id: 'sleep', label: 'Sleepy', mood: 'sleepy', line: 'five more minutes...' },
-  { id: 'think', label: 'Thinking', mood: 'happy', line: 'hold on. brain loading...' },
-  { id: 'surprised', label: 'Surprised', mood: 'happy', line: 'HUH??' },
+  { id: 'idle', label: 'Normal / neutral', mood: 'neutral', line: 'just standing here. existing. :3' },
   { id: 'talking', label: 'Talking', mood: 'talking', line: 'mhm mhm. i am saying words.' },
+  { id: 'happy', label: 'Slightly happy', mood: 'happy', line: 'hehe :3' },
+  { id: 'annoyed', label: 'Annoyed / deadpan', mood: 'annoyed', line: 'i am judging you a normal amount.' },
+  { id: 'sleepy', label: 'Sleepy', mood: 'sleepy', line: 'five more minutes...' },
+  { id: 'surprised', label: 'Surprised', mood: 'surprised', line: 'HUH??' },
   { id: 'smug', label: 'Smug', mood: 'smug', line: 'i know something you don’t. probably.' },
   { id: 'embarrassed', label: 'Embarrassed', mood: 'embarrassed', line: 'w-wait. don’t look at me.' },
   { id: 'petting', label: 'Petting', mood: 'petting', line: '...okay that is actually nice.' },
   { id: 'flustered', label: 'Flustered petting', mood: 'flustered', line: 'i am NOT blushing. shut up.' },
-  { id: 'sleeping', label: 'Sleeping', mood: 'sleeping', line: 'zzz...' },
+  { id: 'sleep', label: 'Sleeping', mood: 'sleeping', line: 'zzz... (desktop haunting paused)' },
+  { id: 'think', label: 'Thinking', mood: 'thinking', line: 'hold on. brain loading...' },
+  { id: 'wave', label: 'Casual wave', mood: 'wave', line: 'oh hi!! you noticed me :3' },
   { id: 'cute', label: 'Cute pose / :3', mood: 'cute', line: 'behold. the creature.' },
 ];
 
