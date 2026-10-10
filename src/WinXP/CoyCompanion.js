@@ -210,7 +210,7 @@ export default function CoyCompanion() {
     };
     dragged.current = false;
     setIsDragging(false);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
+    event.currentTarget.setPointerCapture?.(event.pointerId);\n    event.preventDefault();
   }
 
   function moveDrag(event) {
@@ -220,15 +220,9 @@ export default function CoyCompanion() {
     const deltaY = event.clientY - state.y;
     const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
 
-    // A short stroke starting over Coy's head is a pat, not a character drag.
-    // Let a small head stroke count as a pat, but start moving Coy after a
-    // short drag instead of making the user drag more than 54px first.
-    if (state.startsOnHead && !state.movedCharacter && distance >= 7 && distance < 20) {
-      state.patGesture = true;
-      dragged.current = true;
-      return;
-    }
-    if (distance >= (state.startsOnHead ? 20 : 5)) {
+    // Start dragging after only a few pixels. Head strokes no longer get
+    // mistaken for pats, which made desktop dragging feel unresponsive.
+    if (distance >= 4) {
       state.movedCharacter = true;
       state.patGesture = false;
       dragged.current = true;
@@ -360,7 +354,7 @@ export default function CoyCompanion() {
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag to move Coy; click to chat; double-click to pat; right-click for expressions">
+    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag Coy to move; click to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
