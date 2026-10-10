@@ -63,8 +63,39 @@ export default function CoyCompanion() {
   const hasHeldImage = useRef(false);
   const dragState = useRef(null);
   const dragged = useRef(false);
-  const [position, setPosition] = useState(() => ({ left: Math.max(0, window.innerWidth - 184), top: Math.max(0, window.innerHeight - 288) }));
+  const [position, setPosition] = useState(() => ({
+    left: Math.max(8, window.innerWidth - Math.min(window.innerWidth * 0.9, 410) - 8),
+    top: Math.max(8, window.innerHeight - 340)
+  }));
   const [isDragging, setIsDragging] = useState(false);
+  const rootRef = useRef(null);
+
+  // Keep Coy fully inside the visible viewport on first render, when bubbles/chat
+  // change the wrapper size, and after resizing or rotating the device.
+  useEffect(() => {
+    const clampToViewport = () => {
+      const node = rootRef.current;
+      if (!node) return;
+      const rect = node.getBoundingClientRect();
+      const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
+      const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+      setPosition(previous => {
+        const left = Math.min(maxLeft, Math.max(8, previous.left));
+        const top = Math.min(maxTop, Math.max(8, previous.top));
+        return left === previous.left && top === previous.top ? previous : { left, top };
+      });
+    };
+    clampToViewport();
+    const observer = typeof ResizeObserver !== "undefined" && rootRef.current
+      ? new ResizeObserver(clampToViewport)
+      : null;
+    if (observer && rootRef.current) observer.observe(rootRef.current);
+    window.addEventListener("resize", clampToViewport);
+    return () => {
+      observer?.disconnect();
+      window.removeEventListener("resize", clampToViewport);
+    };
+  }, [showBubble, chatOpen, showMenu, holdingImage, hideForMobileApp]);
 
   useEffect(() => {
     if (!showBubble || chatOpen) return undefined;
@@ -344,7 +375,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: "min(90vw, 410px)", maxWidth: "calc(100vw - 16px)", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
@@ -362,7 +393,7 @@ export default function CoyCompanion() {
     message: { padding: "7px 9px", border: "1px solid #d1d1d1", borderRadius: 3, whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: "92%" }
   };
 
-  return <div style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
+  return <div ref={rootRef} style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
       <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{renderCoyEmoji(line)}</button>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
