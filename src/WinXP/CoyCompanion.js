@@ -357,7 +357,7 @@ export default function CoyCompanion() {
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
       setLine(answer);
     } catch (err) {
-      setError(err.name === "AbortError" ? "Hold on, I got distracted. Try me again in a sec." : (err.message === "Failed to fetch" ? randomLine(["Hold on, I’m busy...", "I’m tryna sleep dude.", "Give me a sec, I’m not awake yet."]) : (err.message || "Hold on, something went wrong.")));
+      setError(err.name === "AbortError" ? "Hold on, I’m busy..." : (err.message === "Failed to fetch" ? randomLine(["Hold on, I’m busy...", "I’m tryna sleep dude."]) : (err.message || "Something went wrong.")));
     } finally {
       setBusy(false);
     }
