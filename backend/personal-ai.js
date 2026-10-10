@@ -253,7 +253,7 @@ function getStyleCorpusLines(corpus) {
   }
   const lines = (corpus || "").split(/\n\s*\n|\r?\n/)
     .map(value => value.trim())
-    .filter(value => value.length >= 25 && value.length <= 3000)
+    .filter(value => value.length >= 1 && value.length <= 3000)
     .filter(value => !/^(?:\{|\[|=====|# )/.test(value));
   githubStyleLinesCache = { source: corpus, lines };
   return lines;
@@ -277,6 +277,11 @@ function analyzeFullDiscordStyleCorpus(lines) {
     ["contain casual shorthand", count(/\b(?:idk|idek|imo|tbh|ngl|rn|bc|fr|lmao|lol|bruh|omg|wtf|wym|ig|tho|ur|u|r)\b/i)],
     ["contain expressive punctuation", count(/[!?]{2,}|\.{3,}|[-—]{2,}/)],
     ["contain emoji or emoticon", count(/\p{Extended_Pictographic}|:3|:D|:P|T_T|;-;|:\)|:\(|>:3c/iu)],
+    ["end with a period", count(/\.$/)],
+    ["contain a question mark", count(/\?/)],
+    ["contain apology wording", count(/\b(?:sorry|sowwy|sowwie|my bad|i apologize|apologies)\b/i)],
+    ["contain cute internet spellings", count(/\b(?:sowwy|sowwie|pwease|hewwo|wittle|smol|eepy)\b/i)],
+    ["contain the sobbing emoji", count(/😭/u)],
   ];
   const commonTokens = new Map();
   const ignored = new Set(["the","and","that","this","with","from","have","your","you","for","was","are","but","not","just","like","what","when","then","they","them","there","here","would","could","should","about","into","have","has","had","its","it's","im","i'm","ive","i've","ill","i'll","dont","don't","didnt","didn't","cant","can't","youre","you're"]);
