@@ -298,7 +298,14 @@ export default function CoyChat({ initialImage }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'couldn’t reach coy just now. try again in a bit.');
       const answer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
-      setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-100));
+      // Blank lines from Coy represent separate chat bubbles. Single paragraphs
+      // remain one message, so longer explanations still render as one bubble.
+      const replyMessages = answer
+        .split(/\n\s*\n+/)
+        .map(content => content.trim().replace(/^(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/i, ''))
+        .filter(Boolean)
+        .map(content => ({ role: 'assistant', content }));
+      setMessages(previous => [...previous, ...replyMessages].slice(-100));
     } catch (err) {
       setError(err.name === 'AbortError'
         ? 'coy took too long to answer. try again in a bit.'
