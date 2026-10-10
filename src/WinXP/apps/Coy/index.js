@@ -3,6 +3,21 @@ import React, { useEffect, useRef, useState } from 'react';
 const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.onrender.com').replace(/\/$/, '');
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const ALLOWED_COY_EMOJIS = ["😭", "💀", "👀", "🖤", "💔", "🥀"];
+function removeUnwantedCoyEmojis(value) {
+  let text = String(value ?? "");
+  const protectedTokens = [];
+  ALLOWED_COY_EMOJIS.forEach((emoji, index) => {
+    const token = `__COY_ALLOWED_EMOJI_${index}__`;
+    text = text.split(emoji).join(token);
+    protectedTokens.push([token, emoji]);
+  });
+  // Strip other pictographic emoji, flags, and emoji modifiers; preserve the user's six.
+  text = text.replace(/(?:\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?(?:\u200D\p{Extended_Pictographic}(?:\uFE0F|\uFE0E)?)*)|(?:\p{Regional_Indicator}{2})|\p{Emoji_Modifier}/gu, "");
+  for (const [token, emoji] of protectedTokens) text = text.split(token).join(emoji);
+  return text;
+}
+
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
@@ -181,6 +196,7 @@ export default function CoyChat({ initialImage }) {
     setAttachments(value);
   };
   const [busy, setBusy] = useState(false);
+  const sendLockRef = useRef(false);
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -337,7 +353,10 @@ export default function CoyChat({ initialImage }) {
   async function send(event) {
     event.preventDefault();
     const message = draft.trim();
-    if ((!message && !attachmentsRef.current.length) || busy) return;
+    // React state updates after this handler returns; use a synchronous lock so
+    // Enter + click or rapid repeated events cannot launch duplicate requests.
+    if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) return;
+    sendLockRef.current = true;
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
     // Remove the pending chips as soon as send starts. If the request fails,
@@ -391,14 +410,19 @@ export default function CoyChat({ initialImage }) {
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'I’m tryna sleep dude.');
-      const answer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
-      // Blank lines from Coy represent separate chat bubbles. Single paragraphs
-      // remain one message, so longer explanations still render as one bubble.
-      const replyMessages = answer
+      const rawAnswer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
+      const answer = removeUnwantedCoyEmojis(rawAnswer);
+      // Only deliberate blank-line-separated messages become separate bubbles.
+      // Hard-cap each response at three bubbles to prevent accidental mass-sends;
+      // any extra paragraphs are combined into the third bubble.
+      const parts = answer
         .split(/\n\s*\n+/)
         .map(content => content.trim().replace(/^(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/i, ''))
-        .filter(Boolean)
-        .map(content => ({ role: 'assistant', content }));
+        .filter(Boolean);
+      const boundedParts = parts.length > 3
+        ? [...parts.slice(0, 2), parts.slice(2).join('\n\n')]
+        : parts;
+      const replyMessages = boundedParts.map(content => ({ role: 'assistant', content }));
       setMessages(previous => [...previous, ...replyMessages].slice(-100));
     } catch (err) {
       if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
@@ -409,6 +433,7 @@ export default function CoyChat({ initialImage }) {
           ? 'I’m tryna sleep dude.'
           : (err.message || 'I’m tryna sleep dude.')));
     } finally {
+      sendLockRef.current = false;
       setBusy(false);
     }
   }
