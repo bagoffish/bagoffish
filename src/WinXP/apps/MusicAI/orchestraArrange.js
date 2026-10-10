@@ -459,8 +459,10 @@ function inferSegmentRoot(pcs, notes, start, end, key) {
 }
 
 export function buildRobloxArrangement(rawNotes, duration) {
-  // Keep the transcription recognizable: use detected notes and timing, not
-  // guessed chord progressions, transposed melody notes, or a fixed drum loop.
+  // Accuracy-first conversion: never invent bass lines, chord progressions,
+  // arpeggios, or extra notes. The transcription is the arrangement. Style
+  // comes from the real Roblox-era SoundFont palette, not guessed music.
+  const limit = Math.min(300, Number(duration) > 0 ? Number(duration) : 300);
   const source = (rawNotes || []).filter(note =>
     Number.isFinite(note.startTimeSeconds) &&
     Number.isFinite(note.durationSeconds) &&
@@ -468,162 +470,49 @@ export function buildRobloxArrangement(rawNotes, duration) {
     note.durationSeconds >= 0.035 &&
     note.pitchMidi >= 0 && note.pitchMidi <= 127 &&
     note.startTimeSeconds >= 0 &&
-    note.startTimeSeconds < Math.min(300, Number(duration) || 300)
+    note.startTimeSeconds < limit
   );
   if (!source.length) return [];
-  const cleaned = cleanSource(source);
-  const notes = (cleaned.length ? cleaned : source).slice()
-    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
-  const end = Math.min(300, Number(duration) > 0 ? Number(duration) : notes.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0));
 
-  // Do not decide "lead" merely by which note started within 25 ms of another.
-  // Real performances and Basic Pitch often report chord tones a few frames
-  // apart; the old rule accidentally sent many melody notes to accompaniment.
-  // Follow one plausible melodic line across onset clusters, then route every
-  // remaining detected note by register so offset chord tones remain present.
-  const leadNotes = new Set(extractMelody(notes));
-  const out = [];
-  notes.forEach(note => {
-    const startTime = Math.max(0, note.startTimeSeconds);
-    if (startTime >= end) return;
-    const length = Math.max(0.045, Math.min(note.durationSeconds, end - startTime));
-    let role = 'strings';
-    let velocityScale = 0.56;
-    if (leadNotes.has(note)) {
-      role = 'vocals';
-      velocityScale = 1;
-    } else if (note.pitchMidi < 48) {
-      role = 'bass';
-      velocityScale = 0.78;
-    } else if (note.pitchMidi < 64) {
-      role = 'cello';
-      velocityScale = 0.68;
-    } else if (note.pitchMidi < 72) {
-      role = 'strings';
-      velocityScale = 0.62;
-    } else {
-      // Keep non-lead high notes quieter, rather than letting them compete
-      // with the melody at the same level.
-      role = 'strings';
-      velocityScale = 0.44;
-    }
-    // Basic Pitch confidence/amplitude values can be very small for real
-    // inner notes. Keep a modest audibility floor so those notes remain in the
-    // arrangement instead of seeming to vanish behind the generated layers.
-    const amplitudeFloor = leadNotes.has(note) ? 0.22 : 0.16;
-    const amplitude = Math.max(amplitudeFloor, Math.min(0.88, (Number(note.amplitude) || 0.62) * velocityScale));
-    pushNote(out, role, note.pitchMidi, startTime, length, amplitude);
-  });
-
-  // Add a restrained, chord-aware 2008–2012 game-music backing around the
-  // transcribed source. The uploaded melody remains intact; these are new
-  // accompaniment parts, not replacements or a guessed rewrite of the song.
-  const beat = gameBeat(notes);
-  const downbeat = findDownbeat(notes, beat);
-  const key = inferKey(notes);
-  const harmonyNotes = notes.filter(note => !leadNotes.has(note));
-  const harmony = buildHarmonySegments(
-    leadNotes.size ? Array.from(leadNotes) : notes,
-    harmonyNotes.length ? harmonyNotes : notes,
-    downbeat,
-    end,
-    beat,
-    key
+  const notes = cleanSource(source).sort((a, b) =>
+    a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
   );
-  const generated = [];
-  const addLayerNote = (role, pitch, start, length, velocity) => {
-    if (start < 0 || start >= end) return;
-    const safeLength = Math.min(length, end - start);
-    if (safeLength < 0.07) return;
-    pushNote(generated, role, pitch, start, safeLength, velocity);
-  };
+  const melody = new Set(extractMelody(notes));
+  const out = [];
 
-  harmony.forEach((segment, segmentIndex) => {
-    const span = segment.end - segment.start;
-    if (span <= beat * 0.4 || !segment.pcs.length) return;
-    const pcs = segment.pcs.slice(0, 3);
-    const rootPc = inferSegmentRoot(pcs, harmonyNotes.length ? harmonyNotes : notes, segment.start, segment.end, key);
-    const rootBass = nearestPitch(rootPc, 34, 47, 40);
-    const fifthBass = nearestPitch((rootPc + 7) % 12, 34, 47, rootBass == null ? 40 : rootBass);
-    const chord = [];
-    pcs.forEach((pc, index) => {
-      const pitch = nearestPitch(pc, 53, 72, 60 + index * 3);
-      if (pitch != null && !chord.includes(pitch)) chord.push(pitch);
+  notes.forEach((note, index) => {
+    const startTimeSeconds = note.startTimeSeconds;
+    const durationSeconds = Math.max(0.035, Math.min(note.durationSeconds, limit - startTimeSeconds));
+    // Keep the melody on the Strategy bank's violin preset. Supporting notes
+    // use presets from that same bank, avoiding a random mix of unrelated SF2s.
+    let role;
+    if (melody.has(note)) role = 'vocals';
+    else if (note.pitchMidi < 48) role = 'cello';
+    else if (note.pitchMidi < 64) role = 'keys';
+    else role = 'strings';
+
+    const rawAmplitude = Number(note.amplitude);
+    const amplitude = Number.isFinite(rawAmplitude)
+      ? Math.max(0.02, Math.min(0.95, rawAmplitude))
+      : 0.62;
+
+    out.push({
+      id: index + 1,
+      role,
+      bankId: 'strategy',
+      pitchMidi: Math.round(note.pitchMidi),
+      startTimeSeconds,
+      durationSeconds,
+      amplitude,
     });
-
-    // Old Roblox MIDI covers often have a very audible, simple bass pulse.
-    // Root/fifth movement anchors the harmony without overpowering the source.
-    const bar = beat * 4;
-    for (let t = segment.start, slot = 0; t < segment.end - beat * 0.25; t += beat, slot++) {
-      const pitch = slot % 4 === 2 && fifthBass != null ? fifthBass : rootBass;
-      if (pitch != null) addLayerNote('bass', pitch, t, beat * (slot % 2 === 0 ? 0.78 : 0.55), slot % 2 === 0 ? 0.18 : 0.13);
-    }
-
-    // Short chord stabs provide the bright, bouncy MIDI-cover texture.
-    [0, 2].forEach((beatOffset, stabIndex) => {
-      const t = segment.start + beat * beatOffset;
-      if (t >= segment.end || t >= end) return;
-      chord.forEach((pitch, voice) => {
-        addLayerNote('keys', pitch, t, Math.min(beat * 0.68, segment.end - t), 0.095 + (voice === 0 ? 0.015 : 0));
-      });
-      // A quiet off-beat guitar/pizzicato accent adds motion without a drum loop.
-      const offbeat = t + beat * 0.5;
-      if (offbeat < segment.end) {
-        const accent = chord[(stabIndex + 1) % Math.max(1, chord.length)];
-        if (accent != null) addLayerNote('guitar', accent + 12, offbeat, beat * 0.28, 0.075);
-      }
-    });
-
-    // A light eighth-note arpeggio gives the arrangement the layered,
-    // playful sound of old game MIDI covers. Rotate notes so it doesn't loop
-    // the same pitch mechanically on every bar.
-    const arpPitches = chord.length >= 2 ? chord : [nearestPitch(rootPc, 55, 72, 60)];
-    let stepIndex = 0;
-    for (let t = segment.start + beat * 0.5; t < segment.end - beat * 0.18; t += beat * 0.5) {
-      // Alternate the arpeggio direction between phrases and leave a tiny
-      // breath before some phrase turns, instead of repeating a rigid loop.
-      const phraseTurnRest = segmentIndex % 3 === 2 && stepIndex % 8 === 7;
-      if (!phraseTurnRest) {
-        const forward = segmentIndex % 2 === 0;
-        const offset = stepIndex % arpPitches.length;
-        const chordIndex = forward
-          ? offset
-          : (arpPitches.length - 1 - offset + arpPitches.length) % arpPitches.length;
-        const base = arpPitches[chordIndex];
-        if (base != null) {
-          const octaveLift = stepIndex % 4 === 3 || (segmentIndex % 2 === 1 && stepIndex % 8 === 4);
-          const pitch = clampMidi(base + (octaveLift ? 12 : 0));
-          const accent = stepIndex % 4 === 0 ? 0.025 : 0;
-          addLayerNote('arp', pitch, t, beat * 0.24, (stepIndex % 2 === 0 ? 0.055 : 0.045) + accent * 0.5);
-        }
-      }
-      stepIndex++;
-    }
-
-    // Sustained, low-volume chord bed only on longer sections; this fills the
-    // gaps between stabs instead of turning every beat into a wall of sound.
-    if (span >= bar * 0.8 && chord.length >= 2) {
-      chord.slice(0, 3).forEach(pitch => {
-        addLayerNote('pad', pitch - 12, segment.start, Math.min(span, end - segment.start), 0.04);
-      });
-    }
   });
-  generated.forEach(note => out.push(note));
 
-  // Remove only near-identical duplicate events in the same part. Never merge
-  // distinct pitches: octave doubles and quick repeated notes can be musical.
-  const result = [];
-  const lastByPitchRole = new Map();
-  out.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).forEach(note => {
-    const key = note.role + ':' + note.pitchMidi;
-    const previous = lastByPitchRole.get(key);
-    if (previous &&
-        Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.018 &&
-        Math.abs(previous.durationSeconds - note.durationSeconds) < 0.045) return;
-    result.push(note);
-    lastByPitchRole.set(key, note);
-  });
-  return result;
+  // Sorting only affects scheduling order; pitch, onset, duration, and every
+  // distinct detected event are retained. There is deliberately no generated
+  // accompaniment and no tempo-grid quantization.
+  return out.sort((a, b) =>
+    a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
+  );
 }
 
 export function orchestraProgramsFor(notes) {
