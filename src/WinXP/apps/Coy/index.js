@@ -101,7 +101,7 @@ export default function CoyChat({ initialImage }) {
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
           <div style={styles.title}>Coy</div>
-          <div style={styles.subtitle}>heyy. talk to me :3<br />한국어와 English 둘 다 괜찮아.</div>
+          
         </div>
       </div>
       <div style={styles.messages} aria-live="polite">
