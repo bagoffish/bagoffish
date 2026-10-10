@@ -263,13 +263,70 @@ function stampSoundfontMix(notes, palette, soundfontRoles) {
   return notes.map(note => {
     let bankId = soundfontRoles && soundfontRoles[note.role];
     if (!bankId && palette && palette[0]) bankId = palette[0].id;
-    // GeneralUser's standard kit is program 0 on channel 9. A new Roblox
-    // song stays on stealth-drums so an old drum font cannot claim it.
     if (note.role === 'drums') bankId = resolveBankId(bankId) || 'stealth';
     if (note.role === 'bass' && soundfontRoles && soundfontRoles.bass) bankId = soundfontRoles.bass;
     if (note.role === 'vocals' && soundfontRoles && soundfontRoles.vocals) bankId = soundfontRoles.vocals;
     return bankId ? { ...note, bankId } : note;
   });
+}
+
+// Auto uses the song analysis palette. Manual prioritizes the chosen SoundFont
+// for every role it actually contains, then uses the classic role fallback.
+// Hybrid prioritizes the chosen bank but lets the song-aware AI pick compatible
+// supporting banks for roles the chosen bank does not contain. No notes change.
+function buildSoundfontChoice(notes, basePlan, mode, selectedId) {
+  const sourcePlan = basePlan && typeof basePlan === 'object' ? basePlan : {};
+  const aiRoles = { ...assignRoleBanks(), ...(sourcePlan.aiSoundfontRoles || sourcePlan.soundfontRoles || {}) };
+  const selected = SOUND_FONT_BY_ID[selectedId] || SOUND_FONT_BY_ID['fjords-hq'] || SOUNDFONT_LIBRARY[0];
+  const usedRoles = [...new Set((notes || []).map(note => note && note.role).filter(Boolean))];
+  const soundfontRoles = {};
+  usedRoles.forEach(roleId => {
+    const selectedSupportsRole = selected && selected.presets && selected.presets[roleId] != null;
+    let candidate = mode !== 'auto' && selectedSupportsRole
+      ? selected.id
+      : mode === 'manual' ? CLASSIC_ROLE_BANKS[roleId] : aiRoles[roleId];
+    candidate = resolveBankId(candidate);
+    const bank = SOUND_FONT_BY_ID[candidate];
+    if (!bank || !bank.presets || bank.presets[roleId] == null) {
+      const compatible = SOUNDFONT_LIBRARY.find(font => font.presets && font.presets[roleId] != null);
+      candidate = compatible ? compatible.id : '';
+    }
+    if (candidate && SOUND_FONT_BY_ID[candidate]) soundfontRoles[roleId] = candidate;
+  });
+  const stampedNotes = (notes || []).map(note => soundfontRoles[note.role]
+    ? { ...note, bankId: soundfontRoles[note.role] }
+    : { ...note, bankId: undefined });
+  const palette = [];
+  usedRoles.forEach(roleId => {
+    const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
+    if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
+  });
+  const programs = programsForPlan(stampedNotes, {
+    ...sourcePlan,
+    programs: mode === 'auto' ? sourcePlan.programs : null,
+  }, soundfontRoles);
+  return {
+    notes: stampedNotes,
+    plan: {
+      ...sourcePlan,
+      label: 'Bloxify Arrangement',
+      fixedStyle: true,
+      preBakedSoundFontCatalog: true,
+      soundfonts: SOUNDFONT_LIBRARY,
+      soundfontMode: mode,
+      aiSoundfontRoles: aiRoles,
+      selectedSoundfontId: selected.id,
+      soundfontId: selected.id,
+      soundfontPalette: palette,
+      soundfontRoles,
+      programs,
+      sampleAssets: [
+        ...MULE_AUDIO_SAMPLE_ASSETS,
+        ...(Array.isArray(sourcePlan.sampleAssets) ? sourcePlan.sampleAssets : []),
+      ].filter((asset, index, list) => asset && asset.url && list.findIndex(other => other && other.url === asset.url) === index),
+      drums: getRoleBank('drums', { soundfontRoles }),
+    },
+  };
 }
 const CLASSIC_PROGRAMS = { drums: 0, bass: 38, guitar: 80, vocals: 80, keys: 80, pad: 89, strings: 81, arp: 81 };
 const ORCHESTRA_PROGRAMS = {
@@ -1126,6 +1183,8 @@ function MusicAI() {
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(1);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null);
+  const [soundfontMode, setSoundfontMode] = useState('auto');
+  const [selectedSoundfontId, setSelectedSoundfontId] = useState('fjords-hq');
   const [wavTextureEnabled, setWavTextureEnabled] = useState(false);
   const savePlayerLocal = name => { try { window.localStorage.setItem(PLAYER_KEY, name); } catch (e) {} };
   const loadPlayer = useCallback(async name => {
@@ -1284,33 +1343,12 @@ function MusicAI() {
       if (!fitted.length) throw new Error('No notes detected — try a clearer song.');
       fitted = glueArrangement(fitted);
       setStatus('Loading lead, bass, drums, and instrument banks.'); await yieldToBrowser();
-      const soundfontRoles = { ...assignRoleBanks(), ...((aiPlan && aiPlan.soundfontRoles) || {}) };
-      const usedRoles = new Set(fitted.map(note => note.role));
-      const palette = [];
-      usedRoles.forEach(roleId => {
-        const bank = SOUND_FONT_BY_ID[soundfontRoles[roleId]];
-        if (bank && !palette.some(font => font.id === bank.id)) palette.push(bank);
-      });
-      fitted = stampSoundfontMix(fitted, palette, soundfontRoles);
-      fitted = fitted.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
+      const choice = buildSoundfontChoice(fitted, aiPlan || {}, soundfontMode, selectedSoundfontId);
+      fitted = choice.notes.sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi).map((n, i) => ({ ...n, id: i + 1 }));
       const instrumentCount = new Set(fitted.map(note => note.role)).size;
-      const programs = (aiPlan && aiPlan.programs) || programsForPlan(fitted, aiPlan, soundfontRoles);
       const plan = {
-        ...(aiPlan || {}),
-        label: 'Bloxify Arrangement',
-        reason: (aiPlan && aiPlan.reason) || 'Bloxify selects Roblox SoundFonts and WAV samples per song, then builds a layered arrangement around the detected melody.',
-        fixedStyle: true,
-        preBakedSoundFontCatalog: true,
-        soundfonts: SOUNDFONT_LIBRARY,
-        soundfontId: FIXED_SOUNDFONT_ID,
-        soundfontPalette: palette,
-        soundfontRoles,
-        programs,
-        sampleAssets: [
-          ...MULE_AUDIO_SAMPLE_ASSETS,
-          ...((aiPlan && Array.isArray(aiPlan.sampleAssets)) ? aiPlan.sampleAssets : []),
-        ].filter((asset, index, list) => asset && asset.url && list.findIndex(other => other && other.url === asset.url) === index),
-        drums: SOUND_FONT_ROLE_BANKS.drums,
+        ...choice.plan,
+        reason: (aiPlan && aiPlan.reason) || 'Bloxify selects Roblox SoundFonts per song while preserving detected notes.',
       };
       planRef.current = plan; setActivePlan(plan);
       setArrangement(fitted); setSelectedNoteId(fitted[0] ? fitted[0].id : null);
@@ -1373,6 +1411,17 @@ function MusicAI() {
   };
 
   const selectedNote = arrangement.find(n => n.id === selectedNoteId) || arrangement[0] || null;
+  const applySoundfontSettings = () => {
+    if (!arrangement.length) return;
+    const choice = buildSoundfontChoice(arrangement, activePlan || planRef.current || {}, soundfontMode, selectedSoundfontId);
+    const nextNotes = choice.notes.map((note, index) => ({ ...note, id: note.id || index + 1 }));
+    planRef.current = choice.plan;
+    setActivePlan(choice.plan);
+    setArrangement(nextNotes);
+    setMidiBlob(makeMidi(nextNotes, choice.plan.programs, choice.plan.soundfontRoles, projectName));
+    setWavBlob(null);
+    setStatus('SoundFont updated · ' + (choice.plan.soundfontPalette || []).map(font => font.name).join(' + '));
+  };
   const editSelected = changes => {
     if (!selectedNote) return;
     const next = { ...changes };
@@ -1730,6 +1779,9 @@ function MusicAI() {
         <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, midiDownloadName(projectName))}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => { if (arrangement.some(n => n.role === roleId)) downloadStem(roleId); })}>Save Stems</button>
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Choose AI selection or prioritize a specific Roblox-era SoundFont.">SF <select aria-label="SoundFont mode" value={soundfontMode} onChange={e => setSoundfontMode(e.target.value)} style={{ ...topSelect, width: 82 }}><option value="auto">AI Auto</option><option value="manual">Manual</option><option value="hybrid">Hybrid</option></select></label>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Manual and Hybrid prioritize this bank for roles it contains."><select aria-label="Primary SoundFont" value={selectedSoundfontId} onChange={e => setSelectedSoundfontId(e.target.value)} disabled={soundfontMode === 'auto'} style={{ ...topSelect, maxWidth: 170 }}>{SOUNDFONT_LIBRARY.map(font => <option key={font.id} value={font.id}>{font.name}</option>)}</select></label>
+        <button type="button" style={topBtnGray} disabled={!arrangement.length || working} onClick={applySoundfontSettings}>Apply SF</button>
         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Optional C64 WAV layer. Off by default for maximum transcription fidelity."><input type="checkbox" checked={wavTextureEnabled} onChange={e => setWavTextureEnabled(e.target.checked)} /> C64 WAV layer</label>
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
