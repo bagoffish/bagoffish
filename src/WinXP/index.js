@@ -233,6 +233,24 @@ function WinXP() {
     return () => window.removeEventListener('coy:open-app', onCoyOpenApp);
   }, []);
 
+  // Open Coy's conversation inside the same XP window manager used by every app.
+  useEffect(() => {
+    const onCoyOpenChat = event => {
+      const setting = appSettings.Coy;
+      if (!setting) return;
+      const image = event.detail && event.detail.image;
+      dispatch({
+        type: ADD_APP,
+        payload: {
+          ...setting,
+          injectProps: image ? { initialImage: image } : undefined,
+        },
+      });
+    };
+    window.addEventListener('coy:open-chat', onCoyOpenChat);
+    return () => window.removeEventListener('coy:open-chat', onCoyOpenChat);
+  }, []);
+
   // Publish desktop activity so Coy can react to the apps the visitor actually opens.
   useEffect(() => {
     const openApps = state.apps.filter(app => !app.minimized).map(app => app.header && app.header.title).filter(Boolean);

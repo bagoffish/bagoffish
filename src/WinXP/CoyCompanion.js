@@ -121,10 +121,12 @@ export default function CoyCompanion() {
     return () => window.clearTimeout(timeout);
   }, [mischief, chatOpen]);
 
-  function openChat() {
-    setChatOpen(true);
+  function openChat(image = null) {
     setShowBubble(false);
     setShowMenu(false);
+    window.dispatchEvent(new CustomEvent("coy:open-chat", {
+      detail: image ? { image } : {}
+    }));
   }
 
   async function send(event) {
@@ -169,16 +171,11 @@ export default function CoyCompanion() {
 
   function yoinkImage() {
     if (!foundImage?.src) return;
-    setHistory(previous => [...previous, {
-      role: "assistant",
-      content: "yoink. look what i found:",
-      image: foundImage.src
-    }].slice(-16));
+    const image = foundImage;
     setLine("yoink. look what i found:");
-    setChatOpen(true);
-    setShowBubble(false);
     setFoundImage(null);
     setHoldingImage(false);
+    openChat(image);
   }
 
   const styles = {
