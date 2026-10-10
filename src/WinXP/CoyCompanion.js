@@ -224,9 +224,9 @@ export default function CoyCompanion() {
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "relative", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 5, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
-    bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "9px 12px", border: "2px solid #222", borderRadius: 16, background: "#fff", color: "#111", boxShadow: "1px 2px 0 rgba(0,0,0,.16)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 14, fontWeight: 400, lineHeight: 1.3, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", right: "calc(clamp(120px, 14vw, 170px) / 2 - 3px)", bottom: -13, display: "flex", flexDirection: "column", alignItems: "center", gap: 1, transform: "rotate(-18deg)", pointerEvents: "none" },
-    tailDot: { display: "block", borderRadius: "50%", background: "#fff", border: "1.5px solid #222" },
+    bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "8px 12px", border: "1px solid #666", borderRadius: 7, background: "#fff", color: "#333", boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
+    tail: { position: "absolute", right: "calc(clamp(120px, 14vw, 170px) / 2 - 8px)", bottom: -10, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "10px solid #666", pointerEvents: "none" },
+    tailInner: { position: "absolute", left: -6, top: -10, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "8px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
     button: { border: "1px solid #777", borderRadius: 2, background: "#eee", color: "#111", padding: "5px 9px", fontSize: 12, cursor: "pointer" },
@@ -240,7 +240,7 @@ export default function CoyCompanion() {
   return <div style={styles.root} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
       <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{line}</button>
-      <span aria-hidden="true" style={styles.tail}><i style={{ ...styles.tailDot, width: 7, height: 7 }} /><i style={{ ...styles.tailDot, width: 5, height: 5 }} /><i style={{ ...styles.tailDot, width: 3, height: 3 }} /></span>
+      <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
       <div style={styles.titlebar}><span>Coy</span><button type="button" aria-label="Close Coy chat" title="Close" onClick={() => setChatOpen(false)} style={{ border: "1px solid #fff", borderRadius: 0, width: 22, height: 21, padding: 0, background: "linear-gradient(135deg,#f7d5d5,#c90000)", color: "#fff", fontWeight: "bold", lineHeight: "17px", cursor: "pointer" }}>×</button></div>
