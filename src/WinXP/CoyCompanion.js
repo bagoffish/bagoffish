@@ -552,7 +552,7 @@ export default function CoyCompanion() {
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "absolute", left: bubblePlacement.left, bottom: "calc(100% - 70px)", pointerEvents: "auto", width: "max-content", maxWidth: "min(92vw, 280px)", minWidth: 110, marginBottom: 0, transform: bubblePlacement.transform, transformOrigin: "center center", animation: "coyBubbleIn 160ms ease-out", cursor: "default", filter: "drop-shadow(2px 2px 0 rgba(0,0,0,.6))" },
-    bubbleFrame: { position: "relative", background: "#0a0a0a", border: "1px solid #00ff41", borderRadius: 6, fontFamily: "Consolas, 'Courier New', monospace", padding: 0 },
+    bubbleFrame: { position: "relative", background: "#0a0a0a", border: "1px solid #00ff41", borderRadius: 0, fontFamily: "Consolas, 'Courier New', monospace", padding: 0 },
     bubbleTitle: { display: "none" },
     bubbleTitleText: { display: "none" },
     bubbleClose: { position: "absolute", top: 2, right: 4, width: 12, height: 12, border: 0, background: "transparent", color: "#00aa00", fontSize: 10, lineHeight: "12px", textAlign: "center", cursor: "pointer", padding: 0, zIndex: 2 },
