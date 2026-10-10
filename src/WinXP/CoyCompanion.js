@@ -88,11 +88,29 @@ export default function CoyCompanion() {
     };
     const onCloseChat = () => setChatOpen(false);
     window.addEventListener("coy:close-chat", onCloseChat);
+
+    // Use both the app-state event and the rendered window DOM. The DOM check
+    // is a fallback for app windows opened by another launcher/tab that doesn't
+    // publish coy:activity, and MutationObserver keeps it in sync on mobile.
+    const isMobileViewport = () => window.matchMedia("(max-width: 700px)").matches;
+    const hasVisibleAppWindow = () => {
+      try {
+        return Array.from(document.querySelectorAll("[data-app-title]")).some(node => {
+          if (!node.getClientRects().length) return false;
+          const style = window.getComputedStyle(node);
+          return style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+        });
+      } catch (_) { return false; }
+    };
+    const syncMobileAppVisibility = () => {
+      const anyAppOpen = openAppsRef.current.length > 0 || hasVisibleAppWindow();
+      setHideForMobileApp(isMobileViewport() && anyAppOpen);
+    };
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-state") {
         openAppsRef.current = Array.isArray(detail.openApps) ? detail.openApps : [];
-        setHideForMobileApp(window.innerWidth <= 700 && openAppsRef.current.length > 0);
+        syncMobileAppVisibility();
         return;
       }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
@@ -127,8 +145,11 @@ export default function CoyCompanion() {
     window.addEventListener("coy:activity", onActivity);
     // Keep the companion state correct if the viewport rotates/resizes, and
     // catch the initial app-state event even if it fired before this listener.
-    const onResize = () => setHideForMobileApp(window.innerWidth <= 700 && openAppsRef.current.length > 0);
+    const onResize = syncMobileAppVisibility;
     window.addEventListener("resize", onResize);
+    const appWindowObserver = new MutationObserver(syncMobileAppVisibility);
+    appWindowObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "data-app-title"] });
+    syncMobileAppVisibility();
     window.dispatchEvent(new CustomEvent("coy:request-app-state"));
 
     // Coy can notice images rendered inside this website, especially the avatar renderer.
@@ -170,6 +191,7 @@ export default function CoyCompanion() {
       window.removeEventListener("coy:activity", onActivity);
       window.removeEventListener("resize", onResize);
       window.removeEventListener("coy:close-chat", onCloseChat);
+      appWindowObserver.disconnect();
       document.removeEventListener("load", scanImages, true);
       observer.disconnect();
     };
