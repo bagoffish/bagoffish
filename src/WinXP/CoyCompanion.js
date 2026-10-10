@@ -68,7 +68,7 @@ export default function CoyCompanion() {
   const [position, setPosition] = useState(() => ({
     // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
     left: Math.max(8, window.innerWidth - Math.min(Math.max(120, window.innerWidth * 0.14), 170) - 8),
-    top: Math.max(8, window.innerHeight - 40 - 170 - 8)
+    top: Math.max(8, window.innerHeight - 48 - 170 - 8)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
@@ -77,12 +77,10 @@ export default function CoyCompanion() {
   // desktop icons/windows. The draggable coordinate system is the visible Coy
   // sprite itself, not a 410px-wide invisible wrapper.
   useEffect(() => {
-    const getTaskbarTop = () => {
-      const bar = document.querySelector('[data-taskbar], #taskbar, .taskbar, [class*="taskbar"]');
-      if (!bar) return window.innerHeight - 40;
-      const rect = bar.getBoundingClientRect();
-      return rect.height > 0 && rect.top < window.innerHeight ? rect.top : window.innerHeight - 40;
-    };
+    // Reserve a conservative 48px bottom strip for the XP taskbar. Looking
+    // up generic ".taskbar" selectors can accidentally match nested controls,
+    // so use the known bottom dock area instead of a potentially wrong element.
+    const getTaskbarTop = () => window.innerHeight - 48;
     const clampToDesktop = (initial = false) => {
       const node = rootRef.current;
       if (!node) return;
@@ -92,7 +90,7 @@ export default function CoyCompanion() {
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
         const top = initial
-          ? Math.max(8, Math.min(maxTop, getTaskbarTop() - rect.height))
+          ? Math.max(8, Math.min(maxTop, getTaskbarTop() - rect.height - 4))
           : Math.min(maxTop, Math.max(8, previous.top));
         return left === previous.left && top === previous.top ? previous : { left, top };
       });
@@ -286,11 +284,9 @@ export default function CoyCompanion() {
     // Keep the wrapper's starting dimensions for the entire gesture. Measuring
     // it again mid-drag made the character jump when its speech bubble changed.
     const maxRight = Math.max(8, window.innerWidth - state.width - 8);
-    const bar = document.querySelector('[data-taskbar], #taskbar, .taskbar, [class*="taskbar"]');
-    const barRect = bar?.getBoundingClientRect();
-    const taskbarTop = barRect && barRect.height > 0 && barRect.top < window.innerHeight
-      ? barRect.top
-      : window.innerHeight - 40;
+    // Always leave a visible gap above the taskbar, even if the taskbar's
+    // DOM selector differs between desktop and mobile layouts.
+    const taskbarTop = window.innerHeight - 48;
     const maxBottom = Math.max(8, taskbarTop - state.height - 4);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
@@ -378,7 +374,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: "clamp(120px, 14vw, 170px)", maxWidth: "170px", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: "clamp(120px, 14vw, 170px)", maxWidth: "170px", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
