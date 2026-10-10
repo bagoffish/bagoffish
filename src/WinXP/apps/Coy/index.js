@@ -237,6 +237,7 @@ export default function CoyChat({ initialImage }) {
     }
 
     const textExtensions = new Set(['txt','md','markdown','csv','tsv','json','jsonl','xml','html','htm','css','js','jsx','ts','tsx','mjs','cjs','py','java','c','h','cpp','hpp','cs','go','rs','php','rb','sql','log','yaml','yml','toml','ini','conf','sh','bash','bat','ps1','diff','patch','env','gitignore']);
+    const documentExtensions = new Set(['pdf','docx']);
     const normalized = freshPicked.map(file => {
       const extension = (file.name.split('.').pop() || '').toLowerCase();
       let type = (file.type || '').toLowerCase();
@@ -246,6 +247,7 @@ export default function CoyChat({ initialImage }) {
       const isText = textExtensions.has(extension) || type.startsWith('text/') ||
         ['application/json','application/xml','application/javascript','application/x-yaml'].includes(type);
       if (isText) return { file, type: type || 'text/plain', kind: 'text' };
+      if (documentExtensions.has(extension)) return { file, type: extension === 'pdf' ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', kind: 'document' };
       const inferred = ({
         png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif',
         heic:'image/heic', heif:'image/heif', bmp:'image/bmp', tif:'image/tiff', tiff:'image/tiff',
@@ -267,7 +269,7 @@ export default function CoyChat({ initialImage }) {
     });
 
     if (normalized.some(item => item.kind === 'unsupported')) {
-      setError('That file type isn’t supported yet. Try an image, audio file, or a text/code/document file.');
+      setError('That file type isn’t supported yet. Try an image, audio file, PDF, DOCX, or text/code file.');
       return;
     }
     if (combined.some(file => file.size > 8 * 1024 * 1024) || combined.reduce((sum, file) => sum + file.size, 0) > 10 * 1024 * 1024) {
@@ -417,7 +419,7 @@ export default function CoyChat({ initialImage }) {
       // any extra paragraphs are combined into the third bubble.
       const parts = answer
         .split(/\n\s*\n+/)
-        .map(content => content.trim().replace(/^(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/i, ''))
+        .map(content => content.trim().replace(/^(?:(?:Coy|Cotto|Assistant|AI|You|User)\s*:\s*)+/i, '').replace(/(^|\n)\s*(?:(?:Coy|Cotto|Assistant|AI|You|User)\s*:\s*)+/gi, '$1'))
         .filter(Boolean);
       const boundedParts = parts.length > 3
         ? [...parts.slice(0, 2), parts.slice(2).join('\n\n')]
@@ -476,7 +478,7 @@ export default function CoyChat({ initialImage }) {
         </div>)}
       </div>}
       <form style={styles.form} onSubmit={send}>
-        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.log,.yaml,.yml,.toml,.ini,.conf,.sh,.bash,.bat,.ps1,.diff,.patch,.env,.gitignore" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
+        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus,.pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.log,.yaml,.yml,.toml,.ini,.conf,.sh,.bash,.bat,.ps1,.diff,.patch,.env,.gitignore" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
         <button type="button" style={{ ...styles.button, ...styles.attachButton }} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach a file" title="Attach images, audio, text, or code">+</button>
         <textarea
           ref={inputRef}
