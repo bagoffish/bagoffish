@@ -4,6 +4,59 @@ const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
+
+function safeWebUrl(value) {
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" || url.protocol === "http:" ? url : null;
+  } catch (_) { return null; }
+}
+function youtubeEmbedUrl(value) {
+  const url = safeWebUrl(value);
+  if (!url) return null;
+  let id = "";
+  if (url.hostname === "youtu.be" || url.hostname.endsWith(".youtu.be")) id = url.pathname.split("/").filter(Boolean)[0] || "";
+  else if (url.hostname === "youtube.com" || url.hostname.endsWith(".youtube.com") || url.hostname === "youtube-nocookie.com" || url.hostname.endsWith(".youtube-nocookie.com")) {
+    id = url.searchParams.get("v") || (url.pathname.match(/\/(?:embed|shorts|live)\/([^/?]+)/) || [])[1] || "";
+  }
+  return /^[\w-]{11}$/.test(id) ? "https://www.youtube-nocookie.com/embed/" + id : null;
+}
+function renderCoyContent(value) {
+  const pattern = /(!\[[^\]]*\]\(https?:\/\/[^\s)]+\)|\[[^\]]+\]\(https?:\/\/[^\s)]+\)|https?:\/\/[^\s<>"']+)/g;
+  const pieces = String(value ?? "").split(pattern);
+  return pieces.map((piece, index) => {
+    if (!piece) return null;
+    const markdownImage = piece.match(/^!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)$/);
+    const markdownLink = piece.match(/^\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)$/);
+    let rawUrl = markdownImage?.[2] || markdownLink?.[2] || (piece.startsWith("http") ? piece : "");
+    let trailing = "";
+    if (rawUrl && !markdownImage && !markdownLink) {
+      while (/[.,!?;:]$/.test(rawUrl)) { trailing = rawUrl.slice(-1) + trailing; rawUrl = rawUrl.slice(0, -1); }
+    }
+    const url = rawUrl ? safeWebUrl(rawUrl) : null;
+    if (!url) return <React.Fragment key={index}>{piece}</React.Fragment>;
+    const href = url.href;
+    const embed = youtubeEmbedUrl(href);
+    const isImage = Boolean(markdownImage) || /\.(?:png|jpe?g|gif|webp|avif|svg)(?:$|[?#])/i.test(url.pathname + url.search + url.hash);
+    if (isImage) {
+      return <span key={index} style={{ display: "block", maxWidth: "100%", marginTop: 6, marginBottom: 4 }}>
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", maxWidth: "100%" }} aria-label={"Open image " + (markdownImage?.[1] || href)}>
+          <img src={href} alt={markdownImage?.[1] || "Image shared by Coy"} loading="lazy" style={{ display: "block", maxWidth: "100%", maxHeight: 320, height: "auto", objectFit: "contain", border: "1px solid #ccc" }} />
+        </a>
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: "block", overflowWrap: "anywhere", color: "#0645ad", fontSize: "0.92em" }}>Open image ↗</a>
+      </span>;
+    }
+    if (embed) {
+      return <span key={index} style={{ display: "block", width: "min(100%, 420px)", marginTop: 7, marginBottom: 5 }}>
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", overflowWrap: "anywhere" }}>{markdownLink?.[1] || href} ↗</a>
+        <span style={{ display: "block", position: "relative", width: "100%", aspectRatio: "16 / 9", marginTop: 5, background: "#111" }}>
+          <iframe title="YouTube video" src={embed} loading="lazy" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerPolicy="strict-origin-when-cross-origin" allowFullScreen style={{ position: "absolute", inset: 0, width: "100%", height: "100%", border: 0 }} />
+        </span>
+      </span>;
+    }
+    return <React.Fragment key={index}><a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", textDecoration: "underline", overflowWrap: "anywhere" }}>{markdownLink?.[1] || href}</a>{trailing}</React.Fragment>;
+  });
+}
   ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
 // Cookie-backed chat log. Keep it compact because browsers limit each cookie to ~4 KB.
@@ -127,7 +180,7 @@ export default function CoyChat({ initialImage }) {
         {!messages.length && <div style={{ ...styles.bubble, ...styles.coy }}><strong>Coy:</strong> {greeting}</div>}
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyEmoji(item.content)}
+            <strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
           </div>
         ))}
