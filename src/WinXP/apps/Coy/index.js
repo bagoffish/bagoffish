@@ -243,10 +243,7 @@ export default function CoyChat({ initialImage }) {
 
   useEffect(() => {
     inputRef.current?.focus();
-    const wakeTimer = window.setTimeout(() => startWakeRecognition(), 900);
     return () => {
-      window.clearTimeout(wakeTimer);
-      voiceCallActiveRef.current = false;
       try { recognitionRef.current?.stop(); } catch (_) {}
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
     };
@@ -662,7 +659,6 @@ export default function CoyChat({ initialImage }) {
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
           <div style={styles.title}>Coy</div>
-          <div role="status" style={{ fontSize: 10, color: voiceCallActive ? '#075b20' : '#444', marginTop: 2 }}>{voiceStatus || (voiceCallActive ? 'Voice call active' : 'Say “call with me” to start')}</div>
         </div>
       </div>
       <div style={styles.messages} aria-live="polite">
