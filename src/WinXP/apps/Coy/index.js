@@ -3,6 +3,8 @@ import React, { useEffect, useRef, useState } from 'react';
 const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.onrender.com').replace(/\/$/, '');
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+// Keep chat while the in-site app is closed, but start fresh on a full page load.
+let coyChatSessionInitialized = false;
 
 const styles = {
   root: { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#ece9d8', color: '#111', font: '12px Tahoma, Arial, sans-serif' },
@@ -24,7 +26,13 @@ export default function CoyChat({ initialImage }) {
   const STORAGE_KEY = 'bagof-fish-coy-app-chat-v1';
   const [messages, setMessages] = useState(() => {
     try {
-      const saved = window.localStorage.getItem(STORAGE_KEY);
+      // A module-level flag survives closing/reopening this app component, but resets
+      // on a full website reload. Clear old session data before restoring this page's chat.
+      if (!coyChatSessionInitialized) {
+        window.sessionStorage.removeItem(STORAGE_KEY);
+        coyChatSessionInitialized = true;
+      }
+      const saved = window.sessionStorage.getItem(STORAGE_KEY);
       const parsed = saved ? JSON.parse(saved) : null;
       if (Array.isArray(parsed)) return parsed.slice(-100);
     } catch (e) {}
@@ -49,9 +57,19 @@ export default function CoyChat({ initialImage }) {
 
   useEffect(() => {
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
+      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-100)));
     } catch (e) {}
   }, [messages]);
+
+  useEffect(() => {
+    // Leaving/reloading the actual website clears temporary chat history. Closing only
+    // the Coy app component does not trigger pagehide, so its history can be restored.
+    const clearChatWhenLeavingSite = () => {
+      try { window.sessionStorage.removeItem(STORAGE_KEY); } catch (e) {}
+    };
+    window.addEventListener('pagehide', clearChatWhenLeavingSite);
+    return () => window.removeEventListener('pagehide', clearChatWhenLeavingSite);
+  }, []);
 
   async function send(event) {
     event.preventDefault();
@@ -133,7 +151,7 @@ export default function CoyChat({ initialImage }) {
         />
         <button type="submit" style={styles.button} disabled={busy || !draft.trim()}>{busy ? '…' : 'Send'}</button>
       </form>
-      <div style={styles.status}>Chat history is saved on this device and stays when you close this window or browser tab.</div>
+      <div style={styles.status}>Chat stays if you close and reopen Coy. It clears when you reload or leave the website.</div>
     </div>
   );
 }
