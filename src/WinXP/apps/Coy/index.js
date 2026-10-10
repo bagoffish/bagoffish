@@ -78,12 +78,14 @@ function renderCoyInline(value) {
 // Discord-style headings: a leading # plus a space enlarges that line.
 // Keep normal text and existing link/image rendering unchanged.
 function renderCoyContent(value) {
-  return String(value ?? '').split('\\n').map((line, index) => {
-    const heading = line.match(/^(#{1,3})\\s+(.+)$/);
-    if (!heading) return <React.Fragment key={index}>{renderCoyInline(line)}{index < String(value ?? '').split('\\n').length - 1 ? '\\n' : ''}</React.Fragment>;
+  const lines = String(value ?? '').split('\n');
+  return lines.map((line, index) => {
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    const newline = index < lines.length - 1 ? '\n' : '';
+    if (!heading) return <React.Fragment key={index}>{renderCoyInline(line)}{newline}</React.Fragment>;
     const level = heading[1].length;
     const fontSize = level === 1 ? '1.35em' : level === 2 ? '1.2em' : '1.08em';
-    return <React.Fragment key={index}><span style={{ fontSize, fontWeight: 'bold' }}>{renderCoyInline(heading[2])}</span>{index < String(value ?? '').split('\\n').length - 1 ? '\\n' : ''}</React.Fragment>;
+    return <React.Fragment key={index}><span style={{ fontSize, fontWeight: 'bold' }}>{renderCoyInline(heading[2])}</span>{newline}</React.Fragment>;
   });
 }
 
