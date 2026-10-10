@@ -18,7 +18,7 @@ const styles = {
 
 export default function PersonalAI() {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "hey! this is an AI version of me, built from my own writing and memories. it might not know everything, but you can ask me stuff." },
+    { role: "assistant", content: "안녕! hey! 이건 내 글과 기억을 바탕으로 만든 AI 버전이야. it might not know everything, but you can ask me stuff. 한국어와 English로 대화할 수 있어!" },
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -55,7 +55,7 @@ export default function PersonalAI() {
     <div style={styles.shell}>
       <div style={styles.intro}>
         <div style={styles.title}>Talk to Coy</div>
-        <div>An AI representation based on Coy's own writing. It can make mistakes and isn't the person themselves.</div>
+        <div>한국어와 English만 지원해요. An AI representation based on Coy's own writing. It can make mistakes and isn't the person themselves.</div>
       </div>
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
@@ -63,16 +63,16 @@ export default function PersonalAI() {
             <strong>{item.role === "user" ? "you" : "coy (AI)"}:</strong>{" "}{item.content}
           </div>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.bot }}>thinking…</div>}
+        {busy && <div style={{ ...styles.bubble, ...styles.bot }}>생각 중… / thinking…</div>}
         <div ref={bottomRef} />
       </div>
       {error && <div role="alert" style={{ padding: "4px 12px", color: "#a00000" }}>{error}</div>}
       <form style={styles.form} onSubmit={send}>
         <textarea
-          aria-label="Message"
+          aria-label="Message / 메시지"
           rows={2}
           maxLength={2000}
-          placeholder="say something..."
+          placeholder="한국어 또는 English로 입력해줘..."
           value={draft}
           onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(event); } }}
@@ -83,7 +83,7 @@ export default function PersonalAI() {
           {busy ? "..." : "Send"}
         </button>
       </form>
-      <div style={styles.note}>Don't share passwords or private information. Chats are not stored by this website's chatbot endpoint.</div>
+      <div style={styles.note}>비밀번호나 개인정보를 공유하지 마세요. Don't share passwords or private information. Chats are not stored by this website's chatbot endpoint.</div>
     </div>
   );
 }
