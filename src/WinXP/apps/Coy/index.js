@@ -197,7 +197,6 @@ const styles = {
   portrait: { width: 58, height: 70, objectFit: 'contain', objectPosition: 'bottom', flexShrink: 0 },
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#444' },
-  callButton: { marginLeft: 'auto', flexShrink: 0, width: 38, height: 34, padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #003c74', borderRadius: 2, background: 'linear-gradient(#fff,#e1e1e1)', color: '#111', font: 'bold 25px Tahoma, Arial, sans-serif', lineHeight: 1, cursor: 'pointer' },
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8, background: '#fff' },
   bubble: { position: 'relative', maxWidth: '92%', padding: '7px 9px', border: '2px solid #b7b7b7', borderRadius: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.45 },
   user: { alignSelf: 'flex-end', background: '#e7f0ff', borderColor: '#9ab8e8', marginRight: 7 },
