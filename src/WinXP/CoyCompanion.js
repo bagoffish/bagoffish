@@ -197,9 +197,10 @@ export default function CoyCompanion() {
     };
   }, [spriteSize]);
 
-  // Keep the bubble inside the viewport. Center its tail over Coy whenever
-  // possible; near either edge, shift the bubble and move the tail to point
-  // back toward Coy without covering or clipping the text.
+  // Place the balloon on the side opposite Coy so it never clips off-screen.
+  // Coy on the left half → balloon to the right of Coy.
+  // Coy on the right half → balloon to the left of Coy.
+  // Tail points back toward Coy from whichever side the balloon sits.
   useEffect(() => {
     const placeBubble = () => {
       const root = rootRef.current;
@@ -209,14 +210,29 @@ export default function CoyCompanion() {
       if (!bubbleWidth) return;
       const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
       const margin = 8;
-      const coyCenter = Math.max(0, Math.min(viewportWidth, position.left + spriteSize / 2));
-      const centeredLeft = coyCenter - bubbleWidth / 2;
-      const maxBubbleLeft = Math.max(margin, viewportWidth - bubbleWidth - margin);
-      // Keep the bubble centered (and its arrow centered) unless that would
-      // clip the bubble. Near an edge, clamp the bubble into view and move
-      // the arrow along its bottom edge toward Coy.
-      const bubbleLeft = Math.max(margin, Math.min(maxBubbleLeft, centeredLeft));
-      const arrowLeft = Math.max(18, Math.min(bubbleWidth - 18, coyCenter - bubbleLeft));
+      const coyCenter = position.left + spriteSize / 2;
+      const coyOnLeft = coyCenter < viewportWidth / 2;
+
+      let bubbleLeft;
+      if (coyOnLeft) {
+        // Balloon to the right of Coy
+        bubbleLeft = position.left + spriteSize + 12;
+        if (bubbleLeft + bubbleWidth > viewportWidth - margin) {
+          bubbleLeft = Math.max(margin, viewportWidth - bubbleWidth - margin);
+        }
+      } else {
+        // Balloon to the left of Coy
+        bubbleLeft = position.left - bubbleWidth - 12;
+        if (bubbleLeft < margin) {
+          bubbleLeft = margin;
+        }
+      }
+
+      // Tail points toward Coy from the near edge of the balloon
+      const arrowLeft = coyOnLeft
+        ? Math.max(12, Math.min(28, coyCenter - bubbleLeft))
+        : Math.max(bubbleWidth - 28, Math.min(bubbleWidth - 12, coyCenter - bubbleLeft));
+
       setBubblePlacement({
         left: bubbleLeft - position.left,
         arrowLeft,
