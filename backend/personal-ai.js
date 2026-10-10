@@ -676,7 +676,7 @@ router.get("/health", async (req, res) => {
 router.post("/chat", rateLimit, async (req, res) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   const attachments = Array.isArray(req.body?.attachments) ? req.body.attachments.slice(0, 3) : [];
-  if (!message && !attachments.length) return res.status(400).json({ error: "Write a message or attach an image/audio file first." });
+  if (!message && !attachments.length) return res.status(400).json({ error: "Write a message or attach a file first." });
   if (message.length > MAX_MESSAGE_LENGTH) return res.status(400).json({ error: "Message is too long (maximum 2,000 characters)." });
 
   const supportedMime = /^(?:image\/(?:png|jpeg|webp|heic|heif|gif|bmp|tiff)|audio\/(?:mpeg|mp3|wav|x-wav|mp4|m4a|x-m4a|aac|x-aac|ogg|opus|flac|webm|aiff|3gpp|pcm|l16|alaw|mulaw))$/i;
@@ -697,8 +697,8 @@ router.post("/chat", rateLimit, async (req, res) => {
       }
       const bytes = Buffer.byteLength(textContent, "utf8");
       extractedTextBytes += bytes;
-      if (!textContent.length || bytes > 100 * 1024 || extractedTextBytes > 200 * 1024) {
-        return res.status(413).json({ error: "Text/code attachments must be under 100 KB each and 200 KB total." });
+      if (!textContent.length || bytes > 50 * 1024 || extractedTextBytes > 80 * 1024) {
+        return res.status(413).json({ error: "Text/code attachments must be under 50 KB each and 80 KB total." });
       }
       textAttachments.push({ name, mimeType: mimeType || "text/plain", text: textContent });
       continue;
