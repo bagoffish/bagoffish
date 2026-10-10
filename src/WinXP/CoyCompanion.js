@@ -363,12 +363,12 @@ export default function CoyCompanion() {
       });
       } finally { window.clearTimeout(requestTimeout); }
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Couldn't reach Coy right now.");
+      if (!response.ok) throw new Error(data.error || "I’m tryna sleep dude.");
       const answer = formatCoyText(typeof data.answer === "string" && data.answer.trim() ? data.answer.trim() : "…");
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
       setLine(answer);
     } catch (err) {
-      setError(err.name === "AbortError" ? "Hold on, I’m busy..." : (err.message === "Failed to fetch" ? randomLine(["Hold on, I’m busy...", "I’m tryna sleep dude."]) : (err.message || "Something went wrong.")));
+      setError(err.name === "AbortError" ? "Hold on, I’m busy..." : (err.message === "Failed to fetch" ? randomLine(["I’m tryna sleep dude.", "I’m tryna sleep dude."]) : (err.message || "Something went wrong.")));
     } finally {
       setBusy(false);
     }
