@@ -249,6 +249,27 @@ export default function CoyChat({ initialImage }) {
     };
   }, []);
 
+  // Remove the legacy phone/call control if an older desktop-shell build still injects it.
+  useEffect(() => {
+    const hideLegacyCallButtons = () => {
+      document.querySelectorAll('button, [role="button"]').forEach(element => {
+        const label = [
+          element.textContent || '',
+          element.getAttribute('aria-label') || '',
+          element.getAttribute('title') || '',
+        ].join(' ');
+        if (/[☏☎📞📱]/u.test(label) || /(?:^|\\s)(?:phone|voice call|start call|call with coy)(?:\\s|$)/i.test(label)) {
+          element.style.setProperty('display', 'none', 'important');
+          element.setAttribute('data-coy-legacy-call-hidden', 'true');
+        }
+      });
+    };
+    hideLegacyCallButtons();
+    const observer = new MutationObserver(hideLegacyCallButtons);
+    observer.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
   }, [messages, busy, error]);
