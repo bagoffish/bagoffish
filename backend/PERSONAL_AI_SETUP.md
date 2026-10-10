@@ -13,6 +13,17 @@ Configure these on the existing Render backend service (never in React or a publ
 
 The chatbot returns a setup message until both required variables are configured.
 
+## Language support
+
+The chatbot is instructed to use **Korean and English only**:
+
+- It replies in natural Korean when the user writes in Korean, and natural English when the user writes in English.
+- It can follow a Korean-English mix or an explicit request to use either supported language.
+- It must not produce prose in other languages; if asked to use another language, it politely asks the user to continue in Korean or English.
+- Its personality, archive-grounded memories, and privacy safeguards stay consistent across both languages.
+
+This is enforced in the server-side model instructions, not just the interface.
+
 ## Prepare the archive
 
 1. Keep the original Discord export private. Do not commit it to this repository.
