@@ -58,7 +58,7 @@ export default function CoyCompanion() {
   const dragged = useRef(false);
   const clickTimer = useRef(null);
   // Keep Coy at one fixed desktop size; devtools/viewport resizing must not scale him.
-  const spriteSize = 48; // Slightly larger than before.
+  const spriteSize = 60; // Keep Coy comfortably visible at a slightly larger desktop size.
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
