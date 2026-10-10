@@ -48,14 +48,19 @@ export default function CoyCompanion() {
       lastActivity.current = now;
       if (detail.type === "app-open") {
         const quips = {
-          Winamp: "oh, music.",
-          Renderer: "checking out an avatar?",
-          Bloxify: "working on music again.",
-          Winter_Letter: "oh, Winter Letter.",
-          Paint: "doing some drawing?",
-          Minesweeper: "good luck with this one."
+          Winamp: ["Oh, music.", "What are we listening to?", "Music time.", "Ooh, song time."],
+          Renderer: ["Making an avatar?", "Avatar time?", "Ohh, rendering something?", "Lemme see the avatar later."],
+          Bloxify: ["Making music again?", "Songmaking time.", "Ooh, music stuff.", "Cooking up a track?"],
+          Winter_Letter: ["Back to Winter Letter?", "Ooh, writing time.", "Winter Letter again :3"],
+          Paint: ["Drawing something?", "Ooh, art time.", "Whatcha making?"],
+          Minesweeper: ["Good luck with this one.", "Don't explode :p", "Minesweeper time."]
         };
-        announce(quips[detail.name] || ("oh, you opened " + (detail.name || "an app") + "."));
+        const options = quips[detail.name] || [
+          "Oh, " + (detail.name || "an app") + ".",
+          "Whatcha doing in " + (detail.name || "there") + "?",
+          "Ooh, checking this out?"
+        ];
+        announce(options[Math.floor(Math.random() * options.length)]);
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
       else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 45000 && Math.random() <= 0.015) {
@@ -94,7 +99,7 @@ export default function CoyCompanion() {
       setHoldingImage(true);
       if (now - lastActivity.current > 9000) {
         lastActivity.current = now;
-        announce("i found an avatar render. want to use it in chat?");
+        announce("Ohh, an avatar render. Wanna use it in chat?");
       }
     };
     const observer = new MutationObserver(scanImages);
@@ -191,7 +196,7 @@ export default function CoyCompanion() {
 
   return <div style={styles.root} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
-      <div style={styles.bubble}>{line}</div>
+      <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{line}</button>
       <span aria-hidden="true" style={styles.tail}><i style={{ ...styles.tailDot, width: 7, height: 7 }} /><i style={{ ...styles.tailDot, width: 5, height: 5 }} /><i style={{ ...styles.tailDot, width: 3, height: 3 }} /></span>
     </div>}
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
