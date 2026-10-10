@@ -176,7 +176,7 @@ export default function CoyChat({ initialImage }) {
     writeCoyChatLog(messages);
   }, [messages]);
 
-  async async function chooseFiles(event) {
+  async function chooseFiles(event) {
     const picked = Array.from(event.target.files || []).map(file => {
       const extension = (file.name.split('.').pop() || '').toLowerCase();
       const inferred = ({
