@@ -157,7 +157,11 @@ export default function CoyCompanion() {
       const margin = 8;
       const coyCenter = Math.max(0, Math.min(viewportWidth, position.left + spriteSize / 2));
       const centeredLeft = coyCenter - bubbleWidth / 2;
-      const bubbleLeft = Math.max(margin, Math.min(viewportWidth - bubbleWidth - margin, centeredLeft));
+      const maxBubbleLeft = Math.max(margin, viewportWidth - bubbleWidth - margin);
+      // Keep the bubble centered (and its arrow centered) unless that would
+      // clip the bubble. Near an edge, clamp the bubble into view and move
+      // the arrow along its bottom edge toward Coy.
+      const bubbleLeft = Math.max(margin, Math.min(maxBubbleLeft, centeredLeft));
       const arrowLeft = Math.max(18, Math.min(bubbleWidth - 18, coyCenter - bubbleLeft));
       setBubblePlacement({
         left: bubbleLeft - position.left,
@@ -465,7 +469,7 @@ export default function CoyCompanion() {
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "absolute", left: bubblePlacement.left, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(92vw, 520px)", minWidth: 0, marginBottom: 0, transform: bubblePlacement.transform, transformOrigin: "bottom center", animation: "coyBubbleIn 140ms ease-out", cursor: "pointer" },
-    bubble: { position: "relative", boxSizing: "border-box", display: "block", width: "fit-content", minWidth: 0, maxWidth: "min(92vw, 520px)", height: "auto", padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "break-word", wordBreak: "normal", whiteSpace: "pre-wrap" },
+    bubble: { position: "relative", boxSizing: "border-box", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, width: "fit-content", minWidth: 0, maxWidth: "min(92vw, 520px)", maxHeight: 40, padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: "20px", overflow: "hidden", overflowWrap: "break-word", wordBreak: "normal", whiteSpace: "pre-wrap" },
     tail: { position: "absolute", left: bubblePlacement.arrowLeft, bottom: -13, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -7, top: -13, width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
