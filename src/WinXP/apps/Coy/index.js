@@ -166,7 +166,7 @@ const styles = {
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8, background: '#fff' },
   bubble: { position: 'relative', maxWidth: '92%', padding: '7px 9px', border: '2px solid #b7b7b7', borderRadius: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.45 },
   user: { alignSelf: 'flex-end', background: '#e7f0ff', borderColor: '#9ab8e8', marginRight: 7 },
-  coy: { alignSelf: 'flex-start', background: '#f7f5eb', marginLeft: 7 },
+  coy: { alignSelf: 'flex-start', background: '#f7f5eb', borderColor: '#000', marginLeft: 7 },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #9b9b9b', background: '#ece9d8', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
