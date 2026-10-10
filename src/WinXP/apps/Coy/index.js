@@ -82,15 +82,15 @@ export default function CoyChat({ initialImage }) {
         window.clearTimeout(timeout);
       }
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || 'Could not reach Coy right now.');
+      if (!response.ok) throw new Error(data.error || 'couldn’t reach coy just now. try again in a bit.');
       const answer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
       setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-18));
     } catch (err) {
       setError(err.name === 'AbortError'
         ? 'Coy took too long to answer (55 seconds). The AI service may be unavailable; try again shortly.'
         : (err.message === 'Failed to fetch'
-          ? 'Could not connect to Coy’s chat server. Check the connection and try again.'
-          : (err.message || 'Connection failed.')));
+          ? 'couldn’t reach coy just now. check the connection and try again.'
+          : (err.message || 'couldn’t send that just now. try again in a bit.')));
     } finally {
       setBusy(false);
     }
