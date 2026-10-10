@@ -1,6 +1,5 @@
 import React, { lazy, Suspense } from "react";
 import AboutMe from "./AboutMe";
-const PersonalAI = lazyApp(() => import("./PersonalAI"));
 const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
 import Minesweeper from "./Minesweeper";
@@ -23,7 +22,6 @@ import poemsIcon from "assets/windowsIcons/327(32x32).png";
 import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
-import coyBotIcon from "assets/windowsIcons/coybot.svg";
 import winterLetterIcon from "assets/windowsIcons/winter-letter.svg";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
 
@@ -86,7 +84,6 @@ export const defaultIconState = [
   { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
   { id: 2, icon: poemsIcon, title: "Poems", component: Poems, isFocus: false },
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
-  { id: 8, icon: coyBotIcon, title: "CoyBot", component: PersonalAI, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 4, icon: mine, title: "Minesweeper", component: Minesweeper, isFocus: false },
@@ -96,9 +93,9 @@ export const defaultIconState = [
 
 /* start menu / openApp settings */
 export const appSettings = {
-  CoyBot: {
-    header: { icon: coyBotIcon, title: "CoyBot" },
-    component: PersonalAI,
+  Coy: {
+    header: { icon: winterLetterIcon, title: "Coy" },
+    component: WinterLetter,
     defaultSize: { width: 560, height: 520 },
     defaultOffset: { x: 180, y: 45 },
     resizable: true,
@@ -209,7 +206,6 @@ export const appSettings = {
 
 export {
   AboutMe,
-  PersonalAI,
   Poems,
   Renderer,
   Minesweeper,
