@@ -769,6 +769,7 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
     // WAV texture is optional: accurate mode leaves the transcribed SoundFont
     // performance alone. When enabled, use only the pitched C64 samples—never
     // invent a constant drum beat or crash pattern that was not in the source.
+    const baseTime = context.currentTime + 0.12;
     if (plan && plan.wavTextureEnabled) {
       const selectedSamples = [];
       const sampleAssets = (Array.isArray(plan.sampleAssets) ? plan.sampleAssets : MULE_AUDIO_SAMPLE_ASSETS)
@@ -783,7 +784,6 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
           console.warn('Bloxify pitched WAV sample unavailable:', asset && asset.url, sampleError);
         }
       }
-      const baseTime = context.currentTime + 0.12;
       const sampleByRole = Object.fromEntries(selectedSamples.map(sample => [sample.role, sample]));
       const schedulePitchedSample = (sample, note, at, gainScale) => {
         if (!sample || !note || at >= musicalEnd) return;
