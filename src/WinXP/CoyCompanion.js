@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-// Static OC placeholder. Replace public/images/coy.png to update the artwork.
+// Static Coy portrait. Replace public/images/coy.png to update the artwork.
 export default function CoyCompanion() {
   const [showMenu, setShowMenu] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
