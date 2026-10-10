@@ -21,6 +21,7 @@ import { defaultIconState, appSettings } from './apps';
 import Modal from './Modal';
 import Footer from './Footer';
 import Windows from './Windows';
+import CoyCompanion from './CoyCompanion';
 import Icons from './Icons';
 import { DashedBox } from 'components';
 
@@ -377,6 +378,7 @@ function WinXP() {
           mode={state.powerState}
         />
       )}
+      <CoyCompanion />
     </Container>
   );
 }
