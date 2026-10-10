@@ -40,6 +40,7 @@ export default function CoyCompanion() {
       const now = Date.now();
       if (now - lastActivity.current < 18000) return;
       lastActivity.current = now;
+      if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       if (detail.type === "app-open") {
         const quips = {
           Winamp: "oh, music.",
@@ -156,7 +157,7 @@ export default function CoyCompanion() {
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "relative", pointerEvents: "auto", width: "min(78vw, 310px)", marginBottom: 4 },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "10px 12px", border: "2px solid #222", borderRadius: 12, background: "#fff", color: "#111", boxShadow: "0 2px 0 rgba(0,0,0,.12)", fontSize: 13, lineHeight: 1.35, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", right: 24, bottom: -9, width: 14, height: 14, background: "#fff", borderRight: "2px solid #222", borderBottom: "2px solid #222", transform: "rotate(45deg)", borderBottomRightRadius: 2 },
+    tail: { position: "absolute", right: "calc(min(35vw, 220px) / 2 - 7px)", bottom: -9, width: 14, height: 14, background: "#fff", borderRight: "2px solid #222", borderBottom: "2px solid #222", transform: "rotate(45deg)", borderBottomRightRadius: 2 },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
     button: { border: "1px solid #777", borderRadius: 2, background: "#eee", color: "#111", padding: "5px 9px", fontSize: 12, cursor: "pointer" },
@@ -169,7 +170,7 @@ export default function CoyCompanion() {
 
   return <div style={styles.root} data-coy-ui="true">
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
-      <div style={styles.titlebar}><span>Coy</span><button style={{ ...styles.button, padding: "1px 7px", fontWeight: "bold" }} onClick={() => setChatOpen(false)} aria-label="Close Coy chat">×</button></div>
+      <div style={styles.titlebar}><span>Coy</span></div>
       <div style={styles.messages} aria-live="polite">
         {!history.length && <div style={{ color: "#555" }}>Coy is here. say hi whenever you feel like it.</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
@@ -198,10 +199,6 @@ export default function CoyCompanion() {
           <img src={foundImage.src} alt={foundImage.alt} style={{ display: "block", maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />
           <button style={styles.button} type="button" onClick={yoinkImage}>yoink image</button>
         </div>}
-        <div style={{ ...styles.form, marginTop: 6 }}>
-          <button style={styles.button} type="button" onClick={openChat}>Talk to Coy</button>
-          <button style={styles.button} type="button" onClick={() => setShowBubble(false)}>×</button>
-        </div>
         <div style={styles.tail} />
       </div>
     </div>}
