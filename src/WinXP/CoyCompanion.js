@@ -61,56 +61,83 @@ export default function CoyCompanion() {
   const spriteSize = 160;
 
   const [position, setPosition] = useState(() => ({
-    left: Math.max(8, window.innerWidth - 160 - 8),
-    top: Math.max(8, window.innerHeight - 30 - 160)
+    left: Math.max(0, window.innerWidth - 160),
+    top: Math.max(0, window.innerHeight - 30 - 160)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
   const hasInitialPlacement = useRef(false);
+  const wasTaskbarAligned = useRef(true);
 
-  // The actual XP taskbar is the Footer component: it is 30px high and
-  // absolutely positioned at the bottom of the desktop. Measure its real top
-  // edge instead of guessing a 56px "taskbar gap" (which left Coy floating).
+  // Select the actual XP shell taskbar, never an unrelated footer inside an app.
   const getTaskbarTop = () => {
-    const taskbar = document.querySelector("#root footer") || document.querySelector("footer");
+    const taskbar = document.querySelector('[data-xp-taskbar="true"]');
     const rect = taskbar?.getBoundingClientRect();
-    return rect && rect.height > 0 ? rect.top : window.innerHeight - 30;
+    return rect && rect.height > 0 ? rect.top : Math.max(0, window.innerHeight - 30);
   };
 
-  // Place Coy like a desktop ukagaka: bottom-right, feet resting on the taskbar.
-  // Re-measure after the sprite loads and on viewport/taskbar size changes.
+  const getCoyHeight = () => {
+    const root = rootRef.current;
+    const sprite = root?.querySelector('img[alt="Coy"]');
+    const rootHeight = root?.getBoundingClientRect().height || 0;
+    const spriteHeight = sprite?.getBoundingClientRect().height ||
+      (sprite?.naturalWidth && sprite?.naturalHeight
+        ? spriteSize * sprite.naturalHeight / sprite.naturalWidth
+        : 0);
+    return rootHeight || spriteHeight || spriteSize;
+  };
+
+  // Align Coy's wrapper bottom to the measured top edge of the real taskbar.
+  // There is no guessed gap and no generic footer selector.
   useEffect(() => {
+    let frame = 0;
     const placeCoy = () => {
-      const node = rootRef.current;
-      const sprite = node?.querySelector("img[alt='Coy']");
-      if (!node || !sprite) return;
-      const spriteRect = sprite.getBoundingClientRect();
-      const spriteHeight = spriteRect.height || 160;
-      const maxLeft = Math.max(8, window.innerWidth - spriteSize - 8);
-      const maxTop = Math.max(0, getTaskbarTop() - spriteHeight);
-      setPosition(previous => {
-        if (!hasInitialPlacement.current) {
-          hasInitialPlacement.current = true;
-          return { left: maxLeft, top: maxTop };
-        }
-        const left = Math.min(maxLeft, Math.max(8, previous.left));
-        const top = Math.min(maxTop, Math.max(0, previous.top));
-        return left === previous.left && top === previous.top ? previous : { left, top };
+      if (frame) window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        if (!rootRef.current) return;
+        const taskbarTop = getTaskbarTop();
+        const coyHeight = getCoyHeight();
+        const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+        const exactTop = Math.max(0, taskbarTop - coyHeight);
+
+        setPosition(previous => {
+          if (!hasInitialPlacement.current) {
+            hasInitialPlacement.current = true;
+            wasTaskbarAligned.current = true;
+            return { left: maxLeft, top: exactTop };
+          }
+          const left = Math.max(0, Math.min(maxLeft, previous.left));
+          const stayedAtTaskbar = wasTaskbarAligned.current ||
+            Math.abs(previous.top - exactTop) <= 2;
+          const top = stayedAtTaskbar ? exactTop : Math.max(0, Math.min(exactTop, previous.top));
+          wasTaskbarAligned.current = Math.abs(top - exactTop) <= 1;
+          return left === previous.left && top === previous.top ? previous : { left, top };
+        });
       });
     };
+
     placeCoy();
+    const taskbar = document.querySelector('[data-xp-taskbar="true"]');
+    const root = rootRef.current;
+    const sprite = root?.querySelector('img[alt="Coy"]');
+    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(placeCoy) : null;
+    if (taskbar) observer?.observe(taskbar);
+    if (root) observer?.observe(root);
+    if (sprite) {
+      observer?.observe(sprite);
+      sprite.addEventListener("load", placeCoy);
+    }
     window.addEventListener("resize", placeCoy);
     window.addEventListener("orientationchange", placeCoy);
-    const node = rootRef.current;
-    const observer = node && typeof ResizeObserver !== "undefined" ? new ResizeObserver(placeCoy) : null;
-    if (node && observer) observer.observe(node);
-    const sprite = node?.querySelector("img[alt='Coy']");
-    sprite?.addEventListener("load", placeCoy);
+    window.visualViewport?.addEventListener("resize", placeCoy);
     return () => {
-      window.removeEventListener("resize", placeCoy);
-      window.removeEventListener("orientationchange", placeCoy);
+      if (frame) window.cancelAnimationFrame(frame);
       observer?.disconnect();
       sprite?.removeEventListener("load", placeCoy);
+      window.removeEventListener("resize", placeCoy);
+      window.removeEventListener("orientationchange", placeCoy);
+      window.visualViewport?.removeEventListener("resize", placeCoy);
     };
   }, [spriteSize]);
 
@@ -299,12 +326,13 @@ export default function CoyCompanion() {
     const maxRight = Math.max(8, window.innerWidth - state.width - 8);
     // Match the real taskbar edge. Coy may be dragged all the way down until
     // his feet touch the taskbar; never impose the old 56px artificial gap.
-    const sprite = rootRef.current?.querySelector("img[alt='Coy']");
-    const spriteHeight = sprite?.getBoundingClientRect().height || state.height || spriteSize;
-    const maxBottom = Math.max(0, getTaskbarTop() - spriteHeight);
+    const coyHeight = state.height || getCoyHeight();
+    const maxBottom = Math.max(0, getTaskbarTop() - coyHeight);
+    const nextTop = Math.max(0, Math.min(maxBottom, state.top + deltaY));
+    wasTaskbarAligned.current = Math.abs(nextTop - maxBottom) <= 1;
     setPosition({
-      left: Math.max(8, Math.min(maxRight, state.left + deltaX)),
-      top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
+      left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
+      top: nextTop
     });
   }
 
@@ -328,7 +356,6 @@ export default function CoyCompanion() {
     if (history.length === 0) setChatGreeting(randomGreeting());
     setChatOpen(true);
     setShowBubble(false);
-    setShowMenu(false);
     window.dispatchEvent(new CustomEvent("coy:open-chat", {
       detail: image ? { image } : {}
     }));
@@ -389,12 +416,12 @@ export default function CoyCompanion() {
   // Coy has one base sprite, so idle moods use restrained body language while
   // the speech bubble changes naturally. No manual expression menu is needed.
   const idleMoodStyles = {
-    normal: { transform: "translateY(0) rotate(0deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
-    curious: { transform: "translateY(-2px) rotate(-1.2deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
-    happy: { transform: "translateY(-3px) rotate(1deg)", filter: "drop-shadow(0 2px 3px rgba(0,0,0,.2)) brightness(1.025)" },
-    sleepy: { transform: "translateY(1px) rotate(0.5deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(.96)" },
-    surprised: { transform: "translateY(-3px) scale(1.015)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(1.035)" },
-    annoyed: { transform: "translateY(0) rotate(-0.6deg)", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) saturate(.92)" }
+    normal: { filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    curious: { filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
+    happy: { filter: "drop-shadow(0 2px 3px rgba(0,0,0,.2)) brightness(1.025)" },
+    sleepy: { filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(.96)" },
+    surprised: { filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) brightness(1.035)" },
+    annoyed: { filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22)) saturate(.92)" }
   };
 
   useEffect(() => {
@@ -413,7 +440,7 @@ export default function CoyCompanion() {
   const styles = {
     root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
-    image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "transform 450ms ease, filter 450ms ease" },
+    image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
     bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "8px 12px", border: "1px solid #777", borderRadius: 8, background: "#fff", color: "#222", boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
