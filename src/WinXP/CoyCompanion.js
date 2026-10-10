@@ -201,13 +201,17 @@ export default function CoyCompanion() {
 
   function startDrag(event) {
     if (event.button !== 0) return;
-    const rect = event.currentTarget.getBoundingClientRect();
-    const localX = event.clientX - rect.left;
-    const localY = event.clientY - rect.top;
-    const startsOnHead = localY <= rect.height * 0.42 && localX >= rect.width * 0.2 && localX <= rect.width * 0.8;
+    const spriteRect = event.currentTarget.getBoundingClientRect();
+    const rootRect = event.currentTarget.parentElement?.getBoundingClientRect() || spriteRect;
+    const localX = event.clientX - spriteRect.left;
+    const localY = event.clientY - spriteRect.top;
+    const startsOnHead = localY <= spriteRect.height * 0.42 &&
+      localX >= spriteRect.width * 0.2 && localX <= spriteRect.width * 0.8;
     dragState.current = {
       x: event.clientX, y: event.clientY,
-      left: position.left, top: position.top,
+      left: rootRect.left, top: rootRect.top,
+      width: rootRect.width, height: rootRect.height,
+      spriteWidth: spriteRect.width, spriteHeight: spriteRect.height,
       startsOnHead, patGesture: false, movedCharacter: false,
       pointerId: event.pointerId
     };
@@ -222,21 +226,24 @@ export default function CoyCompanion() {
     const state = dragState.current;
     const deltaX = event.clientX - state.x;
     const deltaY = event.clientY - state.y;
-    const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+    const absX = Math.abs(deltaX);
+    const absY = Math.abs(deltaY);
+    const distance = Math.max(absX, absY);
     const spriteRect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - spriteRect.left;
     const y = event.clientY - spriteRect.top;
     const stillOnHead = y >= 0 && y <= spriteRect.height * 0.48 &&
       x >= spriteRect.width * 0.12 && x <= spriteRect.width * 0.88;
 
-    // A short stroke across Coy's head is a pat. If the gesture gets longer
-    // or leaves the head area, it becomes a drag instead.
-    if (state.startsOnHead && !state.movedCharacter && distance >= 4 && distance <= 28 && stillOnHead) {
+    // A small, mostly horizontal stroke over the head is a pat. Vertical
+    // movement and ordinary drags respond immediately instead of feeling stuck.
+    const shortHeadStroke = state.startsOnHead && stillOnHead &&
+      absX >= 4 && absX <= 22 && absX >= absY * 1.4;
+    if (!state.movedCharacter && shortHeadStroke) {
       state.patGesture = true;
       return;
     }
-    const dragThreshold = state.startsOnHead ? 29 : 4;
-    if (distance >= dragThreshold || (state.startsOnHead && distance >= 4 && !stillOnHead)) {
+    if (distance >= 5 || (state.startsOnHead && distance >= 4 && !stillOnHead)) {
       state.movedCharacter = true;
       state.patGesture = false;
       dragged.current = true;
@@ -244,14 +251,10 @@ export default function CoyCompanion() {
     }
     if (!state.movedCharacter) return;
 
-    // Position the companion wrapper, not the image element; preserve grab offset
-    // and clamp against the viewport so desktop dragging feels responsive.
-    const wrapper = event.currentTarget.parentElement;
-    const rect = wrapper?.getBoundingClientRect();
-    const width = rect?.width || spriteRect.width;
-    const height = rect?.height || spriteRect.height;
-    const maxRight = Math.max(0, window.innerWidth - width);
-    const maxBottom = Math.max(0, window.innerHeight - height);
+    // Keep the wrapper's starting dimensions for the entire gesture. Measuring
+    // it again mid-drag made the character jump when its speech bubble changed.
+    const maxRight = Math.max(0, window.innerWidth - state.width);
+    const maxBottom = Math.max(0, window.innerHeight - state.height);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
