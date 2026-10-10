@@ -342,12 +342,6 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
     throw new Error("Decoded audio contains no usable samples");
   }
 
-  const decodedAudio = {
-    numberOfChannels: channelData.length,
-    length: decodedLength,
-    sampleRate: decodedSampleRate,
-    getChannelData: (index) => channelData[index],
-  };
   const mono = downmixChannels(channelData);
   const samples = resample(mono, decodedSampleRate, TARGET_RATE);
   console.log(
