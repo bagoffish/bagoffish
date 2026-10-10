@@ -457,8 +457,8 @@ export default function CoyCompanion() {
   };
 
   return createPortal(<div ref={rootRef} style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
-    {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
-      <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, width: "fit-content", maxWidth: "min(78vw, 240px)", textAlign: "left", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, cursor: "pointer" }}>{renderCoyEmoji(line)}</button>
+    {((!chatOpen && showBubble) || busy) && <div style={styles.bubbleWrap} role="status" aria-live="polite">
+      <div style={{ ...styles.bubble, width: "fit-content", maxWidth: "min(78vw, 240px)", textAlign: "left", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400 }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
 
