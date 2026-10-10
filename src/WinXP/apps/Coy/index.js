@@ -356,7 +356,7 @@ export default function CoyChat({ initialImage }) {
           style={styles.input}
           disabled={busy}
         />
-        <button type="submit" aria-label="Send message" title="Send message" style={{ ...styles.button, ...styles.attachButton, fontSize: 24, opacity: busy || (!draft.trim() && !attachments.length) ? 0.65 : 1 }} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : '>'}</button>
+        <button type="submit" aria-label="Send message" title="Send message" style={{ ...styles.button, ...styles.attachButton, fontSize: 24, opacity: busy || (!draft.trim() && !attachments.length) ? 0.65 : 1 }} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : '▷'}</button>
       </form>
     </div>
   );
