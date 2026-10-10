@@ -151,11 +151,12 @@ const styles = {
 export default function CoyChat({ initialImage }) {
   const [messages, setMessages] = useState(() => {
     const saved = readCoyChatLog();
+    // The first greeting is a real assistant message, so it stays in the transcript
+    // when the user sends their first message and survives reopening the chat.
     return saved.length ? saved : (initialImage
       ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
-      : []);
+      : [{ role: 'assistant', content: randomGreeting() }]);
   });
-  const [greeting] = useState(randomGreeting);
   const [draft, setDraft] = useState('');
   const [attachments, setAttachments] = useState([]);
   const fileInputRef = useRef(null);
@@ -298,7 +299,6 @@ export default function CoyChat({ initialImage }) {
         </div>
       </div>
       <div style={styles.messages} aria-live="polite">
-        {!messages.length && <div style={{ ...styles.bubble, ...styles.coy }}><strong>Coy:</strong> {greeting}</div>}
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
             {item.content && <><strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}</>}
@@ -310,7 +310,7 @@ export default function CoyChat({ initialImage }) {
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
           </div>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>Typing…</div>}
+        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>Typing...</div>}
         {error && <div role="alert" style={{ ...styles.bubble, borderColor: '#a00000', color: '#8b0000' }}>{error}</div>}
         <div ref={bottomRef} />
       </div>
