@@ -198,9 +198,9 @@ export default function CoyCompanion() {
       } finally { window.clearTimeout(requestTimeout); }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || "Couldn't reach Coy right now.");
-      const answer = typeof data.answer === "string" && data.answer.trim() ? data.answer.trim() : "…";
+      const answer = formatCoyText(typeof data.answer === "string" && data.answer.trim() ? data.answer.trim() : "…");
       setHistory(previous => [...previous, { role: "assistant", content: answer }].slice(-16));
-      setLine(formatCoyText(answer));
+      setLine(answer);
     } catch (err) {
       setError(err.name === "AbortError" ? "Coy took too long to answer. Try again in a moment." : (err.message === "Failed to fetch" ? "Coy’s chat server could not be reached. The server may be waking up; try again shortly." : (err.message || "Connection failed")));
     } finally {
