@@ -196,7 +196,7 @@ export default function CoyCompanion() {
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
       <div style={styles.titlebar}><span>Coy</span></div>
       <div style={styles.messages} aria-live="polite">
-        {!history.length && <div style={{ color: "#555" }}>Coy is here. say hi whenever you feel like it.</div>}
+        {!history.length && <div style={{ color: "#555" }}>{line}</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
           <div style={{ fontWeight: "bold", marginBottom: 3 }}>{item.role === "user" ? "You" : "Coy"}</div>
           {item.content}
