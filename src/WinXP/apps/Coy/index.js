@@ -147,6 +147,40 @@ function writeCoyChatLog(messages) {
   }
 }
 
+async function prepareMediaFile(file, mimeType) {
+  if (!String(mimeType || '').startsWith('image/')) return { file, mimeType };
+  // Send a reasonably small image to vision providers; large base64 screenshots
+  // were triggering provider HTTP 413 errors. One decoded frame is enough for analysis.
+  try {
+    const sourceUrl = await readFileAsDataUrl(file);
+    const image = await new Promise((resolve, reject) => {
+      const element = new Image();
+      element.onload = () => resolve(element);
+      element.onerror = () => reject(new Error('image decode failed'));
+      element.src = sourceUrl;
+    });
+    const maxDimension = 1600;
+    const scale = Math.min(1, maxDimension / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+    const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+    const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d');
+    if (!context) return { file, mimeType };
+    context.fillStyle = '#fff';
+    context.fillRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+    if (!blob || blob.size >= file.size) return { file, mimeType };
+    return { file: new File([blob], (file.name || 'image').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg', lastModified: file.lastModified }), mimeType: 'image/jpeg' };
+  } catch (_) {
+    // HEIC and a few iPhone formats cannot be decoded by every browser. Preserve
+    // the original bytes so the backend can give a useful provider error instead.
+    return { file, mimeType };
+  }
+}
+
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -294,12 +328,13 @@ export default function CoyChat({ initialImage }) {
         const normalizedFile = item.type && item.type !== file.type
           ? new File([file], file.name, { type: item.type, lastModified: file.lastModified })
           : file;
+        const prepared = await prepareMediaFile(normalizedFile, item.type);
         return {
-          name: file.name,
-          type: item.type,
-          size: file.size,
+          name: prepared.file.name || file.name,
+          type: prepared.mimeType || item.type,
+          size: prepared.file.size,
           kind: 'media',
-          dataUrl: await readFileAsDataUrl(normalizedFile),
+          dataUrl: await readFileAsDataUrl(prepared.file),
         };
       }));
       updateAttachments(previous => {
