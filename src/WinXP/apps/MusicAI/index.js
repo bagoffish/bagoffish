@@ -766,97 +766,51 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
 
     await context.resume();
 
-    // The server's per-song plan chooses real WAV layers from public/audios.
-    // Decode them once and schedule a restrained, tempo-aware rhythm/accent layer.
-    // Combine the analysis-selected kit with the local M.U.L.E sample library.
-    // These are short instrument/percussion samples, not whole reference songs.
-    const selectedSamples = [];
-    const sampleAssets = [
-      ...(activePlan.sampleAssets || []),
-    ];
-    for (const asset of sampleAssets) {
-      try {
-        const response = await fetch(asset.url, { cache: 'force-cache' });
-        if (!response.ok) continue;
-        const decodedSample = await context.decodeAudioData(await response.arrayBuffer());
-        selectedSamples.push({ ...asset, buffer: decodedSample });
-      } catch (sampleError) {
-        console.warn('Bloxify sample unavailable:', asset && asset.url, sampleError);
-      }
-    }
+    // WAV texture is optional: accurate mode leaves the transcribed SoundFont
+    // performance alone. When enabled, use only the pitched C64 samples—never
+    // invent a constant drum beat or crash pattern that was not in the source.
     const baseTime = context.currentTime + 0.12;
-    const beat = 60 / Math.max(60, Math.min(180, Number(activePlan.tempoBpm) || 120));
-    const sampleByRole = Object.fromEntries(selectedSamples.map(sample => [sample.role, sample]));
-    const scheduleSample = (sample, at, gainScale = 1) => {
-      if (!sample || at < 0 || at >= musicalEnd) return;
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      source.buffer = sample.buffer;
-      gain.gain.value = Math.max(0, Math.min(0.7, (Number(sample.gain) || 0.1) * gainScale));
-      source.connect(gain);
-      gain.connect(masterGainRef.current || destination);
-      source.start(baseTime + at);
-    };
-    const schedulePitchedSample = (sample, note, at, gainScale) => {
-      if (!sample || !note || at >= musicalEnd) return;
-      const duration = Math.max(0.055, Math.min(Number(note.durationSeconds) || 0.12, musicalEnd - at));
-      const source = context.createBufferSource();
-      const gain = context.createGain();
-      source.buffer = sample.buffer;
-      source.loop = true;
-      source.loopStart = 0;
-      source.loopEnd = Math.min(sample.buffer.duration, 0.12);
-      source.playbackRate.setValueAtTime(Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12), baseTime + at);
-      const peak = Math.max(0, Math.min(0.24, (Number(sample.gain) || 0.08) * gainScale));
-      gain.gain.setValueAtTime(0, baseTime + at);
-      gain.gain.linearRampToValueAtTime(peak, baseTime + at + Math.min(0.015, duration * 0.25));
-      gain.gain.setValueAtTime(peak, baseTime + at + Math.max(duration * 0.5, duration - 0.035));
-      gain.gain.linearRampToValueAtTime(0, baseTime + at + duration);
-      source.connect(gain);
-      gain.connect(masterGainRef.current || destination);
-      source.start(baseTime + at);
-      source.stop(baseTime + at + duration + 0.01);
-    };
-    const beats = Math.ceil(musicalEnd / beat);
-    for (let beatIndex = 0; beatIndex < beats; beatIndex++) {
-      const at = beatIndex * beat;
-      const backbeat = beatIndex % 4 === 1 || beatIndex % 4 === 3;
-      if (beatIndex % 2 === 0) {
-        scheduleSample(sampleByRole.kick, at);
-        scheduleSample(sampleByRole.muleKick, at);
-        scheduleSample(sampleByRole.muleHat, at);
+    if (plan && plan.wavTextureEnabled) {
+      const selectedSamples = [];
+      const sampleAssets = (Array.isArray(plan.sampleAssets) ? plan.sampleAssets : MULE_AUDIO_SAMPLE_ASSETS)
+        .filter(asset => asset && (asset.role === 'muleSquare' || asset.role === 'muleSaw'));
+      for (const asset of sampleAssets) {
+        try {
+          const response = await fetch(asset.url, { cache: 'force-cache' });
+          if (!response.ok) continue;
+          const decodedSample = await context.decodeAudioData(await response.arrayBuffer());
+          selectedSamples.push({ ...asset, buffer: decodedSample });
+        } catch (sampleError) {
+          console.warn('Bloxify pitched WAV sample unavailable:', asset && asset.url, sampleError);
+        }
       }
-      if (backbeat) {
-        scheduleSample(sampleByRole.snare, at);
-        scheduleSample(sampleByRole.muleSnare, at);
-      }
-      if (beatIndex % 4 === 2) scheduleSample(sampleByRole.muleClap, at);
-      if (beatIndex % 2 === 0) scheduleSample(sampleByRole.hat, at);
-      if (beatIndex % 16 === 0 && beatIndex > 0) {
-        scheduleSample(sampleByRole.crash, at);
-        scheduleSample(sampleByRole.muleCrash, at);
-        scheduleSample(sampleByRole.muleReverse, at - beat * 0.5, 0.7);
-      }
-      if (beatIndex % 8 === 4) scheduleSample(sampleByRole.muleImpact, at);
-      if (beatIndex % 32 === 0 && beatIndex > 0) {
-        scheduleSample(sampleByRole.accent, at);
-        scheduleSample(sampleByRole.muleExplosion, at, 0.65);
-      }
+      const sampleByRole = Object.fromEntries(selectedSamples.map(sample => [sample.role, sample]));
+      const schedulePitchedSample = (sample, note, at, gainScale) => {
+        if (!sample || !note || at >= musicalEnd) return;
+        const noteDuration = Math.max(0.055, Math.min(Number(note.durationSeconds) || 0.12, musicalEnd - at));
+        const source = context.createBufferSource();
+        const gain = context.createGain();
+        source.buffer = sample.buffer;
+        source.loop = true;
+        source.loopStart = 0;
+        source.loopEnd = Math.min(sample.buffer.duration, 0.12);
+        source.playbackRate.setValueAtTime(Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12), baseTime + at);
+        const peak = Math.max(0, Math.min(0.035, (Number(sample.gain) || 0.08) * gainScale));
+        gain.gain.setValueAtTime(0, baseTime + at);
+        gain.gain.linearRampToValueAtTime(peak, baseTime + at + Math.min(0.015, noteDuration * 0.25));
+        gain.gain.setValueAtTime(peak, baseTime + at + Math.max(noteDuration * 0.5, noteDuration - 0.035));
+        gain.gain.linearRampToValueAtTime(0, baseTime + at + noteDuration);
+        source.connect(gain);
+        gain.connect(masterGainRef.current || destination);
+        source.start(baseTime + at);
+        source.stop(baseTime + at + noteDuration + 0.01);
+      };
+      notes.forEach(note => {
+        const at = Math.max(0, Number(note.startTimeSeconds) || 0);
+        const isWarmLayer = ['bass', 'guitar', 'pad', 'strings', 'cello'].includes(note.role);
+        schedulePitchedSample(isWarmLayer ? sampleByRole.muleSaw : sampleByRole.muleSquare, note, at, isWarmLayer ? 0.24 : 0.22);
+      });
     }
-
-    // Add quiet, pitch-tracked C64 layers to selected parts. The MIDI notes
-    // remain the source of the arrangement; these WAVs add a crunchy sound
-    // layer to the rendered WAV without changing the exported MIDI notes.
-    const squareSample = sampleByRole.muleSquare;
-    const sawSample = sampleByRole.muleSaw;
-    notes.forEach(note => {
-      const at = Math.max(0, Number(note.startTimeSeconds) || 0);
-      if (['arp', 'keys', 'pizz'].includes(note.role)) {
-        schedulePitchedSample(squareSample, note, at, note.role === 'arp' ? 1 : 0.62);
-      } else if (['guitar', 'bass', 'pad'].includes(note.role)) {
-        schedulePitchedSample(sawSample, note, at, note.role === 'bass' ? 0.58 : 0.72);
-      }
-    });
 
     recorder.start();
     const total = Math.max(1, notes.length);
@@ -865,7 +819,6 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
       const startTime = Math.max(0, Math.min(musicalEnd - 0.001, Number(note.startTimeSeconds) || 0));
       const bank = bankForNote(note, playable);
-      if (note.role === 'drums' && sampleByRole.kick) return;
       if (!bank || !loadedBanks.has(bank.id)) return;
       if (lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
@@ -1168,6 +1121,7 @@ function MusicAI() {
   const [selectedNoteId, setSelectedNoteId] = useState(null); const [volume, setVolume] = useState(1);
   const [playbackTime, setPlaybackTime] = useState(0); const [playbackDuration, setPlaybackDuration] = useState(0);
   const [activePlan, setActivePlan] = useState(null);
+  const [wavTextureEnabled, setWavTextureEnabled] = useState(false);
   const savePlayerLocal = name => { try { window.localStorage.setItem(PLAYER_KEY, name); } catch (e) {} };
   const loadPlayer = useCallback(async name => {
     const clean = String(name || '').trim(); if (!clean) return false;
@@ -1400,7 +1354,8 @@ function MusicAI() {
       // the final detected note ends before a quiet tail in the original.
       const arrangementEnd = arrangement.reduce((m, n) => Math.max(m, n.startTimeSeconds + n.durationSeconds), 0);
       const duration = Math.max(sourceDuration, arrangementEnd);
-      const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), planRef.current);
+      const renderPlan = { ...(planRef.current || {}), wavTextureEnabled };
+      const blob = await renderCombinedWav(arrangement, duration, p => setProgress(Math.max(100, p)), renderPlan);
       setWavBlob(blob);
       downloadBlob(blob, 'bloxify-combined.wav');
       setStatus('Combined WAV ready · ' + Math.round(duration * 10) / 10 + 's');
@@ -1559,8 +1514,9 @@ function MusicAI() {
   const playLiveWavForNote = (note, duration) => {
     const context = contextRef.current;
     if (!context || !note) return;
+    if (!wavTextureEnabled) return;
     const role = note.role;
-    const sampleRole = ['bass', 'guitar', 'pad'].includes(role) ? 'muleSaw' : 'muleSquare';
+    const sampleRole = ['bass', 'guitar', 'pad', 'strings', 'cello'].includes(role) ? 'muleSaw' : 'muleSquare';
     const sample = liveWavSamplesRef.current.get(sampleRole);
     if (!sample || !sample.buffer) return;
     try {
@@ -1571,7 +1527,7 @@ function MusicAI() {
       source.loopStart = 0;
       source.loopEnd = Math.min(sample.buffer.duration, 0.12);
       source.playbackRate.value = Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12);
-      const peak = Math.max(0.002, Math.min(0.045, (Number(sample.gain) || 0.08) * 0.35));
+      const peak = Math.max(0, Math.min(0.035, (Number(sample.gain) || 0.08) * (sampleRole === 'muleSaw' ? 0.24 : 0.22)));
       const startAt = context.currentTime;
       const safeDuration = Math.max(0.055, Math.min(duration || 0.12, 8));
       gain.gain.setValueAtTime(0.0001, startAt);
@@ -1670,7 +1626,7 @@ function MusicAI() {
       setStatus('Mixing the SoundFont catalog…');
       const synth = await ensureSynth(plan, arrangement);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
-      await ensureLiveWavSamples();
+      if (wavTextureEnabled) await ensureLiveWavSamples();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
       scheduleFrom(synth, from); setStatus('Playing');
     } catch (error) {
@@ -1686,7 +1642,7 @@ function MusicAI() {
         const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan, arrangement);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
-        await ensureLiveWavSamples();
+        if (wavTextureEnabled) await ensureLiveWavSamples();
         scheduleFrom(synth, clamped);
       } catch (e) { console.error(e); }
     }
@@ -1769,6 +1725,7 @@ function MusicAI() {
         <button type="button" style={saveBtn} disabled={working || !midiBlob} onClick={() => midiBlob && downloadBlob(midiBlob, midiDownloadName(projectName))}>Save MIDI</button>
         <button type="button" style={saveBtnGray} disabled={working || !arrangement.length} onClick={() => STEM_ORDER.forEach(roleId => { if (arrangement.some(n => n.role === roleId)) downloadStem(roleId); })}>Save Stems</button>
         <button type="button" style={saveBtnGray} disabled={working || renderingWav || !arrangement.length} onClick={renderAndDownloadWav}>{renderingWav ? 'Rendering WAV…' : 'Save WAV'}</button>
+        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: '#fff', fontSize: 10, textShadow: '1px 1px 0 #000' }} title="Optional C64 WAV layer. Off by default for maximum transcription fidelity."><input type="checkbox" checked={wavTextureEnabled} onChange={e => setWavTextureEnabled(e.target.checked)} /> C64 WAV layer</label>
         <button type="button" style={topBtn} disabled={!arrangement.length || working} onClick={playing ? stopPlayback : playArrangement}>{playing ? 'Stop' : 'Play'}</button>
         <button type="button" style={topBtnGray} disabled={!arrangement.length} onClick={saveProject}>Save</button>
         <button type="button" aria-label="Places" title="Places" style={topBtnGray} onClick={() => setShowProjects(v => !v)}>Places</button>
