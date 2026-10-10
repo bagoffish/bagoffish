@@ -87,44 +87,55 @@ const styles = {
   },
 };
 
-function CoyGhost({ mood = 'happy' }) {
-  const eyes = mood === 'sleepy'
-    ? <><path d="M35 51q5 4 10 0" /><path d="M62 51q5 4 10 0" /></>
-    : mood === 'mischief'
-    ? <><path d="M34 48l11 3" /><path d="M62 51l11 -3" /><circle cx="41" cy="52" r="2.4" fill="#28334e" stroke="none" /><circle cx="67" cy="52" r="2.4" fill="#28334e" stroke="none" /></>
+function CoyGhost({ mood = 'neutral' }) {
+  const closed = mood === 'petting' || mood === 'sleeping';
+  const squint = mood === 'sleepy' || mood === 'annoyed';
+  const eyes = closed || squint
+    ? <><path d="M34 51q5 4 10 0" /><path d="M62 51q5 4 10 0" /></>
+    : mood === 'embarrassed' || mood === 'flustered'
+    ? <><path d="M35 51q4 2 8 0" /><path d="M63 51q4 2 8 0" /></>
+    : mood === 'surprised'
+    ? <><ellipse cx="41" cy="51" rx="4.5" ry="7" fill="#28334e" stroke="none" /><ellipse cx="67" cy="51" rx="4.5" ry="7" fill="#28334e" stroke="none" /></>
+    : mood === 'thinking'
+    ? <><ellipse cx="43" cy="51" rx="4" ry="6" fill="#28334e" stroke="none" /><ellipse cx="69" cy="51" rx="4" ry="6" fill="#28334e" stroke="none" /></>
     : <><ellipse cx="41" cy="51" rx="4.4" ry="6.5" fill="#28334e" stroke="none" /><ellipse cx="67" cy="51" rx="4.4" ry="6.5" fill="#28334e" stroke="none" /><circle cx="42.5" cy="49" r="1.7" fill="#fff" stroke="none" /><circle cx="68.5" cy="49" r="1.7" fill="#fff" stroke="none" /></>;
+  const mouth = mood === 'talking' ? 'M49 63Q55 76 62 63Z'
+    : mood === 'surprised' ? 'M52 62Q55 60 58 62Q60 70 55 70Q50 69 52 62Z'
+    : mood === 'smug' || mood === 'cute' ? 'M48 64Q57 70 65 61'
+    : mood === 'annoyed' ? 'M49 66L62 66'
+    : mood === 'happy' || mood === 'wave' || mood === 'petting' ? 'M48 63Q55 70 62 63'
+    : 'M50 65Q55 67 60 65';
+  const blush = mood === 'embarrassed' || mood === 'flustered';
   return (
-    <svg viewBox="0 0 104 126" width="100%" height="100%" role="img" aria-label="Coy, your little website ghost">
+    <svg viewBox="0 0 104 126" width="100%" height="100%" role="img" aria-label={`Coy, ${mood} expression`}>
       <defs>
-        <linearGradient id="coy-hair" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#c9e6ff" />
-          <stop offset="1" stopColor="#7da6e8" />
-        </linearGradient>
-        <linearGradient id="coy-body" x1="0" y1="0" x2="0.9" y2="1">
-          <stop offset="0" stopColor="#fffefa" />
-          <stop offset="1" stopColor="#d9e8ff" />
-        </linearGradient>
+        <linearGradient id="coy-hair" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stopColor="#24252d" /><stop offset="1" stopColor="#454653" /></linearGradient>
+        <linearGradient id="coy-body" x1="0" y1="0" x2=".9" y2="1"><stop offset="0" stopColor="#fffefa" /><stop offset="1" stopColor="#d9e8ff" /></linearGradient>
       </defs>
       <ellipse cx="52" cy="116" rx="24" ry="5" fill="#1a2946" opacity=".2" />
       <path d="M20 61C15 38 26 18 49 15C69 12 85 28 84 48L81 78C78 88 72 91 66 84C59 96 52 91 48 84C40 95 31 89 29 81C22 85 16 76 20 61Z" fill="url(#coy-body)" stroke="#557bb5" strokeWidth="2" />
-      <path d="M21 50C13 26 32 8 52 12C69 7 88 24 82 45L76 38L70 25L62 37L53 22L42 37L32 30L28 50Z" fill="url(#coy-hair)" stroke="#557bb5" strokeWidth="2" strokeLinejoin="round" />
-      <path d="M28 29Q22 42 28 56M72 28Q81 40 76 54" fill="none" stroke="#557bb5" strokeWidth="2" strokeLinecap="round" />
-      <path d="M31 43Q41 39 48 44M60 44Q68 39 76 43" fill="none" stroke="#557bb5" strokeWidth="2" strokeLinecap="round" />
+      <ellipse cx="54" cy="53" rx="29" ry="31" fill="#c98c65" stroke="#303342" strokeWidth="1.5" />
+      <path d="M21 50C13 26 32 8 52 12C69 7 88 24 82 45L76 38L70 25L62 37L53 22L42 37L32 30L28 50Z" fill="url(#coy-hair)" stroke="#303342" strokeWidth="2" strokeLinejoin="round" />
+      <path d="M28 29Q22 42 28 56M72 28Q81 40 76 54" fill="none" stroke="#303342" strokeWidth="2" strokeLinecap="round" />
+      <path d="M31 43Q41 39 48 44M60 44Q68 39 76 43" fill="none" stroke="#303342" strokeWidth="2" strokeLinecap="round" />
       {eyes}
-      <path d={mood === 'mischief' ? 'M48 64Q56 72 66 62' : 'M47 63Q54 69 61 63'} fill="none" stroke="#b95d83" strokeWidth="2.4" strokeLinecap="round" />
-      <ellipse cx="31" cy="61" rx="6" ry="3" fill="#f5a6bf" opacity=".65" />
-      <ellipse cx="76" cy="61" rx="6" ry="3" fill="#f5a6bf" opacity=".65" />
+      <path d={mouth} fill={mood === 'talking' || mood === 'surprised' ? '#783d50' : 'none'} stroke="#783d50" strokeWidth="2.4" strokeLinecap="round" />
+      <ellipse cx="31" cy="61" rx="6" ry="3" fill="#f5a6bf" opacity={blush ? '.95' : '.35'} />
+      <ellipse cx="76" cy="61" rx="6" ry="3" fill="#f5a6bf" opacity={blush ? '.95' : '.35'} />
       <path d="M16 74Q8 68 11 61M87 69Q97 65 94 56" fill="none" stroke="#7197d1" strokeWidth="2" strokeLinecap="round" />
-      <path d="M75 14l2 -5 2 5 5 2 -5 2 -2 5 -2 -5 -5 -2Z" fill="#ffe38b" stroke="#c89b40" strokeWidth=".8" />
-      <text x="78" y="104" fontSize="12" fill="#4e7bc2" fontWeight="bold">:3</text>
+      {mood === 'wave' && <path d="M86 67Q98 57 94 46M94 46l-1 8M94 46l-6 4" fill="none" stroke="#7197d1" strokeWidth="3" strokeLinecap="round" />}
+      <path d="M70 17l2 -5 2 5 5 2 -5 2 -2 5 -2 -5 -5 -2Z" fill="#8cff00" stroke="#4b8b16" strokeWidth="1" />
+      <text x="76" y="22" fontSize="9" fill="#17243a" fontWeight="bold">@</text>
+      {mood === 'sleeping' && <text x="72" y="91" fontSize="12" fill="#4e7bc2" fontWeight="bold">Zzz</text>}
+      {(mood === 'cute' || mood === 'smug') && <text x="76" y="104" fontSize="12" fill="#4e7bc2" fontWeight="bold">:3</text>}
+      {mood === 'thinking' && <text x="76" y="31" fontSize="12" fill="#4e7bc2">?</text>}
     </svg>
   );
 }
-
 export default function CoyCompanion() {
   const [open, setOpen] = useState(false);
   const [bubble, setBubble] = useState('psst... hi :3');
-  const [mood, setMood] = useState('happy');
+  const [mood, setMood] = useState('neutral');
   const [poseMenu, setPoseMenu] = useState(false);
   const [spriteAction, setSpriteAction] = useState('idle');
   const [messages, setMessages] = useState([
@@ -140,7 +151,7 @@ export default function CoyCompanion() {
       if (open) return;
       const line = IDLE_LINES[Math.floor(Math.random() * IDLE_LINES.length)];
       setBubble(line);
-      setMood(Math.random() > 0.65 ? 'mischief' : 'happy');
+      setMood(Math.random() > 0.65 ? 'smug' : 'neutral');
     }, 36000);
     return () => window.clearInterval(timer);
   }, [open]);
@@ -158,7 +169,7 @@ export default function CoyCompanion() {
     setDraft('');
     setBusy(true);
     setError('');
-    setMood('mischief');
+    setMood('talking');
     try {
       const response = await fetch(API_BASE + '/personal-ai/chat', {
         method: 'POST',
@@ -171,7 +182,7 @@ export default function CoyCompanion() {
         ? data.answer : '...my brain did a tiny Windows error noise. try again?';
       setMessages(previous => [...previous, { role: 'assistant', content: answer }]);
       setBubble(answer.length > 75 ? answer.slice(0, 72) + '…' : answer);
-      setMood('happy');
+      setMood('talking');
     } catch (err) {
       setError(err.message || 'Could not connect to CoyBot right now.');
       setMood('sleepy');
@@ -226,7 +237,7 @@ export default function CoyCompanion() {
         {poseMenu && (
           <div role="menu" aria-label="Coy sprite placeholder actions" style={{
             pointerEvents: 'auto', width: 205, padding: 7, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
-            background: '#fffdf5', border: '2px solid #5276ad', borderRadius: 8, boxShadow: '2px 3px 0 rgba(18,49,102,.25)',
+            background: '#fff', border: '2px solid #555b63', borderRadius: 8, boxShadow: '2px 3px 0 rgba(18,49,102,.25)',
           }}>
             <div style={{ gridColumn: '1 / -1', fontSize: 10, color: '#52617a', padding: '2px 3px' }}>
               14 EXPRESSIONS · right-click Coy to open
