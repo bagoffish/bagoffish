@@ -65,20 +65,27 @@ export default function CoyCompanion() {
   const dragged = useRef(false);
   const [position, setPosition] = useState(() => ({
     left: Math.max(8, window.innerWidth - Math.min(window.innerWidth * 0.9, 410) - 8),
-    top: Math.max(8, window.innerHeight - 340)
+    top: Math.max(8, window.innerHeight - 190 - 40)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
 
-  // Keep Coy fully inside the visible viewport on first render, when bubbles/chat
-  // change the wrapper size, and after resizing or rotating the device.
+  // Coy's feet should rest directly on the top edge of the XP taskbar.
+  // Do not re-clamp whenever a speech bubble opens/closes: changing wrapper
+  // height was moving the entire companion and looked like teleporting.
   useEffect(() => {
+    const taskbarHeight = () => {
+      const bar = document.querySelector('[data-taskbar], #taskbar, .taskbar, [class*="taskbar"]');
+      if (!bar) return 40;
+      const rect = bar.getBoundingClientRect();
+      return rect.height > 0 ? Math.max(0, window.innerHeight - rect.top) : 40;
+    };
     const clampToViewport = () => {
       const node = rootRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+      const maxTop = Math.max(8, window.innerHeight - rect.height - taskbarHeight());
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
         const top = Math.min(maxTop, Math.max(8, previous.top));
@@ -86,16 +93,9 @@ export default function CoyCompanion() {
       });
     };
     clampToViewport();
-    const observer = typeof ResizeObserver !== "undefined" && rootRef.current
-      ? new ResizeObserver(clampToViewport)
-      : null;
-    if (observer && rootRef.current) observer.observe(rootRef.current);
     window.addEventListener("resize", clampToViewport);
-    return () => {
-      observer?.disconnect();
-      window.removeEventListener("resize", clampToViewport);
-    };
-  }, [showBubble, chatOpen, showMenu, holdingImage, hideForMobileApp]);
+    return () => window.removeEventListener("resize", clampToViewport);
+  }, []);
 
   useEffect(() => {
     if (!showBubble || chatOpen) return undefined;
@@ -379,7 +379,7 @@ export default function CoyCompanion() {
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
-    bubbleWrap: { position: "relative", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 5, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
+    bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "min(78vw, 300px)", marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
     bubble: { position: "relative", boxSizing: "border-box", width: "100%", padding: "8px 12px", border: "1px solid #666", borderRadius: 7, background: "#fff", color: "#333", boxShadow: "0 1px 1px rgba(0,0,0,.08)", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
     tail: { position: "absolute", right: "calc(clamp(120px, 14vw, 170px) / 2 - 8px)", bottom: -10, width: 0, height: 0, borderLeft: "8px solid transparent", borderRight: "8px solid transparent", borderTop: "10px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -6, top: -10, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "8px solid #fff" },
