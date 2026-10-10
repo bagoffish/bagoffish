@@ -4,17 +4,10 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
-  ["Annoyed", "im judging u a normal amount"], ["Sleepy", "five more minutes…"],
-  ["Surprised", "WAIT WHAT"], ["Smug", "i know something u dont"],
-  ["Embarrassed", "dont look at me"], ["Thinking", "hold on. thinking."],
-  ["Waving", "heyy"], ["Cute pose", "behold. the creature."]
-];
-const MISCHIEF = [
-  { line: "i opened something. dont worry about it.", app: "Paint" },
-  { line: "minesweeper break. this is a legally binding suggestion.", app: "Minesweeper" },
-  { line: "i have decided we need music.", app: "Winamp" },
-  { line: "opening a window because i can.", app: "Poems" },
-  { line: "i was absolutely not snooping around. anyway.", app: null }
+  ["Annoyed", "im a little annoyed."], ["Sleepy", "five more minutes…"],
+  ["Surprised", "oh, didnt expect that."], ["Smug", "i might know something."],
+  ["Embarrassed", "okay, dont look at me."], ["Thinking", "hold on, thinking."],
+  ["Waving", "heyy"], ["Cute pose", "hi :3"]
 ];
 
 export default function CoyCompanion() {
@@ -28,7 +21,6 @@ export default function CoyCompanion() {
   const [error, setError] = useState("");
   const [foundImage, setFoundImage] = useState(null);
   const [holdingImage, setHoldingImage] = useState(false);
-  const [mischief, setMischief] = useState(true);
   const inputRef = useRef(null);
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
@@ -46,24 +38,24 @@ export default function CoyCompanion() {
     const onActivity = event => {
       const detail = event.detail || {};
       const now = Date.now();
-      if (now - lastActivity.current < 4500) return;
+      if (now - lastActivity.current < 18000) return;
       lastActivity.current = now;
       if (detail.type === "app-open") {
         const quips = {
-          Winamp: "ooh music. put on something questionable",
-          Renderer: "ROBLOX AVATAR TIME. hold on im looking",
-          Bloxify: "making roblox music again? i support this",
-          Winter_Letter: "oh this one…",
-          Paint: "lemme see what youre drawing",
-          Minesweeper: "one wrong click and its over"
+          Winamp: "oh, music.",
+          Renderer: "checking out an avatar?",
+          Bloxify: "working on music again.",
+          Winter_Letter: "oh, Winter Letter.",
+          Paint: "doing some drawing?",
+          Minesweeper: "good luck with this one."
         };
-        announce(quips[detail.name] || ("you opened " + (detail.name || "something") + ". nosy."));
-      } else if (detail.type === "music") announce("music detected. im rating the vibes silently");
-      else if (detail.type === "error") announce("uhh. something broke. should we pretend we didnt see that");
+        announce(quips[detail.name] || ("oh, you opened " + (detail.name || "an app") + "."));
+      } else if (detail.type === "music") announce("music is playing.");
+      else if (detail.type === "error") announce("looks like something went wrong.");
       else if (detail.type === "image" && detail.src) {
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
         setHoldingImage(true);
-        announce("WAIT. image. i am looking respectfully. (lie)", { image: detail.src });
+        announce("oh, an image.", { image: detail.src });
       }
     };
     window.addEventListener("coy:activity", onActivity);
@@ -84,7 +76,7 @@ export default function CoyCompanion() {
       setHoldingImage(true);
       if (Date.now() - lastActivity.current > 9000) {
         lastActivity.current = Date.now();
-        announce("psst. i found an avatar render. can i yoink it for the chat?");
+        announce("i found an avatar render. want to use it in chat?");
       }
     };
     const observer = new MutationObserver(scanImages);
@@ -99,27 +91,6 @@ export default function CoyCompanion() {
       observer.disconnect();
     };
   }, []);
-
-  useEffect(() => {
-    if (!mischief || chatOpen) return undefined;
-    let timeout;
-    const schedule = () => {
-      const delay = 55000 + Math.random() * 65000;
-      timeout = window.setTimeout(() => {
-        if (Math.random() < 0.7) {
-          const bit = MISCHIEF[Math.floor(Math.random() * MISCHIEF.length)];
-          setLine(bit.line);
-          setShowBubble(true);
-          if (bit.app && Math.random() < 0.38) {
-            window.dispatchEvent(new CustomEvent("coy:open-app", { detail: { name: bit.app, fromCoy: true } }));
-          }
-        }
-        schedule();
-      }, delay);
-    };
-    schedule();
-    return () => window.clearTimeout(timeout);
-  }, [mischief, chatOpen]);
 
   function openChat(image = null) {
     setShowBubble(false);
@@ -200,7 +171,7 @@ export default function CoyCompanion() {
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
       <div style={styles.titlebar}><span>Coy</span><button style={{ ...styles.button, padding: "1px 7px", fontWeight: "bold" }} onClick={() => setChatOpen(false)} aria-label="Close Coy chat">×</button></div>
       <div style={styles.messages} aria-live="polite">
-        {!history.length && <div style={{ color: "#555" }}>Coy is here. he may or may not behave.</div>}
+        {!history.length && <div style={{ color: "#555" }}>Coy is here. say hi whenever you feel like it.</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
           <div style={{ fontWeight: "bold", marginBottom: 3 }}>{item.role === "user" ? "You" : "Coy"}</div>
           {item.content}
@@ -236,9 +207,9 @@ export default function CoyCompanion() {
     </div>}
     {showMenu && <div role="menu" aria-label="Coy expressions" style={styles.menu}>
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(text); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
-      <button type="button" style={styles.button} onClick={() => { setMischief(v => !v); setShowMenu(false); }}>{mischief ? "Disable mischief" : "Enable mischief"}</button>
+      
     </div>}
-    <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine("pat pat pat"); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for actions">
+    <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine("pat pat pat"); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
