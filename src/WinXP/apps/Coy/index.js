@@ -47,7 +47,7 @@ export default function CoyChat({ initialImage }) {
     setError('');
     try {
       const controller = new AbortController();
-      const timeout = window.setTimeout(() => controller.abort(), 25000);
+      const timeout = window.setTimeout(() => controller.abort(), 55000);
       let response;
       try {
         response = await fetch(API_BASE + '/personal-ai/chat', {
@@ -72,9 +72,9 @@ export default function CoyChat({ initialImage }) {
       setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-18));
     } catch (err) {
       setError(err.name === 'AbortError'
-        ? 'Coy took too long to answer. Try again in a moment.'
+        ? 'Coy took too long to answer (55 seconds). The AI service may be unavailable; try again shortly.'
         : (err.message === 'Failed to fetch'
-          ? 'Coy’s chat server could not be reached. It may be waking up; try again shortly.'
+          ? 'Could not connect to Coy’s chat server. Check the connection and try again.'
           : (err.message || 'Connection failed.')));
     } finally {
       setBusy(false);

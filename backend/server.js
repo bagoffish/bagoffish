@@ -25,6 +25,7 @@ const COMMUNITY_INDEX_PATH = path.join(COMMUNITY_DIR, "tracks.json");
 const allowedOrigins = [
   "https://bagof.fish",
   "https://www.bagof.fish",
+  "https://bagoffish.github.io",
   "https://winxp-7yes.onrender.com",
   "http://localhost:3000",
   "http://localhost:3001",
