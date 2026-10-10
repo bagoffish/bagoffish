@@ -40,6 +40,7 @@ export default function CoyCompanion() {
       const now = Date.now();
       if (now - lastActivity.current < 18000) return;
       lastActivity.current = now;
+      if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       if (detail.type === "app-open") {
         const quips = {
           Winamp: "oh, music.",
@@ -169,7 +170,7 @@ export default function CoyCompanion() {
 
   return <div style={styles.root} data-coy-ui="true">
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
-      <div style={styles.titlebar}><span>Coy</span><button style={{ ...styles.button, padding: "1px 7px", fontWeight: "bold" }} onClick={() => setChatOpen(false)} aria-label="Close Coy chat">×</button></div>
+      <div style={styles.titlebar}><span>Coy</span></div>
       <div style={styles.messages} aria-live="polite">
         {!history.length && <div style={{ color: "#555" }}>Coy is here. say hi whenever you feel like it.</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
@@ -198,10 +199,6 @@ export default function CoyCompanion() {
           <img src={foundImage.src} alt={foundImage.alt} style={{ display: "block", maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />
           <button style={styles.button} type="button" onClick={yoinkImage}>yoink image</button>
         </div>}
-        <div style={{ ...styles.form, marginTop: 6 }}>
-          <button style={styles.button} type="button" onClick={openChat}>Talk to Coy</button>
-          <button style={styles.button} type="button" onClick={() => setShowBubble(false)}>×</button>
-        </div>
         <div style={styles.tail} />
       </div>
     </div>}
