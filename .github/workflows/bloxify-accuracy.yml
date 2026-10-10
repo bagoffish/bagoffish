@@ -20,6 +20,7 @@ on:
       - "backend/bloxify-core.test.cjs"
       - "backend/package.json"
       - "src/WinXP/apps/MusicAI/orchestraArrange.js"
+      - "src/WinXP/apps/MusicAI/index.js"
       - ".github/workflows/bloxify-accuracy.yml"
 
 jobs:
