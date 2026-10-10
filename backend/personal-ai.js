@@ -232,7 +232,7 @@ function rateLimit(req, res, next) {
   if (requests.size > 5000) {
     for (const [ip, value] of requests) if (now > value.resetAt) requests.delete(ip);
   }
-  if (entry.count > 12) return res.status(429).json({ error: "Please wait a minute before sending more messages." });
+  if (entry.count > 12) return res.status(429).json({ error: "Hold on, I’m busy... give me a minute." });
   next();
 }
 
@@ -659,7 +659,7 @@ router.post("/chat", rateLimit, async (req, res) => {
   const providers = availableAiProviders();
   const fileSearchStoreName = process.env.GEMINI_FILE_SEARCH_STORE_NAME;
   if (!providers.length) {
-    return res.status(503).json({ error: "Coy has no AI provider configured. Add a Groq, OpenRouter, or Gemini API key to the private Render environment." });
+    return res.status(503).json({ error: "Hold on, I’m not ready yet. Try me again later." });
   }
 
   const history = Array.isArray(req.body?.history)
@@ -742,14 +742,14 @@ router.post("/chat", rateLimit, async (req, res) => {
     if (!answer) {
       console.error("Coy all configured AI providers failed:", failedProviders.join(", ") || "none");
       return res.status(503).json({
-        error: "Coy’s configured AI providers are temporarily unavailable or rate-limited. Please try again shortly.",
+        error: "Hold on, I’m busy... try me again in a bit.",
       });
     }
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
   } catch (error) {
     console.error("Coy request failed:", error?.name || "Error");
-    return res.status(502).json({ error: "Couldn’t reach Coy right now. Please try again." });
+    return res.status(502).json({ error: "I’m tryna sleep dude. Try me again in a sec." });
   }
 });
 
