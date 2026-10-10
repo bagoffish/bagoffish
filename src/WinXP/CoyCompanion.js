@@ -538,10 +538,15 @@ export default function CoyCompanion() {
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
-    bubbleWrap: { position: "absolute", left: bubblePlacement.left, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "max-content", maxWidth: "min(92vw, 520px)", minWidth: 0, marginBottom: 0, transform: bubblePlacement.transform, transformOrigin: "bottom center", animation: "coyBubbleIn 140ms ease-out", cursor: "pointer" },
-    bubble: { position: "relative", boxSizing: "border-box", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 2, width: "max-content", minWidth: 0, maxWidth: "min(92vw, 520px)", maxHeight: 60, padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: "20px", overflow: "hidden", overflowWrap: "break-word", wordBreak: "normal", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", left: bubblePlacement.arrowLeft, bottom: -13, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
-    tailInner: { position: "absolute", left: -7, top: -13, width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #fff" },
+    bubbleWrap: { position: "absolute", left: bubblePlacement.left, bottom: "calc(100% + 10px)", pointerEvents: "auto", width: "max-content", maxWidth: "min(92vw, 360px)", minWidth: 140, marginBottom: 0, transform: bubblePlacement.transform, transformOrigin: "bottom center", animation: "coyBubbleIn 160ms ease-out", cursor: "default", filter: "drop-shadow(1px 2px 1px rgba(0,0,0,.35))" },
+    bubbleFrame: { position: "relative", background: "#ece9d8", border: "2px solid #0054e3", borderRadius: 3, boxShadow: "inset 1px 1px 0 #fff, inset -1px -1px 0 #808080, 2px 2px 0 rgba(0,0,0,.25)", overflow: "hidden", fontFamily: "Tahoma, Arial, sans-serif" },
+    bubbleTitle: { display: "flex", alignItems: "center", justifyContent: "space-between", height: 18, padding: "0 4px 0 6px", background: "linear-gradient(90deg,#0a246a,#3a6ea5 40%,#0a246a)", color: "#fff", fontSize: 11, fontWeight: "bold", letterSpacing: "0.3px", userSelect: "none" },
+    bubbleTitleText: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 220 },
+    bubbleClose: { width: 14, height: 14, border: "1px solid #fff", background: "#c0c0c0", color: "#000", fontSize: 10, lineHeight: "12px", textAlign: "center", cursor: "pointer", fontWeight: "bold", padding: 0 },
+    bubble: { position: "relative", boxSizing: "border-box", display: "-webkit-box", WebkitBoxOrient: "vertical", WebkitLineClamp: 4, width: "max-content", minWidth: 120, maxWidth: "min(88vw, 340px)", maxHeight: 72, padding: "6px 10px 8px", background: "linear-gradient(180deg,#fffef8,#f4f0e4)", color: "#111", fontSize: 13, fontWeight: 400, lineHeight: "16px", overflow: "hidden", overflowWrap: "break-word", wordBreak: "normal", whiteSpace: "pre-wrap" },
+    tail: { position: "absolute", left: bubblePlacement.arrowLeft, bottom: -11, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "9px solid transparent", borderRight: "9px solid transparent", borderTop: "12px solid #0054e3", pointerEvents: "none", zIndex: 1 },
+    tailInner: { position: "absolute", left: -6, top: -11, width: 0, height: 0, borderLeft: "6px solid transparent", borderRight: "6px solid transparent", borderTop: "9px solid #f4f0e4" },
+    nameplate: { position: "absolute", bottom: -16, left: "50%", transform: "translateX(-50%)", background: "linear-gradient(90deg,#0a246a,#3a6ea5)", color: "#fff", fontSize: 10, fontWeight: "bold", padding: "1px 6px", borderRadius: 2, border: "1px solid #fff", boxShadow: "1px 1px 0 rgba(0,0,0,.4)", pointerEvents: "none", whiteSpace: "nowrap", letterSpacing: "0.4px" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
     button: { border: "1px solid #777", borderRadius: 2, background: "#eee", color: "#111", padding: "5px 9px", fontSize: 12, cursor: "pointer" },
@@ -556,14 +561,18 @@ export default function CoyCompanion() {
     {(showBubble || busy) && <div
       ref={bubbleWrapRef}
       style={styles.bubbleWrap}
-      role={busy ? "status" : "button"}
-      tabIndex={busy ? -1 : 0}
-      aria-label={busy ? "Coy is typing" : "Dismiss Coy's speech bubble"}
+      role={busy ? "status" : "dialog"}
+      tabIndex={-1}
+      aria-label={busy ? "Coy is typing" : "Coy speech balloon"}
       aria-live="polite"
-      onClick={() => { if (!busy) setShowBubble(false); }}
-      onKeyDown={event => { if (!busy && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setShowBubble(false); } }}
     >
-      <div style={{ ...styles.bubble, textAlign: "left" }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
+      <div style={styles.bubbleFrame}>
+        <div style={styles.bubbleTitle}>
+          <span style={styles.bubbleTitleText}>Coy</span>
+          <button type="button" style={styles.bubbleClose} aria-label="Close balloon" onClick={event => { event.stopPropagation(); setShowBubble(false); }}>×</button>
+        </div>
+        <div style={{ ...styles.bubble, textAlign: "left" }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
+      </div>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
 
@@ -571,6 +580,7 @@ export default function CoyCompanion() {
       <img src={COY_SPRITE} alt="Coy" draggable={false} onLoad={event => { const nativeWidth = event.currentTarget.naturalWidth; if (nativeWidth > 0) setSpriteSize(Math.max(1, nativeWidth / 4)); }} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
+      <span style={styles.nameplate}>Coy</span>
     </button>
   </div>, document.body);
 }
