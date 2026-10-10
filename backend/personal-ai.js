@@ -431,7 +431,7 @@ function extractProviderAnswer(provider, data) {
   const content = data?.choices?.[0]?.message?.content;
   if (typeof content === "string") return content.trim();
   if (Array.isArray(content)) {
-    return content.map(part => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\\n").trim();
+    return content.map(part => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\n").trim();
   }
   return "";
 }
