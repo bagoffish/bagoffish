@@ -72,7 +72,12 @@ function readCoyChatCookie() {
 }
 function writeCoyChatCookie(messages) {
   try {
-    let kept = messages.slice(-12);
+    let kept = messages.slice(-12).map(item => ({
+      ...item,
+      attachments: Array.isArray(item.attachments)
+        ? item.attachments.map(({ name, type }) => ({ name, type }))
+        : undefined,
+    }));
     let encoded = encodeURIComponent(JSON.stringify(kept));
     while (encoded.length > 3500 && kept.length > 2) {
       kept = kept.slice(1);
@@ -81,6 +86,16 @@ function writeCoyChatCookie(messages) {
     document.cookie = COY_CHAT_COOKIE + '=' + encoded + '; Max-Age=2592000; Path=/; SameSite=Lax';
   } catch (_) {}
 }
+
+function readFileAsDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('couldn’t read that file.'));
+    reader.onerror = () => reject(new Error('couldn’t read that file.'));
+    reader.readAsDataURL(file);
+  });
+}
+
 
 const styles = {
   root: { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#ece9d8', color: '#111', font: '12px Tahoma, Arial, sans-serif' },
@@ -92,7 +107,9 @@ const styles = {
   bubble: { maxWidth: '92%', padding: '7px 9px', border: '1px solid #b7b7b7', borderRadius: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.45 },
   user: { alignSelf: 'flex-end', background: '#e7f0ff', borderColor: '#9ab8e8' },
   coy: { alignSelf: 'flex-start', background: '#f7f5eb' },
-  form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #9b9b9b', background: '#ece9d8', flexShrink: 0 },
+  form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #9b9b9b', background: '#ece9d8', flexShrink: 0, alignItems: 'flex-end' },
+  pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
+  attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
   input: { flex: 1, minWidth: 0, minHeight: 34, maxHeight: 100, resize: 'vertical', border: '1px solid #7f9db9', borderRadius: 0, padding: '7px 8px', font: '12px Tahoma, Arial', background: '#fff', color: '#111' },
   button: { minHeight: 30, padding: '4px 12px', border: '1px solid #003c74', borderRadius: 2, color: '#111', font: '12px Tahoma, Arial', background: 'linear-gradient(#fff,#e1e1e1)', cursor: 'pointer' },
   status: { padding: '5px 9px', background: '#ece9d8', color: '#444', borderTop: '1px solid #d0cbb8', fontSize: 10, flexShrink: 0 },
@@ -107,6 +124,8 @@ export default function CoyChat({ initialImage }) {
   });
   const [greeting] = useState(randomGreeting);
   const [draft, setDraft] = useState('');
+  const [attachments, setAttachments] = useState([]);
+  const fileInputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
@@ -124,13 +143,50 @@ export default function CoyChat({ initialImage }) {
     writeCoyChatCookie(messages);
   }, [messages]);
 
+  async function chooseFiles(event) {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (!picked.length) return;
+    const combined = [...attachments, ...picked];
+    if (combined.length > 3) {
+      setError('Attach up to 3 files at a time.');
+      return;
+    }
+    if (combined.some(file => !/^(image|audio)\//i.test(file.type))) {
+      setError('Coy can inspect image and audio files for now.');
+      return;
+    }
+    if (combined.some(file => file.size > 8 * 1024 * 1024) || combined.reduce((sum, file) => sum + file.size, 0) > 10 * 1024 * 1024) {
+      setError('Keep each file under 8 MB and all attachments under 10 MB total.');
+      return;
+    }
+    try {
+      const loaded = await Promise.all(picked.map(async file => ({
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        dataUrl: await readFileAsDataUrl(file),
+      })));
+      setAttachments(previous => [...previous, ...loaded].slice(0, 3));
+      setError('');
+    } catch (err) {
+      setError(err.message || 'couldn’t read that file.');
+    }
+  }
+
   async function send(event) {
     event.preventDefault();
     const message = draft.trim();
-    if (!message || busy) return;
+    if ((!message && !attachments.length) || busy) return;
+    const filesToSend = attachments;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
-    setMessages(previous => [...previous, { role: 'user', content: message }].slice(-18));
+    setMessages(previous => [...previous, {
+      role: 'user',
+      content: message,
+      attachments: filesToSend.map(({ name, type, dataUrl }) => ({ name, type, dataUrl })),
+    }].slice(-18));
     setDraft('');
+    setAttachments([]);
     setBusy(true);
     setError('');
     try {
@@ -145,6 +201,11 @@ export default function CoyChat({ initialImage }) {
           body: JSON.stringify({
             message,
             history: priorHistory,
+            attachments: filesToSend.map(file => ({
+              name: file.name,
+              mimeType: file.type,
+              data: file.dataUrl.split(',')[1] || '',
+            })),
             websiteContext: {
               desktopApps: Array.from(document.querySelectorAll('[data-app-title]'))
                 .map(node => node.getAttribute('data-app-title')).filter(Boolean),
@@ -181,7 +242,12 @@ export default function CoyChat({ initialImage }) {
         {!messages.length && <div style={{ ...styles.bubble, ...styles.coy }}><strong>Coy:</strong> {greeting}</div>}
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}
+            {item.content && <><strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}</>}
+            {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
+              {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
+              {attachment.dataUrl && attachment.type?.startsWith('audio/') && <audio controls preload="metadata" src={attachment.dataUrl} style={{ display: 'block', maxWidth: '100%', width: 280 }} />}
+              <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
+            </div>)}
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
           </div>
         ))}
@@ -189,7 +255,15 @@ export default function CoyChat({ initialImage }) {
         {error && <div role="alert" style={{ ...styles.bubble, borderColor: '#a00000', color: '#8b0000' }}>{error}</div>}
         <div ref={bottomRef} />
       </div>
+      {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
+        {attachments.map((file, index) => <div key={index} style={styles.attachmentChip}>
+          <span>{file.type.startsWith('image/') ? '🖼️' : '🔊'} {file.name}</span>
+          <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => setAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
+        </div>)}
+      </div>}
       <form style={styles.form} onSubmit={send}>
+        <input ref={fileInputRef} type="file" accept="image/*,audio/*" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
+        <button type="button" style={styles.button} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach images or audio" title="Attach images or audio">＋</button>
         <textarea
           ref={inputRef}
           aria-label="Message Coy"
@@ -202,7 +276,7 @@ export default function CoyChat({ initialImage }) {
           style={styles.input}
           disabled={busy}
         />
-        <button type="submit" style={styles.button} disabled={busy || !draft.trim()}>{busy ? '…' : 'Send'}</button>
+        <button type="submit" style={styles.button} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : 'Send'}</button>
       </form>
       <div style={styles.status}>Chat log is saved in a cookie for 30 days on this browser.</div>
     </div>
