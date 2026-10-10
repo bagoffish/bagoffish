@@ -2,6 +2,8 @@ import express from "express";
 
 const router = express.Router();
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
+const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
+const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 32;
 const requests = new Map();
@@ -343,10 +345,102 @@ async function getGithubMemoryContext(query) {
   }
 }
 
+
+function availableAiProviders() {
+  const providers = [];
+  if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
+  if (process.env.OPENROUTER_API_KEY) providers.push({ name: "openrouter", key: process.env.OPENROUTER_API_KEY });
+  if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", key: process.env.GEMINI_API_KEY });
+  return providers;
+}
+
+async function callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName) {
+  let url;
+  let headers;
+  let body;
+  if (provider.name === "gemini") {
+    url = GEMINI_API_URL;
+    headers = { "x-goog-api-key": provider.key, "Content-Type": "application/json" };
+    body = {
+      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
+      input: [{ type: "text", text: conversation }, ...mediaInputs],
+      tools: [
+        { type: "google_search" },
+        { type: "url_context" },
+        ...(fileSearchStoreName ? [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }] : []),
+      ],
+    };
+  } else {
+    // Non-Gemini OpenAI-compatible APIs support text and, on compatible models, images.
+    // Keep audio uploads on Gemini because audio support varies between free model endpoints.
+    if (mediaInputs.some(item => item.type === "audio")) {
+      const error = new Error("This provider does not support Coy's audio upload format.");
+      error.status = 415;
+      throw error;
+    }
+    const hasImages = mediaInputs.some(item => item.type === "image");
+    const content = [{ type: "text", text: conversation }];
+    for (const item of mediaInputs) {
+      content.push({
+        type: "image_url",
+        image_url: { url: "data:" + item.mime_type + ";base64," + item.data },
+      });
+    }
+    if (provider.name === "groq") {
+      url = GROQ_API_URL;
+      headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
+      body = {
+        model: process.env.GROQ_MODEL || (hasImages ? "meta-llama/llama-4-scout-17b-16e-instruct" : "llama-3.3-70b-versatile"),
+        messages: [{ role: "user", content: hasImages ? content : conversation }],
+        temperature: 0.8,
+      };
+    } else {
+      url = OPENROUTER_API_URL;
+      headers = {
+        Authorization: "Bearer " + provider.key,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://bagof.fish/",
+        "X-Title": "Coy",
+      };
+      body = {
+        model: process.env.OPENROUTER_MODEL || "openrouter/free",
+        messages: [{ role: "user", content: hasImages ? content : conversation }],
+        temperature: 0.8,
+      };
+    }
+  }
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(45_000),
+  });
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    const error = new Error("Provider returned HTTP " + response.status);
+    error.status = response.status;
+    error.provider = provider.name;
+    throw error;
+  }
+  return data;
+}
+
+function extractProviderAnswer(provider, data) {
+  if (provider.name === "gemini") return extractAnswer(data);
+  const content = data?.choices?.[0]?.message?.content;
+  if (typeof content === "string") return content.trim();
+  if (Array.isArray(content)) {
+    return content.map(part => typeof part?.text === "string" ? part.text : "").filter(Boolean).join("\\n").trim();
+  }
+  return "";
+}
+
 router.get("/health", (req, res) => {
   res.json({
     ok: true,
-    configured: Boolean(process.env.GEMINI_API_KEY),
+    configured: availableAiProviders().length > 0,
+    providersConfigured: availableAiProviders().map(provider => provider.name),
     knowledgeConfigured: false,
     githubMemoryConfigured: Boolean(process.env.COY_MEMORY_GITHUB_TOKEN),
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
@@ -376,10 +470,10 @@ router.post("/chat", rateLimit, async (req, res) => {
     mediaInputs.push({ type: mimeType.startsWith("image/") ? "image" : "audio", data, mime_type: mimeType });
   }
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const providers = availableAiProviders();
   const fileSearchStoreName = process.env.GEMINI_FILE_SEARCH_STORE_NAME;
-  if (!apiKey) {
-    return res.status(503).json({ error: "Coy is unavailable right now. Please try again later." });
+  if (!providers.length) {
+    return res.status(503).json({ error: "Coy has no AI provider configured. Add a Groq, OpenRouter, or Gemini API key to the private Render environment." });
   }
 
   const history = Array.isArray(req.body?.history)
@@ -417,42 +511,31 @@ router.post("/chat", rateLimit, async (req, res) => {
   ].filter(Boolean).join("\n\n");
 
   try {
-    const requestBody = {
-      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
-      input: [
-        { type: "text", text: conversation },
-        ...mediaInputs,
-      ],
-    };
-    // Give Coy live web search and URL reading alongside his private memory search.
-    // Gemini handles the web tool calls itself; no extra browser API key is needed.
-    requestBody.tools = [
-      { type: "google_search" },
-      { type: "url_context" },
-      ...(fileSearchStoreName
-        ? [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }]
-        : []),
-    ];
-    const upstream = await fetch(GEMINI_API_URL, {
-      method: "POST",
-      headers: {
-        "x-goog-api-key": apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-      signal: AbortSignal.timeout(45_000),
-    });
-    const data = await upstream.json().catch(() => ({}));
-    if (!upstream.ok) {
-      const upstreamStatus = data?.error?.status || data?.error?.code || "unknown";
-      console.error("Coy request failed:", upstream.status, upstreamStatus);
-      if (upstream.status === 429) {
-        return res.status(503).json({ error: "Coy is being rate-limited by Google right now. Please wait a little and try again; if it keeps happening, check the Gemini API quota for the key configured in Render." });
+    let answer = "";
+    const failedProviders = [];
+    // Try Groq first, then OpenRouter, then Gemini. Missing keys are simply skipped.
+    for (const provider of providers) {
+      try {
+        const data = await callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName);
+        answer = capitalizeReply(extractProviderAnswer(provider, data));
+        if (!answer) {
+          const error = new Error("Provider returned an empty answer");
+          error.status = 502;
+          throw error;
+        }
+        console.info("Coy reply served by:", provider.name);
+        break;
+      } catch (providerError) {
+        failedProviders.push(provider.name);
+        console.warn("Coy provider failed:", provider.name, providerError?.status || providerError?.name || "unknown");
       }
-      return res.status(502).json({ error: "Coy couldn’t answer right now. Please try again shortly." });
     }
-    const answer = capitalizeReply(extractAnswer(data));
-    if (!answer) return res.status(502).json({ error: "Coy didn’t send a reply. Please try again." });
+    if (!answer) {
+      console.error("Coy all configured AI providers failed:", failedProviders.join(", ") || "none");
+      return res.status(503).json({
+        error: "Coy’s configured AI providers are temporarily unavailable or rate-limited. Please try again shortly.",
+      });
+    }
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
   } catch (error) {
