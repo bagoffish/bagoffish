@@ -264,22 +264,35 @@ async function loadGithubMemory() {
     "X-GitHub-Api-Version": "2022-11-28",
     "User-Agent": "Coy-Personal-Memory",
   };
+  // Load each file independently: the approved memory index must still work
+  // if the optional style corpus is empty or missing.
   const contents = await Promise.all(filePaths.map(async filePath => {
     const url = "https://api.github.com/repos/" +
       repo.split("/").map(encodeURIComponent).join("/") +
       "/contents/" + filePath.split("/").map(encodeURIComponent).join("/") +
       "?ref=" + encodeURIComponent(branch);
-    const response = await fetch(url, {
-      headers,
-      signal: AbortSignal.timeout(20_000),
-    });
-    if (!response.ok) throw new Error("Private GitHub memory fetch failed for " + filePath + ": " + response.status);
-    const text = await response.text();
-    if (!text.trim()) throw new Error("Private GitHub memory file is empty: " + filePath);
-    return "\n\n===== " + filePath + " =====\n" + text;
+    try {
+      const response = await fetch(url, {
+        headers,
+        signal: AbortSignal.timeout(20_000),
+      });
+      if (!response.ok) {
+        console.error("Coy GitHub memory file unavailable:", filePath, response.status);
+        return "";
+      }
+      const text = await response.text();
+      if (!text.trim()) {
+        console.warn("Coy GitHub memory file is empty:", filePath);
+        return "";
+      }
+      return "\n\n===== " + filePath + " =====\n" + text;
+    } catch (error) {
+      console.error("Coy GitHub memory fetch error:", filePath, error?.message || "unknown error");
+      return "";
+    }
   }));
-  const text = contents.join("\n\n");
-  githubMemoryCache = { text, loadedAt: Date.now() };
+  const text = contents.filter(Boolean).join("\n\n");
+  if (text.trim()) githubMemoryCache = { text, loadedAt: Date.now() };
   return text;
 }
 
@@ -334,7 +347,7 @@ router.get("/health", (req, res) => {
   res.json({
     ok: true,
     configured: Boolean(process.env.GEMINI_API_KEY),
-    knowledgeConfigured: Boolean(process.env.GEMINI_FILE_SEARCH_STORE_NAME),
+    knowledgeConfigured: false,
     githubMemoryConfigured: Boolean(process.env.COY_MEMORY_GITHUB_TOKEN),
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
   });
@@ -431,7 +444,11 @@ router.post("/chat", rateLimit, async (req, res) => {
     });
     const data = await upstream.json().catch(() => ({}));
     if (!upstream.ok) {
-      console.error("Coy request failed:", upstream.status, data?.error?.status || data?.error?.code || "unknown");
+      const upstreamStatus = data?.error?.status || data?.error?.code || "unknown";
+      console.error("Coy request failed:", upstream.status, upstreamStatus);
+      if (upstream.status === 429) {
+        return res.status(503).json({ error: "Coy is being rate-limited by Google right now. Please wait a little and try again; if it keeps happening, check the Gemini API quota for the key configured in Render." });
+      }
       return res.status(502).json({ error: "Coy couldn’t answer right now. Please try again shortly." });
     }
     const answer = capitalizeReply(extractAnswer(data));
