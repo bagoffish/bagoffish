@@ -431,8 +431,8 @@ export default function CoyChat({ initialImage }) {
       recognition.onstart = () => setVoiceStatus('Say “call with me” to start');
       recognition.onresult = event => {
         const transcript = Array.from(event.results || []).map(result => result[0]?.transcript || '').join(' ').trim();
-        const normalized = transcript.toLowerCase().replace(/[^a-z0-9\\s']/g, ' ').replace(/\\s+/g, ' ').trim();
-        const wakePhrase = /\\b(call with me|call me|coy call me|coy let's call|coy lets call|start a call|let's call|lets call)\\b/.test(normalized);
+        const normalized = transcript.toLowerCase().replace(/[^a-z0-9\s']/g, ' ').replace(/\s+/g, ' ').trim();
+        const wakePhrase = /\b(call with me|call me|coy call me|coy let's call|coy lets call|start a call|let's call|lets call)\b/.test(normalized);
         if (!wakePhrase || voiceCallActiveRef.current) return;
         voiceCallActiveRef.current = true;
         setVoiceCallActive(true);
@@ -483,7 +483,7 @@ export default function CoyChat({ initialImage }) {
           .join(' ')
           .trim();
         if (!transcript || !voiceCallActiveRef.current) return;
-        if (/\\b(end call|hang up|stop calling|end the call|goodbye coy)\\b/i.test(transcript)) {
+        if (/\b(end call|hang up|stop calling|end the call|goodbye coy)\b/i.test(transcript)) {
           stopVoiceCall();
           return;
         }
