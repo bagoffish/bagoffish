@@ -119,9 +119,9 @@ export function buildRobloxArrangement(rawNotes, duration) {
     return {
       id: index + 1,
       role,
-      // These roles all have matching presets in the same real SoundFont.
-      // Keeping one bank avoids a collage of unrelated timbres.
-      bankId: 'strategy',
+      // Do not stamp a fixed bank here. The plan selects a song-specific
+      // Roblox SoundFont palette; planWithSoundBanks resolves the best bank
+      // that actually contains this role's preset.
       pitchMidi: Math.round(note.pitchMidi),
       startTimeSeconds,
       durationSeconds,
