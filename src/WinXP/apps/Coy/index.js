@@ -178,30 +178,29 @@ export default function CoyChat({ initialImage }) {
     writeCoyChatLog(messages);
   }, [messages]);
 
-  async function chooseFiles(event) {
-    const picked = Array.from(event.target.files || []).map(file => {
-      const extension = (file.name.split('.').pop() || '').toLowerCase();
+  async function addFiles(files) {
+    const picked = Array.from(files || []).filter(file => file instanceof Blob && file.size >= 0).map(file => {
+      const extension = (file.name?.split('.').pop() || '').toLowerCase();
       const inferred = ({
         png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
         heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp',
         mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', wav: 'audio/wav',
         ogg: 'audio/ogg', opus: 'audio/opus', flac: 'audio/flac', aac: 'audio/aac',
-        aif: 'audio/aiff', aiff: 'audio/aiff', webm: file.type.startsWith('video/') ? 'video/webm' : 'audio/webm',
+        aif: 'audio/aiff', aiff: 'audio/aiff', webm: file.type?.startsWith('video/') ? 'video/webm' : 'audio/webm',
       })[extension] || '';
       let type = (file.type || inferred).toLowerCase();
       if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
       if (type === 'audio/x-wav') type = 'audio/wav';
       if (type === 'audio/mp3') type = 'audio/mpeg';
-      return type && type !== file.type ? new File([file], file.name, { type, lastModified: file.lastModified }) : file;
+      return type && type !== file.type ? new File([file], file.name || 'pasted-file', { type, lastModified: file.lastModified }) : file;
     });
-    event.target.value = '';
     if (!picked.length) return;
     const combined = [...attachments, ...picked];
     if (combined.length > 3) {
       setError('Attach up to 3 files at a time.');
       return;
     }
-    if (combined.some(file => !/^(image|audio)\//i.test(file.type))) {
+    if (combined.some(file => !/^(image|audio)\\//i.test(file.type))) {
       setError('Coy can inspect image and audio files for now.');
       return;
     }
@@ -211,7 +210,7 @@ export default function CoyChat({ initialImage }) {
     }
     try {
       const loaded = await Promise.all(picked.map(async file => ({
-        name: file.name,
+        name: file.name || (file.type.startsWith('image/') ? 'pasted-image' : 'pasted-audio'),
         type: file.type,
         size: file.size,
         dataUrl: await readFileAsDataUrl(file),
@@ -221,6 +220,26 @@ export default function CoyChat({ initialImage }) {
     } catch (err) {
       setError(err.message || 'couldn’t read that file.');
     }
+  }
+
+  async function chooseFiles(event) {
+    const picked = Array.from(event.target.files || []);
+    event.target.value = '';
+    await addFiles(picked);
+  }
+
+  async function pasteFiles(event) {
+    const clipboard = event.clipboardData;
+    if (!clipboard) return;
+    const fromFiles = Array.from(clipboard.files || []);
+    const fromItems = Array.from(clipboard.items || [])
+      .filter(item => item.kind === 'file')
+      .map(item => item.getAsFile())
+      .filter(Boolean);
+    const picked = [...new Set([...fromFiles, ...fromItems])];
+    if (!picked.length) return;
+    event.preventDefault();
+    await addFiles(picked);
   }
 
   async function send(event) {
@@ -332,6 +351,7 @@ export default function CoyChat({ initialImage }) {
           placeholder="say something..."
           value={draft}
           onChange={event => setDraft(event.target.value)}
+          onPaste={pasteFiles}
           onKeyDown={event => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); send(event); } }}
           style={styles.input}
           disabled={busy}
