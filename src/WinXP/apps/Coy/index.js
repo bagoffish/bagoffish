@@ -219,6 +219,17 @@ export default function CoyChat({ initialImage }) {
     setBusy(true);
     setError('');
     try {
+      // Fetch the authoritative total only when the message asks about the visitor count.
+      let liveVisitorCount = null;
+      if (/\\b(visitor|visitors|visit|visits|counter|traffic)\\b/i.test(message) && /\\b(how many|how much|total|count|number|many people|visitor count|visitors?)\\b/i.test(message)) {
+        try {
+          const countResponse = await fetch(API_BASE + '/visitor-count/current', { cache: 'no-store' });
+          if (countResponse.ok) {
+            const countData = await countResponse.json();
+            if (Number.isFinite(Number(countData.count)) && Number(countData.count) >= 0) liveVisitorCount = Number(countData.count);
+          }
+        } catch (_) {}
+      }
       const controller = new AbortController();
       const timeout = window.setTimeout(() => controller.abort(), 55000);
       let response;
@@ -238,6 +249,7 @@ export default function CoyChat({ initialImage }) {
             websiteContext: {
               desktopApps: Array.from(document.querySelectorAll('[data-app-title]'))
                 .map(node => node.getAttribute('data-app-title')).filter(Boolean),
+              ...(liveVisitorCount !== null ? { totalVisitorCount: liveVisitorCount } : {}),
             },
           }),
         });
