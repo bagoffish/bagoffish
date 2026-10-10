@@ -37,10 +37,10 @@ export default function CoyCompanion() {
     };
     const onActivity = event => {
       const detail = event.detail || {};
+      if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       const now = Date.now();
       if (now - lastActivity.current < 18000) return;
       lastActivity.current = now;
-      if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       if (detail.type === "app-open") {
         const quips = {
           Winamp: "oh, music.",
