@@ -1021,15 +1021,40 @@ async function decodeToMono(file) {
   try {
     const decoded = await context.decodeAudioData(bytes.slice(0));
     const length = decoded.length;
-    const channels = decoded.numberOfChannels || 1;
-    const mono = new Float32Array(length);
-    for (let channel = 0; channel < channels; channel++) {
-      const data = decoded.getChannelData(channel);
-      const scale = 1 / channels;
-      for (let i = 0; i < length; i++) {
-        mono[i] += data[i] * scale;
-        if ((i & 262143) === 0) await yieldToBrowser();
+    const channels = Array.from({ length: decoded.numberOfChannels || 1 }, (_, index) => decoded.getChannelData(index));
+    if (channels.length === 1) {
+      return { samples: Float32Array.from(channels[0]), sampleRate: decoded.sampleRate, duration: decoded.duration };
+    }
+
+    // Phase-aware downmix: plain averaging can erase bass and quiet notes when
+    // a stereo source has one channel wired or mastered with inverted polarity.
+    let referenceIndex = 0;
+    let strongestEnergy = -1;
+    const stride = Math.max(1, Math.floor(length / 8192));
+    for (let channel = 0; channel < channels.length; channel++) {
+      let energy = 0;
+      for (let i = 0; i < length; i += stride) energy += channels[channel][i] * channels[channel][i];
+      if (energy > strongestEnergy) { strongestEnergy = energy; referenceIndex = channel; }
+    }
+    const reference = channels[referenceIndex];
+    const signs = channels.map((channel, index) => {
+      if (index === referenceIndex) return 1;
+      let dot = 0, refEnergy = 0, channelEnergy = 0;
+      const sampleStride = Math.max(1, Math.floor(length / 16384));
+      for (let i = 0; i < length; i += sampleStride) {
+        const a = reference[i], b = channel[i];
+        dot += a * b; refEnergy += a * a; channelEnergy += b * b;
       }
+      const correlation = dot / Math.sqrt(Math.max(1e-20, refEnergy * channelEnergy));
+      return correlation < -0.15 ? -1 : 1;
+    });
+    const mono = new Float32Array(length);
+    const scale = 1 / channels.length;
+    for (let i = 0; i < length; i++) {
+      let sum = 0;
+      for (let channel = 0; channel < channels.length; channel++) sum += channels[channel][i] * signs[channel];
+      mono[i] = sum * scale;
+      if ((i & 262143) === 0) await yieldToBrowser();
     }
     return { samples: mono, sampleRate: decoded.sampleRate, duration: decoded.duration };
   } finally {

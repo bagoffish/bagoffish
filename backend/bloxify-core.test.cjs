@@ -2,7 +2,7 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { downmixChannels, resample, mergeNotePasses } = require("./bloxify-core.cjs");
+const { downmixChannels, normalizeForPitchDetection, resample, mergeNotePasses } = require("./bloxify-core.cjs");
 
 test("phase-aware downmix preserves anti-phase stereo instead of cancelling it", () => {
   const left = Float32Array.from([0.2, -0.3, 0.4, -0.1, 0.25, -0.2]);
@@ -52,4 +52,17 @@ test("merge keeps a note found only by a sensitive pass", () => {
   ]]);
   assert.equal(result.length, 1);
   assert.equal(result[0].pitchMidi, 71);
+});
+
+test("pitch preparation safely lifts quiet audio and removes DC offset", () => {
+  const quiet = Float32Array.from({ length: 1000 }, (_, i) => 0.03 + 0.002 * Math.sin(2 * Math.PI * i / 20));
+  const prepared = normalizeForPitchDetection(quiet);
+  const peak = Math.max(...prepared.map(Math.abs));
+  assert.ok(peak > 0.005 && peak <= 0.98);
+  assert.ok(Math.abs(prepared.reduce((sum, value) => sum + value, 0) / prepared.length) < 1e-4);
+});
+
+test("pitch preparation does not amplify digital silence", () => {
+  const prepared = normalizeForPitchDetection(new Float32Array(256));
+  assert.ok(prepared.every(value => value === 0));
 });

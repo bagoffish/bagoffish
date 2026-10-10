@@ -40,3 +40,7 @@ jobs:
       - name: Test audio preprocessing and note merging
         working-directory: backend
         run: npm test
+      - name: Build frontend bundle
+        run: |
+          npm install --no-package-lock
+          npm run build
