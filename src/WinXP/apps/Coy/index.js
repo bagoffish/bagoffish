@@ -80,7 +80,7 @@ function renderCoyInline(value) {
 function renderCoyContent(value) {
   const lines = String(value ?? '').split('\n');
   return lines.map((line, index) => {
-    const heading = line.match(/^#\\s+(.+)$/);
+    const heading = line.match(/^#\s+(.+)$/);
     const newline = index < lines.length - 1 ? '\n' : '';
     if (!heading) return <React.Fragment key={index}>{renderCoyInline(line)}{newline}</React.Fragment>;
     return <React.Fragment key={index}><span style={{ fontSize: '1.35em', fontWeight: 'bold' }}>{renderCoyInline(heading[1])}</span>{newline}</React.Fragment>;
