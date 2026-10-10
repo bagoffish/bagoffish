@@ -1157,6 +1157,7 @@ function MusicAI() {
   function persistProjects(value) { try { const serialized = JSON.stringify(value); window.localStorage.setItem(STORAGE_KEY, serialized); return window.localStorage.getItem(STORAGE_KEY) === serialized; } catch (e) { return false; } }
   const synthRef = useRef(null); const contextRef = useRef(null);
   const masterGainRef = useRef(null); const planRef = useRef(null); const loadedBanksRef = useRef(new Set());
+  const liveWavSamplesRef = useRef(new Map()); const liveSampleSourcesRef = useRef(new Set());
   const [file, setFile] = useState(null); const [midiBlob, setMidiBlob] = useState(null); const [arrangement, setArrangement] = useState([]); const [sourceDuration, setSourceDuration] = useState(0);
   const [wavBlob, setWavBlob] = useState(null); const [renderingWav, setRenderingWav] = useState(false);
   const [status, setStatus] = useState('Drop audio → Bloxify version of your song');
@@ -1238,6 +1239,8 @@ function MusicAI() {
     if (playbackStopTimerRef.current) { window.clearTimeout(playbackStopTimerRef.current); playbackStopTimerRef.current = null; }
     if (playbackRafRef.current) { window.cancelAnimationFrame(playbackRafRef.current); window.clearTimeout(playbackRafRef.current); playbackRafRef.current = null; }
     scheduledTimersRef.current.forEach(id => clearTimeout(id)); scheduledTimersRef.current = [];
+    liveSampleSourcesRef.current.forEach(source => { try { source.stop(); } catch (e) {} });
+    liveSampleSourcesRef.current.clear();
     if (synthRef.current) { try { for (let ch = 0; ch < 16; ch++) { if (typeof synthRef.current.stopAll === 'function') synthRef.current.stopAll(ch); } } catch (e) {} }
   };
 
@@ -1534,6 +1537,58 @@ function MusicAI() {
     return synth;
   };
 
+  const ensureLiveWavSamples = async () => {
+    const context = contextRef.current;
+    if (!context) return;
+    const assets = (planRef.current && Array.isArray(planRef.current.sampleAssets))
+      ? planRef.current.sampleAssets
+      : MULE_AUDIO_SAMPLE_ASSETS;
+    for (const asset of assets.filter(item => item && (item.role === 'muleSquare' || item.role === 'muleSaw'))) {
+      if (liveWavSamplesRef.current.has(asset.role)) continue;
+      try {
+        const response = await fetch(asset.url, { cache: 'force-cache' });
+        if (!response.ok) continue;
+        const buffer = await context.decodeAudioData(await response.arrayBuffer());
+        liveWavSamplesRef.current.set(asset.role, { ...asset, buffer });
+      } catch (error) {
+        console.warn('Bloxify live WAV layer unavailable:', asset.url, error);
+      }
+    }
+  };
+
+  const playLiveWavForNote = (note, duration) => {
+    const context = contextRef.current;
+    if (!context || !note) return;
+    const role = note.role;
+    const sampleRole = ['bass', 'guitar', 'pad'].includes(role) ? 'muleSaw' : 'muleSquare';
+    const sample = liveWavSamplesRef.current.get(sampleRole);
+    if (!sample || !sample.buffer) return;
+    try {
+      const source = context.createBufferSource();
+      const gain = context.createGain();
+      source.buffer = sample.buffer;
+      source.loop = true;
+      source.loopStart = 0;
+      source.loopEnd = Math.min(sample.buffer.duration, 0.12);
+      source.playbackRate.value = Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12);
+      const peak = Math.max(0.002, Math.min(0.045, (Number(sample.gain) || 0.08) * 0.35));
+      const startAt = context.currentTime;
+      const safeDuration = Math.max(0.055, Math.min(duration || 0.12, 8));
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.linearRampToValueAtTime(peak, startAt + Math.min(0.012, safeDuration * 0.25));
+      gain.gain.setValueAtTime(peak, startAt + Math.max(safeDuration * 0.5, safeDuration - 0.025));
+      gain.gain.linearRampToValueAtTime(0.0001, startAt + safeDuration);
+      source.connect(gain);
+      gain.connect(masterGainRef.current || context.destination);
+      liveSampleSourcesRef.current.add(source);
+      source.onended = () => liveSampleSourcesRef.current.delete(source);
+      source.start(startAt);
+      source.stop(startAt + safeDuration + 0.015);
+    } catch (error) {
+      console.warn('Bloxify live WAV note failed:', error);
+    }
+  };
+
   const stopPlayback = () => { stopPlaybackInternal(); setPlaying(false); };
 
   const scheduleFrom = (synth, fromTime) => {
@@ -1572,6 +1627,7 @@ function MusicAI() {
           const noteVolume = mixValue(note.role, arrangement, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
           if (noteVolume != null) synth.controllerChange(ch, 7, noteVolume);
           synth.noteOn(ch, note.pitchMidi, vel);
+          playLiveWavForNote(note, dur);
         } catch (e) {}
       }, delay));
       if (!noteOffCutsHeldNote(arrangement, note, offAt)) {
@@ -1614,6 +1670,7 @@ function MusicAI() {
       setStatus('Mixing the SoundFont catalog…');
       const synth = await ensureSynth(plan, arrangement);
       if (contextRef.current.state === 'suspended') await contextRef.current.resume();
+      await ensureLiveWavSamples();
       const from = playbackTime > 0 && playbackTime < playbackDuration - 0.05 ? playbackTime : 0;
       scheduleFrom(synth, from); setStatus('Playing');
     } catch (error) {
@@ -1629,6 +1686,7 @@ function MusicAI() {
         const plan = planRef.current || { label: 'Bloxify Arrangement', programs: ORCHESTRA_PROGRAMS };
         const synth = await ensureSynth(plan, arrangement);
         if (contextRef.current.state === 'suspended') await contextRef.current.resume();
+        await ensureLiveWavSamples();
         scheduleFrom(synth, clamped);
       } catch (e) { console.error(e); }
     }
