@@ -359,7 +359,7 @@ export default function CoyCompanion() {
     message: { padding: "7px 9px", border: "1px solid #d1d1d1", borderRadius: 3, whiteSpace: "pre-wrap", overflowWrap: "anywhere", maxWidth: "92%" }
   };
 
-  return <div style={{ ...styles.root, display: hideForMobileApp && window.innerWidth <= 700 ? "none" : "flex" }} data-coy-ui="true">
+  return <div style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
     {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
       <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{renderCoyEmoji(line)}</button>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
