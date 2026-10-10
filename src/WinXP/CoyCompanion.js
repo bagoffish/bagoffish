@@ -24,6 +24,7 @@ export default function CoyCompanion() {
   const inputRef = useRef(null);
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
+  const lastPickupAttempt = useRef(0);
 
   useEffect(() => {
     if (chatOpen) inputRef.current?.focus();
@@ -53,7 +54,8 @@ export default function CoyCompanion() {
         announce(quips[detail.name] || ("oh, you opened " + (detail.name || "an app") + "."));
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
-      else if (detail.type === "image" && detail.src) {
+      else if (detail.type === "image" && detail.src && !foundImage && !holdingImage && now - lastPickupAttempt.current > 45000 && Math.random() <= 0.015) {
+        lastPickupAttempt.current = now;
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
         setHoldingImage(true);
         announce("oh, an image.", { image: detail.src });
@@ -64,19 +66,28 @@ export default function CoyCompanion() {
     // Coy can notice images rendered inside this website, especially the avatar renderer.
     // He never reads outside the page or tries to access private browser data.
     const scanImages = () => {
+      // Coy only occasionally picks up one image, and won't look for another while holding it.
+      if (foundImage || holdingImage) return;
+      const now = Date.now();
+      if (now - lastPickupAttempt.current < 45000) return;
+      lastPickupAttempt.current = now;
       const candidates = Array.from(document.querySelectorAll(".avatar-container img, .old-avatar-thumb, img"))
         .filter(img => img.complete && img.naturalWidth > 100 && img.naturalHeight > 100)
         .filter(img => !img.closest("[data-coy-ui]"))
         .filter(img => img.matches(".avatar-container img, .old-avatar-thumb") || /renderer|avatar|render|thumbnail|roblox/i.test(
           [img.alt, img.className, img.closest("[class]")?.className, img.src].join(" ")
-        ));
-      const img = candidates.find(item => item.src && !seenImages.current.has(item.src));
-      if (!img) return;
+        ))
+        .filter(img => img.src && !seenImages.current.has(img.src) && img.style.visibility !== "hidden");
+      // Keep this genuinely rare even on pages with lots of avatar thumbnails.
+      if (!candidates.length || Math.random() > 0.015) return;
+      const img = candidates[Math.floor(Math.random() * candidates.length)];
       seenImages.current.add(img.src);
+      const original = img.closest(".old-avatar-thumb") || img;
+      original.style.visibility = "hidden";
       setFoundImage({ src: img.src, alt: img.alt || "Roblox avatar render" });
       setHoldingImage(true);
-      if (Date.now() - lastActivity.current > 9000) {
-        lastActivity.current = Date.now();
+      if (now - lastActivity.current > 9000) {
+        lastActivity.current = now;
         announce("i found an avatar render. want to use it in chat?");
       }
     };
