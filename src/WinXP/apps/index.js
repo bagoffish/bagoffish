@@ -95,7 +95,7 @@ export const defaultIconState = [
 /* start menu / openApp settings */
 export const appSettings = {
   Coy: {
-    header: { icon: "/images/coy.png", title: "Coy", buttons: ["minimize", "maximize"] },
+    header: { icon: "/images/coy.png", title: "Coy", buttons: ["minimize", "maximize", "close"] },
     component: CoyChat,
     defaultSize: { width: 500, height: 520 },
     defaultOffset: { x: 180, y: 45 },
