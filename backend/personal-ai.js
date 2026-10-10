@@ -654,11 +654,12 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
     }
   }
 
+  const hasMedia = mediaInputs.some(item => item.type === "image" || item.type === "audio");
   const response = await fetch(url, {
     method: "POST",
     headers,
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(12_000),
+    signal: AbortSignal.timeout(hasMedia ? 45_000 : 12_000),
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
@@ -898,8 +899,11 @@ router.post("/chat", rateLimit, async (req, res) => {
     }
     if (!answer) {
       console.error("Coy all configured AI providers failed:", failedProviders.join(", ") || "none");
+      const hadAttachment = mediaInputs.length || textAttachments.length;
       return res.status(503).json({
-        error: "Hold on, I’m busy...",
+        error: hadAttachment
+          ? "Couldn’t read that file right now. Try again in a sec or send it as text."
+          : "Hold on, I’m busy...",
       });
     }
     res.setHeader("Cache-Control", "no-store");
