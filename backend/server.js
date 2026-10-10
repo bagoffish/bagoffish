@@ -12,7 +12,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-09-bloxify-save-delete-fix";
+const BACKEND_VERSION = "2026-10-10-bloxify-accuracy-pipeline";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";

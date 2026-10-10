@@ -3,25 +3,35 @@
 // SoundFont palette, but must never invent notes, quantize timing, or guess chords.
 
 function cleanSource(notes) {
-  const sorted = (notes || []).slice().sort((a, b) =>
-    a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi
-  );
+  const sorted = (Array.isArray(notes) ? notes : [])
+    .filter(note => note && Number.isFinite(note.startTimeSeconds) &&
+      Number.isFinite(note.durationSeconds) && Number.isFinite(note.pitchMidi))
+    .slice()
+    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi);
   const kept = [];
+  const buckets = new Map();
+  const bucketWidth = 0.012;
   sorted.forEach(note => {
-    if (!note || !Number.isFinite(note.startTimeSeconds) ||
-        !Number.isFinite(note.durationSeconds) || !Number.isFinite(note.pitchMidi) ||
-        note.durationSeconds < 0.035 || note.pitchMidi < 0 || note.pitchMidi > 127 ||
+    if (note.durationSeconds < 0.035 || note.pitchMidi < 0 || note.pitchMidi > 127 ||
         note.startTimeSeconds < 0) return;
-    const duplicate = kept.some(previous =>
-      previous.pitchMidi === note.pitchMidi &&
-      Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.012 &&
-      Math.abs(previous.durationSeconds - note.durationSeconds) < 0.025
-    );
-    if (!duplicate) kept.push(note);
+    const pitch = Math.round(note.pitchMidi);
+    const bucket = Math.floor(note.startTimeSeconds / bucketWidth);
+    let duplicate = false;
+    for (let near = bucket - 1; near <= bucket + 1 && !duplicate; near += 1) {
+      const candidates = buckets.get(pitch + ':' + near) || [];
+      duplicate = candidates.some(previous =>
+        Math.abs(previous.startTimeSeconds - note.startTimeSeconds) < 0.012 &&
+        Math.abs(previous.durationSeconds - note.durationSeconds) < 0.025
+      );
+    }
+    if (duplicate) return;
+    kept.push(note);
+    const key = pitch + ':' + bucket;
+    if (!buckets.has(key)) buckets.set(key, []);
+    buckets.get(key).push(note);
   });
   return kept;
 }
-
 function clusterNotes(notes, windowSeconds = 0.06) {
   const clusters = [];
   notes.forEach(note => {

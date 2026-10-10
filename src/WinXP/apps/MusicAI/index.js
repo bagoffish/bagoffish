@@ -597,14 +597,19 @@ function stitchChunkNotes(notes, seams) {
   sorted.forEach(note => {
     const prev = out[out.length - 1];
     const start = Math.max(0, Number(note.startTimeSeconds) || 0);
-    const dur = Math.max(0.05, Number(note.durationSeconds) || 0);
+    const dur = Math.max(0.025, Number(note.durationSeconds) || 0);
     const prevEnd = prev ? prev.startTimeSeconds + prev.durationSeconds : 0;
-    const nearSeam = prev && boundaries.some(boundary => Math.abs(prevEnd - boundary) <= 0.45 || Math.abs(start - boundary) <= 0.45);
-    const join = nearSeam ? 0.55 : 0.16;
-    if (prev && prev.pitchMidi === note.pitchMidi && start <= prevEnd + join) {
+    const startDelta = prev ? Math.abs(start - prev.startTimeSeconds) : Infinity;
+    // The 32-second inference windows overlap by 1.5 seconds. Only collapse
+    // near-identical same-pitch attacks inside that overlap; never glue two
+    // legitimately repeated notes just because they are less than 160 ms apart.
+    const nearSeam = prev && boundaries.some(boundary =>
+      Math.abs(start - boundary) <= 1.6 || Math.abs(prev.startTimeSeconds - boundary) <= 1.6
+    );
+    if (prev && prev.pitchMidi === note.pitchMidi && nearSeam && startDelta <= 0.055) {
       const end = Math.max(prevEnd, start + dur);
       prev.durationSeconds = end - prev.startTimeSeconds;
-      prev.amplitude = Math.max(prev.amplitude || 0, note.amplitude || 0);
+      prev.amplitude = Math.max(Number(prev.amplitude) || 0, Number(note.amplitude) || 0);
       return;
     }
     out.push({ ...note, startTimeSeconds: start, durationSeconds: dur });
