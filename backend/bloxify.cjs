@@ -4,7 +4,7 @@ process.env.TF_NUM_INTEROP_THREADS = process.env.TF_NUM_INTEROP_THREADS || "1";
 
 const { createRequire } = require("module");
 const requireFromHere = createRequire(__filename);
-const { downmixChannels, resample, mergeNotePasses } = requireFromHere("./bloxify-core.cjs");
+const { downmixChannels, normalizeForPitchDetection, resample, mergeNotePasses } = requireFromHere("./bloxify-core.cjs");
 
 const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"];
 
@@ -343,7 +343,8 @@ async function transcribeAudioBuffer(fileBuffer, mimeType = "") {
   }
 
   const mono = downmixChannels(channelData);
-  const samples = resample(mono, decodedSampleRate, TARGET_RATE);
+  const prepared = normalizeForPitchDetection(mono);
+  const samples = resample(prepared, decodedSampleRate, TARGET_RATE);
   console.log(
     `Bloxify decode/resample: ${Date.now() - decodeStartedAt}ms (${duration.toFixed(2)}s audio)`
   );

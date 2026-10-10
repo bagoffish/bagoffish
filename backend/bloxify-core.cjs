@@ -59,6 +59,35 @@ function downmixChannels(channelData) {
   return output;
 }
 
+
+function normalizeForPitchDetection(samples, options = {}) {
+  if (!samples || !samples.length) return new Float32Array(0);
+  const maxGain = Number.isFinite(options.maxGain) ? Math.max(1, options.maxGain) : 4;
+  let mean = 0;
+  let peak = 0;
+  for (let i = 0; i < samples.length; i += 1) {
+    const value = Number(samples[i]) || 0;
+    mean += value;
+    peak = Math.max(peak, Math.abs(value));
+  }
+  mean /= samples.length;
+  // Silence is left silent so normalization never turns digital silence into
+  // apparent notes. Remove DC bias before estimating the safe gain.
+  if (peak < 1e-5) return Float32Array.from(samples, () => 0);
+  let centeredPeak = 0;
+  for (let i = 0; i < samples.length; i += 1) {
+    centeredPeak = Math.max(centeredPeak, Math.abs((Number(samples[i]) || 0) - mean));
+  }
+  if (centeredPeak < 1e-5) return Float32Array.from(samples, () => 0);
+  const gain = Math.min(maxGain, 0.95 / centeredPeak);
+  const output = new Float32Array(samples.length);
+  for (let i = 0; i < samples.length; i += 1) {
+    const value = ((Number(samples[i]) || 0) - mean) * gain;
+    output[i] = Math.max(-0.98, Math.min(0.98, value));
+  }
+  return output;
+}
+
 function sinc(x) {
   if (Math.abs(x) < 1e-8) return 1;
   const pix = Math.PI * x;
@@ -204,4 +233,4 @@ function mergeNotePasses(passes, options = {}) {
   );
 }
 
-module.exports = { downmixChannels, resample, mergeNotePasses };
+module.exports = { downmixChannels, normalizeForPitchDetection, resample, mergeNotePasses };
