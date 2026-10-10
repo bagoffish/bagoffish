@@ -238,6 +238,11 @@ function WinXP() {
     const onCoyOpenChat = event => {
       const setting = appSettings.Coy;
       if (!setting) return;
+      const existing = state.apps.find(app => app.header?.title === 'Coy');
+      if (existing) {
+        dispatch({ type: DEL_APP, payload: existing.id });
+        return;
+      }
       const image = event.detail && event.detail.image;
       dispatch({
         type: ADD_APP,
@@ -247,9 +252,18 @@ function WinXP() {
         },
       });
     };
+    const onCoyCloseChat = () => {
+      state.apps.filter(app => app.header?.title === 'Coy').forEach(app => {
+        dispatch({ type: DEL_APP, payload: app.id });
+      });
+    };
     window.addEventListener('coy:open-chat', onCoyOpenChat);
-    return () => window.removeEventListener('coy:open-chat', onCoyOpenChat);
-  }, []);
+    window.addEventListener('coy:close-chat', onCoyCloseChat);
+    return () => {
+      window.removeEventListener('coy:open-chat', onCoyOpenChat);
+      window.removeEventListener('coy:close-chat', onCoyCloseChat);
+    };
+  }, [state.apps]);
 
   // Publish desktop activity so Coy can react to the apps the visitor actually opens.
   useEffect(() => {
