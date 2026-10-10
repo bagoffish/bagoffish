@@ -64,7 +64,7 @@ app.use(cors({
   optionsSuccessStatus: 204,
 }));
 
-app.use(express.json({ limit: "2mb" }));
+app.use(express.json({ limit: "18mb" }));
 app.use("/personal-ai", personalAiRouter);
 
 app.get("/", (req, res) => {
