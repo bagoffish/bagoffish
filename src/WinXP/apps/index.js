@@ -8,6 +8,7 @@ const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
 const Bloxify = lazyApp(() => import("./MusicAI"));
+import WinterLetterVN from "../../components/WinterLetterVN";
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
@@ -18,7 +19,7 @@ import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
 
-/* placeholders for your custom apps */
+/* icons for custom apps */
 import poemsIcon from "assets/windowsIcons/327(32x32).png";
 import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
@@ -55,18 +56,9 @@ const genIndex = gen();
 export const defaultAppState = [
   {
     component: AboutMe,
-    header: {
-      title: "About Me",
-      icon: socialsIcon,
-    },
-    defaultSize: {
-      width: 700,
-      height: 500,
-    },
-    defaultOffset: {
-      x: 130,
-      y: 20,
-    },
+    header: { title: "About Me", icon: socialsIcon },
+    defaultSize: { width: 700, height: 500 },
+    defaultOffset: { x: 130, y: 20 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -75,18 +67,9 @@ export const defaultAppState = [
   },
   {
     component: Minesweeper,
-    header: {
-      title: "Minesweeper",
-      icon: mine,
-    },
-    defaultSize: {
-      width: 0,
-      height: 0,
-    },
-    defaultOffset: {
-      x: 180,
-      y: 170,
-    },
+    header: { title: "Minesweeper", icon: mine },
+    defaultSize: { width: 0, height: 0 },
+    defaultOffset: { x: 180, y: 170 },
     resizable: false,
     minimized: false,
     maximized: false,
@@ -97,68 +80,21 @@ export const defaultAppState = [
 
 /* desktop icons */
 export const defaultIconState = [
-  {
-    id: 0,
-    icon: socialsIcon,
-    title: "About Me",
-    component: AboutMe,
-    isFocus: false,
-  },
-  {
-    id: 2,
-    icon: poemsIcon,
-    title: "Poems",
-    component: Poems,
-    isFocus: false,
-  },
-  {
-    id: 3,
-    icon: RendererIcon,
-    title: "Renderer",
-    component: Renderer,
-    isFocus: false,
-  },
-  {
-    id: 8,
-    icon: socialsIcon,
-    title: "Talk to Coy",
-    component: PersonalAI,
-    isFocus: false,
-  },
-  {
-    id: 7,
-    icon: musicIcon,
-    title: "Bloxify",
-    component: Bloxify,
-    isFocus: false,
-  },
-  {
-    id: 4,
-    icon: mine,
-    title: "Minesweeper",
-    component: Minesweeper,
-    isFocus: false,
-  },
-  {
-    id: 5,
-    icon: paintLarge,
-    title: "Paint",
-    component: Paint,
-    isFocus: false,
-  },
-  {
-    id: 6,
-    icon: winamp,
-    title: "Winamp",
-    component: Winamp,
-    isFocus: false,
-  },
+  { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
+  { id: 2, icon: poemsIcon, title: "Poems", component: Poems, isFocus: false },
+  { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
+  { id: 8, icon: socialsIcon, title: "CoyBot", component: PersonalAI, isFocus: false },
+  { id: 9, icon: poemsIcon, title: "Winter_Letter", component: WinterLetterVN, isFocus: false },
+  { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
+  { id: 4, icon: mine, title: "Minesweeper", component: Minesweeper, isFocus: false },
+  { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
+  { id: 6, icon: winamp, title: "Winamp", component: Winamp, isFocus: false },
 ];
 
 /* start menu / openApp settings */
 export const appSettings = {
-  "Talk to Coy": {
-    header: { icon: socialsIconSmall, title: "Talk to Coy" },
+  CoyBot: {
+    header: { icon: socialsIconSmall, title: "CoyBot" },
     component: PersonalAI,
     defaultSize: { width: 560, height: 520 },
     defaultOffset: { x: 180, y: 45 },
@@ -168,20 +104,22 @@ export const appSettings = {
     multiInstance: true,
   },
 
+  Winter_Letter: {
+    header: { icon: poemsIconSmall, title: "Winter_Letter" },
+    component: WinterLetterVN,
+    defaultSize: { width: 760, height: 520 },
+    defaultOffset: { x: 100, y: 45 },
+    resizable: true,
+    minimized: false,
+    maximized: window.innerWidth < 800,
+    multiInstance: true,
+  },
+
   "About Me": {
-    header: {
-      icon: socialsIconSmall,
-      title: "About Me",
-    },
+    header: { icon: socialsIconSmall, title: "About Me" },
     component: AboutMe,
-    defaultSize: {
-      width: 700,
-      height: 500,
-    },
-    defaultOffset: {
-      x: 140,
-      y: 30,
-    },
+    defaultSize: { width: 700, height: 500 },
+    defaultOffset: { x: 140, y: 30 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -189,19 +127,10 @@ export const appSettings = {
   },
 
   Poems: {
-    header: {
-      icon: poemsIconSmall,
-      title: "Poems",
-    },
+    header: { icon: poemsIconSmall, title: "Poems" },
     component: Poems,
-    defaultSize: {
-      width: 660,
-      height: 520,
-    },
-    defaultOffset: {
-      x: 160,
-      y: 60,
-    },
+    defaultSize: { width: 660, height: 520 },
+    defaultOffset: { x: 160, y: 60 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -209,19 +138,10 @@ export const appSettings = {
   },
 
   Renderer: {
-    header: {
-      icon: RendererIconSmall,
-      title: "Renderer",
-    },
+    header: { icon: RendererIconSmall, title: "Renderer" },
     component: Renderer,
-    defaultSize: {
-      width: 660,
-      height: 600,
-    },
-    defaultOffset: {
-      x: 210,
-      y: 90,
-    },
+    defaultSize: { width: 660, height: 600 },
+    defaultOffset: { x: 210, y: 90 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -229,19 +149,10 @@ export const appSettings = {
   },
 
   Bloxify: {
-    header: {
-      icon: musicIcon,
-      title: "Bloxify",
-    },
+    header: { icon: musicIcon, title: "Bloxify" },
     component: Bloxify,
-    defaultSize: {
-      width: 800,
-      height: 520,
-    },
-    defaultOffset: {
-      x: 220,
-      y: 70,
-    },
+    defaultSize: { width: 800, height: 520 },
+    defaultOffset: { x: 220, y: 70 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -249,19 +160,10 @@ export const appSettings = {
   },
 
   Minesweeper: {
-    header: {
-      icon: mine,
-      title: "Minesweeper",
-    },
+    header: { icon: mine, title: "Minesweeper" },
     component: Minesweeper,
-    defaultSize: {
-      width: 0,
-      height: 0,
-    },
-    defaultOffset: {
-      x: 190,
-      y: 180,
-    },
+    defaultSize: { width: 0, height: 0 },
+    defaultOffset: { x: 190, y: 180 },
     resizable: false,
     minimized: false,
     maximized: false,
@@ -269,21 +171,10 @@ export const appSettings = {
   },
 
   Error: {
-    header: {
-      icon: error,
-      title: "C:\\",
-      buttons: ["close"],
-      noFooterWindow: true,
-    },
+    header: { icon: error, title: "C:\\", buttons: ["close"], noFooterWindow: true },
     component: ErrorBox,
-    defaultSize: {
-      width: 380,
-      height: 0,
-    },
-    defaultOffset: {
-      x: window.innerWidth / 2 - 190,
-      y: window.innerHeight / 2 - 60,
-    },
+    defaultSize: { width: 380, height: 0 },
+    defaultOffset: { x: window.innerWidth / 2 - 190, y: window.innerHeight / 2 - 60 },
     resizable: false,
     minimized: false,
     maximized: false,
@@ -291,19 +182,10 @@ export const appSettings = {
   },
 
   Paint: {
-    header: {
-      icon: paintSmall,
-      title: "Untitled - Paint",
-    },
+    header: { icon: paintSmall, title: "Untitled - Paint" },
     component: Paint,
-    defaultSize: {
-      width: 660,
-      height: 500,
-    },
-    defaultOffset: {
-      x: 280,
-      y: 70,
-    },
+    defaultSize: { width: 660, height: 500 },
+    defaultOffset: { x: 280, y: 70 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
@@ -311,20 +193,10 @@ export const appSettings = {
   },
 
   Winamp: {
-    header: {
-      icon: winamp,
-      title: "Winamp",
-      invisible: true,
-    },
+    header: { icon: winamp, title: "Winamp", invisible: true },
     component: Winamp,
-    defaultSize: {
-      width: 0,
-      height: 0,
-    },
-    defaultOffset: {
-      x: 0,
-      y: 0,
-    },
+    defaultSize: { width: 0, height: 0 },
+    defaultOffset: { x: 0, y: 0 },
     resizable: false,
     minimized: false,
     maximized: false,
@@ -342,4 +214,5 @@ export {
   Paint,
   Winamp,
   Bloxify,
+  WinterLetterVN,
 };
