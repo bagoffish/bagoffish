@@ -11,6 +11,18 @@ const IDLE_LINES = [
   'status: silly',
 ];
 
+// Replace these named slots with transparent OC sprites as they are drawn.
+const SPRITE_ACTIONS = [
+  { id: 'idle', label: 'Idle / neutral', mood: 'happy', line: 'just standing here. existing. :3' },
+  { id: 'wave', label: 'Wave hello', mood: 'happy', line: 'oh hi!! you noticed me :3' },
+  { id: 'laugh', label: 'Laughing', mood: 'mischief', line: 'LMAOOO okay wait' },
+  { id: 'annoyed', label: 'Annoyed / deadpan', mood: 'mischief', line: 'i am judging you a normal amount.' },
+  { id: 'sleep', label: 'Sleepy', mood: 'sleepy', line: 'five more minutes...' },
+  { id: 'think', label: 'Thinking', mood: 'happy', line: 'hold on. brain loading...' },
+  { id: 'surprised', label: 'Surprised', mood: 'happy', line: 'HUH??' },
+  { id: 'smoke', label: 'Smoking / idle prop', mood: 'mischief', line: 'bro is contemplating the universe.' },
+];
+
 const styles = {
   root: {
     position: 'fixed', right: 18, bottom: 42, zIndex: 10000,
@@ -107,6 +119,8 @@ export default function CoyCompanion() {
   const [open, setOpen] = useState(false);
   const [bubble, setBubble] = useState('psst... hi :3');
   const [mood, setMood] = useState('happy');
+  const [poseMenu, setPoseMenu] = useState(false);
+  const [spriteAction, setSpriteAction] = useState('idle');
   const [messages, setMessages] = useState([
     { role: 'assistant', content: 'haiii :3 i’m Coy, your tiny desktop ghost. click me whenever you wanna chat.' },
   ]);
@@ -203,6 +217,28 @@ export default function CoyCompanion() {
             <div style={{ padding: '5px 9px 7px', fontSize: 10, color: '#626262', background: '#ece9d8' }}>Don’t share passwords or private information. Chats aren’t saved between visits.</div>
           </section>
         )}
+        {poseMenu && (
+          <div role="menu" aria-label="Coy sprite placeholder actions" style={{
+            pointerEvents: 'auto', width: 205, padding: 7, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5,
+            background: '#fffdf5', border: '2px solid #5276ad', borderRadius: 8, boxShadow: '2px 3px 0 rgba(18,49,102,.25)',
+          }}>
+            <div style={{ gridColumn: '1 / -1', fontSize: 10, color: '#52617a', padding: '2px 3px' }}>
+              SPRITE PLACEHOLDERS · right-click Coy to open
+            </div>
+            {SPRITE_ACTIONS.map(action => (
+              <button key={action.id} type="button" role="menuitem" onClick={() => {
+                setSpriteAction(action.id);
+                setMood(action.mood);
+                setBubble(action.line);
+                setPoseMenu(false);
+              }} style={{
+                padding: '6px 5px', fontSize: 10, textAlign: 'left', cursor: 'pointer',
+                border: action.id === spriteAction ? '1px solid #245edb' : '1px solid #c5cbd4',
+                borderRadius: 4, background: action.id === spriteAction ? '#e4efff' : '#fff',
+              }}>{action.label}</button>
+            ))}
+          </div>
+        )}
         {!open && (
           <button
             type="button"
@@ -218,9 +254,10 @@ export default function CoyCompanion() {
           type="button"
           className="coy-companion-character"
           style={styles.characterButton}
-          onClick={() => { setOpen(value => !value); setBubble('hehe hi :3'); }}
+          onContextMenu={event => { event.preventDefault(); setPoseMenu(value => !value); }}
+          onClick={() => { setPoseMenu(false); setOpen(value => !value); setBubble('hehe hi :3'); }}
           aria-label={open ? 'Hide Coy chat' : 'Talk to Coy'}
-          title="Talk to Coy :3"
+          title="Click to chat · right-click for sprite action placeholders"
         >
           <CoyGhost mood={mood} />
         </button>
