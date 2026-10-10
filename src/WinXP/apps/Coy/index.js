@@ -176,7 +176,7 @@ export default function CoyChat({ initialImage }) {
     writeCoyChatLog(messages);
   }, [messages]);
 
-  async function chooseFiles(event) {
+  async async function chooseFiles(event) {
     const picked = Array.from(event.target.files || []).map(file => {
       const extension = (file.name.split('.').pop() || '').toLowerCase();
       const inferred = ({
@@ -337,7 +337,7 @@ export default function CoyChat({ initialImage }) {
         />
         <button type="submit" style={styles.button} disabled={busy || (!draft.trim() && !attachments.length)}>{busy ? '…' : 'Send'}</button>
       </form>
-      <div style={styles.status}>Chat log is saved in a cookie for 30 days on this browser.</div>
+      <div style={styles.status}>Chat log is saved on this browser and should remain when you close this tab.</div>
     </div>
   );
 }
