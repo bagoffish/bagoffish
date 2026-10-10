@@ -231,6 +231,7 @@ export default function CoyChat({ initialImage }) {
   };
   const [busy, setBusy] = useState(false);
   const sendLockRef = useRef(false);
+  const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -393,6 +394,11 @@ export default function CoyChat({ initialImage }) {
     // React state updates after this handler returns; use a synchronous lock so
     // Enter + click or rapid repeated events cannot launch duplicate requests.
     if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) return;
+    // Ignore accidental rapid re-submits of the same text (e.g. Enter + click or a sticky button).
+    const now = Date.now();
+    const sendFingerprint = message + '|' + attachmentsRef.current.map(file => [file.name, file.type, file.size].join(':')).join(',');
+    if (sendFingerprint && sendFingerprint === lastSendRef.current.message && now - lastSendRef.current.at < 1800) return;
+    lastSendRef.current = { message: sendFingerprint, at: now };
     sendLockRef.current = true;
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
@@ -460,7 +466,13 @@ export default function CoyChat({ initialImage }) {
         ? [...parts.slice(0, 2), parts.slice(2).join('\n\n')]
         : parts;
       const replyMessages = boundedParts.map(content => ({ role: 'assistant', content }));
-      setMessages(previous => [...previous, ...replyMessages].slice(-100));
+      setMessages(previous => {
+        // Avoid rendering a repeated response if a duplicate request or stale callback slips through.
+        const tail = previous.slice(-replyMessages.length);
+        const alreadyAppended = replyMessages.length > 0 && tail.length === replyMessages.length &&
+          tail.every((item, index) => item.role === 'assistant' && item.content === replyMessages[index].content);
+        return alreadyAppended ? previous : [...previous, ...replyMessages].slice(-100);
+      });
     } catch (err) {
       if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
