@@ -500,11 +500,27 @@ export default function CoyChat({ initialImage }) {
     let voiceReply = '';
     // React state updates after this handler returns; use a synchronous lock so
     // Enter + click or rapid repeated events cannot launch duplicate requests.
-    if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) return;
+    if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) {
+      if (voiceInputTurn) {
+        voiceTurnRef.current = false;
+        if (voiceCallActiveRef.current) window.setTimeout(() => {
+          if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
+        }, 350);
+      }
+      return;
+    }
     // Ignore accidental rapid re-submits of the same text (e.g. Enter + click or a sticky button).
     const now = Date.now();
     const sendFingerprint = message + '|' + attachmentsRef.current.map(file => [file.name, file.type, file.size].join(':')).join(',');
-    if (sendFingerprint && sendFingerprint === lastSendRef.current.message && now - lastSendRef.current.at < 1800) return;
+    if (sendFingerprint && sendFingerprint === lastSendRef.current.message && now - lastSendRef.current.at < 1800) {
+      if (voiceInputTurn) {
+        voiceTurnRef.current = false;
+        if (voiceCallActiveRef.current) window.setTimeout(() => {
+          if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
+        }, 350);
+      }
+      return;
+    }
     lastSendRef.current = { message: sendFingerprint, at: now };
     sendLockRef.current = true;
     const filesToSend = attachmentsRef.current;
