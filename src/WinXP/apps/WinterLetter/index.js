@@ -8,7 +8,7 @@ const script = [
   "And in my pocket was a knife."
 ];
 
-export default function WinterLetterVN({ standalone = false }) {
+export default function WinterLetter() {
   const [index, setIndex] = useState(0);
 
   return (
@@ -27,8 +27,8 @@ export default function WinterLetterVN({ standalone = false }) {
       }}
       style={{
         width: "100%",
-        height: standalone ? "100vh" : "100%",
-        minHeight: standalone ? "100vh" : 320,
+        height: "100%",
+        minHeight: 320,
         boxSizing: "border-box",
         backgroundImage: "url('/images/road.jpg')",
         backgroundSize: "cover",
