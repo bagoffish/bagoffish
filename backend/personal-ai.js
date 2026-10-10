@@ -54,7 +54,7 @@ TYPO TOLERANCE AND PLAYFUL CHAT:
 - Make small jokes, wordplay, puns, teasing, and dry little observations when the conversation gives you an opening. Keep them brief and spontaneous, not a joke in every message. Follow the user's energy and don't force humor into serious, sad, urgent, or sensitive conversations.
 - CASUALNESS FIRST IN CASUAL CHATS: Stop sounding like customer support or a school essay when the user is just chatting. Prefer natural, direct replies, contractions, short reactions, occasional fragments, and the user's usual shorthand (such as "u", "ur", "idk", "tbh", "rn", "bc", "tho") when it fits. Don't automatically add an intro, summary, bullet list, or offer of further assistance.
 - Do not over-explain simple answers. If the user makes a playful statement or joke, react to it first instead of analyzing it. A little imperfection and spontaneity are better than stiff, polished wording in casual chat.
-- For a one-sentence casual reply, a final period is optional and often unnecessary. Don't add a period just to make a short reaction look formal. Keep question marks, exclamation marks, and punctuation that carries meaning.
+- If a reply is exactly one sentence, do not end it with a period. Keep question marks, exclamation marks, and punctuation that carries meaning. For a multi-sentence reply, normal punctuation is fine.
 - Keep normal capitalization available, but don't make every casual reply perfectly edited. Match the user's actual mix of capitalization, lowercase, stretched words, punctuation, and occasional all-caps emphasis.
 
 OUTPUT STYLE — NEVER EXPOSE INTERNAL LABELS:
@@ -677,6 +677,12 @@ router.post("/chat", rateLimit, async (req, res) => {
   const timeZone = typeof websiteContext.timeZone === "string"
     ? websiteContext.timeZone.slice(0, 80)
     : "unknown";
+  const koreanTime = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Seoul",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(new Date());
 
   const githubMemoryContext = await getGithubMemoryContext(message);
   const conversation = [
@@ -690,10 +696,12 @@ router.post("/chat", rateLimit, async (req, res) => {
     linkInspection.context || "No HTTP(S) links were supplied in the current message.",
     "CURRENT USER DEVICE TIME: " + currentLocalTime,
     "USER DEVICE TIME ZONE: " + timeZone,
+    "CURRENT KOREAN TIME (Asia/Seoul): " + koreanTime,
+    "TIME RESPONSE RULES: If the user asks what time it is for Coy, or asks the time without specifying whose local time, answer briefly in this exact style using the supplied Korean time: \"It's " + koreanTime + " for me rn\". If the user asks what time it is for them / their own location, answer exactly: \"Shouldn't you know that better than me?\" Do not substitute the user's device time for Coy's Korean time.",
     Number.isFinite(Number(websiteContext.totalVisitorCount)) && Number(websiteContext.totalVisitorCount) >= 0
       ? "LIVE ABOUT-ME VISITOR COUNTER: the current total is " + Number(websiteContext.totalVisitorCount).toLocaleString("en-US") + ". This is the authoritative total visitor count fetched from the website backend just now. Use this exact count when asked about total visitors; do not confuse it with the individual VISITOR # badge or invent a different number."
       : "LIVE ABOUT-ME VISITOR COUNTER: no live total was provided for this message. Do not guess the total visitor count; say you cannot read it right now.",
-    "Use the provided current device time and time zone when the user asks what time it is or asks time-relative questions. This is the user browser-local time, not a guessed server time. If it is not provided, do not guess.",
+    "Use CURRENT KOREAN TIME (Asia/Seoul) for Coy's own time answers, and use the user's device time/time zone only when a calculation genuinely depends on the user's local time. Follow the exact time-response rules above.",
     ...history.map(item => (item.role === "assistant" ? "Coy" : "User") + ": " + item.content),
     attachments.length ? "USER ATTACHED FILES: " + attachments.map(item => String(item.name || "attachment").slice(0, 120)).join(", ") : "",
     "User: " + (message || "Please inspect the attached file(s) and describe or analyze them."),
