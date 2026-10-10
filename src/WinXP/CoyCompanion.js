@@ -66,6 +66,8 @@ export default function CoyCompanion() {
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
+  const bubbleWrapRef = useRef(null);
+  const [bubblePlacement, setBubblePlacement] = useState({ left: "50%", arrowLeft: "50%", transform: "translateX(-50%)" });
   const hasInitialPlacement = useRef(false);
   const wasTaskbarAligned = useRef(true);
 
@@ -140,6 +142,37 @@ export default function CoyCompanion() {
       window.visualViewport?.removeEventListener("resize", placeCoy);
     };
   }, [spriteSize]);
+
+  // Keep the bubble inside the viewport. Center its tail over Coy whenever
+  // possible; near either edge, shift the bubble and move the tail to point
+  // back toward Coy without covering or clipping the text.
+  useEffect(() => {
+    const placeBubble = () => {
+      const root = rootRef.current;
+      const bubble = bubbleWrapRef.current;
+      if (!root || !bubble) return;
+      const bubbleWidth = bubble.getBoundingClientRect().width;
+      if (!bubbleWidth) return;
+      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+      const margin = 8;
+      const coyCenter = Math.max(0, Math.min(viewportWidth, position.left + spriteSize / 2));
+      const centeredLeft = coyCenter - bubbleWidth / 2;
+      const bubbleLeft = Math.max(margin, Math.min(viewportWidth - bubbleWidth - margin, centeredLeft));
+      const arrowLeft = Math.max(18, Math.min(bubbleWidth - 18, coyCenter - bubbleLeft));
+      setBubblePlacement({
+        left: bubbleLeft - position.left,
+        arrowLeft,
+        transform: "none"
+      });
+    };
+    placeBubble();
+    window.addEventListener("resize", placeBubble);
+    window.visualViewport?.addEventListener("resize", placeBubble);
+    return () => {
+      window.removeEventListener("resize", placeBubble);
+      window.visualViewport?.removeEventListener("resize", placeBubble);
+    };
+  }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
 
   useEffect(() => {
     if (!showBubble || busy) return undefined;
@@ -431,9 +464,9 @@ export default function CoyCompanion() {
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
-    bubbleWrap: { position: "absolute", left: "50%", bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(88vw, 360px)", minWidth: 0, marginBottom: 0, transform: "translateX(-50%)", transformOrigin: "bottom center", animation: "coyBubbleIn 140ms ease-out", cursor: "pointer" },
+    bubbleWrap: { position: "absolute", left: bubblePlacement.left, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(88vw, 360px)", minWidth: 0, marginBottom: 0, transform: bubblePlacement.transform, transformOrigin: "bottom center", animation: "coyBubbleIn 140ms ease-out", cursor: "pointer" },
     bubble: { position: "relative", boxSizing: "border-box", display: "block", width: "fit-content", minWidth: 0, maxWidth: "min(88vw, 360px)", height: "auto", padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "break-word", wordBreak: "normal", whiteSpace: "pre-wrap" },
-    tail: { position: "absolute", left: "50%", bottom: -13, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
+    tail: { position: "absolute", left: bubblePlacement.arrowLeft, bottom: -13, transform: "translateX(-50%)", width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -7, top: -13, width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
     input: { flex: 1, minWidth: 0, border: "1px solid #777", borderRadius: 2, padding: "7px 8px", fontSize: 13, color: "#111", background: "#fff" },
@@ -447,6 +480,7 @@ export default function CoyCompanion() {
 
   return createPortal(<div ref={rootRef} style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
     {(showBubble || busy) && <div
+      ref={bubbleWrapRef}
       style={styles.bubbleWrap}
       role={busy ? "status" : "button"}
       tabIndex={busy ? -1 : 0}
