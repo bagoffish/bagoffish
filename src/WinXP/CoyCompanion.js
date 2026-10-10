@@ -68,37 +68,41 @@ export default function CoyCompanion() {
   const [position, setPosition] = useState(() => ({
     // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
     left: Math.max(8, window.innerWidth - Math.min(Math.max(120, window.innerWidth * 0.14), 170) - 8),
-    top: Math.max(8, window.innerHeight - 48 - 170 - 8)
+    top: Math.max(8, window.innerHeight - 80 - 170 - 8)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
 
-  // Keep Coy's feet above the taskbar while letting the sprite travel over
-  // desktop icons/windows. The draggable coordinate system is the visible Coy
-  // sprite itself, not a 410px-wide invisible wrapper.
+  // Keep Coy fully above the XP taskbar, including after the image loads.
   useEffect(() => {
-    // Reserve a conservative 48px bottom strip for the XP taskbar. Looking
-    // up generic ".taskbar" selectors can accidentally match nested controls,
-    // so use the known bottom dock area instead of a potentially wrong element.
-    const getTaskbarTop = () => window.innerHeight - 48;
-    const clampToDesktop = (initial = false) => {
+    // Reserve the taskbar plus a small gap. The sprite's height may be zero
+    // on first render, so observe its real dimensions and clamp again.
+    const TASKBAR_RESERVED_HEIGHT = 76;
+    const getTaskbarTop = () => window.innerHeight - TASKBAR_RESERVED_HEIGHT;
+    const clampToDesktop = () => {
       const node = rootRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxTop = Math.max(8, getTaskbarTop() - rect.height - 4);
+      const maxTop = Math.max(8, getTaskbarTop() - rect.height);
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
-        const top = initial
-          ? Math.max(8, Math.min(maxTop, getTaskbarTop() - rect.height - 4))
-          : Math.min(maxTop, Math.max(8, previous.top));
+        const top = Math.min(maxTop, Math.max(8, previous.top));
         return left === previous.left && top === previous.top ? previous : { left, top };
       });
     };
-    clampToDesktop(true);
-    const onResize = () => clampToDesktop(false);
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    clampToDesktop();
+    window.addEventListener("resize", clampToDesktop);
+    const node = rootRef.current;
+    const observer = node && typeof ResizeObserver !== "undefined" ? new ResizeObserver(clampToDesktop) : null;
+    if (node && observer) observer.observe(node);
+    const sprite = node?.querySelector("img[alt='Coy']");
+    sprite?.addEventListener("load", clampToDesktop);
+    return () => {
+      window.removeEventListener("resize", clampToDesktop);
+      observer?.disconnect();
+      sprite?.removeEventListener("load", clampToDesktop);
+    };
   }, []);
 
   useEffect(() => {
@@ -286,8 +290,8 @@ export default function CoyCompanion() {
     const maxRight = Math.max(8, window.innerWidth - state.width - 8);
     // Always leave a visible gap above the taskbar, even if the taskbar's
     // DOM selector differs between desktop and mobile layouts.
-    const taskbarTop = window.innerHeight - 48;
-    const maxBottom = Math.max(8, taskbarTop - state.height - 4);
+    const taskbarTop = window.innerHeight - 76;
+    const maxBottom = Math.max(8, taskbarTop - state.height);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
