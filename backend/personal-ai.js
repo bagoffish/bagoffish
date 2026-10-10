@@ -119,16 +119,21 @@ function rateLimit(req, res, next) {
 }
 
 function normalizeCoyReply(value) {
-  // Strip leaked provider diagnostics before the reply reaches either chat UI.
-  // These are internal headers, not part of Coy's message.
+  // Strip leaked provider diagnostics and special control tokens before a reply
+  // reaches the chat UI. These are formatting artifacts, not Coy's message.
   const diagnosticHeader = /^\s*(?:user\s+safety|response\s+safety|safety\s+categories?|moderation(?:\s+(?:label|category|result|status))?|classifier(?:\s+(?:result|label|score))?|risk(?:\s+(?:label|score|category))?|intent|sentiment|policy)\s*:/i;
+  const aiBoilerplate = /^\s*(?:as an ai(?: language model| assistant)?\b|i am an ai(?: language model| assistant)?\b|i'm an ai(?: language model| assistant)?\b|as a large language model\b)/i;
   return String(value ?? "")
     .split(/\r?\n/)
-    .filter(line => !diagnosticHeader.test(line))
+    .filter(line => !diagnosticHeader.test(line) && !aiBoilerplate.test(line))
     .join("\n")
+    .replace(/<\|[^|\r\n]*\|>/g, "")
+    .replace(/<\|[^\r\n]*/g, "")
     .replace(/^\s*(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/i, "")
     .replace(/(^|\n)\s*(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/gi, "$1")
     .replace(/^\s*(?:user\s+safety|response\s+safety|safety\s+categories?)\s*:\s*(?:safe|unsafe|[\w -]+)?\s*[-–—|:]?\s*/i, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
