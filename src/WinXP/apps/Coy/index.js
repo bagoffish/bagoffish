@@ -240,7 +240,7 @@ export default function CoyChat({ initialImage }) {
     try {
       // Fetch the authoritative total only when the message asks about the visitor count.
       let liveVisitorCount = null;
-      if (/\\b(visitor|visitors|visit|visits|counter|traffic)\\b/i.test(message) && /\\b(how many|how much|total|count|number|many people|visitor count|visitors?)\\b/i.test(message)) {
+      if (/\b(visitor|visitors|visit|visits|counter|traffic)\b/i.test(message) && /\b(how many|how much|total|count|number|many people|visitor count|visitors?)\b/i.test(message)) {
         try {
           const countResponse = await fetch(API_BASE + '/visitor-count/current', { cache: 'no-store' });
           if (countResponse.ok) {
