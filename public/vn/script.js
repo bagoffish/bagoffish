@@ -842,24 +842,13 @@ function getCurrentStory() {
 
 function updateMenu() {
     const links = document.querySelectorAll('.top-menu a');
-    if (currentLang === 'ko') {
-        links[0].textContent = "시작";
-        links[1].textContent = "영어";
-        links[2].textContent = "종료";
-    } else {
-        links[0].textContent = "START";
-        links[1].textContent = "KOREAN";
-        links[2].textContent = "QUIT";
-    }
+    if (links[0]) links[0].textContent = currentLang === 'ko' ? "시작" : "START";
+    if (links[1]) links[1].textContent = currentLang === 'ko' ? "영어" : "KOREAN";
 }
 
 function toggleLanguage() {
     currentLang = currentLang === 'en' ? 'ko' : 'en';
     updateMenu();
-    
-    alert(currentLang === 'ko' 
-        ? "언어가 한국어로 변경되었습니다." 
-        : "Language changed to English.");
 }
 
 // Typewriter
