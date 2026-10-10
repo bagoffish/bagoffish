@@ -57,8 +57,8 @@ export default function CoyCompanion() {
   const dragState = useRef(null);
   const dragged = useRef(false);
   const clickTimer = useRef(null);
-  // Keep Coy at one fixed desktop size; devtools/viewport resizing must not scale him.
-  const spriteSize = 76; // Make Coy noticeably bigger while keeping him on-screen.
+  // Render Coy at exactly half the source image width, independent of viewport size.
+  const [spriteSize, setSpriteSize] = useState(76);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -451,7 +451,7 @@ export default function CoyCompanion() {
     </div>}
 
     <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } if (clickTimer.current) window.clearTimeout(clickTimer.current); clickTimer.current = window.setTimeout(() => { clickTimer.current = null; openChat(); }, 230); }} onDoubleClick={() => { if (dragged.current) return; if (clickTimer.current) { window.clearTimeout(clickTimer.current); clickTimer.current = null; } patCoy(); }} aria-label="Coy">
-      <img src={COY_SPRITE} alt="Coy" draggable={false} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
+      <img src={COY_SPRITE} alt="Coy" draggable={false} onLoad={event => { const nativeWidth = event.currentTarget.naturalWidth; if (nativeWidth > 0) setSpriteSize(Math.max(1, nativeWidth / 2)); }} style={{ ...styles.image, ...idleMoodStyles[idleMood] }} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
     </button>
