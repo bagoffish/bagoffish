@@ -87,7 +87,7 @@ export default function CoyCompanion() {
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxTop = Math.max(8, window.innerHeight - rect.height - taskbarHeight());
+      const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
         const top = Math.min(maxTop, Math.max(8, previous.top));
@@ -282,7 +282,7 @@ export default function CoyCompanion() {
     // Keep the wrapper's starting dimensions for the entire gesture. Measuring
     // it again mid-drag made the character jump when its speech bubble changed.
     const maxRight = Math.max(0, window.innerWidth - state.width);
-    const maxBottom = Math.max(0, window.innerHeight - state.height);
+    const maxBottom = Math.max(0, window.innerHeight - state.height - 8);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
