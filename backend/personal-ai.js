@@ -150,7 +150,13 @@ function normalizeCoyReply(value) {
 
 function capitalizeReply(value) {
   const normalized = normalizeCoyReply(value);
-  return normalized.replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
+  // Keep Coy's first-letter capitalization, then enforce the author's no-final-period
+  // style in prose. Leave fenced code blocks untouched so code and examples stay valid.
+  const capitalized = normalized.replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
+  return capitalized
+    .split(/(```[\s\S]*?```)/g)
+    .map((part, index) => index % 2 === 1 ? part : part.replace(/(?<!\d)\.(?=\s|$)/g, ""))
+    .join("");
 }
 
 function extractAnswer(data) {
