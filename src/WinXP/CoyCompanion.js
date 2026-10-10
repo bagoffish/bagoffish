@@ -4,6 +4,7 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
+const formatCoyText = value => String(value ?? "").replace(/\\p{L}/u, letter => letter.toLocaleUpperCase());
 
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
