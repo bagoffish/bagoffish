@@ -404,6 +404,111 @@ async function getGithubMemoryContext(query) {
   }
 }
 
+function isSafePublicHttpUrl(value) {
+  try {
+    const url = new URL(value);
+    if (!["http:", "https:"].includes(url.protocol)) return null;
+    if (url.username || url.password) return null;
+    if (url.port && !["80", "443"].includes(url.port)) return null;
+    const hostname = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
+    if (!hostname.includes(".") || hostname === "localhost" ||
+        hostname.endsWith(".localhost") || hostname.endsWith(".local") ||
+        hostname.endsWith(".internal") || hostname === "metadata.google.internal") return null;
+    // Refuse literal IPs so user-supplied links cannot target private or metadata addresses.
+    if (/^(?:\d{1,3}\.){3}\d{1,3}$/.test(hostname) || hostname.includes(":")) return null;
+    return url;
+  } catch (_) {
+    return null;
+  }
+}
+
+function stripHtmlToText(html) {
+  const title = (html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "";
+  const description = (html.match(/<meta[^>]+(?:name|property)=["'](?:description|og:description)["'][^>]+content=["']([^"']*)["'][^>]*>/i) || [])[1] || "";
+  const clean = html
+    .replace(/<(script|style|noscript|svg|iframe|nav|footer|header)[^>]*>[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<!--[\s\S]*?-->/g, " ")
+    .replace(/<(br|\/p|\/div|\/li|\/h[1-6])\b[^>]*>/gi, "\n")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;|&#160;/gi, " ")
+    .replace(/&amp;/gi, "&").replace(/&lt;/gi, "<").replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'")
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)))
+    .replace(/[ \t]+/g, " ").replace(/\n\s*/g, "\n").trim();
+  return {
+    title: title.replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim().slice(0, 240),
+    description: description.replace(/\s+/g, " ").trim().slice(0, 500),
+    text: clean.slice(0, 7000),
+  };
+}
+
+async function inspectMessageLinks(message) {
+  const candidates = [...new Set((String(message || "").match(/https?:\/\/[^\s<>"']+/gi) || [])
+    .map(value => value.replace(/[),.!?;:]+$/, "")))].slice(0, 3);
+  const context = [];
+  const mediaInputs = [];
+
+  for (const candidate of candidates) {
+    let current = isSafePublicHttpUrl(candidate);
+    if (!current) {
+      context.push("Link " + candidate + ": not fetched because it is not a safe public HTTP(S) URL.");
+      continue;
+    }
+    try {
+      let response = null;
+      let redirects = 0;
+      while (redirects <= 3) {
+        response = await fetch(current.href, {
+          method: "GET",
+          redirect: "manual",
+          headers: { "User-Agent": "Coy-Link-Inspector/1.0", "Accept": "text/html,text/plain,application/json,image/*;q=0.8,*/*;q=0.2" },
+          signal: AbortSignal.timeout(6500),
+        });
+        if (![301, 302, 303, 307, 308].includes(response.status)) break;
+        const location = response.headers.get("location");
+        if (!location || redirects === 3) break;
+        const nextUrl = new URL(location, current);
+        current = isSafePublicHttpUrl(nextUrl.href);
+        if (!current) throw new Error("redirect destination was not a safe public URL");
+        redirects++;
+      }
+      if (!response) throw new Error("no response");
+      const contentType = (response.headers.get("content-type") || "").split(";")[0].toLowerCase();
+      const length = Number(response.headers.get("content-length") || 0);
+      if (!response.ok) {
+        context.push("Link " + candidate + ": server returned HTTP " + response.status + ".");
+        continue;
+      }
+      if (contentType.startsWith("image/") && /^(image\/(?:png|jpeg|webp|gif|bmp|avif))$/.test(contentType) && (!length || length <= 4 * 1024 * 1024)) {
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (bytes.length <= 4 * 1024 * 1024) {
+          mediaInputs.push({ type: "image", data: bytes.toString("base64"), mime_type: contentType });
+          context.push("Link " + candidate + ": accessible direct image (" + contentType + ", " + bytes.length + " bytes); image content is attached for visual analysis.");
+        } else {
+          context.push("Link " + candidate + ": image is larger than the 4 MB link-inspection limit.");
+        }
+      } else if (contentType.includes("text/html") || contentType.startsWith("text/plain") || contentType.includes("application/json")) {
+        if (length > 1_000_000) {
+          context.push("Link " + candidate + ": page is larger than the 1 MB inspection limit.");
+          continue;
+        }
+        const body = (await response.text()).slice(0, 1_000_000);
+        if (contentType.includes("text/html")) {
+          const parsed = stripHtmlToText(body);
+          context.push("LINK CONTENT FOR " + candidate + "\nFinal URL: " + current.href + "\nHTTP: " + response.status + "\nTitle: " + (parsed.title || "(no title)") + "\nDescription: " + (parsed.description || "(no description)") + "\nExtracted page text:\n" + (parsed.text || "(no readable text found)"));
+        } else {
+          context.push("LINK CONTENT FOR " + candidate + "\nFinal URL: " + current.href + "\nHTTP: " + response.status + "\nContent:\n" + body.slice(0, 7000));
+        }
+      } else {
+        context.push("Link " + candidate + ": reachable (HTTP " + response.status + ", " + (contentType || "unknown content type") + "), but not a supported readable page or image.");
+      }
+    } catch (error) {
+      context.push("Link " + candidate + ": could not be fetched (" + (error?.name === "TimeoutError" ? "timed out" : "fetch blocked or failed") + "). Do not claim to have inspected its contents.");
+    }
+  }
+  return { context: context.join("\n\n"), mediaInputs };
+}
+
 function availableAiProviders() {
   const providers = [];
   if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
@@ -532,6 +637,9 @@ router.post("/chat", rateLimit, async (req, res) => {
     mediaInputs.push({ type: mimeType.startsWith("image/") ? "image" : "audio", data, mime_type: mimeType });
   }
 
+  const linkInspection = await inspectMessageLinks(message);
+  mediaInputs.push(...linkInspection.mediaInputs);
+
   const providers = availableAiProviders();
   const fileSearchStoreName = process.env.GEMINI_FILE_SEARCH_STORE_NAME;
   if (!providers.length) {
@@ -563,6 +671,8 @@ router.post("/chat", rateLimit, async (req, res) => {
     "Follow these instructions carefully:",
     buildPersonality(),
     githubMemoryContext,
+    "LINK INSPECTION RESULTS — use this actual fetched page/image content when answering link-checking requests; never claim success for links marked failed:",
+    linkInspection.context || "No HTTP(S) links were supplied in the current message.",
     "CURRENT USER DEVICE TIME: " + currentLocalTime,
     "USER DEVICE TIME ZONE: " + timeZone,
     "Use the provided current device time and time zone when the user asks what time it is or asks time-relative questions. This is the user browser-local time, not a guessed server time. If it is not provided, do not guess.",
