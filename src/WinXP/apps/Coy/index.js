@@ -244,7 +244,9 @@ export default function CoyChat({ initialImage }) {
 
   useEffect(() => {
     inputRef.current?.focus();
+    const wakeTimer = window.setTimeout(() => startWakeRecognition(), 900);
     return () => {
+      window.clearTimeout(wakeTimer);
       voiceCallActiveRef.current = false;
       try { recognitionRef.current?.stop(); } catch (_) {}
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
@@ -404,10 +406,60 @@ export default function CoyChat({ initialImage }) {
     voiceCallActiveRef.current = false;
     voiceTurnRef.current = false;
     setVoiceCallActive(false);
-    setVoiceStatus('');
+    setVoiceStatus('Waiting for “call with me”');
     try { recognitionRef.current?.stop(); } catch (_) {}
     recognitionRef.current = null;
     if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    window.setTimeout(() => {
+      if (!voiceCallActiveRef.current && !recognitionRef.current) startWakeRecognition();
+    }, 450);
+  }
+
+  function startWakeRecognition() {
+    if (voiceCallActiveRef.current || recognitionRef.current || document.visibilityState === 'hidden') return;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setVoiceStatus('Voice wake-up needs desktop Chrome');
+      return;
+    }
+    try {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = false;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+      recognition.onstart = () => setVoiceStatus('Say “call with me” to start');
+      recognition.onresult = event => {
+        const transcript = Array.from(event.results || []).map(result => result[0]?.transcript || '').join(' ').trim();
+        const normalized = transcript.toLowerCase().replace(/[^a-z0-9\\s']/g, ' ').replace(/\\s+/g, ' ').trim();
+        const wakePhrase = /\\b(call with me|call me|coy call me|coy let's call|coy lets call|start a call|let's call|lets call)\\b/.test(normalized);
+        if (!wakePhrase || voiceCallActiveRef.current) return;
+        voiceCallActiveRef.current = true;
+        setVoiceCallActive(true);
+        setVoiceStatus('Connecting...');
+        voiceTurnRef.current = true;
+        void send({ preventDefault() {} }, transcript);
+      };
+      recognition.onerror = event => {
+        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
+          setVoiceStatus('Allow microphone access to use voice wake-up');
+          setError('Coy needs microphone permission to hear “call with me”. Allow microphone access for this site, then refresh');
+        }
+      };
+      recognition.onend = () => {
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+        if (!voiceCallActiveRef.current && document.visibilityState !== 'hidden') {
+          window.setTimeout(() => {
+            if (!voiceCallActiveRef.current && !recognitionRef.current) startWakeRecognition();
+          }, 650);
+        }
+      };
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (_) {
+      recognitionRef.current = null;
+      setVoiceStatus('Allow microphone access to use voice wake-up');
+    }
   }
 
   function startVoiceRecognition() {
@@ -431,6 +483,10 @@ export default function CoyChat({ initialImage }) {
           .join(' ')
           .trim();
         if (!transcript || !voiceCallActiveRef.current) return;
+        if (/\\b(end call|hang up|stop calling|end the call|goodbye coy)\\b/i.test(transcript)) {
+          stopVoiceCall();
+          return;
+        }
         voiceTurnRef.current = true;
         setVoiceStatus('Thinking...');
         void send({ preventDefault() {} }, transcript);
@@ -457,23 +513,6 @@ export default function CoyChat({ initialImage }) {
       setError('Could not start the microphone. Check site permissions and try again');
       stopVoiceCall();
     }
-  }
-
-  function toggleVoiceCall() {
-    setError('');
-    if (voiceCallActiveRef.current) {
-      stopVoiceCall();
-      return;
-    }
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setError('Voice input needs a browser with speech recognition, such as desktop Chrome');
-      return;
-    }
-    voiceCallActiveRef.current = true;
-    setVoiceCallActive(true);
-    setVoiceStatus('Connecting...');
-    startVoiceRecognition();
   }
 
   function speakCoyReply(text) {
@@ -624,18 +663,8 @@ export default function CoyChat({ initialImage }) {
         <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
         <div>
           <div style={styles.title}>Coy</div>
-          {voiceCallActive && <div role="status" style={{ fontSize: 10, color: '#333', marginTop: 2 }}>{voiceStatus || 'Voice call active'}</div>}
+          <div role="status" style={{ fontSize: 10, color: voiceCallActive ? '#075b20' : '#444', marginTop: 2 }}>{voiceStatus || (voiceCallActive ? 'Voice call active' : 'Say “call with me” to start')}</div>
         </div>
-        <button
-          type="button"
-          style={{ ...styles.callButton, ...(voiceCallActive ? { background: 'linear-gradient(#ffe5e5,#e9bcbc)', borderColor: '#8b0000' } : {}) }}
-          aria-label={voiceCallActive ? 'End voice call with Coy' : 'Call Coy'}
-          aria-pressed={voiceCallActive}
-          title={voiceCallActive ? 'End call' : 'Call Coy'}
-          onClick={toggleVoiceCall}
-        >
-          {voiceCallActive ? '■' : '☏'}
-        </button>
       </div>
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
