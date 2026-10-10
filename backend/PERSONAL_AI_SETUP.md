@@ -58,3 +58,8 @@ The app uses `REACT_APP_API_BASE` when provided, otherwise it calls the existing
 - `PERSONAL_AI_BIRTH_DATE` is a server-only setting; the chatbot receives the computed age, not the exact date. The age changes automatically after each birthday. Do not expose the date in public UI or repository files.
 - The UI presents Coy as a conversational companion, not the actual person.
 - Review the archive and access policy before making it publicly available.
+
+
+## Verify Discord-style learning is actually available
+
+The backend reads `coy-discord-style-corpus.txt` and `coy-approved-memory.md` from the private `bagoffish/coy-private-memory` repository using `COY_MEMORY_GITHUB_TOKEN`, `COY_MEMORY_GITHUB_REPO`, `COY_MEMORY_GITHUB_PATH`, and `COY_MEMORY_GITHUB_FACTS_PATH`. A successful file fetch does not mean the corpus contains messages: an empty `coy-discord-style-corpus.txt` provides no examples to learn from. Check the backend memory status endpoint/logs and confirm the corpus file has privacy-reviewed, non-sensitive style examples before expecting stronger Discord-style matching. Do not commit a raw Discord export to a public repository or include private messages verbatim in the prompt. For broader retrieval, use only a private, access-controlled archive or a Gemini File Search store containing curated, privacy-reviewed material, and verify that retrieval is returning relevant excerpts.
