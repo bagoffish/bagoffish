@@ -58,11 +58,11 @@ export default function CoyCompanion() {
   const dragged = useRef(false);
   const clickTimer = useRef(null);
   // Keep Coy at one fixed desktop size; devtools/viewport resizing must not scale him.
-  const spriteSize = 160;
+  const spriteSize = 80;
 
   const [position, setPosition] = useState(() => ({
-    left: Math.max(0, window.innerWidth - 160),
-    top: Math.max(0, window.innerHeight - 30 - 160)
+    left: Math.max(0, window.innerWidth - 80),
+    top: Math.max(0, window.innerHeight - 30 - 80)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
@@ -213,7 +213,7 @@ export default function CoyCompanion() {
       if (detail.type === "app-open") {
         const quips = {
           Winamp: ["Oh, music.", "What are we listening to?", "Music time.", "Ooh, song time."],
-          Renderer: ["Making an avatar?", "Avatar time?", "Ohh, rendering something?", "Lemme see the avatar later."],
+          Renderer: ["Looking up a Roblox profile?", "Checking an avatar?", "Who's that profile for?", "Found the account you wanted?"],
           Bloxify: ["Making music again?", "Songmaking time.", "Ooh, music stuff.", "Cooking up a track?"],
           Winter_Letter: ["Back to Winter Letter?", "Ooh, writing time.", "Winter Letter again :3"],
           Paint: ["Drawing something?", "Ooh, art time.", "Whatcha making?"],
