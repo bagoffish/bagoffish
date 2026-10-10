@@ -15,7 +15,7 @@ export default function WinterLetter() {
     <div
       role="button"
       tabIndex={0}
-      aria-label="Winter Letter story. Click or press Enter to continue."
+      aria-label="Winter Letter. Click or press Enter to continue."
       onClick={() => {
         if (index < script.length - 1) setIndex(index + 1);
       }}
@@ -30,7 +30,7 @@ export default function WinterLetter() {
         height: "100%",
         minHeight: 320,
         boxSizing: "border-box",
-        backgroundImage: "url('/images/road.jpg')",
+        backgroundImage: "url('/vn/images/bg-road.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",
@@ -53,7 +53,7 @@ export default function WinterLetter() {
           lineHeight: "1.6"
         }}
       >
-        <div style={{ fontSize: 11, color: "#d8d8d8", marginBottom: 8 }}>Winter_Letter</div>
+        <div style={{ fontSize: 11, color: "#d8d8d8", marginBottom: 8 }}>Winter Letter</div>
         {script[index]}
         {index < script.length - 1 && <div style={{ textAlign: "right", fontSize: 12, marginTop: 12, color: "#d8d8d8" }}>Click to continue ▸</div>}
       </div>
