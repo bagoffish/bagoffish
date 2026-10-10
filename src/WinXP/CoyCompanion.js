@@ -243,7 +243,7 @@ export default function CoyCompanion() {
       <span aria-hidden="true" style={styles.tail}><i style={{ ...styles.tailDot, width: 7, height: 7 }} /><i style={{ ...styles.tailDot, width: 5, height: 5 }} /><i style={{ ...styles.tailDot, width: 3, height: 3 }} /></span>
     </div>}
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
-      <div style={styles.titlebar}><span>Coy</span></div>
+      <div style={styles.titlebar}><span>Coy</span><button type="button" aria-label="Close Coy chat" title="Close" onClick={() => setChatOpen(false)} style={{ border: "1px solid #fff", borderRadius: 0, width: 22, height: 21, padding: 0, background: "linear-gradient(135deg,#f7d5d5,#c90000)", color: "#fff", fontWeight: "bold", lineHeight: "17px", cursor: "pointer" }}>×</button></div>
       <div style={styles.messages} aria-live="polite">
         {!history.length && <div style={{ color: "#555" }}>{chatGreeting}</div>}
         {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
