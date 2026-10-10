@@ -131,10 +131,10 @@ router.post("/chat", rateLimit, async (req, res) => {
     const requestBody = {
       model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
       input: conversation,
-      tools: fileSearchStoreName
-        ? [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }]
-        : [],
     };
+    if (fileSearchStoreName) {
+      requestBody.tools = [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }];
+    }
     const upstream = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
