@@ -5,6 +5,8 @@ const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/interac
 const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
 const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 const COHERE_API_URL = "https://api.cohere.com/v2/chat";
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const XAI_API_URL = "https://api.x.ai/v1/chat/completions";
 const MAX_MESSAGE_LENGTH = 2000;
 const MAX_HISTORY_ITEMS = 32;
 const requests = new Map();
@@ -534,6 +536,8 @@ function availableAiProviders() {
   if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
   if (process.env.OPENROUTER_API_KEY) providers.push({ name: "openrouter", key: process.env.OPENROUTER_API_KEY });
   if (process.env.GEMINI_API_KEY) providers.push({ name: "gemini", key: process.env.GEMINI_API_KEY });
+  if (process.env.OPENAI_API_KEY) providers.push({ name: "openai", key: process.env.OPENAI_API_KEY });
+  if (process.env.XAI_API_KEY) providers.push({ name: "xai", key: process.env.XAI_API_KEY });
   if (process.env.COHERE_API_KEY) providers.push({ name: "cohere", key: process.env.COHERE_API_KEY });
   return providers;
 }
@@ -589,6 +593,21 @@ async function callAiProvider(provider, conversation, mediaInputs, fileSearchSto
       headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
       body = {
         model: process.env.GROQ_MODEL || (hasImages ? "qwen/qwen3.8-27b" : "openai/gpt-oss-120b"),
+        messages: [{ role: "user", content: hasImages ? content : conversation }],
+        temperature: 0.8,
+      };
+    } else if (provider.name === "openai") {
+      url = OPENAI_API_URL;
+      headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
+      body = {
+        model: process.env.OPENAI_MODEL || "gpt-6-astra",
+        messages: [{ role: "user", content: hasImages ? content : conversation }],
+      };
+    } else if (provider.name === "xai") {
+      url = XAI_API_URL;
+      headers = { Authorization: "Bearer " + provider.key, "Content-Type": "application/json" };
+      body = {
+        model: process.env.XAI_MODEL || "grok-4.7",
         messages: [{ role: "user", content: hasImages ? content : conversation }],
         temperature: 0.8,
       };
@@ -743,7 +762,8 @@ router.post("/chat", rateLimit, async (req, res) => {
   try {
     let answer = "";
     const failedProviders = [];
-    // Try Groq first, then OpenRouter, Gemini, and Cohere. Missing keys are simply skipped.
+    // Sequential failover: only one provider is called at a time. Continue to the next
+    // configured provider after rate limits, quota errors, timeouts, or unsupported media.
     for (const provider of providers) {
       try {
         const data = await callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName);
