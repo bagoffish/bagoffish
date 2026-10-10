@@ -50,10 +50,10 @@ export default function PersonalAI({ standalone = false }) {
         body: JSON.stringify({ message, history: history.slice(-16) }),
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Couldn't send the message.");
+      if (!response.ok) throw new Error(data.error || "couldn't send that just now.");
       setMessages(previous => [...previous, { role: "assistant", content: data.answer }]);
     } catch (err) {
-      setError(err.message || "Couldn't connect to the chatbot.");
+      setError(err.message || "couldn't reach coy just now. try again in a bit.");
     } finally {
       setBusy(false);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 0);
@@ -68,7 +68,7 @@ export default function PersonalAI({ standalone = false }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === "user" ? styles.user : styles.bot) }}>
-            <strong>{item.role === "user" ? "you" : "coy (AI)"}:</strong>{" "}{item.content}
+            <strong>{item.role === "user" ? "you" : "coy"}:</strong>{" "}{item.content}
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.bot }}>Thinking…</div>}
