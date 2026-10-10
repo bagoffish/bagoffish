@@ -53,6 +53,8 @@ export default function CoyCompanion() {
       setShowBubble(true);
       if (options.image) setFoundImage(options.image);
     };
+    const onCloseChat = () => setChatOpen(false);
+    window.addEventListener("coy:close-chat", onCloseChat);
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
@@ -123,6 +125,7 @@ export default function CoyCompanion() {
     scanImages();
     return () => {
       window.removeEventListener("coy:activity", onActivity);
+      window.removeEventListener("coy:close-chat", onCloseChat);
       document.removeEventListener("load", scanImages, true);
       observer.disconnect();
     };
@@ -242,29 +245,7 @@ export default function CoyCompanion() {
       <button type="button" onClick={() => setShowBubble(false)} aria-label="Dismiss Coy's speech bubble" title="Click to dismiss" style={{ ...styles.bubble, display: "block", textAlign: "left", font: "inherit", cursor: "pointer" }}>{line}</button>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
-    {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
-      <div style={styles.titlebar}><span>Coy</span><button type="button" aria-label="Close Coy chat" title="Close" onClick={() => setChatOpen(false)} style={{ border: "1px solid #fff", borderRadius: 0, width: 22, height: 21, padding: 0, background: "linear-gradient(135deg,#f7d5d5,#c90000)", color: "#fff", fontWeight: "bold", lineHeight: "17px", cursor: "pointer" }}>×</button></div>
-      <div style={styles.messages} aria-live="polite">
-        {!history.length && <div style={{ color: "#555" }}>{chatGreeting}</div>}
-        {history.map((item, index) => <div key={index} style={{ ...styles.message, alignSelf: item.role === "user" ? "flex-end" : "flex-start", background: item.role === "user" ? "#e7f0ff" : "#f7f5eb" }}>
-          <div style={{ fontWeight: "bold", marginBottom: 3 }}>{item.role === "user" ? "You" : "Coy"}</div>
-          {item.role === "assistant" ? formatCoyText(item.content) : item.content}
-          {item.image && <img src={item.image} alt="Image Coy found" style={{ display: "block", maxWidth: "100%", maxHeight: 220, marginTop: 6, objectFit: "contain" }} />}
-        </div>)}
-        {busy && <div style={styles.message}>Coy is typing…</div>}
-        {error && <div role="alert" style={{ color: "#9b1c1c" }}>{error}</div>}
-        {foundImage && <div style={{ border: "1px dashed #777", padding: 7, background: "#fffbe8" }}>
-          <div>Psst, I found an image</div>
-          <img src={foundImage.src} alt={foundImage.alt} style={{ maxWidth: "100%", maxHeight: 100, display: "block", margin: "5px 0" }} />
-          <button style={styles.button} type="button" onClick={addImageToChat}>Add image to chat</button>
-          <button style={styles.button} type="button" onClick={() => { hasHeldImage.current = false; setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
-        </div>}
-      </div>
-      <form style={{ ...styles.form, padding: 8, marginTop: 0 }} onSubmit={send}>
-        <input ref={inputRef} style={styles.input} aria-label="Message Coy" value={draft} onChange={e => setDraft(e.target.value)} placeholder="Say something..." maxLength={2000} />
-        <button style={styles.button} type="submit" disabled={busy || !draft.trim()}>{busy ? "…" : "Send"}</button>
-      </form>
-    </section>}
+
     {showMenu && <div role="menu" aria-label="Coy expressions" style={styles.menu}>
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
