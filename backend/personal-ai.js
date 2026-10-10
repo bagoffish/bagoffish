@@ -1,4 +1,6 @@
 import express from "express";
+import mammoth from "mammoth";
+import pdfParse from "pdf-parse";
 
 const router = express.Router();
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/interactions";
@@ -621,6 +623,41 @@ router.post("/chat", rateLimit, async (req, res) => {
     const mimeType = typeof attachment?.mimeType === "string" ? attachment.mimeType.toLowerCase() : "";
     const name = typeof attachment?.name === "string" ? attachment.name.slice(0, 160) : "attachment";
     const textContent = typeof attachment?.text === "string" ? attachment.text : null;
+    const extension = name.toLowerCase().split(".").pop() || "";
+    const isPdf = extension === "pdf" || mimeType === "application/pdf";
+    const isDocx = extension === "docx" || mimeType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
+    if (isPdf || isDocx) {
+      const data = typeof attachment?.data === "string" ? attachment.data.replace(/^data:[^,]*,/, "") : "";
+      if (!/^[A-Za-z0-9+/]*={0,2}$/.test(data) || !data.length) {
+        return res.status(400).json({ error: "That document could not be read. Try uploading it again." });
+      }
+      const bytes = Math.floor(data.length * 3 / 4);
+      attachmentBytes += bytes;
+      if (bytes > 8 * 1024 * 1024 || attachmentBytes > 10 * 1024 * 1024) {
+        return res.status(413).json({ error: "Please keep each file under 8 MB and all media attachments under 10 MB total." });
+      }
+      try {
+        const buffer = Buffer.from(data, "base64");
+        const parsed = isPdf ? await pdfParse(buffer) : await mammoth.extractRawText({ buffer });
+        const extracted = (isPdf ? parsed.text : parsed.value || "").trim();
+        const extractedBytes = Buffer.byteLength(extracted, "utf8");
+        extractedTextBytes += extractedBytes;
+        if (!extracted) {
+          return res.status(400).json({ error: isPdf
+            ? "I couldn’t find selectable text in that PDF. Scanned/image-only PDFs need OCR first."
+            : "I couldn’t find readable text in that Word document." });
+        }
+        if (extractedBytes > 50 * 1024 || extractedTextBytes > 80 * 1024) {
+          return res.status(413).json({ error: "Extracted document text must be under 50 KB per file and 80 KB total." });
+        }
+        textAttachments.push({ name, mimeType: isPdf ? "application/pdf" : "application/vnd.openxmlformats-officedocument.wordprocessingml.document", text: extracted });
+      } catch (error) {
+        console.warn("Coy document extraction failed:", name, error?.name || "Error");
+        return res.status(400).json({ error: "Coy couldn’t extract text from that document. Try saving it as a text file and uploading again." });
+      }
+      continue;
+    }
 
     if (textContent !== null) {
       if (!supportedTextExtension.test(name) && !/^text\//i.test(mimeType) &&
