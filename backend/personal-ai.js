@@ -383,9 +383,15 @@ router.post("/chat", rateLimit, async (req, res) => {
       model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
       input: conversation,
     };
-    if (fileSearchStoreName) {
-      requestBody.tools = [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }];
-    }
+    // Give Coy live web search and URL reading alongside his private memory search.
+    // Gemini handles the web tool calls itself; no extra browser API key is needed.
+    requestBody.tools = [
+      { type: "google_search" },
+      { type: "url_context" },
+      ...(fileSearchStoreName
+        ? [{ type: "file_search", file_search_store_names: [fileSearchStoreName] }]
+        : []),
+    ];
     const upstream = await fetch(GEMINI_API_URL, {
       method: "POST",
       headers: {
