@@ -21,7 +21,6 @@ export default function CoyCompanion() {
   const [error, setError] = useState("");
   const [foundImage, setFoundImage] = useState(null);
   const [holdingImage, setHoldingImage] = useState(false);
-  const [mischief, setMischief] = useState(true);
   const inputRef = useRef(null);
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
