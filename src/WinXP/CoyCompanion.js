@@ -37,7 +37,8 @@ export default function CoyCompanion() {
 
   useEffect(() => {
     if (!showBubble || chatOpen) return undefined;
-    const timer = window.setTimeout(() => setShowBubble(false), 3000);
+    const readingTime = Math.min(10000, Math.max(2500, 1800 + line.length * 45));
+    const timer = window.setTimeout(() => setShowBubble(false), readingTime);
     return () => window.clearTimeout(timer);
   }, [showBubble, chatOpen, line]);
 
