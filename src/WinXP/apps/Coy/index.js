@@ -266,12 +266,21 @@ export default function CoyChat({ initialImage }) {
   async function pasteFiles(event) {
     const clipboard = event.clipboardData;
     if (!clipboard) return;
-    const fromFiles = Array.from(clipboard.files || []);
+    // Chromium exposes the same pasted image through both clipboard.files and
+    // clipboard.items, but as different File objects. Prefer items and dedupe
+    // by stable file metadata instead of object identity.
     const fromItems = Array.from(clipboard.items || [])
       .filter(item => item.kind === 'file')
       .map(item => item.getAsFile())
       .filter(Boolean);
-    const picked = [...new Set([...fromFiles, ...fromItems])];
+    const candidates = fromItems.length ? fromItems : Array.from(clipboard.files || []);
+    const seen = new Set();
+    const picked = candidates.filter(file => {
+      const fingerprint = [file.name || '', file.type || '', file.size, file.lastModified || 0].join('|');
+      if (seen.has(fingerprint)) return false;
+      seen.add(fingerprint);
+      return true;
+    });
     if (!picked.length) return;
     event.preventDefault();
     await addFiles(picked);
@@ -283,6 +292,9 @@ export default function CoyChat({ initialImage }) {
     if ((!message && !attachments.length) || busy) return;
     const filesToSend = attachments;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
+    // Remove the pending chips as soon as send starts. If the request fails,
+    // put them back so the user can retry without re-attaching.
+    setAttachments([]);
     setMessages(previous => [...previous, {
       role: 'user',
       content: message,
@@ -340,8 +352,8 @@ export default function CoyChat({ initialImage }) {
         .filter(Boolean)
         .map(content => ({ role: 'assistant', content }));
       setMessages(previous => [...previous, ...replyMessages].slice(-100));
-      setAttachments([]);
     } catch (err) {
+      if (filesToSend.length) setAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
       setError(err.name === 'AbortError'
         ? 'I’m tryna sleep dude.'
