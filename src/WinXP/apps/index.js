@@ -22,7 +22,7 @@ import poemsIcon from "assets/windowsIcons/327(32x32).png";
 import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
-import winterLetterIcon from "assets/windowsIcons/winter-letter.svg";
+import winterLetterIcon from "assets/windowsIcons/mail.png";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
 
 // Heavy apps are loaded only when opened. This keeps the XP desktop fast
