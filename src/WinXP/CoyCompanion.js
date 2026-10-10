@@ -189,6 +189,10 @@ export default function CoyCompanion() {
   };
 
   return <div style={styles.root} data-coy-ui="true">
+    {!chatOpen && showBubble && <div style={styles.bubbleWrap} role="status" aria-live="polite">
+      <div style={styles.bubble}>{line}</div>
+      <span aria-hidden="true" style={styles.tail} />
+    </div>}
     {chatOpen && <section style={styles.chat} aria-label="Chat with Coy">
       <div style={styles.titlebar}><span>Coy</span></div>
       <div style={styles.messages} aria-live="polite">
