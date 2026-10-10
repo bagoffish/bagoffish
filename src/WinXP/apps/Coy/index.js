@@ -4,7 +4,7 @@ const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
-  ? <img key={index} src={(process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/ono.png"} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.style.visibility = "hidden"; }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
   : part);
 
 function safeWebUrl(value) {
@@ -39,13 +39,28 @@ function renderCoyContent(value) {
     if (!url) return <React.Fragment key={index}>{renderCoyEmoji(piece)}</React.Fragment>;
     const href = url.href;
     const embed = youtubeEmbedUrl(href);
-    const isImage = Boolean(markdownImage) || /\.(?:png|jpe?g|gif|webp|avif|svg)(?:$|[?#])/i.test(url.pathname + url.search + url.hash);
+    const mediaPath = url.pathname + url.search + url.hash;
+    const isImage = Boolean(markdownImage) || /\.(?:png|jpe?g|gif|webp|avif|svg|bmp|tiff?)(?:$|[?#])/i.test(mediaPath);
+    const isVideo = /\.(?:mp4|webm|mov|m4v)(?:$|[?#])/i.test(mediaPath);
+    const isAudio = /\.(?:mp3|m4a|wav|ogg|opus|flac|aac)(?:$|[?#])/i.test(mediaPath);
     if (isImage) {
       return <span key={index} style={{ display: "block", maxWidth: "100%", marginTop: 6, marginBottom: 4 }}>
         <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: "inline-block", maxWidth: "100%" }} aria-label={"Open image " + (markdownImage?.[1] || href)}>
           <img src={href} alt={markdownImage?.[1] || "Image shared by Coy"} loading="lazy" style={{ display: "block", maxWidth: "100%", maxHeight: 320, height: "auto", objectFit: "contain", border: "1px solid #ccc" }} />
         </a>
         <a href={href} target="_blank" rel="noopener noreferrer" style={{ display: "block", overflowWrap: "anywhere", color: "#0645ad", fontSize: "0.92em" }}>Open image ↗</a>
+      </span>;
+    }
+    if (isVideo) {
+      return <span key={index} style={{ display: "block", maxWidth: "100%", marginTop: 7, marginBottom: 5 }}>
+        <video controls playsInline preload="metadata" src={href} style={{ display: "block", width: "100%", maxHeight: 320, background: "#111" }} />
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", overflowWrap: "anywhere" }}>Open video ↗</a>
+      </span>;
+    }
+    if (isAudio) {
+      return <span key={index} style={{ display: "block", maxWidth: "100%", marginTop: 7, marginBottom: 5 }}>
+        <audio controls preload="metadata" src={href} style={{ display: "block", width: "100%" }} />
+        <a href={href} target="_blank" rel="noopener noreferrer" style={{ color: "#0645ad", overflowWrap: "anywhere" }}>Open audio ↗</a>
       </span>;
     }
     if (embed) {
@@ -144,7 +159,21 @@ export default function CoyChat({ initialImage }) {
   }, [messages]);
 
   async function chooseFiles(event) {
-    const picked = Array.from(event.target.files || []);
+    const picked = Array.from(event.target.files || []).map(file => {
+      const extension = (file.name.split('.').pop() || '').toLowerCase();
+      const inferred = ({
+        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
+        heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp',
+        mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', wav: 'audio/wav',
+        ogg: 'audio/ogg', opus: 'audio/opus', flac: 'audio/flac', aac: 'audio/aac',
+        aif: 'audio/aiff', aiff: 'audio/aiff', webm: file.type.startsWith('video/') ? 'video/webm' : 'audio/webm',
+      })[extension] || '';
+      let type = (file.type || inferred).toLowerCase();
+      if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
+      if (type === 'audio/x-wav') type = 'audio/wav';
+      if (type === 'audio/mp3') type = 'audio/mpeg';
+      return type && type !== file.type ? new File([file], file.name, { type, lastModified: file.lastModified }) : file;
+    });
     event.target.value = '';
     if (!picked.length) return;
     const combined = [...attachments, ...picked];
@@ -262,8 +291,8 @@ export default function CoyChat({ initialImage }) {
         </div>)}
       </div>}
       <form style={styles.form} onSubmit={send}>
-        <input ref={fileInputRef} type="file" accept="image/*,audio/*" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
-        <button type="button" style={styles.button} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach images or audio" title="Attach images or audio">＋</button>
+        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
+        <button type="button" style={styles.button} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach images or audio" title="Attach images or audio">＋ Attach</button>
         <textarea
           ref={inputRef}
           aria-label="Message Coy"
