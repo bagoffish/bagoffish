@@ -246,23 +246,31 @@ async function loadGithubMemory() {
 
   const repo = process.env.COY_MEMORY_GITHUB_REPO || "bagoffish/coy-private-memory";
   const branch = process.env.COY_MEMORY_GITHUB_BRANCH || "main";
-  const filePath = process.env.COY_MEMORY_GITHUB_PATH || "coy-discord-style-corpus.txt";
-  const url = "https://api.github.com/repos/" +
-    repo.split("/").map(encodeURIComponent).join("/") +
-    "/contents/" + filePath.split("/").map(encodeURIComponent).join("/") +
-    "?ref=" + encodeURIComponent(branch);
-  const response = await fetch(url, {
-    headers: {
-      Authorization: "Bearer " + token,
-      Accept: "application/vnd.github.raw+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-      "User-Agent": "Coy-Personal-Memory",
-    },
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!response.ok) throw new Error("Private GitHub memory fetch failed: " + response.status);
-  const text = await response.text();
-  if (!text.trim()) throw new Error("Private GitHub memory file is empty");
+  const filePaths = [
+    process.env.COY_MEMORY_GITHUB_PATH || "coy-discord-style-corpus.txt",
+    process.env.COY_MEMORY_GITHUB_FACTS_PATH || "coy-approved-memory.md",
+  ];
+  const headers = {
+    Authorization: "Bearer " + token,
+    Accept: "application/vnd.github.raw+json",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "Coy-Personal-Memory",
+  };
+  const contents = await Promise.all(filePaths.map(async filePath => {
+    const url = "https://api.github.com/repos/" +
+      repo.split("/").map(encodeURIComponent).join("/") +
+      "/contents/" + filePath.split("/").map(encodeURIComponent).join("/") +
+      "?ref=" + encodeURIComponent(branch);
+    const response = await fetch(url, {
+      headers,
+      signal: AbortSignal.timeout(20_000),
+    });
+    if (!response.ok) throw new Error("Private GitHub memory fetch failed for " + filePath + ": " + response.status);
+    const text = await response.text();
+    if (!text.trim()) throw new Error("Private GitHub memory file is empty: " + filePath);
+    return "\n\n===== " + filePath + " =====\n" + text;
+  }));
+  const text = contents.join("\n\n");
   githubMemoryCache = { text, loadedAt: Date.now() };
   return text;
 }
