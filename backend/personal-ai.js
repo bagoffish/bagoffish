@@ -265,7 +265,7 @@ function analyzeFullDiscordStyleCorpus(lines) {
     ["contain contractions", count(/\\b(?:I'm|I've|I'll|I'd|you're|you've|you'll|we're|we've|they're|it's|that's|don't|doesn't|didn't|can't|couldn't|won't|wouldn't|isn't|aren't|haven't|hasn't|wasn't|weren't|ain't|gonna|wanna|gotta|lemme|kinda|sorta)\\b/i)],
     ["contain casual shorthand", count(/\\b(?:idk|idek|imo|tbh|ngl|rn|bc|fr|lmao|lol|bruh|omg|wtf|wym|ig|tho|ur|u|r)\\b/i)],
     ["contain expressive punctuation", count(/[!?]{2,}|\\.{3,}|[-—]{2,}/)],
-    ["contain emoji or emoticon", count(/[\\p{Extended_Pictographic}]|(?::3|:D|:P|T_T|;-;|:'\\))/u)],
+    ["contain emoji or emoticon", count(/\p{Extended_Pictographic}|:3|:D|:P|T_T|;-;|:\)|:\(|>:3c/iu)],
   ];
   const commonTokens = new Map();
   const ignored = new Set(["the","and","that","this","with","from","have","your","you","for","was","are","but","not","just","like","what","when","then","they","them","there","here","would","could","should","about","into","have","has","had","its","it's","im","i'm","ive","i've","ill","i'll","dont","don't","didnt","didn't","cant","can't","youre","you're"]);
