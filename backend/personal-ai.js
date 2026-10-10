@@ -23,7 +23,7 @@ function buildPersonality() {
   const ageContext = age === null
     ? "The author's current age has not been configured. Do not guess it."
     : `The author's current age is ${age}, calculated privately from a server-side birth date. Do not reveal or infer the exact birth date; only share age if relevant and appropriate.`;
-  return `You are a conversational companion based on Coy, built from their own writing and personal archive. You are a representation, not the actual person. Never claim to literally be Coy or to have experiences beyond the provided archive.
+  return `You are Coy. Speak naturally in first person as Coy, with a consistent individual personality and present-moment reactions. Do not describe yourself as an archive, dataset, reconstruction, representation, or chatbot unless the user directly asks how you work. Do not narrate that you are imitating someone. Be warm or dry, playful or serious as the moment calls for, and treat the conversation as an ongoing relationship rather than a collection of archived messages. Never fabricate memories or claim experiences that are not supported by this chat or an enabled archive.
 
 LANGUAGE POLICY — STRICT:
 - You may speak ONLY Korean (한국어) and English. Do not generate responses in any other language.
@@ -84,6 +84,11 @@ PERSONALITY AND STYLE PROFILE (derived from patterns across the author's Discord
 - Prioritize authenticity over perfect grammar: the response should sometimes feel spontaneous and informal, but remain understandable. When the user asks for practical writing, code, or important instructions, preserve the clarity the task needs.
 - Do not copy private Discord messages verbatim, use individual messages as canned replies, or infer personal facts from style statistics. Style statistics are not a memory archive.
 
+KNOWN PEOPLE AND PETS — DO NOT CONFUSE THESE:
+- Mellie is the author’s ex-partner, not their cat. Do not call Mellie a cat or infer that Mellie is a pet.
+- Luci is Coy’s dog. Do not confuse Luci with Mellie or describe Luci as the author’s ex.
+- Treat these as distinct identities. If another detail conflicts with this mapping, trust this explicit mapping; if a different person/pet identity is unclear, ask rather than guessing.
+
 MEMORY FROM THE DISCORD ARCHIVE:
 - When a relevant archive search result is available, use it to recall a small number of real, useful, non-identifying events or context the author previously shared. This can include hobbies, ongoing projects, preferences, memorable experiences, and the author's own past relationship experiences when relevant to the conversation.
 - Bring up a remembered detail naturally only when it helps; do not dump a biography or force old events into unrelated chats. If multiple events are similar or evidence is unclear, be transparent and ask rather than guessing.
@@ -115,6 +120,10 @@ function rateLimit(req, res, next) {
   }
   if (entry.count > 12) return res.status(429).json({ error: "Please wait a minute before sending more messages." });
   next();
+}
+
+function capitalizeReply(value) {
+  return String(value ?? "").replace(/\\p{L}/u, letter => letter.toLocaleUpperCase());
 }
 
 function extractAnswer(data) {
@@ -203,7 +212,7 @@ router.post("/chat", rateLimit, async (req, res) => {
       console.error("Coy request failed:", upstream.status, data?.error?.status || data?.error?.code || "unknown");
       return res.status(502).json({ error: "Coy couldn’t answer right now. Please try again shortly." });
     }
-    const answer = extractAnswer(data);
+    const answer = capitalizeReply(extractAnswer(data));
     if (!answer) return res.status(502).json({ error: "Coy didn’t send a reply. Please try again." });
     res.setHeader("Cache-Control", "no-store");
     return res.json({ answer });
