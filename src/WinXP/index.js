@@ -240,7 +240,8 @@ function WinXP() {
       if (!setting) return;
       const existing = state.apps.find(app => app.header?.title === 'Coy');
       if (existing) {
-        dispatch({ type: DEL_APP, payload: existing.id });
+        // Clicking Coy again should focus the existing chat, never close it.
+        dispatch({ type: FOCUS_APP, payload: existing.id });
         return;
       }
       const image = event.detail && event.detail.image;
