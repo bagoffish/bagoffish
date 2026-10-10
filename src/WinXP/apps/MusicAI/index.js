@@ -1528,7 +1528,7 @@ function MusicAI() {
       source.loopStart = 0;
       source.loopEnd = Math.min(sample.buffer.duration, 0.12);
       source.playbackRate.value = Math.pow(2, ((Number(note.pitchMidi) || 60) - 60) / 12);
-      const peak = Math.max(0.002, Math.min(0.045, (Number(sample.gain) || 0.08) * 0.35));
+      const peak = Math.max(0, Math.min(0.035, (Number(sample.gain) || 0.08) * (sampleRole === 'muleSaw' ? 0.24 : 0.22)));
       const startAt = context.currentTime;
       const safeDuration = Math.max(0.055, Math.min(duration || 0.12, 8));
       gain.gain.setValueAtTime(0.0001, startAt);
