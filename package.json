@@ -3,7 +3,7 @@
   "version": "0.1.4",
   "private": true,
   "author": "Coy <c@bagof.fish>",
-  "homepage": ".",
+  "homepage": "/",
   "dependencies": {
     "@tonejs/midi": "2.0.28",
     "lodash.samplesize": "^4.2.0",
