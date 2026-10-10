@@ -69,42 +69,56 @@ export default function CoyCompanion() {
   const spriteSize = 160;
 
   const [position, setPosition] = useState(() => ({
-    // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
     left: Math.max(8, window.innerWidth - 160 - 8),
-    top: Math.max(8, window.innerHeight - 60 - 160 - 8)
+    top: Math.max(8, window.innerHeight - 30 - 160)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
+  const hasInitialPlacement = useRef(false);
 
-  // Keep Coy floating immediately above the taskbar. Clamp against the sprite itself,
-  // not the wrapper, so speech UI and devtools viewport changes can't shove him down.
+  // The actual XP taskbar is the Footer component: it is 30px high and
+  // absolutely positioned at the bottom of the desktop. Measure its real top
+  // edge instead of guessing a 56px "taskbar gap" (which left Coy floating).
+  const getTaskbarTop = () => {
+    const taskbar = document.querySelector("#root footer") || document.querySelector("footer");
+    const rect = taskbar?.getBoundingClientRect();
+    return rect && rect.height > 0 ? rect.top : window.innerHeight - 30;
+  };
+
+  // Place Coy like a desktop ukagaka: bottom-right, feet resting on the taskbar.
+  // Re-measure after the sprite loads and on viewport/taskbar size changes.
   useEffect(() => {
-    const TASKBAR_GAP = 56;
-    const clampToDesktop = () => {
+    const placeCoy = () => {
       const node = rootRef.current;
       const sprite = node?.querySelector("img[alt='Coy']");
       if (!node || !sprite) return;
       const spriteRect = sprite.getBoundingClientRect();
       const spriteHeight = spriteRect.height || 160;
       const maxLeft = Math.max(8, window.innerWidth - spriteSize - 8);
-      const maxTop = Math.max(8, window.innerHeight - TASKBAR_GAP - spriteHeight);
+      const maxTop = Math.max(0, getTaskbarTop() - spriteHeight);
       setPosition(previous => {
+        if (!hasInitialPlacement.current) {
+          hasInitialPlacement.current = true;
+          return { left: maxLeft, top: maxTop };
+        }
         const left = Math.min(maxLeft, Math.max(8, previous.left));
-        const top = Math.min(maxTop, Math.max(8, previous.top));
+        const top = Math.min(maxTop, Math.max(0, previous.top));
         return left === previous.left && top === previous.top ? previous : { left, top };
       });
     };
-    clampToDesktop();
-    window.addEventListener("resize", clampToDesktop);
+    placeCoy();
+    window.addEventListener("resize", placeCoy);
+    window.addEventListener("orientationchange", placeCoy);
     const node = rootRef.current;
-    const observer = node && typeof ResizeObserver !== "undefined" ? new ResizeObserver(clampToDesktop) : null;
+    const observer = node && typeof ResizeObserver !== "undefined" ? new ResizeObserver(placeCoy) : null;
     if (node && observer) observer.observe(node);
     const sprite = node?.querySelector("img[alt='Coy']");
-    sprite?.addEventListener("load", clampToDesktop);
+    sprite?.addEventListener("load", placeCoy);
     return () => {
-      window.removeEventListener("resize", clampToDesktop);
+      window.removeEventListener("resize", placeCoy);
+      window.removeEventListener("orientationchange", placeCoy);
       observer?.disconnect();
-      sprite?.removeEventListener("load", clampToDesktop);
+      sprite?.removeEventListener("load", placeCoy);
     };
   }, [spriteSize]);
 
@@ -291,12 +305,13 @@ export default function CoyCompanion() {
     // Keep the wrapper's starting dimensions for the entire gesture. Measuring
     // it again mid-drag made the character jump when its speech bubble changed.
     const maxRight = Math.max(8, window.innerWidth - state.width - 8);
-    // Always leave a visible gap above the taskbar, even if the taskbar's
-    // DOM selector differs between desktop and mobile layouts.
-    const taskbarTop = window.innerHeight - 56;
-    const maxBottom = Math.max(8, taskbarTop - state.height);
+    // Match the real taskbar edge. Coy may be dragged all the way down until
+    // his feet touch the taskbar; never impose the old 56px artificial gap.
+    const sprite = rootRef.current?.querySelector("img[alt='Coy']");
+    const spriteHeight = sprite?.getBoundingClientRect().height || state.height || spriteSize;
+    const maxBottom = Math.max(0, getTaskbarTop() - spriteHeight);
     setPosition({
-      left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
+      left: Math.max(8, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
     });
   }
