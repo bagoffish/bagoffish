@@ -75,31 +75,49 @@ function renderCoyContent(value) {
   });
 }
 
-// Cookie-backed chat log. Keep it compact because browsers limit each cookie to ~4 KB.
+// Durable local chat history. Cookies are too small for chat logs and can be
+// dropped/restricted by mobile browsers, so use localStorage as the primary store.
+const COY_CHAT_STORAGE_KEY = 'bagof-fish-coy-chat-v2';
 const COY_CHAT_COOKIE = 'coy_chat_log';
-function readCoyChatCookie() {
+function cleanCoyMessages(value, limit = 100) {
+  return (Array.isArray(value) ? value : [])
+    .filter(item => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string')
+    .slice(-limit)
+    .map(item => ({
+      role: item.role,
+      content: item.content,
+      // Keep attachment names/types in history, but not base64 file bytes.
+      attachments: Array.isArray(item.attachments)
+        ? item.attachments.map(({ name, type }) => ({ name: String(name || 'Attachment').slice(0, 160), type: String(type || '').slice(0, 100) }))
+        : undefined,
+      image: typeof item.image === 'string' && item.image.length < 1500 ? item.image : undefined,
+    }));
+}
+function readCoyChatLog() {
+  try {
+    const saved = window.localStorage.getItem(COY_CHAT_STORAGE_KEY);
+    if (saved) return cleanCoyMessages(JSON.parse(saved));
+  } catch (_) {}
+  // One-time migration from the previous compact cookie-based log.
   try {
     const match = document.cookie.split('; ').find(part => part.startsWith(COY_CHAT_COOKIE + '='));
-    if (!match) return [];
-    const parsed = JSON.parse(decodeURIComponent(match.slice(COY_CHAT_COOKIE.length + 1)));
-    return Array.isArray(parsed) ? parsed.filter(item => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string').slice(-12) : [];
-  } catch (_) { return []; }
-}
-function writeCoyChatCookie(messages) {
-  try {
-    let kept = messages.slice(-12).map(item => ({
-      ...item,
-      attachments: Array.isArray(item.attachments)
-        ? item.attachments.map(({ name, type }) => ({ name, type }))
-        : undefined,
-    }));
-    let encoded = encodeURIComponent(JSON.stringify(kept));
-    while (encoded.length > 3500 && kept.length > 2) {
-      kept = kept.slice(1);
-      encoded = encodeURIComponent(JSON.stringify(kept));
+    if (match) {
+      const migrated = cleanCoyMessages(JSON.parse(decodeURIComponent(match.slice(COY_CHAT_COOKIE.length + 1))));
+      try { window.localStorage.setItem(COY_CHAT_STORAGE_KEY, JSON.stringify(migrated)); } catch (_) {}
+      return migrated;
     }
-    document.cookie = COY_CHAT_COOKIE + '=' + encoded + '; Max-Age=2592000; Path=/; SameSite=Lax';
   } catch (_) {}
+  return [];
+}
+function writeCoyChatLog(messages) {
+  const clean = cleanCoyMessages(messages);
+  // Trim oldest entries progressively if storage is nearly full (e.g. iPhone Safari).
+  for (const limit of [100, 60, 30, 12, 4, 1]) {
+    try {
+      window.localStorage.setItem(COY_CHAT_STORAGE_KEY, JSON.stringify(clean.slice(-limit)));
+      return;
+    } catch (_) {}
+  }
 }
 
 function readFileAsDataUrl(file) {
@@ -132,7 +150,7 @@ const styles = {
 
 export default function CoyChat({ initialImage }) {
   const [messages, setMessages] = useState(() => {
-    const saved = readCoyChatCookie();
+    const saved = readCoyChatLog();
     return saved.length ? saved : (initialImage
       ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
       : []);
@@ -155,7 +173,7 @@ export default function CoyChat({ initialImage }) {
   }, [messages, busy, error]);
 
   useEffect(() => {
-    writeCoyChatCookie(messages);
+    writeCoyChatLog(messages);
   }, [messages]);
 
   async function chooseFiles(event) {
@@ -213,7 +231,7 @@ export default function CoyChat({ initialImage }) {
       role: 'user',
       content: message,
       attachments: filesToSend.map(({ name, type, dataUrl }) => ({ name, type, dataUrl })),
-    }].slice(-18));
+    }].slice(-100));
     setDraft('');
     setAttachments([]);
     setBusy(true);
@@ -259,7 +277,7 @@ export default function CoyChat({ initialImage }) {
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'couldn’t reach coy just now. try again in a bit.');
       const answer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
-      setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-18));
+      setMessages(previous => [...previous, { role: 'assistant', content: answer }].slice(-100));
     } catch (err) {
       setError(err.name === 'AbortError'
         ? 'coy took too long to answer. try again in a bit.'
