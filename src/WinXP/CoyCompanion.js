@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
-const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo", "Hey"];
+const GREETINGS = ["Sup", "Hi", "Hello", "Haii", "Hai", "Yo", "Hey", "Heyy", "Wassup", "Yo yo", "Hii", "Haiii", "Sup bro", "Hey there", "Yooo", "Hihi", "Ayo", "What up", "Heya", "Sup man"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PICKUP_LINES = [
   "Where we going",
