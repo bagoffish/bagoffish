@@ -819,7 +819,6 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       const channel = ROLE_CHANNEL[note.role] != null ? ROLE_CHANNEL[note.role] : 6;
       const startTime = Math.max(0, Math.min(musicalEnd - 0.001, Number(note.startTimeSeconds) || 0));
       const bank = bankForNote(note, playable);
-      if (note.role === 'drums' && sampleByRole.kick) return;
       if (!bank || !loadedBanks.has(bank.id)) return;
       if (lastBankByChannel[channel] !== bank.id) {
         synth.controllerChange(channel, 0, bank.bankOffset || 0, { time: baseTime + startTime });
