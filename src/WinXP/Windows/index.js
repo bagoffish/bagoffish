@@ -76,9 +76,17 @@ const Window = memo(function({
     if (!mobile || maximized) return;
   }, [mobile, maximized]);
 
+  // On desktop, center the window instead of using the fixed defaultOffset.
+  const desktop = windowWidth > 700;
+  const centeredOffset = desktop && defaultSize.width && defaultSize.height
+    ? {
+        x: Math.max(0, Math.round((windowWidth - defaultSize.width) / 2)),
+        y: Math.max(0, Math.round((windowHeight - defaultSize.height - 32) / 2)),
+      }
+    : defaultOffset;
   const { offset, size } = useElementResize(ref, {
     dragRef,
-    defaultOffset,
+    defaultOffset: centeredOffset,
     defaultSize,
     boundary: {
       top: 1,
