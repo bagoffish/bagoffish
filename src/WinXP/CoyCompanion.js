@@ -139,6 +139,8 @@ export default function CoyCompanion() {
           message,
           history: priorHistory,
           websiteContext: {
+            currentLocalTime: new Date().toString(),
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone || "unknown",
             desktopApps: Array.from(document.querySelectorAll("[data-app-title]")).map(node => node.getAttribute("data-app-title")).filter(Boolean),
             coyMood: line,
             imageAvailable: Boolean(foundImage)
@@ -210,16 +212,6 @@ export default function CoyCompanion() {
         <button style={styles.button} type="submit" disabled={busy || !draft.trim()}>{busy ? "…" : "Send"}</button>
       </form>
     </section>}
-    {!chatOpen && showBubble && <div style={styles.bubbleWrap}>
-      <div role="status" aria-live="polite" style={styles.bubble}>
-        <div>{line}</div>
-        {foundImage && <div style={{ marginTop: 7 }}>
-          <img src={foundImage.src} alt={foundImage.alt} style={{ display: "block", maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />
-          <button style={styles.button} type="button" onClick={addImageToChat}>Add image to chat</button>
-        </div>}
-        <div style={styles.tail} />
-      </div>
-    </div>}
     {showMenu && <div role="menu" aria-label="Coy expressions" style={styles.menu}>
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(text); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
