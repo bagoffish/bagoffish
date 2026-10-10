@@ -78,7 +78,7 @@ export default function CoyCompanion() {
         announce(options[Math.floor(Math.random() * options.length)]);
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
-      else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 45000 && Math.random() <= 0.015) {
+      else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.06) {
         lastPickupAttempt.current = now;
         hasHeldImage.current = true;
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
@@ -94,7 +94,7 @@ export default function CoyCompanion() {
       // Coy only occasionally picks up one image, and won't look for another while holding it.
       if (hasHeldImage.current) return;
       const now = Date.now();
-      if (now - lastPickupAttempt.current < 45000) return;
+      if (now - lastPickupAttempt.current < 30000) return;
       lastPickupAttempt.current = now;
       const candidates = Array.from(document.querySelectorAll(".avatar-container img, .old-avatar-thumb, img"))
         .filter(img => img.complete && img.naturalWidth > 100 && img.naturalHeight > 100)
@@ -104,7 +104,7 @@ export default function CoyCompanion() {
         ))
         .filter(img => img.src && !seenImages.current.has(img.src) && img.style.visibility !== "hidden");
       // Keep this genuinely rare even on pages with lots of avatar thumbnails.
-      if (!candidates.length || Math.random() > 0.015) return;
+      if (!candidates.length || Math.random() > 0.06) return;
       const img = candidates[Math.floor(Math.random() * candidates.length)];
       seenImages.current.add(img.src);
       const original = img.closest(".old-avatar-thumb") || img;
