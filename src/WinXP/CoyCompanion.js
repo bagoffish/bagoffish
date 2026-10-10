@@ -63,6 +63,7 @@ export default function CoyCompanion() {
   const hasHeldImage = useRef(false);
   const dragState = useRef(null);
   const dragged = useRef(false);
+  const clickTimer = useRef(null);
   const [position, setPosition] = useState(() => ({
     left: Math.max(8, window.innerWidth - Math.min(window.innerWidth * 0.9, 410) - 8),
     top: Math.max(8, window.innerHeight - 190 - 40)
@@ -380,7 +381,7 @@ export default function CoyCompanion() {
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag Coy to move; click to chat; double-click to pat; right-click for expressions">
+    <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } if (clickTimer.current) window.clearTimeout(clickTimer.current); clickTimer.current = window.setTimeout(() => { clickTimer.current = null; openChat(); }, 230); }} onDoubleClick={() => { if (dragged.current) return; if (clickTimer.current) { window.clearTimeout(clickTimer.current); clickTimer.current = null; } patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag Coy to move; click to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" draggable={false} style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
