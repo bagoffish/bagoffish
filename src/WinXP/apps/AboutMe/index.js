@@ -60,39 +60,44 @@ function AboutMe({ onClose }) {
 
     if (!visitorId) return () => { cancelled = true; };
 
-    // One shared count. The server ignores a visitor id it has already recorded.
-    const endpoint = "/visitor-count/visit";
+    // Keep the displayed number fresh from the shared backend, and register
+    // this browser as a visitor. Both endpoints bypass caches.
+    const apiBase = "https://bloxify-backend-sg.onrender.com";
+    const saveCount = data => {
+      if (cancelled || !Number.isFinite(Number(data?.count))) return;
+      const count = Math.max(0, Math.floor(Number(data.count)));
+      setVisitorCount(count);
+      try {
+        window.localStorage.setItem("bagof-fish-visitor-count", String(count));
+      } catch (e) {}
+    };
+    const fetchCurrentCount = () => fetch(apiBase + "/visitor-count/current", { cache: "no-store" })
+      .then(response => {
+        if (!response.ok) throw new Error("Visitor counter unavailable");
+        return response.json();
+      })
+      .then(saveCount);
 
     let retryTimer = null;
     let attempt = 0;
     const fetchVisitorCount = () => {
       if (cancelled) return;
-      fetch(
-        "https://bloxify-backend-sg.onrender.com" +
-          endpoint +
-          "?visitor=" +
-          encodeURIComponent(visitorId),
-        { cache: "no-store" }
-      )
-        .then((response) => {
+      fetch(apiBase + "/visitor-count/visit?visitor=" + encodeURIComponent(visitorId), { cache: "no-store" })
+        .then(response => {
           if (!response.ok) throw new Error("Visitor counter unavailable");
           return response.json();
         })
-        .then((data) => {
-          if (!cancelled && Number.isFinite(Number(data.count))) {
-            const count = Number(data.count);
-            setVisitorCount(count);
-            try {
-              window.localStorage.setItem("bagof-fish-visitor-count", String(count));
-            } catch (e) {}
-          }
-        })
+        .then(saveCount)
         .catch(() => {
+          // Even if registering a visit temporarily fails, show the latest
+          // shared count instead of leaving the badge stuck at a stale zero.
+          fetchCurrentCount().catch(() => {});
           if (cancelled || attempt >= 4) return;
           const delay = [1000, 2500, 5000, 10000][attempt++];
           retryTimer = window.setTimeout(fetchVisitorCount, delay);
         });
     };
+    fetchCurrentCount().catch(() => {});
     fetchVisitorCount();
 
     return () => {
