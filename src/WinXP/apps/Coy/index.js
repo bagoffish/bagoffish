@@ -179,49 +179,78 @@ export default function CoyChat({ initialImage }) {
   }, [messages]);
 
   async function addFiles(files) {
-    const picked = Array.from(files || []).filter(file => file instanceof Blob && file.size >= 0).map(file => {
-      const extension = (file.name?.split('.').pop() || '').toLowerCase();
-      const inferred = ({
-        png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp', gif: 'image/gif',
-        heic: 'image/heic', heif: 'image/heif', bmp: 'image/bmp',
-        mp3: 'audio/mpeg', m4a: 'audio/mp4', mp4: 'audio/mp4', wav: 'audio/wav',
-        ogg: 'audio/ogg', opus: 'audio/opus', flac: 'audio/flac', aac: 'audio/aac',
-        aif: 'audio/aiff', aiff: 'audio/aiff', webm: file.type?.startsWith('video/') ? 'video/webm' : 'audio/webm',
-      })[extension] || '';
-      let type = (file.type || inferred).toLowerCase();
-      if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
-      if (type === 'audio/x-wav') type = 'audio/wav';
-      if (type === 'audio/mp3') type = 'audio/mpeg';
-      return type && type !== file.type ? new File([file], file.name || 'pasted-file', { type, lastModified: file.lastModified }) : file;
-    });
+    const picked = Array.from(files || []).filter(file => file && typeof file.size === 'number' && typeof file.name === 'string');
     if (!picked.length) return;
     const combined = [...attachments, ...picked];
     if (combined.length > 3) {
       setError('Attach up to 3 files at a time.');
       return;
     }
-    if (combined.some(file => !/^(image|audio)\//i.test(file.type))) {
-      setError('Coy can inspect image and audio files for now.');
+
+    const textExtensions = new Set(['txt','md','markdown','csv','tsv','json','jsonl','xml','html','htm','css','js','jsx','ts','tsx','mjs','cjs','py','java','c','h','cpp','hpp','cs','go','rs','php','rb','sql','log','yaml','yml','toml','ini','conf','sh','bash','bat','ps1','diff','patch','env','gitignore']);
+    const normalized = picked.map(file => {
+      const extension = (file.name.split('.').pop() || '').toLowerCase();
+      let type = (file.type || '').toLowerCase();
+      if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
+      if (type === 'audio/x-wav') type = 'audio/wav';
+      if (type === 'audio/mp3') type = 'audio/mpeg';
+      const isText = textExtensions.has(extension) || type.startsWith('text/') ||
+        ['application/json','application/xml','application/javascript','application/x-yaml'].includes(type);
+      if (isText) return { file, type: type || 'text/plain', kind: 'text' };
+      const inferred = ({
+        png:'image/png', jpg:'image/jpeg', jpeg:'image/jpeg', webp:'image/webp', gif:'image/gif',
+        heic:'image/heic', heif:'image/heif', bmp:'image/bmp', tif:'image/tiff', tiff:'image/tiff',
+        mp3:'audio/mpeg', m4a:'audio/mp4', mp4:'audio/mp4', wav:'audio/wav', ogg:'audio/ogg',
+        opus:'audio/opus', flac:'audio/flac', aac:'audio/aac', aif:'audio/aiff', aiff:'audio/aiff',
+      })[extension] || '';
+      if (!type || type === 'application/octet-stream') type = inferred;
+      if (type === 'image/jpg') type = 'image/jpeg';
+      if (type === 'audio/x-m4a' || type === 'audio/m4a') type = 'audio/mp4';
+      if (type === 'audio/x-wav') type = 'audio/wav';
+      if (type === 'audio/mp3') type = 'audio/mpeg';
+      return { file, type, kind: /^(image|audio)\//i.test(type) ? 'media' : 'unsupported' };
+    });
+
+    if (normalized.some(item => item.kind === 'unsupported')) {
+      setError('That file type isn’t supported yet. Try an image, audio file, or a text/code/document file.');
       return;
     }
     if (combined.some(file => file.size > 8 * 1024 * 1024) || combined.reduce((sum, file) => sum + file.size, 0) > 10 * 1024 * 1024) {
       setError('Keep each file under 8 MB and all attachments under 10 MB total.');
       return;
     }
+    const textFiles = normalized.filter(item => item.kind === 'text');
+    if (textFiles.some(item => item.file.size > 100 * 1024) ||
+        [...attachments.filter(item => item.textContent).reduce((sum, item) => sum + item.textContent.length, 0),
+          ...textFiles.map(item => item.file.size)].reduce((sum, size) => sum + size, 0) > 200 * 1024) {
+      setError('Text/code files must be under 100 KB each and 200 KB total so Coy can read them reliably.');
+      return;
+    }
+
     try {
-      const loaded = await Promise.all(picked.map(async file => ({
-        name: file.name || (file.type.startsWith('image/') ? 'pasted-image' : 'pasted-audio'),
-        type: file.type,
-        size: file.size,
-        dataUrl: await readFileAsDataUrl(file),
-      })));
+      const loaded = await Promise.all(normalized.map(async item => {
+        const file = item.file;
+        if (item.kind === 'text') {
+          const textContent = await file.text();
+          return { name: file.name, type: item.type, size: file.size, kind: 'text', textContent };
+        }
+        const normalizedFile = item.type && item.type !== file.type
+          ? new File([file], file.name, { type: item.type, lastModified: file.lastModified })
+          : file;
+        return {
+          name: file.name,
+          type: item.type,
+          size: file.size,
+          kind: 'media',
+          dataUrl: await readFileAsDataUrl(normalizedFile),
+        };
+      }));
       setAttachments(previous => [...previous, ...loaded].slice(0, 3));
       setError('');
     } catch (err) {
-      setError(err.message || 'couldn’t read that file.');
+      setError(err.message || 'Couldn’t read that file.');
     }
   }
-
   async function chooseFiles(event) {
     const picked = Array.from(event.target.files || []);
     event.target.value = '';
@@ -251,7 +280,7 @@ export default function CoyChat({ initialImage }) {
     setMessages(previous => [...previous, {
       role: 'user',
       content: message,
-      attachments: filesToSend.map(({ name, type, dataUrl }) => ({ name, type, dataUrl })),
+      attachments: filesToSend.map(({ name, type, dataUrl, textContent }) => ({ name, type, dataUrl, textContent })),
     }].slice(-100));
     setDraft('');
     setAttachments([]);
@@ -283,7 +312,7 @@ export default function CoyChat({ initialImage }) {
             attachments: filesToSend.map(file => ({
               name: file.name,
               mimeType: file.type,
-              data: file.dataUrl.split(',')[1] || '',
+              ...(file.textContent !== undefined ? { text: file.textContent } : { data: (file.dataUrl || '').split(',')[1] || '' }),
             })),
             websiteContext: {
               desktopApps: Array.from(document.querySelectorAll('[data-app-title]'))
@@ -331,6 +360,7 @@ export default function CoyChat({ initialImage }) {
             {item.content && <><strong>{item.role === 'user' ? 'You' : 'Coy'}:</strong>{' '}{renderCoyContent(item.content)}</>}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
               {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
+              {attachment.textContent !== undefined && <pre style={{ margin: '5px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 260, overflow: 'auto', font: '11px Consolas, monospace' }}>{attachment.textContent.slice(0, 12000)}{attachment.textContent.length > 12000 ? '\n… preview truncated' : ''}</pre>}
               {attachment.dataUrl && attachment.type?.startsWith('audio/') && <audio controls preload="metadata" src={attachment.dataUrl} style={{ display: 'block', maxWidth: '100%', width: 280 }} />}
               <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
             </div>)}
@@ -343,13 +373,13 @@ export default function CoyChat({ initialImage }) {
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
         {attachments.map((file, index) => <div key={index} style={styles.attachmentChip}>
-          <span>{file.type.startsWith('image/') ? '🖼️' : '🔊'} {file.name}</span>
+          <span>{file.type.startsWith('image/') ? '🖼️' : file.type.startsWith('audio/') ? '🔊' : '📄'} {file.name}</span>
           <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => setAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
         </div>)}
       </div>}
       <form style={styles.form} onSubmit={send}>
-        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
-        <button type="button" style={{ ...styles.button, ...styles.attachButton }} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach images or audio" title="Attach images or audio">+</button>
+        <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.log,.yaml,.yml,.toml,.ini,.conf,.sh,.bash,.bat,.ps1,.diff,.patch,.env,.gitignore" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
+        <button type="button" style={{ ...styles.button, ...styles.attachButton }} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach a file" title="Attach images, audio, text, or code">+</button>
         <textarea
           ref={inputRef}
           aria-label="Message Coy"
