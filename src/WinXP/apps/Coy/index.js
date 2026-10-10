@@ -132,7 +132,7 @@ export default function CoyChat({ initialImage }) {
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
           </div>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>typing…</div>}
+        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>Typing…</div>}
         {error && <div role="alert" style={{ ...styles.bubble, borderColor: '#a00000', color: '#8b0000' }}>{error}</div>}
         <div ref={bottomRef} />
       </div>
