@@ -300,8 +300,12 @@ function WinXP() {
   );
 
   const onCloseApp = useCallback(id => {
+    const closingApp = state.apps.find(app => app.id === id);
     dispatch({ type: DEL_APP, payload: id });
-  }, []);
+    if (closingApp && closingApp.header?.title === 'Coy') {
+      window.dispatchEvent(new CustomEvent('coy:close-chat'));
+    }
+  }, [state.apps]);
 
   function onMouseDownFooterApp(id) {
     if (focusedAppId === id) {
