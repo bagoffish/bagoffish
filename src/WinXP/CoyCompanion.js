@@ -25,6 +25,7 @@ export default function CoyCompanion() {
   const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
   const lastPickupAttempt = useRef(0);
+  const hasHeldImage = useRef(false);
 
   useEffect(() => {
     if (chatOpen) inputRef.current?.focus();
@@ -54,8 +55,9 @@ export default function CoyCompanion() {
         announce(quips[detail.name] || ("oh, you opened " + (detail.name || "an app") + "."));
       } else if (detail.type === "music") announce("music is playing.");
       else if (detail.type === "error") announce("looks like something went wrong.");
-      else if (detail.type === "image" && detail.src && !foundImage && !holdingImage && now - lastPickupAttempt.current > 45000 && Math.random() <= 0.015) {
+      else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 45000 && Math.random() <= 0.015) {
         lastPickupAttempt.current = now;
+        hasHeldImage.current = true;
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
         setHoldingImage(true);
         announce("oh, an image.", { image: detail.src });
@@ -67,7 +69,7 @@ export default function CoyCompanion() {
     // He never reads outside the page or tries to access private browser data.
     const scanImages = () => {
       // Coy only occasionally picks up one image, and won't look for another while holding it.
-      if (foundImage || holdingImage) return;
+      if (hasHeldImage.current) return;
       const now = Date.now();
       if (now - lastPickupAttempt.current < 45000) return;
       lastPickupAttempt.current = now;
@@ -84,6 +86,7 @@ export default function CoyCompanion() {
       seenImages.current.add(img.src);
       const original = img.closest(".old-avatar-thumb") || img;
       original.style.visibility = "hidden";
+      hasHeldImage.current = true;
       setFoundImage({ src: img.src, alt: img.alt || "Roblox avatar render" });
       setHoldingImage(true);
       if (now - lastActivity.current > 9000) {
@@ -156,6 +159,7 @@ export default function CoyCompanion() {
     if (!foundImage?.src) return;
     const image = foundImage;
     setLine("look what i found:");
+    hasHeldImage.current = false;
     setFoundImage(null);
     setHoldingImage(false);
     openChat(image);
@@ -195,7 +199,7 @@ export default function CoyCompanion() {
           <div>psst. i found an image</div>
           <img src={foundImage.src} alt={foundImage.alt} style={{ maxWidth: "100%", maxHeight: 100, display: "block", margin: "5px 0" }} />
           <button style={styles.button} type="button" onClick={addImageToChat}>Add image to chat</button>
-          <button style={styles.button} type="button" onClick={() => { setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
+          <button style={styles.button} type="button" onClick={() => { hasHeldImage.current = false; setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
         </div>}
       </div>
       <form style={{ ...styles.form, padding: 8, marginTop: 0 }} onSubmit={send}>
