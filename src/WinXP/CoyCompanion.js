@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
+const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const EXPRESSIONS = [
   ["Normal", "just hanging out."], ["Slightly happy", "oh, hi."],
   ["Annoyed", "im judging u a normal amount"], ["Sleepy", "five more minutes…"],
@@ -88,9 +89,13 @@ export default function CoyCompanion() {
     };
     const observer = new MutationObserver(scanImages);
     observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "alt"] });
+    // The renderer often inserts an <img> before the image bytes finish loading.
+    // Re-scan on load so Coy actually picks up the completed avatar render.
+    document.addEventListener("load", scanImages, true);
     scanImages();
     return () => {
       window.removeEventListener("coy:activity", onActivity);
+      document.removeEventListener("load", scanImages, true);
       observer.disconnect();
     };
   }, []);
@@ -240,7 +245,7 @@ export default function CoyCompanion() {
       <button type="button" style={styles.button} onClick={() => { setMischief(v => !v); setShowMenu(false); }}>{mischief ? "Disable mischief" : "Enable mischief"}</button>
     </div>}
     <button type="button" style={styles.imageButton} onClick={openChat} onDoubleClick={() => { setLine("pat pat pat"); setShowBubble(true); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Click Coy to chat; double-click to pat; right-click for actions">
-      <img src={process.env.PUBLIC_URL + "/images/coy.png"} alt="Coy" style={styles.image} />
+      <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
       }
     </button>
