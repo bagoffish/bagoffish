@@ -7,7 +7,7 @@ function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
   if (path === '/coy') return <CoyPage />;
-  if (path === '/vn') return <WinterLetterVN />;
+  if (path === '/vn') return <WinterLetterVN standalone />;
 
   // Redirect unknown paths to the homepage.
   if (path !== '/') {

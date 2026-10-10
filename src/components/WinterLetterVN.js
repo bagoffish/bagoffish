@@ -8,36 +8,54 @@ const script = [
   "And in my pocket was a knife."
 ];
 
-export default function WinterLetterVN() {
+export default function WinterLetterVN({ standalone = false }) {
   const [index, setIndex] = useState(0);
 
   return (
     <div
+      role="button"
+      tabIndex={0}
+      aria-label="Winter Letter story. Click or press Enter to continue."
       onClick={() => {
         if (index < script.length - 1) setIndex(index + 1);
       }}
+      onKeyDown={event => {
+        if ((event.key === 'Enter' || event.key === ' ') && index < script.length - 1) {
+          event.preventDefault();
+          setIndex(index + 1);
+        }
+      }}
       style={{
-        width: "100vw",
-        height: "100vh",
+        width: "100%",
+        height: standalone ? "100vh" : "100%",
+        minHeight: standalone ? "100vh" : 320,
+        boxSizing: "border-box",
         backgroundImage: "url('/images/road.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center",
         display: "flex",
         alignItems: "flex-end",
-        cursor: "pointer"
+        overflow: "hidden",
+        cursor: "pointer",
+        color: "white",
+        fontFamily: "Tahoma, Arial, sans-serif",
+        outline: "none"
       }}
     >
       <div
         style={{
           width: "100%",
-          background: "rgba(0,0,0,0.75)",
+          boxSizing: "border-box",
+          background: "rgba(0,0,0,0.78)",
           color: "white",
-          padding: "40px",
-          fontSize: "28px",
+          padding: "clamp(16px, 4vw, 40px)",
+          fontSize: "clamp(16px, 2.5vw, 28px)",
           lineHeight: "1.6"
         }}
       >
+        <div style={{ fontSize: 11, color: "#d8d8d8", marginBottom: 8 }}>Winter_Letter</div>
         {script[index]}
+        {index < script.length - 1 && <div style={{ textAlign: "right", fontSize: 12, marginTop: 12, color: "#d8d8d8" }}>Click to continue ▸</div>}
       </div>
     </div>
   );

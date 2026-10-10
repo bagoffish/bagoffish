@@ -31,7 +31,7 @@ export default function PersonalAI({ standalone = false }) {
   useEffect(() => {
     if (!standalone) return undefined;
     const oldTitle = document.title;
-    document.title = "Talk to Coy :3";
+    document.title = "CoyBot :3";
     return () => { document.title = oldTitle; };
   }, [standalone]);
 
@@ -64,7 +64,7 @@ export default function PersonalAI({ standalone = false }) {
   const content = (
     <div style={standalone ? styles.standaloneShell : styles.shell}>
       <div style={styles.intro}>
-        <div style={styles.title}>Talk to Coy :3</div>
+        <div style={styles.title}>CoyBot :3</div>
         <div style={styles.subtitle}>한국어와 English만 지원해요. An AI representation based on Coy's own writing — not the actual person.</div>
       </div>
       <div style={styles.messages} aria-live="polite">
