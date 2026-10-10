@@ -430,8 +430,8 @@ export default function CoyCompanion() {
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
-    bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(78vw, 240px)", minWidth: 0, marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
-    bubble: { position: "relative", boxSizing: "border-box", display: "block", width: "fit-content", minWidth: 0, maxWidth: "min(78vw, 240px)", height: "auto", padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
+    bubbleWrap: { position: "absolute", right: 0, bottom: "calc(100% + 8px)", pointerEvents: "auto", width: "fit-content", maxWidth: "min(88vw, 360px)", minWidth: 0, marginBottom: 0, transformOrigin: "bottom right", animation: "coyBubbleIn 140ms ease-out" },
+    bubble: { position: "relative", boxSizing: "border-box", display: "block", width: "fit-content", minWidth: 0, maxWidth: "min(88vw, 360px)", height: "auto", padding: "7px 11px", border: "3px solid #666", borderRadius: 5, background: "#fff", color: "#222", boxShadow: "none", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400, lineHeight: 1.25, overflowWrap: "anywhere", whiteSpace: "pre-wrap" },
     tail: { position: "absolute", right: `clamp(0px, calc(50% - 10px), ${spriteSize / 2 - 10}px)`, bottom: -13, width: 0, height: 0, borderLeft: "10px solid transparent", borderRight: "10px solid transparent", borderTop: "13px solid #666", pointerEvents: "none" },
     tailInner: { position: "absolute", left: -7, top: -13, width: 0, height: 0, borderLeft: "7px solid transparent", borderRight: "7px solid transparent", borderTop: "10px solid #fff" },
     form: { display: "flex", gap: 5, marginTop: 8 },
@@ -446,7 +446,7 @@ export default function CoyCompanion() {
 
   return createPortal(<div ref={rootRef} style={{ ...styles.root, display: hideForMobileApp ? "none" : "flex" }} data-coy-ui="true">
     {(showBubble || busy) && <div style={styles.bubbleWrap} role="status" aria-live="polite">
-      <div style={{ ...styles.bubble, width: "fit-content", maxWidth: "min(78vw, 240px)", textAlign: "left", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400 }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
+      <div style={{ ...styles.bubble, width: "fit-content", maxWidth: "min(88vw, 360px)", textAlign: "left", fontFamily: "Arial, Helvetica, sans-serif", fontSize: 16, fontWeight: 400 }}>{busy ? "Typing..." : renderCoyEmoji(line)}</div>
       <span aria-hidden="true" style={styles.tail}><i style={styles.tailInner} /></span>
     </div>}
 
