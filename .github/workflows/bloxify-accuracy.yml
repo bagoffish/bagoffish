@@ -1,0 +1,42 @@
+name: Bloxify accuracy checks
+
+on:
+  pull_request:
+    paths:
+      - "backend/bloxify.cjs"
+      - "backend/bloxify-core.cjs"
+      - "backend/bloxify-core.test.cjs"
+      - "backend/package.json"
+      - "src/WinXP/apps/MusicAI/orchestraArrange.js"
+      - "src/WinXP/apps/MusicAI/index.js"
+      - ".github/workflows/bloxify-accuracy.yml"
+  push:
+    branches:
+      - main
+      - rewrite/bloxify-accuracy-pipeline
+    paths:
+      - "backend/bloxify.cjs"
+      - "backend/bloxify-core.cjs"
+      - "backend/bloxify-core.test.cjs"
+      - "backend/package.json"
+      - "src/WinXP/apps/MusicAI/orchestraArrange.js"
+      - "src/WinXP/apps/MusicAI/index.js"
+      - ".github/workflows/bloxify-accuracy.yml"
+
+jobs:
+  core-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Check backend syntax
+        working-directory: backend
+        run: |
+          node --check bloxify.cjs
+          node --check bloxify-core.cjs
+          node --check server.js
+      - name: Test audio preprocessing and note merging
+        working-directory: backend
+        run: npm test
