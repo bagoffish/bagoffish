@@ -42,5 +42,5 @@ jobs:
         run: npm test
       - name: Build frontend bundle
         run: |
-          npm ci
+          npm install --no-package-lock
           npm run build
