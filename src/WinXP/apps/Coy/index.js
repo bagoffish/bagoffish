@@ -220,10 +220,10 @@ export default function CoyChat({ initialImage }) {
       return;
     }
     const textFiles = normalized.filter(item => item.kind === 'text');
-    if (textFiles.some(item => item.file.size > 100 * 1024) ||
-        [...attachments.filter(item => item.textContent).reduce((sum, item) => sum + item.textContent.length, 0),
-          ...textFiles.map(item => item.file.size)].reduce((sum, size) => sum + size, 0) > 200 * 1024) {
-      setError('Text/code files must be under 100 KB each and 200 KB total so Coy can read them reliably.');
+    const existingTextBytes = attachments.reduce((sum, item) => sum + (item.textContent ? new Blob([item.textContent]).size : 0), 0);
+    const pickedTextBytes = textFiles.reduce((sum, item) => sum + item.file.size, 0);
+    if (textFiles.some(item => item.file.size > 50 * 1024) || existingTextBytes + pickedTextBytes > 80 * 1024) {
+      setError('Text/code files must be under 50 KB each and 80 KB total so Coy can read them reliably.');
       return;
     }
 
