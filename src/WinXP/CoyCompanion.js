@@ -75,7 +75,7 @@ export default function CoyCompanion() {
   const [position, setPosition] = useState(() => ({
     // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
     left: Math.max(8, window.innerWidth - (window.innerWidth <= 700 ? 124 : 160) - 8),
-    top: Math.max(8, window.innerHeight - 80 - 170 - 8)
+    top: Math.max(8, window.innerHeight - 100 - 170 - 8)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
@@ -84,7 +84,7 @@ export default function CoyCompanion() {
   useEffect(() => {
     // Reserve the taskbar plus a small gap. The sprite's height may be zero
     // on first render, so observe its real dimensions and clamp again.
-    const TASKBAR_RESERVED_HEIGHT = 76;
+    const TASKBAR_RESERVED_HEIGHT = 100;
     const getTaskbarTop = () => window.innerHeight - TASKBAR_RESERVED_HEIGHT;
     const clampToDesktop = () => {
       const node = rootRef.current;
@@ -297,7 +297,7 @@ export default function CoyCompanion() {
     const maxRight = Math.max(8, window.innerWidth - state.width - 8);
     // Always leave a visible gap above the taskbar, even if the taskbar's
     // DOM selector differs between desktop and mobile layouts.
-    const taskbarTop = window.innerHeight - 76;
+    const taskbarTop = window.innerHeight - 100;
     const maxBottom = Math.max(8, taskbarTop - state.height);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
@@ -385,7 +385,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
