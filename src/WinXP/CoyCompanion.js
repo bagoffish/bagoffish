@@ -66,37 +66,41 @@ export default function CoyCompanion() {
   const dragged = useRef(false);
   const clickTimer = useRef(null);
   const [position, setPosition] = useState(() => ({
-    left: Math.max(8, window.innerWidth - Math.min(window.innerWidth * 0.9, 410) - 8),
-    top: Math.max(8, window.innerHeight - 190 - 40)
+    // Position tracks Coy's visible sprite, not a wide invisible chat-sized wrapper.
+    left: Math.max(8, window.innerWidth - Math.min(Math.max(120, window.innerWidth * 0.14), 170) - 8),
+    top: Math.max(8, window.innerHeight - 40 - 170 - 8)
   }));
   const [isDragging, setIsDragging] = useState(false);
   const rootRef = useRef(null);
 
-  // Coy's feet should rest directly on the top edge of the XP taskbar.
-  // Do not re-clamp whenever a speech bubble opens/closes: changing wrapper
-  // height was moving the entire companion and looked like teleporting.
+  // Keep Coy's feet above the taskbar while letting the sprite travel over
+  // desktop icons/windows. The draggable coordinate system is the visible Coy
+  // sprite itself, not a 410px-wide invisible wrapper.
   useEffect(() => {
-    const taskbarHeight = () => {
+    const getTaskbarTop = () => {
       const bar = document.querySelector('[data-taskbar], #taskbar, .taskbar, [class*="taskbar"]');
-      if (!bar) return 40;
+      if (!bar) return window.innerHeight - 40;
       const rect = bar.getBoundingClientRect();
-      return rect.height > 0 ? Math.max(0, window.innerHeight - rect.top) : 40;
+      return rect.height > 0 && rect.top < window.innerHeight ? rect.top : window.innerHeight - 40;
     };
-    const clampToViewport = () => {
+    const clampToDesktop = (initial = false) => {
       const node = rootRef.current;
       if (!node) return;
       const rect = node.getBoundingClientRect();
       const maxLeft = Math.max(8, window.innerWidth - rect.width - 8);
-      const maxTop = Math.max(8, window.innerHeight - rect.height - 8);
+      const maxTop = Math.max(8, getTaskbarTop() - rect.height);
       setPosition(previous => {
         const left = Math.min(maxLeft, Math.max(8, previous.left));
-        const top = Math.min(maxTop, Math.max(8, previous.top));
+        const top = initial
+          ? Math.max(8, Math.min(maxTop, getTaskbarTop() - rect.height))
+          : Math.min(maxTop, Math.max(8, previous.top));
         return left === previous.left && top === previous.top ? previous : { left, top };
       });
     };
-    clampToViewport();
-    window.addEventListener("resize", clampToViewport);
-    return () => window.removeEventListener("resize", clampToViewport);
+    clampToDesktop(true);
+    const onResize = () => clampToDesktop(false);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
   useEffect(() => {
@@ -281,8 +285,13 @@ export default function CoyCompanion() {
 
     // Keep the wrapper's starting dimensions for the entire gesture. Measuring
     // it again mid-drag made the character jump when its speech bubble changed.
-    const maxRight = Math.max(0, window.innerWidth - state.width);
-    const maxBottom = Math.max(0, window.innerHeight - state.height - 8);
+    const maxRight = Math.max(8, window.innerWidth - state.width - 8);
+    const bar = document.querySelector('[data-taskbar], #taskbar, .taskbar, [class*="taskbar"]');
+    const barRect = bar?.getBoundingClientRect();
+    const taskbarTop = barRect && barRect.height > 0 && barRect.top < window.innerHeight
+      ? barRect.top
+      : window.innerHeight - 40;
+    const maxBottom = Math.max(8, taskbarTop - state.height);
     setPosition({
       left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
       top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
@@ -369,7 +378,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: "min(90vw, 410px)", maxWidth: "calc(100vw - 16px)", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: "clamp(120px, 14vw, 170px)", maxWidth: "170px", maxHeight: "calc(100vh - 16px)", boxSizing: "border-box", zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
