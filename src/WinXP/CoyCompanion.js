@@ -234,16 +234,11 @@ export default function CoyCompanion() {
     if (event.button !== 0) return;
     const spriteRect = event.currentTarget.getBoundingClientRect();
     const rootRect = event.currentTarget.parentElement?.getBoundingClientRect() || spriteRect;
-    const localX = event.clientX - spriteRect.left;
-    const localY = event.clientY - spriteRect.top;
-    const startsOnHead = localY <= spriteRect.height * 0.42 &&
-      localX >= spriteRect.width * 0.2 && localX <= spriteRect.width * 0.8;
     dragState.current = {
       x: event.clientX, y: event.clientY,
       left: rootRect.left, top: rootRect.top,
       width: rootRect.width, height: rootRect.height,
-      spriteWidth: spriteRect.width, spriteHeight: spriteRect.height,
-      startsOnHead, patGesture: false, movedCharacter: false,
+      movedCharacter: false,
       pointerId: event.pointerId
     };
     dragged.current = false;
@@ -257,26 +252,11 @@ export default function CoyCompanion() {
     const state = dragState.current;
     const deltaX = event.clientX - state.x;
     const deltaY = event.clientY - state.y;
-    const absX = Math.abs(deltaX);
-    const absY = Math.abs(deltaY);
-    const distance = Math.max(absX, absY);
-    const spriteRect = event.currentTarget.getBoundingClientRect();
-    const x = event.clientX - spriteRect.left;
-    const y = event.clientY - spriteRect.top;
-    const stillOnHead = y >= 0 && y <= spriteRect.height * 0.48 &&
-      x >= spriteRect.width * 0.12 && x <= spriteRect.width * 0.88;
-
-    // A small, mostly horizontal stroke over the head is a pat. Vertical
-    // movement and ordinary drags respond immediately instead of feeling stuck.
-    const shortHeadStroke = state.startsOnHead && stillOnHead &&
-      absX >= 4 && absX <= 22 && absX >= absY * 1.4;
-    if (!state.movedCharacter && shortHeadStroke) {
-      state.patGesture = true;
-      return;
-    }
-    if (distance >= 5 || (state.startsOnHead && distance >= 4 && !stillOnHead)) {
+    const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+    // Headpats are double-click only. Any actual pointer movement is reserved
+    // for dragging so tiny strokes never get mistaken for a pat.
+    if (distance >= 5) {
       state.movedCharacter = true;
-      state.patGesture = false;
       dragged.current = true;
       setIsDragging(true);
     }
@@ -296,10 +276,7 @@ export default function CoyCompanion() {
     const state = dragState.current;
     dragState.current = null;
     setIsDragging(false);
-    if (state?.patGesture && !state.movedCharacter) {
-      patCoy();
-      dragged.current = true;
-    } else if (state?.movedCharacter) {
+    if (state?.movedCharacter) {
       setLine(formatCoyText(randomLine(PICKUP_LINES)));
       setShowBubble(true);
     }
