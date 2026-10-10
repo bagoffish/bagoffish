@@ -405,7 +405,7 @@ router.post("/chat", rateLimit, async (req, res) => {
 
   try {
     const requestBody = {
-      model: process.env.GEMINI_MODEL || "gemini-3.5-flash-lite",
+      model: process.env.GEMINI_MODEL || "gemini-3.8-flash",
       input: [
         { type: "text", text: conversation },
         ...mediaInputs,
