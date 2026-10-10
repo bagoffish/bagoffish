@@ -127,7 +127,7 @@ function rateLimit(req, res, next) {
 }
 
 function capitalizeReply(value) {
-  return String(value ?? "").replace(/\\p{L}/u, letter => letter.toLocaleUpperCase());
+  return String(value ?? "").replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
 }
 
 function extractAnswer(data) {
