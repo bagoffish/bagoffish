@@ -8,16 +8,19 @@ Configure provider keys on the existing Render backend service (never in React o
 
 - `GROQ_API_KEY`: optional; tried first. Create a key at https://console.groq.com/keys.
 - `OPENROUTER_API_KEY`: optional; tried after Groq. Create a key at https://openrouter.ai/keys. The default model is `openrouter/free`.
+- `OPENROUTER_API_KEY_2`: optional second OpenRouter account key; tried as an additional fallback after `OPENROUTER_API_KEY`. Set it only in Render Environment, never in frontend code or GitHub.
 - `GEMINI_API_KEY`: optional fallback, tried after Groq and OpenRouter. Create a key in Google AI Studio.
 - `GROQ_MODEL`: optional model override. Defaults to `openai/gpt-oss-120b` for text and `qwen/qwen3.8-27b` for image messages.
 - `OPENROUTER_MODEL`: optional model override. Defaults to `openrouter/free`.
 - `GEMINI_MODEL`: optional Gemini model override; defaults to `gemini-3.8-flash`.
+- `COHERE_API_KEY`: optional text-only fallback key.
+- `COHERE_API_KEY_2`: optional second Cohere account key; tried after `COHERE_API_KEY`. Both Cohere entries support text-only requests in this integration; image/audio requests skip them.
 - `GEMINI_FILE_SEARCH_STORE_NAME`: optional Gemini File Search store name for prepared, privacy-reviewed archive files. This feature only runs on Gemini requests.
 - `PERSONAL_AI_BIRTH_DATE`: optional private date in `YYYY-MM-DD` format. The server calculates the current age per request and only supplies the age to the model; never commit the date to source control or expose it in frontend variables.
 
 ## Automatic provider failover
 
-Coy tries configured providers in this order: Groq, OpenRouter, then Gemini. If a provider returns an error, is rate-limited, times out, or returns an empty response, Coy automatically tries the next configured provider. Missing provider keys are skipped. The endpoint health response lists configured provider names but never exposes keys.
+Coy tries configured providers in this order: Groq, OpenRouter, `OPENROUTER_API_KEY_2`, Gemini, OpenAI, xAI, Cohere, then `COHERE_API_KEY_2`. If a provider returns an error, is rate-limited, times out, or returns an empty response, Coy automatically tries the next configured provider. Missing provider keys are skipped. The endpoint health response lists configured provider names but never exposes keys.
 
 Coy's private GitHub memory is loaded independently of the AI provider, so switching models does not move or erase that memory. Each provider receives the same composed personality, approved memory index, relevant Discord-style excerpts, and recent chat history. Gemini-only tools (Google Search, URL context, and Gemini File Search) are available only when Gemini is the provider that successfully answers.
 
