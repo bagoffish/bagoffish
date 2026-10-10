@@ -144,7 +144,7 @@ export default function CoyCompanion() {
   function yoinkImage() {
     if (!foundImage?.src) return;
     const image = foundImage;
-    setLine("yoink. look what i found:");
+    setLine("look what i found:");
     setFoundImage(null);
     setHoldingImage(false);
     openChat(image);
@@ -183,7 +183,7 @@ export default function CoyCompanion() {
         {foundImage && <div style={{ border: "1px dashed #777", padding: 7, background: "#fffbe8" }}>
           <div>psst. i found an image</div>
           <img src={foundImage.src} alt={foundImage.alt} style={{ maxWidth: "100%", maxHeight: 100, display: "block", margin: "5px 0" }} />
-          <button style={styles.button} type="button" onClick={yoinkImage}>Yoink into chat</button>
+          <button style={styles.button} type="button" onClick={yoinkImage}>Add image to chat</button>
           <button style={styles.button} type="button" onClick={() => { setFoundImage(null); setHoldingImage(false); }}>Leave it</button>
         </div>}
       </div>
@@ -197,7 +197,7 @@ export default function CoyCompanion() {
         <div>{line}</div>
         {foundImage && <div style={{ marginTop: 7 }}>
           <img src={foundImage.src} alt={foundImage.alt} style={{ display: "block", maxWidth: "100%", maxHeight: 100, objectFit: "contain" }} />
-          <button style={styles.button} type="button" onClick={yoinkImage}>yoink image</button>
+          <button style={styles.button} type="button" onClick={yoinkImage}>Add image to chat</button>
         </div>}
         <div style={styles.tail} />
       </div>
