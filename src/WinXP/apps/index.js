@@ -39,6 +39,7 @@ function lazyApp(loader) {
 }
 
 const WinterLetter = lazyApp(() => import("./WinterLetter"));
+const CoyChat = lazyApp(() => import("./Coy"));
 
 import RendererIconSmall from "assets/windowsIcons/299(32x32).png";
 
@@ -94,14 +95,14 @@ export const defaultIconState = [
 /* start menu / openApp settings */
 export const appSettings = {
   Coy: {
-    header: { icon: winterLetterIcon, title: "Coy" },
-    component: WinterLetter,
-    defaultSize: { width: 560, height: 520 },
+    header: { icon: "/images/coy.png", title: "Coy" },
+    component: CoyChat,
+    defaultSize: { width: 500, height: 520 },
     defaultOffset: { x: 180, y: 45 },
     resizable: true,
     minimized: false,
     maximized: window.innerWidth < 800,
-    multiInstance: true,
+    multiInstance: false,
   },
 
   Winter_Letter: {
