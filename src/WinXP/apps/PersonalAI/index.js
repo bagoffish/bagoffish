@@ -21,7 +21,6 @@ const styles = {
 
 export default function PersonalAI({ standalone = false }) {
   const [messages, setMessages] = useState([
-    { role: "assistant", content: "안녕! hey! :3 이건 내 글과 기억을 바탕으로 만든 AI 버전이야. it might not know everything, but you can ask me stuff. 한국어와 English로 대화할 수 있어!" },
   ]);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -31,7 +30,7 @@ export default function PersonalAI({ standalone = false }) {
   useEffect(() => {
     if (!standalone) return undefined;
     const oldTitle = document.title;
-    document.title = "CoyBot :3";
+    document.title = "Coy";
     return () => { document.title = oldTitle; };
   }, [standalone]);
 
@@ -64,8 +63,7 @@ export default function PersonalAI({ standalone = false }) {
   const content = (
     <div style={standalone ? styles.standaloneShell : styles.shell}>
       <div style={styles.intro}>
-        <div style={styles.title}>CoyBot :3</div>
-        <div style={styles.subtitle}>한국어와 English만 지원해요. An AI representation based on Coy's own writing — not the actual person.</div>
+        <div style={styles.title}>Coy</div>
       </div>
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
@@ -73,16 +71,16 @@ export default function PersonalAI({ standalone = false }) {
             <strong>{item.role === "user" ? "you" : "coy (AI)"}:</strong>{" "}{item.content}
           </div>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.bot }}>생각 중… / thinking… :3</div>}
+        {busy && <div style={{ ...styles.bubble, ...styles.bot }}>Thinking…</div>}
         <div ref={bottomRef} />
       </div>
       {error && <div role="alert" style={{ padding: "8px 12px", color: "#a00000", background: "#fff0f0" }}>{error}</div>}
       <form style={styles.form} onSubmit={send}>
         <textarea
-          aria-label="Message / 메시지"
+          aria-label="Message"
           rows={2}
           maxLength={2000}
-          placeholder="한국어 또는 English로 입력해줘... :3"
+          placeholder="Type a message..."
           value={draft}
           onChange={event => setDraft(event.target.value)}
           onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(event); } }}
