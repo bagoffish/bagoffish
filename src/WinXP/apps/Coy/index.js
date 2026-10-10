@@ -337,7 +337,7 @@ export default function CoyChat({ initialImage }) {
   async function send(event) {
     event.preventDefault();
     const message = draft.trim();
-    if ((!message && !attachments.length) || busy) return;
+    if ((!message && !attachmentsRef.current.length) || busy) return;
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
     // Remove the pending chips as soon as send starts. If the request fails,
