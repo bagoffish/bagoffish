@@ -272,11 +272,16 @@ function rateLimit(req, res, next) {
 }
 
 function normalizeCoyReply(value) {
-  // Models sometimes leak the speaker label from the prompt transcript (including
-  // the typo "Cotto:"). Keep only Coy's actual message text.
+  // Strip leaked provider diagnostics before the reply reaches either chat UI.
+  // These are internal headers, not part of Coy's message.
+  const diagnosticHeader = /^\s*(?:user\s+safety|response\s+safety|safety\s+categories?|moderation(?:\s+(?:label|category|result|status))?|classifier(?:\s+(?:result|label|score))?|risk(?:\s+(?:label|score|category))?|intent|sentiment|policy)\s*:/i;
   return String(value ?? "")
+    .split(/\r?\n/)
+    .filter(line => !diagnosticHeader.test(line))
+    .join("\n")
     .replace(/^\s*(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/i, "")
     .replace(/(^|\n)\s*(?:(?:Coy|Cotto|Assistant|AI)\s*:\s*)+/gi, "$1")
+    .replace(/^\s*(?:user\s+safety|response\s+safety|safety\s+categories?)\s*:\s*(?:safe|unsafe|[\w -]+)?\s*[-–—|:]?\s*/i, "")
     .trim();
 }
 
