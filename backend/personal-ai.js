@@ -676,6 +676,9 @@ router.post("/chat", rateLimit, async (req, res) => {
     linkInspection.context || "No HTTP(S) links were supplied in the current message.",
     "CURRENT USER DEVICE TIME: " + currentLocalTime,
     "USER DEVICE TIME ZONE: " + timeZone,
+    Number.isFinite(Number(websiteContext.totalVisitorCount)) && Number(websiteContext.totalVisitorCount) >= 0
+      ? "LIVE ABOUT-ME VISITOR COUNTER: the current total is " + Number(websiteContext.totalVisitorCount).toLocaleString("en-US") + ". This is the authoritative total visitor count fetched from the website backend just now. Use this exact count when asked about total visitors; do not confuse it with the individual VISITOR # badge or invent a different number."
+      : "LIVE ABOUT-ME VISITOR COUNTER: no live total was provided for this message. Do not guess the total visitor count; say you cannot read it right now.",
     "Use the provided current device time and time zone when the user asks what time it is or asks time-relative questions. This is the user browser-local time, not a guessed server time. If it is not provided, do not guess.",
     ...history.map(item => (item.role === "assistant" ? "Coy" : "User") + ": " + item.content),
     attachments.length ? "USER ATTACHED FILES: " + attachments.map(item => String(item.name || "attachment").slice(0, 120)).join(", ") : "",
