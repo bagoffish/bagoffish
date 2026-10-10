@@ -62,7 +62,7 @@ export default function CoyCompanion() {
   const hasHeldImage = useRef(false);
   const dragState = useRef(null);
   const dragged = useRef(false);
-  const [position, setPosition] = useState({ right: 14, bottom: 48 });
+  const [position, setPosition] = useState(() => ({ left: Math.max(0, window.innerWidth - 184), top: Math.max(0, window.innerHeight - 288) }));
   const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
@@ -205,7 +205,7 @@ export default function CoyCompanion() {
     const startsOnHead = localY <= rect.height * 0.42 && localX >= rect.width * 0.2 && localX <= rect.width * 0.8;
     dragState.current = {
       x: event.clientX, y: event.clientY,
-      right: position.right, bottom: position.bottom,
+      left: position.left, top: position.top,
       startsOnHead, patGesture: false, movedCharacter: false
     };
     dragged.current = false;
@@ -244,8 +244,8 @@ export default function CoyCompanion() {
     const maxRight = Math.max(0, window.innerWidth - width);
     const maxBottom = Math.max(0, window.innerHeight - height);
     setPosition({
-      right: Math.max(0, Math.min(maxRight, state.right - deltaX)),
-      bottom: Math.max(0, Math.min(maxBottom, state.bottom - deltaY))
+      left: Math.max(0, Math.min(maxRight, state.left + deltaX)),
+      top: Math.max(0, Math.min(maxBottom, state.top + deltaY))
     });
   }
 
@@ -332,7 +332,7 @@ export default function CoyCompanion() {
   }
 
   const styles = {
-    root: { position: "fixed", right: position.right, bottom: position.bottom, zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, zIndex: window.innerWidth <= 700 ? 10 : 10000, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "pointer", width: "clamp(120px, 14vw, 170px)", maxWidth: 170, maxHeight: "42vh", touchAction: "manipulation" },
     image: { display: "block", width: "100%", height: "auto", maxHeight: "42vh", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
