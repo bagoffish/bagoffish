@@ -139,31 +139,56 @@ export default function CoyCompanion() {
 
   function startDrag(event) {
     if (event.button !== 0) return;
-    dragState.current = { x: event.clientX, y: event.clientY, right: position.right, bottom: position.bottom };
+    const rect = event.currentTarget.getBoundingClientRect();
+    const localX = event.clientX - rect.left;
+    const localY = event.clientY - rect.top;
+    const startsOnHead = localY <= rect.height * 0.42 && localX >= rect.width * 0.2 && localX <= rect.width * 0.8;
+    dragState.current = {
+      x: event.clientX, y: event.clientY,
+      right: position.right, bottom: position.bottom,
+      startsOnHead, patGesture: false, movedCharacter: false
+    };
     dragged.current = false;
-    setIsDragging(true);
+    setIsDragging(false);
     event.currentTarget.setPointerCapture?.(event.pointerId);
   }
 
   function moveDrag(event) {
     if (!dragState.current) return;
-    const deltaX = event.clientX - dragState.current.x;
-    const deltaY = event.clientY - dragState.current.y;
-    if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) dragged.current = true;
-    if (!dragged.current) return;
+    const state = dragState.current;
+    const deltaX = event.clientX - state.x;
+    const deltaY = event.clientY - state.y;
+    const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+
+    // A short stroke starting over Coy's head is a pat, not a character drag.
+    if (state.startsOnHead && !state.movedCharacter && distance >= 7 && distance <= 54) {
+      state.patGesture = true;
+      dragged.current = true;
+      return;
+    }
+    if (distance > 54 || (!state.startsOnHead && distance > 4)) {
+      state.movedCharacter = true;
+      state.patGesture = false;
+      dragged.current = true;
+      setIsDragging(true);
+    }
+    if (!state.movedCharacter) return;
     const width = event.currentTarget.getBoundingClientRect().width;
     const height = event.currentTarget.getBoundingClientRect().height;
     setPosition({
-      right: Math.max(0, Math.min(window.innerWidth - width, dragState.current.right - deltaX)),
-      bottom: Math.max(0, Math.min(window.innerHeight - height, dragState.current.bottom + deltaY))
+      right: Math.max(0, Math.min(window.innerWidth - width, state.right - deltaX)),
+      bottom: Math.max(0, Math.min(window.innerHeight - height, state.bottom + deltaY))
     });
   }
 
   function endDrag() {
-    const wasDragged = dragged.current;
+    const state = dragState.current;
     dragState.current = null;
     setIsDragging(false);
-    if (wasDragged) {
+    if (state?.patGesture && !state.movedCharacter) {
+      patCoy();
+      dragged.current = true;
+    } else if (state?.movedCharacter) {
       setLine(formatCoyText(randomLine(PICKUP_LINES)));
       setShowBubble(true);
     }
@@ -267,7 +292,6 @@ export default function CoyCompanion() {
       {EXPRESSIONS.map(([label, text]) => <button key={label} type="button" role="menuitem" onClick={() => { setLine(formatCoyText(text)); setShowBubble(true); setShowMenu(false); }} style={{ ...styles.button, padding: "6px 5px" }}>{label}</button>)}
       
     </div>}
-    <button type="button" onPointerDown={event => event.stopPropagation()} onClick={patCoy} aria-label="Pat Coy" title="Pat Coy" style={{ pointerEvents: "auto", border: "1px solid #777", borderRadius: 3, padding: "5px 9px", background: "#fff", color: "#333", font: "12px Tahoma, Arial, sans-serif", cursor: "pointer", marginBottom: 2 }}>♡ Pat</button>
     <button type="button" style={{ ...styles.imageButton, cursor: isDragging ? "grabbing" : "grab", touchAction: "none" }} onPointerDown={startDrag} onPointerMove={moveDrag} onPointerUp={endDrag} onPointerCancel={endDrag} onClick={event => { if (dragged.current) { event.preventDefault(); event.stopPropagation(); return; } openChat(); }} onDoubleClick={() => { if (dragged.current) return; patCoy(); }} onContextMenu={e => { e.preventDefault(); setShowMenu(v => !v); }} aria-label="Coy" title="Drag to move Coy; click to chat; double-click to pat; right-click for expressions">
       <img src={COY_SPRITE} alt="Coy" style={styles.image} />
       {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />
