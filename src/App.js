@@ -1,21 +1,15 @@
 import React from 'react';
 import WinXP from 'WinXP';
 import WinterLetterVN from './components/WinterLetterVN';
-import PersonalAI from './WinXP/apps/PersonalAI';
+import CoyPage from './coy';
 
 function App() {
   const path = window.location.pathname.replace(/\/+$/, '') || '/';
 
-  // Keep the two dedicated pages available.
-  if (path === '/coy') {
-    return <PersonalAI standalone />;
-  }
+  if (path === '/coy') return <CoyPage />;
+  if (path === '/vn') return <WinterLetterVN />;
 
-  if (path === '/vn') {
-    return <WinterLetterVN />;
-  }
-
-  // Only the homepage is a valid fallback. Send every other path to bagof.fish/.
+  // Redirect unknown paths to the homepage.
   if (path !== '/') {
     window.location.replace('/');
     return null;
