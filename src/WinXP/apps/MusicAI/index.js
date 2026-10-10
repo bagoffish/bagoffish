@@ -1639,6 +1639,15 @@ function MusicAI() {
         try {
           synth.controllerChange(ch, 0, bank.bankOffset || 0);
           synth.controllerChange(ch, 32, 0);
+          // Live playback must select the chosen bank's actual preset for this
+          // role. Bank-select alone leaves the previous program active, making
+          // different SoundFonts sound misleadingly similar or use wrong patches.
+          const preset = bank.presets && bank.presets[note.role] != null
+            ? bank.presets[note.role]
+            : (planRef.current && planRef.current.programs && planRef.current.programs[note.role] != null
+              ? planRef.current.programs[note.role]
+              : roles.find(role => role.id === note.role)?.program);
+          if (preset != null) synth.programChange(ch, preset);
           const noteVolume = mixValue(note.role, arrangement, planRef.current && planRef.current.soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[note.role]);
           if (noteVolume != null) synth.controllerChange(ch, 7, noteVolume);
           synth.noteOn(ch, note.pitchMidi, vel);
