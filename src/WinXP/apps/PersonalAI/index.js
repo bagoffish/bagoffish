@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 
-const API_BASE = process.env.REACT_APP_API_BASE || "https://winxp-7yes.onrender.com";
+const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 
 const styles = {
   shell: { height: "100%", minHeight: 360, display: "flex", flexDirection: "column", background: "#f4f4f4", color: "#111", fontFamily: "Tahoma, Arial, sans-serif", fontSize: 12 },
@@ -91,7 +91,7 @@ export default function PersonalAI({ standalone = false }) {
           {busy ? "..." : "Send"}
         </button>
       </form>
-      <div style={styles.note}>비밀번호나 개인정보를 공유하지 마세요. Don't share passwords or private information. This chat page currently does not save conversations between visits.</div>
+      <div style={styles.note}>Don’t share passwords or private information. Conversations are not saved between visits.</div>
     </div>
   );
 
