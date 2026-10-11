@@ -254,12 +254,39 @@ async function prepareMediaFile(file, mimeType) {
   }
 }
 
-function readFileAsDataUrl(file) {
+async function readFileAsDataUrl(file) {
+  if (!file || typeof file.size !== 'number' || file.size <= 0) {
+    throw new Error('That file is empty or unavailable. Choose it again and retry.');
+  }
+  const mimeType = file.type || 'application/octet-stream';
+  // File.arrayBuffer() is more reliable than FileReader in browsers where a
+  // pasted/uploaded File can lose its FileReader event. Keep FileReader as fallback.
+  if (typeof file.arrayBuffer === 'function' && typeof btoa === 'function') {
+    try {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      let binary = '';
+      const chunkSize = 0x8000;
+      for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+        binary += String.fromCharCode.apply(null, bytes.subarray(offset, offset + chunkSize));
+      }
+      return 'data:' + mimeType + ';base64,' + btoa(binary);
+    } catch (_) {
+      // Fall through to FileReader for older browser/file implementations.
+    }
+  }
   return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => typeof reader.result === 'string' ? resolve(reader.result) : reject(new Error('couldn’t read that file.'));
-    reader.onerror = () => reject(new Error('couldn’t read that file.'));
-    reader.readAsDataURL(file);
+    let reader;
+    try {
+      reader = new FileReader();
+      reader.onload = () => typeof reader.result === 'string'
+        ? resolve(reader.result)
+        : reject(new Error('Couldn’t read "' + (file.name || 'that file') + '". Try selecting it again.'));
+      reader.onerror = () => reject(new Error('Couldn’t read "' + (file.name || 'that file') + '". Try selecting it again.'));
+      reader.onabort = () => reject(new Error('Reading "' + (file.name || 'that file') + '" was cancelled.'));
+      reader.readAsDataURL(file);
+    } catch (_) {
+      reject(new Error('Couldn’t read "' + (file.name || 'that file') + '". Try selecting it again.'));
+    }
   });
 }
 
