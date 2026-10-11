@@ -176,7 +176,7 @@
           // userId<TAB>timestamp<TAB>original thumbnail URL.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
-            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            if (!/^\d+$/.test(id)) return Promise.resolve([]);
             var shard = String(Number(id) % ARCHIVE_SHARDS);
             var url = ARCHIVE_RELEASE_BASE + "/s" + shard + ".txt.gz";
             return fetch(url, { cache: "force-cache" }).then(function (response) {
@@ -187,13 +187,13 @@
                 return new Response(stream).text();
               }).then(function (contents) {
                 var result = [];
-                var lines = contents.split(/\\r?\\n/);
+                var lines = contents.split(/\r?\n/);
                 for (var i = 0; i < lines.length; i++) {
-                  var parts = lines[i].split("\\t");
+                  var parts = lines[i].split("\t");
                   if (parts.length < 3 || parts[0] !== id) continue;
                   var stamp = text(parts[1]).trim();
-                  var originalUrl = text(parts.slice(2).join("\\t")).trim();
-                  if (!stamp || !originalUrl || !/^https?:\\/\\//i.test(originalUrl)) continue;
+                  var originalUrl = text(parts.slice(2).join("\t")).trim();
+                  if (!stamp || !(originalUrl.indexOf("http://") === 0 || originalUrl.indexOf("https://") === 0)) continue;
                   var replayUrl = waybackImage(stamp, originalUrl);
                   if (replayUrl) result.push({ url: replayUrl, timestamp: stamp });
                 }
