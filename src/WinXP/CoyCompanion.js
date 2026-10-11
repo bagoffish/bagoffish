@@ -14,16 +14,6 @@ const PICKUP_LINES = [
   "Put me down somewhere nice",
   "Relocating huh"
 ];
-const PAT_LINES = [
-  "Hehe",
-  "Again?",
-  "Heyy",
-  "Messing up my hair",
-  "Hm",
-  "Didn't expect that",
-  "Okay you can stay",
-  "Eep"
-];
 const APP_QUIPS = {
   Winamp: ["Oh music", "What we listening to", "Song time", "Ooh"],
   Renderer: ["Looking someone up?", "Avatar check", "Who's that", "Found the account?"],
@@ -256,6 +246,9 @@ export default function CoyCompanion() {
       const next = IDLE_LINES[Math.floor(Math.random() * IDLE_LINES.length)];
       setLine(formatCoyText(next));
       setShowBubble(true);
+      fetchAiQuip("Idle desktop moment. Say one short in-character line as Coy, like an ukagaka ghost muttering. Match Coy's real voice.").then(ai => {
+        if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
+      });
     }, 28000);
     return () => window.clearInterval(timer);
   }, []);
@@ -453,24 +446,13 @@ export default function CoyCompanion() {
     dragState.current = null;
     setIsDragging(false);
     if (!wasDrag) {
-      // Double-click for headpat
-      if (clickTimer.current) {
-        window.clearTimeout(clickTimer.current);
-        clickTimer.current = null;
-        const fallback = randomLine(PAT_LINES);
-        setLine(formatCoyText(fallback));
-        setShowBubble(true);
-        setIdleMood("happy");
-        window.setTimeout(() => setIdleMood("normal"), 1800);
-        fetchAiQuip("User just headpatted Coy (double-click). React short and natural, a little soft or playful.").then(ai => {
-          if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
-        });
-      } else {
-        clickTimer.current = window.setTimeout(() => {
-          clickTimer.current = null;
-          openChat();
-        }, 280);
-      }
+      // Ukagaka-style: click makes him talk in character. No pet.
+      const fallback = randomLine(GREETINGS);
+      setLine(formatCoyText(fallback));
+      setShowBubble(true);
+      fetchAiQuip("User clicked Coy on the desktop. Say one short in-character line, like an ukagaka ghost talking. No pet talk.").then(ai => {
+        if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
+      });
     }
   }
 
