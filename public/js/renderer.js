@@ -232,6 +232,17 @@
               seen[item.url] = true;
               merged.push(item);
             });
+            // Sort by capture time, earliest first. Unknown dates go last.
+            function archiveSortKey(item) {
+              var digits = text(item.timestamp).replace(/\D/g, "");
+              if (!digits) return "99999999999999";
+              return (digits + "00000000000000").slice(0, 14);
+            }
+            merged.sort(function (a, b) {
+              var aKey = archiveSortKey(a);
+              var bKey = archiveSortKey(b);
+              return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+            });
             if (!merged.length) {
               oldContainer.textContent = "No archived renders.";
               return;
