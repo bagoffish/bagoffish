@@ -1149,11 +1149,31 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
           imageHost === "rbxcdn.com" || imageHost.endsWith(".rbxcdn.com") ||
           imageHost === "web.archive.org" || imageHost === "wayback.archive-it.org";
         if (!imageHostAllowed) continue;
-        upstream = await fetchWithTimeout(imageUrl, {
-          headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
-        }, 12000);
-        if (!upstream.ok || !upstream.body) continue;
-        type = (upstream.headers.get("content-type") || "").toLowerCase();
+        // If the archived thumbnail API response contains a CDN URL, first
+        // replay that CDN URL through Wayback at the same capture timestamp.
+        // Fetching only the live CDN URL loses historical images when the old
+        // CDN asset has since been removed.
+        const imageCandidates = [];
+        if (archiveTimestamp && archiveOriginalUrl) {
+          imageCandidates.push(`https://web.archive.org/web/${archiveTimestamp}im_/${imageUrl}`);
+        }
+        imageCandidates.push(imageUrl);
+        let resolvedImage = false;
+        for (const imageCandidate of imageCandidates) {
+          try {
+            const imageResponse = await fetchWithTimeout(imageCandidate, {
+              headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+            }, 12000);
+            const imageType = (imageResponse.headers.get("content-type") || "").toLowerCase();
+            if (imageResponse.ok && imageResponse.body && imageType.startsWith("image/")) {
+              upstream = imageResponse;
+              type = imageType;
+              resolvedImage = true;
+              break;
+            }
+          } catch (_) {}
+        }
+        if (!resolvedImage) continue;
       }
       if (!type.startsWith("image/")) continue;
       const body = Buffer.from(await upstream.arrayBuffer());
