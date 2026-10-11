@@ -7,7 +7,9 @@ ENV PYTHONUNBUFFERED=1 \
 RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg unzip \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir runpod edge-tts huggingface_hub rvc-python
+RUN pip install --no-cache-dir "numpy<2" runpod edge-tts huggingface_hub rvc-python \
+    && pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cu118 \
+       torch==2.1.1+cu118 torchaudio==2.1.1+cu118
 
 WORKDIR /app
 COPY handler.py /app/handler.py
