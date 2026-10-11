@@ -1086,7 +1086,7 @@ router.post("/chat", rateLimit, async (req, res) => {
         const data = await callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName);
         answer = capitalizeReply(extractProviderAnswer(provider, data));
         // Hard enforcement: never let Renderer/Roblox avatar captures escape into chat as embeds.
-        answer = answer.replace(/!\\[[^\\]]*\\]\\(\\s*(?:https?:\\/\\/[^\\s)]+)?(?:[^)]*(?:proxy-roblox-avatar|proxy-roblox-archived|rbxcdn\\.com\\/[^)]*(?:avatar|headshot)|web\\.archive\\.org\\/web\\/[^)]*(?:avatar|headshot))[^)]*)\\s*\\)/gi, "[Avatar renders stay in Renderer]");
+        answer = answer.replace(/!\\[([^\\]]*)\\]\\(([^)]*(?:proxy-roblox-avatar|proxy-roblox-archived|rbxcdn\\.com[^)]*(?:avatar|headshot)|web\\.archive\\.org[^)]*(?:avatar|headshot))[^)]*)\\)/gi, "[Avatar renders stay in Renderer]");
         // Keep the boyfriend-name answer consistent; use only the preferred name.
         if (isBoyfriendNameQuestion(message)) {
           answer = "Ethan";
