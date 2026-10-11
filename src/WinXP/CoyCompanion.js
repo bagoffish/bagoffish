@@ -58,9 +58,9 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
 
 
 async function fetchAiQuip(context) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), 4500);
   try {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), 4500);
     const response = await fetch(API_BASE + "/personal-ai/chat", {
       signal: controller.signal,
       method: "POST",
@@ -71,7 +71,6 @@ async function fetchAiQuip(context) {
         websiteContext: { source: "companion-bubble" }
       })
     });
-    window.clearTimeout(timer);
     if (!response.ok) return null;
     const data = await response.json().catch(() => ({}));
     const answer = typeof data.answer === "string" ? data.answer.trim() : "";
@@ -79,6 +78,8 @@ async function fetchAiQuip(context) {
     return answer;
   } catch (_) {
     return null;
+  } finally {
+    window.clearTimeout(timer);
   }
 }
 
