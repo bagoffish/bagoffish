@@ -1128,12 +1128,33 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
 
   for (const candidate of candidates) {
     try {
-      const upstream = await fetchWithTimeout(candidate, {
-        headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+      let upstream = await fetchWithTimeout(candidate, {
+        headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,application/json,*/*;q=0.8" },
       }, 12000);
       if (!upstream.ok || !upstream.body) continue;
 
-      const type = (upstream.headers.get("content-type") || "").toLowerCase();
+      let type = (upstream.headers.get("content-type") || "").toLowerCase();
+      // Some index entries point to Roblox's thumbnail API, which returns JSON
+      // containing the actual CDN imageUrl instead of returning image bytes.
+      // Resolve that URL before deciding the archive capture is unusable.
+      if (!type.startsWith("image/") && (type.includes("json") || /thumbnails\\.roblox\\.com\\/v1\\/users\\/avatar/i.test(candidate))) {
+        let payload = null;
+        try { payload = await upstream.json(); } catch (_) {}
+        const rows = payload && Array.isArray(payload.data) ? payload.data : [];
+        const imageUrl = rows.map((row) => row && row.imageUrl).find((url) => typeof url === "string" && /^https?:\\/\\//i.test(url));
+        if (!imageUrl) continue;
+        let imageHost;
+        try { imageHost = new URL(imageUrl).hostname.toLowerCase(); } catch (_) { continue; }
+        const imageHostAllowed = imageHost === "roblox.com" || imageHost.endsWith(".roblox.com") ||
+          imageHost === "rbxcdn.com" || imageHost.endsWith(".rbxcdn.com") ||
+          imageHost === "web.archive.org" || imageHost === "wayback.archive-it.org";
+        if (!imageHostAllowed) continue;
+        upstream = await fetchWithTimeout(imageUrl, {
+          headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+        }, 12000);
+        if (!upstream.ok || !upstream.body) continue;
+        type = (upstream.headers.get("content-type") || "").toLowerCase();
+      }
       if (!type.startsWith("image/")) continue;
       const body = Buffer.from(await upstream.arrayBuffer());
       if (!body.length) continue;
