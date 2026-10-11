@@ -195,12 +195,12 @@ def main() -> int:
 
         # Write plain TSV shards only after successful parsing. Keep source ZIP and
         # source JSONL files untouched.
-        for old in args.out.glob("s*.txt"):
+        for old in args.out.glob("s*.txt*"):
             old.unlink()
         counts = [0] * args.shards
         for shard in range(args.shards):
-            target = args.out / f"s{shard}.txt"
-            with target.open("w", encoding="utf-8", newline="\n") as output:
+            target = args.out / f"s{shard}.txt.gz"
+            with gzip.open(target, "wt", encoding="utf-8", newline="\n", compresslevel=6) as output:
                 cursor = conn.execute(
                     "SELECT user_id, stamp, url FROM entries WHERE shard=? ORDER BY user_id, stamp DESC, url",
                     (shard,),
