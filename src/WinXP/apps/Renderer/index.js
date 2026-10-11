@@ -33,7 +33,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261011-wayback-avatars"; // cache-bust the legacy renderer script
+    s.src = "/js/renderer.js?v=20261011-restore-saved-history"; // cache-bust the legacy renderer script
     s.async = true;
     document.body.appendChild(s);
   }, []);
