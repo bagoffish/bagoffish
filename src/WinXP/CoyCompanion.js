@@ -338,6 +338,7 @@ export default function CoyCompanion() {
     // catch the initial app-state event even if it fired before this listener.
     const onResize = syncMobileAppVisibility;
     window.addEventListener("resize", onResize);
+    document.addEventListener("fullscreenchange", onResize);
     const appWindowObserver = new MutationObserver(syncMobileAppVisibility);
     appWindowObserver.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "data-app-title"] });
     syncMobileAppVisibility();
@@ -380,6 +381,7 @@ export default function CoyCompanion() {
     return () => {
       window.removeEventListener("coy:activity", onActivity);
       window.removeEventListener("resize", onResize);
+      document.removeEventListener("fullscreenchange", onResize);
       window.removeEventListener("coy:close-chat", onCloseChat);
       appWindowObserver.disconnect();
       document.removeEventListener("load", scanImages, true);
