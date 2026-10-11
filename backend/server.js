@@ -1102,7 +1102,7 @@ const AVATAR_HISTORY_SHARD_CACHE_LIMIT = 24;
 app.get("/proxy-roblox-history-index", async (req, res) => {
   setCors(req, res);
   const userId = String(req.query.userId || "").trim();
-  if (!/^\\d+$/.test(userId)) return res.status(400).json({ error: "User ID required" });
+  if (!/^\d+$/.test(userId)) return res.status(400).json({ error: "User ID required" });
 
   try {
     const shardNumber = Number(BigInt(userId) % BigInt(AVATAR_HISTORY_SHARD_COUNT));
@@ -1132,16 +1132,16 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
     }
 
     const images = [];
-    for (const line of contents.split(/\\r?\\n/)) {
+    for (const line of contents.split(/\r?\n/)) {
       if (!line) continue;
-      const firstTab = line.indexOf("\\t");
+      const firstTab = line.indexOf("\t");
       if (firstTab < 0 || line.slice(0, firstTab) !== userId) continue;
-      const secondTab = line.indexOf("\\t", firstTab + 1);
+      const secondTab = line.indexOf("\t", firstTab + 1);
       if (secondTab < 0) continue;
       const timestamp = line.slice(firstTab + 1, secondTab).trim();
       const originalUrl = line.slice(secondTab + 1).trim();
-      if (!/^\\d{8,14}$/.test(timestamp)) continue;
-      if (!/^https?:\\/\\//i.test(originalUrl)) continue;
+      if (!/^\d{8,14}$/.test(timestamp)) continue;
+      if (!/^https?:\/\//i.test(originalUrl)) continue;
       images.push({
         url: `https://web.archive.org/web/${timestamp}im_/${originalUrl}`,
         timestamp,
