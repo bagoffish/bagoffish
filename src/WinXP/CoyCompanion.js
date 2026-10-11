@@ -465,9 +465,6 @@ export default function CoyCompanion() {
   }
 
   function openChat() {
-    setChatOpen(true);
-    setChatGreeting(randomGreeting());
-    setShowBubble(false);
     window.dispatchEvent(new CustomEvent("coy:open-chat"));
   }
 
@@ -605,36 +602,8 @@ export default function CoyCompanion() {
         {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />}
       </button>
 
-      {showBubble && !chatOpen && (
+      {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
-          <div style={styles.bubble}>
-            {renderCoyEmoji(line)}
-            <div style={styles.tail} />
-            <div style={styles.tailInner} />
-          </div>
-        </div>
-      )}
-
-      {chatOpen && (
-        <div style={styles.chatBox}>
-          {error && <div style={{ color: "#c00", fontSize: 11, marginBottom: 4 }}>{error}</div>}
-          <form onSubmit={send} style={{ display: "flex", gap: 4 }}>
-            <input
-              ref={inputRef}
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              placeholder="say something..."
-              style={{ flex: 1, font: "12px Tahoma", padding: "3px 5px", border: "1px solid #7f9db9" }}
-              disabled={busy}
-            />
-            <button type="submit" disabled={busy || !draft.trim()} style={{ font: "12px Tahoma", padding: "3px 8px" }}>{busy ? "…" : ">"}</button>
-          </form>
-          <button type="button" onClick={() => setChatOpen(false)} style={{ marginTop: 4, font: "11px Tahoma" }}>Close</button>
-        </div>
-      )}
-
-      {showBubble && chatOpen && (
-        <div ref={bubbleWrapRef} style={{ ...styles.bubbleWrap, bottom: "calc(100% + 70px)" }}>
           <div style={styles.bubble}>
             {renderCoyEmoji(line)}
             <div style={styles.tail} />
