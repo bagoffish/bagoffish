@@ -427,7 +427,8 @@ function getStyleCorpusLines(corpus) {
   const lines = (corpus || "").split(/\n\s*\n|\r?\n/)
     .map(value => value.trim())
     .filter(value => value.length >= 1 && value.length <= 3000)
-    .filter(value => !/^(?:\{|\[|=====|# )/.test(value));
+    .filter(value => !/^(?:\{|\[|=====|# )/.test(value))
+    .sort((a, b) => a.length - b.length); // short-to-long voice examples
   githubStyleLinesCache = { source: corpus, lines };
   return lines;
 }
