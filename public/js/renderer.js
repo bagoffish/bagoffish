@@ -308,9 +308,9 @@
               }
               addImageCandidate(archivedSrc);
               addImageCandidate(item.url);
-              if (/^https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14}im_\\//i.test(item.url)) {
-                addImageCandidate(item.url.replace(/\\/web\\/(\\d{8,14})im_\\//i, "/web/$1/"));
-                var originalMatch = item.url.match(/^https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14}(?:im_)?\\/(https?:\\/\\/.*)$/i);
+              if (/^https?:\/\/web\.archive\.org\/web\/\d{8,14}im_\//i.test(item.url)) {
+                addImageCandidate(item.url.replace(/\/web\/(\d{8,14})im_\//i, "/web/$1/"));
+                var originalMatch = item.url.match(/^https?:\/\/web\.archive\.org\/web\/\d{8,14}(?:im_)?\/(https?:\/\/.*)$/i);
                 if (originalMatch) addImageCandidate(originalMatch[1]);
               }
               var imageCandidateIndex = 0;
