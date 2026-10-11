@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-avatar-fallback-retry";
+  var RENDERER_SCRIPT_VERSION = "20261011-all-avatars-no-pagination";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
   var ARCHIVE_SHARDS = 128;
@@ -168,46 +168,29 @@
               oldContainer.textContent = "No archived renders.";
               return;
             }
-            var shown = 0;
-            var more = null;
-            function addPage() {
-              var end = Math.min(shown + OLD_AVATAR_PAGE_SIZE, archived.length);
-              var k;
-              for (k = shown; k < end; k += 1) {
-                if (archived[k] && (archived[k].url || archived[k].wayback)) {
-                  var thumb = document.createElement("img");
-                  thumb.src = archived[k].url || archived[k].wayback;
-                  thumb.alt = "";
-                  thumb.loading = "lazy";
-                  thumb.decoding = "async";
-                  thumb.className = "old-avatar-thumb";
-                  thumb.title = "Open archived avatar";
-                  (function (node) {
-                    node.addEventListener("error", function () { node.style.display = "none"; });
-                    node.addEventListener("click", function () {
-                      window.open(node.src, "_blank", "noopener,noreferrer");
-                    });
-                  })(thumb);
-                  if (more) oldContainer.insertBefore(thumb, more);
-                  else oldContainer.appendChild(thumb);
-                }
-              }
-              shown = end;
-              if (more) {
-                if (shown >= archived.length) more.remove();
-                else more.textContent = "Load more archived renders (" + (archived.length - shown) + " more)";
-              }
+
+            // Render every archived avatar immediately; no pagination or "Load more" click.
+            var fragment = document.createDocumentFragment();
+            var k;
+            for (k = 0; k < archived.length; k += 1) {
+              if (!archived[k] || !(archived[k].url || archived[k].wayback)) continue;
+              var thumb = document.createElement("img");
+              thumb.src = archived[k].url || archived[k].wayback;
+              thumb.alt = "Archived avatar";
+              thumb.loading = "eager";
+              thumb.decoding = "async";
+              thumb.fetchPriority = "low";
+              thumb.className = "old-avatar-thumb";
+              thumb.title = "Open archived avatar";
+              (function (node) {
+                node.addEventListener("error", function () { node.style.display = "none"; });
+                node.addEventListener("click", function () {
+                  window.open(node.src, "_blank", "noopener,noreferrer");
+                });
+              })(thumb);
+              fragment.appendChild(thumb);
             }
-            addPage();
-            if (archived.length > shown) {
-              more = document.createElement("button");
-              more.type = "button";
-              more.textContent = "Load more archived renders (" + (archived.length - shown) + " more)";
-              more.style.marginTop = "8px";
-              more.style.cursor = "pointer";
-              more.addEventListener("click", addPage);
-              oldContainer.appendChild(more);
-            }
+            oldContainer.appendChild(fragment);
           }
 
           function waybackImage(stamp, url) {
