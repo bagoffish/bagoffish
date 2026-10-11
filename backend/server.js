@@ -759,6 +759,79 @@ function rendererDetailsPayload(record) {
   };
 }
 
+// On-demand Wayback Machine historical avatar renders (no pre-scraped JSONL).
+// CDX is public; no API key required.
+const waybackCache = new Map(); // id -> { at, images }
+const WAYBACK_TTL = 6 * 60 * 60 * 1000;
+
+async function fetchWaybackAvatars(userId) {
+  const cached = waybackCache.get(String(userId));
+  if (cached && Date.now() - cached.at < WAYBACK_TTL) return cached.images;
+
+  const patterns = [
+    `https://www.roblox.com/users/${userId}/profile`,
+    `http://www.roblox.com/users/${userId}/profile`,
+    `http://www.roblox.com/User.aspx?ID=${userId}`,
+    `http://www.roblox.com/User.aspx?id=${userId}`,
+    `http://roblox.com/User.aspx?id=${userId}`,
+  ];
+  const images = [];
+  const seen = new Set();
+
+  for (const url of patterns) {
+    try {
+      const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=timestamp,original&filter=statuscode:200&limit=3&collapse=timestamp:6`;
+      const res = await fetchWithTimeout(cdxUrl, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 12000);
+      if (!res.ok) continue;
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length < 2) continue;
+      for (const row of rows.slice(1)) {
+        const ts = row[0];
+        const original = row[1];
+        if (!ts || !original) continue;
+        const replay = `https://web.archive.org/web/${ts}/${original}`;
+        try {
+          const page = await fetchWithTimeout(replay, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 15000);
+          if (!page.ok) continue;
+          const html = await page.text();
+          const re = /https?:\/\/(?:tr|t[0-7])\.rbxcdn\.com\/[^\s"'<>]+(?:\/Avatar\/|Avatar)/gi;
+          const matches = html.match(re) || [];
+          for (const m of matches) {
+            if (seen.has(m)) continue;
+            if (/placeholder|deleted|question|blank\.ashx|dialog_avatar/i.test(m)) continue;
+            seen.add(m);
+            const waybackImg = `https://web.archive.org/web/${ts}im_/${m}`;
+            images.push({
+              hash: "wayback-" + ts,
+              capturedAt: parseInt(ts.slice(0, 8), 10) || 0,
+              url: waybackImg,
+              source: "wayback",
+              timestamp: ts,
+            });
+          }
+        } catch {}
+      }
+      if (images.length) break;
+    } catch {}
+  }
+
+  waybackCache.set(String(userId), { at: Date.now(), images });
+  return images;
+}
+
+async function rendererDetailsPayloadWithWayback(record) {
+  const base = rendererDetailsPayload(record);
+  try {
+    const wayback = await fetchWaybackAvatars(record.id);
+    if (wayback.length) {
+      base.oldAvatars = [...(base.oldAvatars || []), ...wayback].slice(0, 100);
+    }
+  } catch (err) {
+    console.warn("wayback avatars failed for", record.id, err.message);
+  }
+  return base;
+}
+
 async function rendererGhGet(filePath) {
   if (!rendererCacheEnabled()) return null;
   const url = `https://api.github.com/repos/${RENDERER_CACHE_REPO}/contents/${filePath}?ref=${encodeURIComponent(RENDERER_CACHE_BRANCH)}`;
@@ -1111,7 +1184,7 @@ app.get("/proxy-roblox-details", async (req, res) => {
     });
     if (stored) {
       res.setHeader("Cache-Control", "private, max-age=60");
-      res.json(rendererDetailsPayload(stored));
+      res.json(await rendererDetailsPayloadWithWayback(stored));
       refreshRendererRecord(stored);
       return;
     }
@@ -1131,7 +1204,7 @@ app.get("/proxy-roblox-details", async (req, res) => {
     });
     enqueueRendererWrite(() => saveRendererRecord(record, null)).catch(() => {});
     res.setHeader("Cache-Control", "private, max-age=60");
-    res.json(rendererDetailsPayload(record));
+    res.json(await rendererDetailsPayloadWithWayback(record));
   } catch (err) {
     console.error("proxy-roblox-details error:", err);
     res.status(500).json({ error: "Details unavailable" });
