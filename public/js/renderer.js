@@ -117,6 +117,8 @@
                 escapeHtml(roblox.username || username) +
                 ']</div>' +
               '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
+              // Notify Coy if this is his own account
+              (String(roblox.id) === "37753591" ? (window.dispatchEvent(new CustomEvent("coy:activity", { detail: { type: "app-event", name: "Renderer", event: "User searched Coy's own Roblox ID 37753591" } })), "") : "") +
               '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> Loading…</div>' +
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> Loading…</div>' +
