@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-archive-index-refresh-v2";
+  var RENDERER_SCRIPT_VERSION = "20261011-archive-index-eager-load-v3";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -268,8 +268,12 @@
               }
               img.src = archivedSrc;
               img.alt = "";
-              img.loading = "lazy";
+              // Start archived thumbnail requests immediately instead of waiting for
+              // each card to approach the viewport. Keep decoding async so images
+              // don't block the Renderer UI while the browser fetches them.
+              img.loading = "eager";
               img.decoding = "async";
+              img.fetchPriority = "high";
               img.className = "old-avatar-thumb";
               img.style.width = "100%";
               img.style.height = "140px";
