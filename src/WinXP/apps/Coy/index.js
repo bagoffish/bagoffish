@@ -512,21 +512,62 @@ export default function CoyChat({ initialImage }) {
     }
   }
 
-  function speakCoyReply(text) {
+  async function speakCoyReply(text) {
+    if (!voiceCallActiveRef.current || !text) return;
+    setVoiceStatus('Coy is talking...');
+    // Try the backend cloned voice first.
+    try {
+      const response = await fetch(API_BASE + '/personal-ai/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: String(text).slice(0, 2000) }),
+      });
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+        audio.onended = () => { URL.revokeObjectURL(url); };
+        await audio.play();
+        return;
+      }
+    } catch (_) {}
+    // Fallback: browser TTS with a more robotic/Vocaloid-ish pitch and rate.
     return new Promise(resolve => {
-      if (!voiceCallActiveRef.current || !text || !window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') {
+      if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') {
         resolve();
         return;
       }
       window.speechSynthesis.cancel();
       const utterance = new window.SpeechSynthesisUtterance(String(text).slice(0, 4000));
-      utterance.rate = 1.02;
-      utterance.pitch = 1.08;
-      utterance.onstart = () => setVoiceStatus('Coy is talking...');
+      utterance.rate = 1.15;
+      utterance.pitch = 1.35;
+      const voices = window.speechSynthesis.getVoices();
+      const robotic = voices.find(v => /google|samantha|alex|daniel/i.test(v.name)) || voices[0];
+      if (robotic) utterance.voice = robotic;
       utterance.onend = resolve;
       utterance.onerror = resolve;
       window.speechSynthesis.speak(utterance);
     });
+  }
+
+  async function uploadVoiceSample(file) {
+    if (!file) return;
+    setError('');
+    setVoiceStatus('Uploading voice sample...');
+    try {
+      const dataUrl = await readFileAsDataUrl(file);
+      const response = await fetch(API_BASE + '/personal-ai/voice-sample', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: dataUrl }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(result.error || 'Upload failed');
+      setVoiceStatus(result.voiceId ? 'Voice trained. Calls will use it.' : 'Voice sample saved. Set ELEVENLABS_API_KEY for full cloning.');
+    } catch (err) {
+      setError(err.message || 'Could not upload the voice sample.');
+      setVoiceStatus('');
+    }
   }
 
   async function send(event, forcedMessage) {
@@ -691,6 +732,13 @@ export default function CoyChat({ initialImage }) {
           <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => updateAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
         </div>)}
       </div>}
+      <div style={{ padding: '4px 8px', background: '#f0f0f0', borderTop: '1px solid #ccc', fontSize: 11 }}>
+        <label style={{ cursor: 'pointer', color: '#003c74' }}>
+          Train voice from recording
+          <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadVoiceSample(f); e.target.value = ''; }} />
+        </label>
+        {voiceStatus && <span style={{ marginLeft: 8, color: '#555' }}>{voiceStatus}</span>}
+      </div>
       <form style={styles.form} onSubmit={send}>
         <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus,.pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.log,.yaml,.yml,.toml,.ini,.conf,.sh,.bash,.bat,.ps1,.diff,.patch,.env,.gitignore" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
         <button type="button" style={{ ...styles.button, ...styles.attachButton }} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach a file" title="Attach images, audio, text, or code">+</button>
