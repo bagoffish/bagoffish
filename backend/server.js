@@ -1143,10 +1143,10 @@ app.get("/proxy-roblox-archived", async (req, res) => {
         const page = await fetchWithTimeout(job.url, { headers: requestHeaders }, 10000);
         if (!page.ok) continue;
         const html = await page.text();
-        const re = /https?:\\/\\/(?:tr|t[0-7])\\.rbxcdn\\.com\\/[^\\s"'<>]+(?:Avatar|avatar|Headshot|headshot)[^\\s"'<>]*/gi;
+        const re = /https?:\/\/(?:tr|t[0-7])\.rbxcdn\.com\/[^\s"'<>]+(?:Avatar|avatar|Headshot|headshot)[^\s"'<>]*/gi;
         const matches = html.match(re) || [];
         for (const match of matches) {
-          if (/placeholder|deleted|question|blank\\.ashx|dialog_avatar/i.test(match)) continue;
+          if (/placeholder|deleted|question|blank\.ashx|dialog_avatar/i.test(match)) continue;
           const key = job.ts + "|" + match;
           if (imageMap.has(key)) continue;
           imageMap.set(key, {
