@@ -339,20 +339,21 @@ const legacyCss = `
 }
 .avatar-container img,
 .old-avatar-thumb{
-  width: 100px;
-  height: 100px;
+  width: 100%;
+  height: 140px;
   border: 1px solid #808080;
   box-shadow: inset 0 0 0 1px #fff;
-  object-fit: cover;
+  object-fit: contain;
   cursor: url("/images/Link Select.cur") 3 3, pointer;
   background: #fff;
 }
 #oldAvatars{
   display: grid;
-  grid-template-columns: repeat(4, 100px);
-  gap: 6px;
-  justify-content: center;
-  margin-top: 8px;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  width: 100%;
+  justify-items: center;
+  margin-top: 10px;
 }
 .info-line{ text-align: center; }
 
