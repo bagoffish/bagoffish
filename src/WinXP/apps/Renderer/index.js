@@ -33,7 +33,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261011-avatar-history-proxy-v3"; // refresh the CORS-fixed, cached avatar loader
+    s.src = "/js/renderer.js?v=20261011-xp-square-archive-v4"; // themed square archive cards, capture dates, contextual Coy reactions
     s.async = true;
     document.body.appendChild(s);
   }, []);
