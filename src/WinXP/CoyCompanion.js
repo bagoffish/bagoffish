@@ -50,11 +50,6 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
   : part);
 
 
-const usableQuip = value => {
-  const text = String(value || "").trim();
-  if (!text || /^\.{1,}$/.test(text) || text === "...") return "";
-  return text;
-};
 const formatCoyText = value => {
   const text = String(value ?? "").trim();
   if (!text) return "";
@@ -230,7 +225,7 @@ export default function CoyCompanion() {
 
   // Desktop pet: always there, talks on his own, doesn't disappear.
   useEffect(() => {
-    const say = (fallback, context) => {
+    const say = fallback => {
       setLine(formatCoyText(fallback));
       setShowBubble(true);
       lastActivity.current = Date.now();
@@ -320,14 +315,11 @@ export default function CoyCompanion() {
         const name = detail.name || "an app";
         const fallback = randomLine(APP_QUIPS[name] || ["Oh " + name]);
         announce(fallback);
-        const context = "User just opened the " + name + " app. React in one short line in Coy's real voice.";
       } else if (detail.type === "music") {
-        const context = detail.title ? "Music started: " + detail.title : "Music is playing";
         announce("Music time");
       } else if (detail.type === "error") {
         announce("Looks like something broke");
       } else if (detail.type === "app-event") {
-        const context = (detail.name || "App") + ": " + (detail.event || detail.message || "something happened");
         announce(randomLine(APP_QUIPS[detail.name] || ["Oh", "Hm", "What happened"]));
       } else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
         lastPickupAttempt.current = now;
