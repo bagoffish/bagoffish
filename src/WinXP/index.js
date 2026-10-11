@@ -199,6 +199,8 @@ function injectXpCursors() {
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
     'body.xp-resizing, body.xp-resizing * { cursor: inherit !important; }',
     'body.xp-resizing .xp-cursor-cover { cursor: inherit !important; }',
+    '.xp-cursor-cover { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    '#root [style*="cursor"] { cursor: inherit !important; }',
   ].join('\n');
   document.head.appendChild(style);
   const mark = () => {
