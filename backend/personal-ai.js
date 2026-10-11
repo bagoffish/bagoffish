@@ -1052,7 +1052,7 @@ router.post("/speak", async (req, res) => {
       const response = await fetch(scottCeraUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify(/api\\.runpod\\.ai\\/v2\\/[^/]+\\/runsync/.test(scottCeraUrl)
+        body: JSON.stringify(scottCeraUrl.includes("api.runpod.ai/v2/") && scottCeraUrl.includes("/runsync")
           ? { input: { text } }
           : { text }),
         signal: AbortSignal.timeout(120000),
