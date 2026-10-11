@@ -31,3 +31,49 @@ jobs:
         run: |
           npm install --no-package-lock
           npm run build
+
+      - name: Smoke-test live backend, visitor counter, and CORS
+        env:
+          BACKEND_URL: https://bloxify-backend-sg.onrender.com
+        run: |
+          node --input-type=module <<'NODE'
+          const base = process.env.BACKEND_URL.replace(/\\/+$/, '');
+          const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
+          let lastError;
+          for (let attempt = 1; attempt <= 18; attempt += 1) {
+            try {
+              const healthResponse = await fetch(base + '/health', { cache: 'no-store' });
+              const health = await healthResponse.json();
+              if (!healthResponse.ok || health.ok !== true) {
+                throw new Error('Backend health check failed with HTTP ' + healthResponse.status);
+              }
+
+              const countResponse = await fetch(base + '/visitor-count/current', { cache: 'no-store' });
+              const countData = await countResponse.json();
+              const count = Number(countData.count);
+              if (!countResponse.ok || !Number.isSafeInteger(count) || count < 0) {
+                throw new Error('Visitor counter endpoint returned an invalid count');
+              }
+
+              const preflight = await fetch(base + '/personal-ai/chat', {
+                method: 'OPTIONS',
+                headers: {
+                  Origin: 'https://bagof.fish',
+                  'Access-Control-Request-Method': 'POST',
+                  'Access-Control-Request-Headers': 'content-type'
+                }
+              });
+              if (preflight.status !== 204 || preflight.headers.get('access-control-allow-origin') !== '*') {
+                throw new Error('Chat CORS preflight failed (HTTP ' + preflight.status + ')');
+              }
+
+              console.log('Backend health OK; visitor count endpoint returned ' + count + '; chat CORS preflight OK.');
+              process.exit(0);
+            } catch (error) {
+              lastError = error;
+              console.warn('Smoke-test attempt ' + attempt + '/18 failed: ' + error.message);
+              if (attempt < 18) await pause(10000);
+            }
+          }
+          throw lastError || new Error('Backend smoke test failed');
+          NODE
