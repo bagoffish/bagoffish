@@ -255,7 +255,8 @@ async function loadGithubMemory() {
   const branch = (process.env.COY_MEMORY_GITHUB_BRANCH || "main").trim() || "main";
   const filePaths = [
     process.env.COY_MEMORY_GITHUB_PATH || "coy-discord-style-corpus.txt",
-    process.env.COY_MEMORY_GITHUB_TWITTER_PATH || "coy-twitter-style.txt",
+    process.env.COY_MEMORY_GITHUB_TWITTER_PATH || "coy-twitter-rest.txt",
+    process.env.COY_MEMORY_GITHUB_RETWEETS_PATH || "coy-twitter-retweets.txt",
     process.env.COY_MEMORY_GITHUB_FACTS_PATH || "coy-approved-memory.md",
   ];
   const headers = {
