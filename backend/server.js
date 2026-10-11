@@ -1224,7 +1224,7 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
       });
     }
 
-    images.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    images.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
     res.setHeader("Cache-Control", "public, max-age=300");
     return res.json({ images, indexed: true, shard: shardName });
   } catch (error) {
