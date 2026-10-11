@@ -296,17 +296,36 @@
               img.style.background = "#dce6f1";
               img.style.cursor = "pointer";
               img.title = "Open archived avatar";
+              // Try multiple replay forms before marking an image unavailable.
+              // The index can have valid dates even when Wayback rejects the first image URL.
+              var imageCandidates = [];
+              function addImageCandidate(url) {
+                if (url && imageCandidates.indexOf(url) === -1) imageCandidates.push(url);
+              }
+              addImageCandidate(archivedSrc);
+              addImageCandidate(item.url);
+              if (/^https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14}im_\\//i.test(item.url)) {
+                addImageCandidate(item.url.replace(/\\/web\\/(\\d{8,14})im_\\//i, "/web/$1/"));
+                var originalMatch = item.url.match(/^https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14}(?:im_)?\\/(https?:\\/\\/.*)$/i);
+                if (originalMatch) addImageCandidate(originalMatch[1]);
+              }
+              var imageCandidateIndex = 0;
               img.addEventListener("error", function () {
-                // Keep the archive grid stable when an individual capture fails.
-                // Removing cards on transient proxy/CDN errors made the layout jump.
+                imageCandidateIndex += 1;
+                if (imageCandidateIndex < imageCandidates.length) {
+                  img.src = imageCandidates[imageCandidateIndex];
+                  return;
+                }
+                // Keep the archive grid stable even when every source fails.
                 img.removeAttribute("src");
                 img.alt = "Archived avatar unavailable";
                 img.style.objectFit = "contain";
                 img.style.background = "#dce6f1";
                 img.style.minHeight = "104px";
                 img.style.opacity = "0.65";
-                img.title = "This archived image could not be loaded";
-              }, { once: true });
+                img.title = "Wayback and direct image fallbacks all failed for this capture";
+              });
+
               img.addEventListener("click", function () {
                 window.open(item.url, "_blank", "noopener,noreferrer");
               });
