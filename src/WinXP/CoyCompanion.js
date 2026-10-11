@@ -307,7 +307,9 @@ export default function CoyCompanion() {
         syncMobileAppVisibility();
         return;
       }
-      if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
+      // Block Coy, Coy Chat, Coy tab, and other launcher labels for Coy itself.
+      const activityName = String(detail.name || "").trim();
+      if (detail.type === "app-open" && /\bcoy\b/i.test(activityName)) return;
       const now = Date.now();
       if (now - lastActivity.current < 8000) return;
       lastActivity.current = now;
