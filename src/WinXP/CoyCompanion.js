@@ -231,7 +231,7 @@ export default function CoyCompanion() {
       const apps = openAppsRef.current || [];
       if (apps.length && Math.random() < 0.4) {
         const app = apps[Math.floor(Math.random() * apps.length)];
-        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Still on " + app, "Whatcha doing"]);
+        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Whatcha doing", "Hm"]);
         say(fallback, "Coy is a desktop pet who lives here. He comments on the open app " + app + " in one short in-character line.");
       } else {
         say(randomLine(IDLE_LINES), "Coy is a desktop pet sitting on the desktop. He says one short random in-character line on his own, like Bonzi or an ukagaka.");
