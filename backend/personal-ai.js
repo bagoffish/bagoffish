@@ -921,7 +921,7 @@ router.post("/chat", rateLimit, async (req, res) => {
 const VOICE_SAMPLE_PATH = process.env.VOICE_SAMPLE_PATH || path.join(process.env.DATA_ROOT || "/tmp/winxp-data", "coy-voice-sample.webm");
 // Set VOICE_SAMPLE_PATH to a persistent disk path on Render so the sample survives restarts.
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY || "";
-const FISH_API_KEY = process.env.FISH_API_KEY || "";
+const GRADIUM_API_KEY = process.env.GRADIUM_API_KEY || "";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
 
 router.post("/voice-sample", async (req, res) => {
@@ -987,37 +987,51 @@ router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
 
-  // Prefer Fish Audio free model with the uploaded sample as reference.
-  if (FISH_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {
+  // Use Gradium with a cloned voice from the uploaded sample.
+  if (GRADIUM_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {
     try {
-      const sample = fs.readFileSync(VOICE_SAMPLE_PATH);
-      const response = await fetch("https://api.fish.audio/v1/tts", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + FISH_API_KEY,
-          "Content-Type": "application/json",
-          model: "s2.1-pro-free",
-        },
-        body: JSON.stringify({
-          text,
-          references: [{ audio: sample.toString("base64"), text: "This is my voice." }],
-          format: "mp3",
-          temperature: 0.8,
-          top_p: 0.8,
-          prosody: { speed: 1.0, volume: 0, normalize_loudness: true },
-          chunk_length: 200,
-          normalize: true,
-        }),
-      });
-      if (response.ok) {
-        const audio = Buffer.from(await response.arrayBuffer());
-        res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Cache-Control", "no-store");
-        return res.send(audio);
+      let voiceId = process.env.GRADIUM_VOICE_ID || "";
+      if (!voiceId) {
+        const form = new FormData();
+        form.append("audio_file", new Blob([fs.readFileSync(VOICE_SAMPLE_PATH)]), "voice.webm");
+        form.append("name", "Coy");
+        form.append("language", "en");
+        const createRes = await fetch("https://api.gradium.ai/api/voices/", {
+          method: "POST",
+          headers: { "x-api-key": GRADIUM_API_KEY },
+          body: form,
+        });
+        if (createRes.ok) {
+          const created = await createRes.json();
+          voiceId = created.uid || created.voice_id || "";
+          console.info("Gradium voice created:", voiceId);
+        }
       }
-      console.warn("Fish Audio TTS failed:", response.status);
+      if (voiceId) {
+        const ttsRes = await fetch("https://api.gradium.ai/api/post/speech/tts", {
+          method: "POST",
+          headers: {
+            "x-api-key": GRADIUM_API_KEY,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            text,
+            voice_id: voiceId,
+            model_name: "default",
+            output_format: "mp3",
+            only_audio: true,
+          }),
+        });
+        if (ttsRes.ok) {
+          const audio = Buffer.from(await ttsRes.arrayBuffer());
+          res.setHeader("Content-Type", "audio/mpeg");
+          res.setHeader("Cache-Control", "no-store");
+          return res.send(audio);
+        }
+        console.warn("Gradium TTS failed:", ttsRes.status);
+      }
     } catch (err) {
-      console.warn("Fish Audio error:", err?.message || err);
+      console.warn("Gradium error:", err?.message || err);
     }
   }
 
