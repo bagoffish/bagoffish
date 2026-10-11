@@ -967,10 +967,15 @@ router.get("/voice-sample", (req, res) => {
 
 function humanizeForSpeech(raw) {
   return String(raw || "")
+    // Strip emoticons and emoji-like sequences
+    .replace(/[:;=]-?[)DPp\/\\(|\[\]{}*oO]|;-;|T_T|TT|\^_\^|>_<|>\.<|:3|:P|:p|;P|;p|xD|XD|lol|rofl/gi, "")
+    .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, "")
+    // Expand casual abbreviations
     .replace(/\bidk\b/gi, "I don't know")
+    .replace(/\bnrn\b/gi, "not right now")
     .replace(/\bugh\b/gi, "ugh")
-    .replace(/\blol\b/gi, "lol")
-    .replace(/\blmao\b/gi, "lmao")
+    .replace(/\blol\b/gi, "")
+    .replace(/\blmao\b/gi, "")
     .replace(/\bomg\b/gi, "oh my god")
     .replace(/\bwtf\b/gi, "what the fuck")
     .replace(/\btbh\b/gi, "to be honest")
@@ -979,6 +984,11 @@ function humanizeForSpeech(raw) {
     .replace(/\bngl\b/gi, "not gonna lie")
     .replace(/\bfr\b/gi, "for real")
     .replace(/\basl\b/gi, "as hell")
+    .replace(/\bbrb\b/gi, "be right back")
+    .replace(/\bafk\b/gi, "away from keyboard")
+    .replace(/\bty\b/gi, "thank you")
+    .replace(/\bnp\b/gi, "no problem")
+    .replace(/\byw\b/gi, "you're welcome")
     .replace(/\s+/g, " ")
     .trim();
 }
