@@ -308,8 +308,17 @@ export default function CoyCompanion() {
     // Use both the app-state event and the rendered window DOM. The DOM check
     // is a fallback for app windows opened by another launcher/tab that doesn't
     // publish coy:activity, and MutationObserver keeps it in sync on mobile.
-    // Coy stays visible and interactive above app windows on every viewport.
-    const syncMobileAppVisibility = () => setHideForMobileApp(false);
+    // Keep Coy out of the way of maximized apps on desktop, and behind open
+    // app windows on mobile (where windows fill the usable screen).
+    const syncMobileAppVisibility = () => {
+      const isMobile = window.matchMedia("(max-width: 700px)").matches;
+      const hasOpenApp = openAppsRef.current.length > 0 ||
+        Array.from(document.querySelectorAll(".app__header"))
+          .some(header => header.getClientRects().length > 0 &&
+            getComputedStyle(header).display !== "none" &&
+            getComputedStyle(header.closest('[class]') || header).display !== "none");
+      setHideForMobileApp((isMobile && hasOpenApp) || (!isMobile && fullTabActiveRef.current));
+    };
     const onActivity = event => {
       const detail = event.detail || {};
       if (detail.type === "app-state") {
