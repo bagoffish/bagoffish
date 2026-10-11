@@ -238,7 +238,7 @@ export default function CoyCompanion() {
     };
   }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
 
-  // Clippy / Bonzi / Ukagaka: sit quiet, then pop in when something happens or after a long idle.
+  // Desktop pet: always there, talks on his own, doesn't disappear.
   useEffect(() => {
     const say = (fallback, context) => {
       setLine(formatCoyText(fallback));
@@ -250,25 +250,23 @@ export default function CoyCompanion() {
     };
     const timer = window.setInterval(() => {
       if (document.hidden) return;
-      // Only speak if he's been quiet for a while.
-      if (Date.now() - lastActivity.current < 45000) return;
-      if (Math.random() > 0.55) return;
+      if (Date.now() - lastActivity.current < 12000) return;
       const apps = openAppsRef.current || [];
-      if (apps.length && Math.random() < 0.6) {
+      if (apps.length && Math.random() < 0.4) {
         const app = apps[Math.floor(Math.random() * apps.length)];
-        const fallback = randomLine(APP_QUIPS[app] || ["Still on " + app + "?", "Need help with that?", "Oh " + app]);
-        say(fallback, "Like Clippy noticing what the user is doing. Coy pops in with one short in-character line about the open app " + app + ".");
+        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Still on " + app, "Whatcha doing"]);
+        say(fallback, "Coy is a desktop pet who lives here. He comments on the open app " + app + " in one short in-character line.");
       } else {
-        say(randomLine(IDLE_LINES), "Long idle. Coy pops in once with one short unprompted line in his real voice, then goes quiet.");
+        say(randomLine(IDLE_LINES), "Coy is a desktop pet sitting on the desktop. He says one short random in-character line on his own, like Bonzi or an ukagaka.");
       }
-    }, 20000);
+    }, 18000);
     return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
     if (!showBubble || busy) return undefined;
     // Give longer lines more reading time, but don't leave a bubble hanging around.
-    const readingTime = Math.min(6000, Math.max(1600, 900 + line.length * 40));
+    const readingTime = Math.min(14000, Math.max(5000, 3000 + line.length * 50));
     const timer = window.setTimeout(() => setShowBubble(false), readingTime);
     return () => window.clearTimeout(timer);
   }, [showBubble, busy, line]);
@@ -329,7 +327,7 @@ export default function CoyCompanion() {
       }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       const now = Date.now();
-      if (now - lastActivity.current < 12000) return;
+      if (now - lastActivity.current < 8000) return;
       lastActivity.current = now;
       if (detail.type === "app-open") {
         const name = detail.name || "an app";
