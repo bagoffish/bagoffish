@@ -379,19 +379,16 @@ function useCursor(ref, threshold, resizable) {
       return '';
     };
 
-    // Capture events at the window so nested app content cannot hide the edge.
+    // Listen on this window element: mouse events bubble from nested app
+    // content, while overlapping windows cannot overwrite each other's cursor.
     const onPointerMove = event => {
       if (resizing) return;
-      if (!target.contains(event.target)) {
-        setEdge('');
-        return;
-      }
       const edge = detectEdge(event);
       setEdge(edge);
     };
 
     const onPointerDown = event => {
-      if (event.button !== 0 || resizing || !target.contains(event.target)) return;
+      if (event.button !== 0 || resizing) return;
       const edge = detectEdge(event);
       if (!edge) return;
       resizing = true;
@@ -411,14 +408,14 @@ function useCursor(ref, threshold, resizable) {
 
     const onWindowBlur = () => onPointerUp();
 
-    window.addEventListener('mousemove', onPointerMove, true);
-    window.addEventListener('mousedown', onPointerDown, true);
+    target.addEventListener('mousemove', onPointerMove);
+    target.addEventListener('mousedown', onPointerDown);
     window.addEventListener('mouseup', onPointerUp, true);
     window.addEventListener('blur', onWindowBlur);
 
     return () => {
-      window.removeEventListener('mousemove', onPointerMove, true);
-      window.removeEventListener('mousedown', onPointerDown, true);
+      target.removeEventListener('mousemove', onPointerMove);
+      target.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('mouseup', onPointerUp, true);
       window.removeEventListener('blur', onWindowBlur);
       clear();
