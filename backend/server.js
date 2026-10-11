@@ -1117,13 +1117,13 @@ app.get("/proxy-roblox-archived", async (req, res) => {
   const seen = new Set();
 
   for (const original of patterns) {
-    const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(original)}&output=json&fl=timestamp,original&filter=statuscode:200&collapse=timestamp:6&limit=8`;
+    const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(original)}&output=json&fl=timestamp,original&filter=statuscode:200&collapse=timestamp:8&limit=40`;
     try {
       const cdxRes = await fetchWithTimeout(cdx, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 20000);
       if (!cdxRes.ok) continue;
       const rows = await cdxRes.json();
       if (!Array.isArray(rows) || rows.length < 2) continue;
-      for (const row of rows.slice(1, 6)) {
+      for (const row of rows.slice(1, 25)) {
         const ts = row[0];
         const pageUrl = row[1];
         if (!ts || !pageUrl) continue;
@@ -1145,7 +1145,7 @@ app.get("/proxy-roblox-archived", async (req, res) => {
             });
           }
         } catch {}
-        if (images.length >= 12) break;
+        if (images.length >= 40) break;
       }
     } catch {}
     if (images.length) break;

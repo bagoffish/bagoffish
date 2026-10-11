@@ -128,7 +128,7 @@
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
-              '<div id="oldAvatars" style="margin-top:8px;padding-top:6px;border-top:1px solid #aebfd4;font-size:11px;color:#555;">Loading archived renders…</div>' +
+              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;margin-top:10px;padding-top:8px;border-top:1px solid #aebfd4;font-size:11px;color:#555;justify-items:center;">Loading archived renders…</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
@@ -254,6 +254,10 @@
               img.loading = "eager";
               img.decoding = "async";
               img.className = "old-avatar-thumb";
+              img.style.width = "100%";
+              img.style.height = "140px";
+              img.style.objectFit = "contain";
+              img.style.background = "#fff";
               img.title = "Open archived avatar";
               img.addEventListener("error", function () { img.style.display = "none"; });
               img.addEventListener("click", function () {
