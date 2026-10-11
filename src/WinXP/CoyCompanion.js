@@ -446,13 +446,24 @@ export default function CoyCompanion() {
     dragState.current = null;
     setIsDragging(false);
     if (!wasDrag) {
-      // Ukagaka-style: click makes him talk in character. No pet.
-      const fallback = randomLine(GREETINGS);
-      setLine(formatCoyText(fallback));
-      setShowBubble(true);
-      fetchAiQuip("User clicked Coy on the desktop. Say one short in-character line, like an ukagaka ghost talking. No pet talk.").then(ai => {
-        if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
-      });
+      // Double-click = headpat. Single click = open chat.
+      if (clickTimer.current) {
+        window.clearTimeout(clickTimer.current);
+        clickTimer.current = null;
+        const fallback = randomLine(["Hehe", "Again?", "Heyy", "Hm", "Eep"]);
+        setLine(formatCoyText(fallback));
+        setShowBubble(true);
+        setIdleMood("happy");
+        window.setTimeout(() => setIdleMood("normal"), 1800);
+        fetchAiQuip("User just headpatted Coy (double-click). React short and natural, a little soft or playful.").then(ai => {
+          if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
+        });
+      } else {
+        clickTimer.current = window.setTimeout(() => {
+          clickTimer.current = null;
+          openChat();
+        }, 280);
+      }
     }
   }
 
