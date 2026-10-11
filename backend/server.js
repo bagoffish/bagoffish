@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-11-avatar-retry-pipeline";
+const BACKEND_VERSION = "2026-10-11-renderer-wayback-parallel";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -1108,44 +1108,61 @@ app.get("/proxy-roblox-archived", async (req, res) => {
     `https://www.roblox.com/users/${userId}/profile`,
     `http://www.roblox.com/User.aspx?ID=${userId}`,
   ];
-  const images = [];
-  const seen = new Set();
 
-  for (const original of patterns) {
+  // Run CDX searches together, then replay archived profile captures concurrently.
+  // The previous nested loops fetched captures one-by-one and made cold lookups stall.
+  const imageMap = new Map();
+  const replayJobs = [];
+  const requestHeaders = { "User-Agent": "WinXP-Renderer/1.0" };
+  const cdxResults = await Promise.all(patterns.map(async (original) => {
     const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(original)}&output=json&fl=timestamp,original&filter=statuscode:200&collapse=timestamp:8&limit=40`;
     try {
-      const cdxRes = await fetchWithTimeout(cdx, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 20000);
-      if (!cdxRes.ok) continue;
-      const rows = await cdxRes.json();
-      if (!Array.isArray(rows) || rows.length < 2) continue;
-      for (const row of rows.slice(1, 25)) {
-        const ts = row[0];
-        const pageUrl = row[1];
-        if (!ts || !pageUrl) continue;
-        const replay = `https://web.archive.org/web/${ts}/${pageUrl}`;
-        try {
-          const page = await fetchWithTimeout(replay, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 15000);
-          if (!page.ok) continue;
-          const html = await page.text();
-          const re = /https?:\/\/(?:tr|t[0-7])\.rbxcdn\.com\/[^\s"'<>]+(?:Avatar|avatar|Headshot|headshot)[^\s"'<>]*/gi;
-          const matches = html.match(re) || [];
-          for (const m of matches) {
-            if (seen.has(m)) continue;
-            if (/placeholder|deleted|question|blank\.ashx|dialog_avatar/i.test(m)) continue;
-            seen.add(m);
-            images.push({
-              url: `https://web.archive.org/web/${ts}im_/${m}`,
-              timestamp: ts,
-              source: "wayback",
-            });
-          }
-        } catch {}
-        if (images.length >= 40) break;
-      }
-    } catch {}
-    if (images.length) break;
-  }
+      const response = await fetchWithTimeout(cdx, { headers: requestHeaders }, 12000);
+      if (!response.ok) return [];
+      const rows = await response.json();
+      return Array.isArray(rows) ? rows.slice(1, 25) : [];
+    } catch {
+      return [];
+    }
+  }));
 
+  cdxResults.forEach((rows) => {
+    rows.forEach((row) => {
+      const ts = row && row[0];
+      const pageUrl = row && row[1];
+      if (ts && pageUrl) replayJobs.push({ ts, url: `https://web.archive.org/web/${ts}/${pageUrl}` });
+    });
+  });
+
+  // Keep concurrency bounded to avoid flooding Wayback on a single lookup.
+  let cursor = 0;
+  async function replayWorker() {
+    while (cursor < replayJobs.length) {
+      const job = replayJobs[cursor++];
+      try {
+        const page = await fetchWithTimeout(job.url, { headers: requestHeaders }, 10000);
+        if (!page.ok) continue;
+        const html = await page.text();
+        const re = /https?:\\/\\/(?:tr|t[0-7])\\.rbxcdn\\.com\\/[^\\s"'<>]+(?:Avatar|avatar|Headshot|headshot)[^\\s"'<>]*/gi;
+        const matches = html.match(re) || [];
+        for (const match of matches) {
+          if (/placeholder|deleted|question|blank\\.ashx|dialog_avatar/i.test(match)) continue;
+          const key = job.ts + "|" + match;
+          if (imageMap.has(key)) continue;
+          imageMap.set(key, {
+            url: `https://web.archive.org/web/${job.ts}im_/${match}`,
+            timestamp: job.ts,
+            source: "wayback",
+          });
+        }
+      } catch {}
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(8, replayJobs.length) }, () => replayWorker()));
+
+  const images = Array.from(imageMap.values())
+    .sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)))
+    .slice(0, 40);
   waybackCache.set(userId, { at: Date.now(), images });
   res.setHeader("Cache-Control", "private, max-age=300");
   res.json({ images });
