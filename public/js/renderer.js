@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261008-live-current-archive-old";
+  var RENDERER_SCRIPT_VERSION = "20261011-avatar-fallback-retry";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
   var ARCHIVE_SHARDS = 128;
@@ -126,6 +126,37 @@
 
           centerPanel.innerHTML = html;
           loadingIndicator.style.display = "none";
+
+          // Try the backend image proxy first, then the original Roblox CDN URL.
+          // Some Roblox CDN responses work in browsers even when the server proxy fails.
+          var liveAvatarImage = centerPanel.querySelector(".avatar-container img");
+          if (liveAvatarImage) {
+            var proxyAvatarUrl = text(roblox.avatarUrl || "");
+            var directAvatarUrl = "";
+            try {
+              var parsedAvatarUrl = new URL(proxyAvatarUrl, window.location.href);
+              if (parsedAvatarUrl.pathname.indexOf("/proxy-roblox-avatar") !== -1) {
+                directAvatarUrl = parsedAvatarUrl.searchParams.get("url") || "";
+              }
+            } catch (_) {}
+            var avatarCandidates = [];
+            if (proxyAvatarUrl) avatarCandidates.push(proxyAvatarUrl);
+            if (directAvatarUrl && directAvatarUrl !== proxyAvatarUrl) avatarCandidates.push(directAvatarUrl);
+            var avatarAttempt = 0;
+            liveAvatarImage.addEventListener("error", function retryAvatar() {
+              avatarAttempt += 1;
+              if (avatarAttempt < avatarCandidates.length) {
+                liveAvatarImage.src = avatarCandidates[avatarAttempt];
+              } else {
+                liveAvatarImage.alt = "Avatar unavailable";
+                liveAvatarImage.title = "Roblox did not return a usable avatar image. Try checking again.";
+              }
+            });
+            if (!avatarCandidates.length) {
+              liveAvatarImage.alt = "Avatar unavailable";
+              liveAvatarImage.title = "No live avatar thumbnail URL was returned by Roblox.";
+            }
+          }
 
           function renderArchivedAvatars(archived) {
             var oldContainer = document.getElementById("oldAvatars");
