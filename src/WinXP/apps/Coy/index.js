@@ -28,6 +28,35 @@ function safeWebUrl(value) {
     return url.protocol === "https:" || url.protocol === "http:" ? url : null;
   } catch (_) { return null; }
 }
+
+const COY_DESKTOP_APP_ALIASES = {
+  'about me': 'About Me', about: 'About Me', profile: 'About Me',
+  'winter letter': 'Winter_Letter', winterletter: 'Winter_Letter', letters: 'Winter_Letter',
+  poems: 'Poems', poem: 'Poems,
+  renderer: 'Renderer', 'roblox renderer': 'Renderer', 'avatar renderer': 'Renderer',
+  bloxify: 'Bloxify', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
+  paint: 'Paint', 'ms paint': 'Paint',
+  minesweeper: 'Minesweeper', 'mine sweeper': 'Minesweeper',
+  winamp: 'Winamp', 'music player': 'Winamp',
+  coy: 'Coy', 'coy chat': 'Coy',
+};
+
+function parseCoyDesktopAction(message) {
+  const match = String(message || '').trim().match(/^(?:please\s+)?(?:can you\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (!match) return null;
+  const actionWord = match[1].toLowerCase();
+  const target = match[2].trim().toLowerCase()
+    .replace(/\s+(?:app|window)$/i, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ');
+  const name = COY_DESKTOP_APP_ALIASES[target];
+  if (!name) return null;
+  const action = ['launch', 'start'].includes(actionWord) ? 'open'
+    : ['show', 'switch to'].includes(actionWord) ? 'focus'
+    : actionWord === 'hide' ? 'minimize'
+    : actionWord;
+  return { action, name };
+}
 function youtubeEmbedUrl(value) {
   const url = safeWebUrl(value);
   if (!url) return null;
@@ -430,6 +459,12 @@ export default function CoyChat({ initialImage }) {
     }
     lastSendRef.current = { message: sendFingerprint, at: now };
     sendLockRef.current = true;
+    // Explicit, standalone desktop commands become real window-manager actions.
+    // Ordinary conversation is never interpreted as a command.
+    const desktopAction = parseCoyDesktopAction(message);
+    if (desktopAction) {
+      window.dispatchEvent(new CustomEvent('coy:desktop-action', { detail: desktopAction }));
+    }
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
     // Remove the pending chips as soon as send starts. If the request fails,
@@ -474,6 +509,7 @@ export default function CoyChat({ initialImage }) {
             websiteContext: {
               desktopApps: Array.from(document.querySelectorAll('[data-app-title]'))
                 .map(node => node.getAttribute('data-app-title')).filter(Boolean),
+              ...(desktopAction ? { requestedDesktopAction: desktopAction } : {}),
               ...(liveVisitorCount !== null ? { totalVisitorCount: liveVisitorCount } : {}),
             },
           }),
