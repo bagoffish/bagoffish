@@ -233,6 +233,15 @@ export default function CoyChat({ initialImage }) {
   const sendLockRef = useRef(false);
   const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
+  const errorTimerRef = useRef(null);
+  const showError = (msg) => {
+    if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = window.setTimeout(() => setError(msg), 600);
+  };
+  const clearError = () => {
+    if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
+    setError('');
+  };
   const [voiceCallActive, setVoiceCallActive] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
   const recognitionRef = useRef(null);
@@ -446,7 +455,7 @@ export default function CoyChat({ initialImage }) {
       recognition.onerror = event => {
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
           setVoiceStatus('Need mic access');
-          setError('Uhhh is your mic on? I can\'t hear you');
+          showError('Uhhh is your mic on? I can\'t hear you');
         }
       };
       recognition.onend = () => {
@@ -478,7 +487,7 @@ export default function CoyChat({ initialImage }) {
     if (!voiceCallActiveRef.current) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError('This browser won\'t let me hear you. Try Chrome');
+      showError('This browser won\'t let me hear you. Try Chrome');
       stopVoiceCall();
       return;
     }
@@ -489,7 +498,7 @@ export default function CoyChat({ initialImage }) {
       recognition.interimResults = false;
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
-      recognition.onstart = () => setVoiceStatus('Listening...');
+      recognition.onstart = () => { clearError(); setVoiceStatus('Listening...'); };
       recognition.onresult = async event => {
         // Prefer Gradium STT if we can capture audio; fall back to browser transcript.
         let transcript = Array.from(event.results || [])
@@ -507,7 +516,7 @@ export default function CoyChat({ initialImage }) {
       };
       recognition.onerror = event => {
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setError('Mic\'s blocked. Allow it and try again');
+          showError('Mic\'s blocked. Allow it and try again');
           stopVoiceCall();
         } else if (event.error !== 'no-speech' && voiceCallActiveRef.current) {
           setVoiceStatus('Voice input paused');
@@ -524,7 +533,7 @@ export default function CoyChat({ initialImage }) {
       recognitionRef.current = recognition;
       recognition.start();
     } catch (_) {
-      setError('Can\'t start the mic. Check permissions');
+      showError('Can\'t start the mic. Check permissions');
       stopVoiceCall();
     }
   }
