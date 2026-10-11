@@ -202,7 +202,7 @@ function injectXpCursors() {
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
-    'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root input, html body.xp-resizing #root textarea, html body.xp-resizing #root button, html body.xp-resizing #root a { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
+    'html body[data-xp-resize] #root, html body[data-xp-resize] #root *, html body[data-xp-resize] #root *::before, html body[data-xp-resize] #root *::after, html body.xp-resizing, html body.xp-resizing *, html body.xp-resizing *::before, html body.xp-resizing *::after { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
   ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
