@@ -203,7 +203,7 @@ function injectXpCursors() {
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
     'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root input, html body.xp-resizing #root textarea, html body.xp-resizing #root button, html body.xp-resizing #root a { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
-  ].join('\\n');
+  ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
       if (!el.hasAttribute('data-clickable')) el.setAttribute('data-clickable', '1');
