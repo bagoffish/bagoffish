@@ -1064,7 +1064,11 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
   try {
     const upstream = await fetch(parsed.toString(), { headers: { "User-Agent": "WinXP Renderer/1.0" } });
     if (!upstream.ok || !upstream.body) return res.status(upstream.status || 502).end();
-    const ct = upstream.headers.get("content-type") || "image/png";
+    let ct = (upstream.headers.get("content-type") || "image/png").toLowerCase();
+    if (ct.includes("png")) ct = "image/png";
+    else if (ct.includes("jpeg") || ct.includes("jpg")) ct = "image/jpeg";
+    else if (ct.includes("gif")) ct = "image/gif";
+    else if (ct.includes("webp")) ct = "image/webp";
     res.setHeader("Content-Type", ct);
     res.setHeader("Cache-Control", "public, max-age=3600");
     const buf = Buffer.from(await upstream.arrayBuffer());
@@ -1072,6 +1076,69 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
   } catch (err) {
     res.status(502).end();
   }
+});
+
+
+// Historical avatar renders via Wayback CDX (no pre-scraped files).
+const waybackCache = new Map();
+const WAYBACK_TTL = 6 * 60 * 60 * 1000;
+
+app.get("/proxy-roblox-archived", async (req, res) => {
+  setCors(req, res);
+  const userId = String(req.query.userId || "").trim();
+  if (!/^\d+$/.test(userId)) return res.status(400).json({ error: "User ID required" });
+
+  const cached = waybackCache.get(userId);
+  if (cached && Date.now() - cached.at < WAYBACK_TTL) {
+    res.setHeader("Cache-Control", "private, max-age=300");
+    return res.json({ images: cached.images });
+  }
+
+  const patterns = [
+    `https://www.roblox.com/users/${userId}/profile`,
+    `http://www.roblox.com/User.aspx?ID=${userId}`,
+  ];
+  const images = [];
+  const seen = new Set();
+
+  for (const original of patterns) {
+    const cdx = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(original)}&output=json&fl=timestamp,original&filter=statuscode:200&collapse=timestamp:6&limit=8`;
+    try {
+      const cdxRes = await fetchWithTimeout(cdx, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 20000);
+      if (!cdxRes.ok) continue;
+      const rows = await cdxRes.json();
+      if (!Array.isArray(rows) || rows.length < 2) continue;
+      for (const row of rows.slice(1, 6)) {
+        const ts = row[0];
+        const pageUrl = row[1];
+        if (!ts || !pageUrl) continue;
+        const replay = `https://web.archive.org/web/${ts}/${pageUrl}`;
+        try {
+          const page = await fetchWithTimeout(replay, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 15000);
+          if (!page.ok) continue;
+          const html = await page.text();
+          const re = /https?:\/\/(?:tr|t[0-7])\.rbxcdn\.com\/[^\s"'<>]+(?:Avatar|avatar|Headshot|headshot)[^\s"'<>]*/gi;
+          const matches = html.match(re) || [];
+          for (const m of matches) {
+            if (seen.has(m)) continue;
+            if (/placeholder|deleted|question|blank\.ashx|dialog_avatar/i.test(m)) continue;
+            seen.add(m);
+            images.push({
+              url: `https://web.archive.org/web/${ts}im_/${m}`,
+              timestamp: ts,
+              source: "wayback",
+            });
+          }
+        } catch {}
+        if (images.length >= 12) break;
+      }
+    } catch {}
+    if (images.length) break;
+  }
+
+  waybackCache.set(userId, { at: Date.now(), images });
+  res.setHeader("Cache-Control", "private, max-age=300");
+  res.json({ images });
 });
 
 app.use((req, res) => {

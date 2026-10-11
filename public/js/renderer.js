@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-all-avatars-no-pagination";
+  var RENDERER_SCRIPT_VERSION = "20261011-wayback-avatars";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
   var ARCHIVE_SHARDS = 128;
@@ -128,6 +128,7 @@
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
+              '<div id="oldAvatars" style="margin-top:8px;padding-top:6px;border-top:1px solid #aebfd4;font-size:11px;color:#555;">Loading archived renders…</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
@@ -162,6 +163,38 @@
               liveAvatarImage.alt = "Avatar unavailable";
               liveAvatarImage.title = "No live avatar thumbnail URL was returned by Roblox.";
             }
+          }
+
+          var oldContainer = document.getElementById("oldAvatars");
+          if (oldContainer && roblox.id) {
+            fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
+              headers: { Accept: "application/json" },
+              cache: "default"
+            }).then(function (r) { return r.ok ? r.json() : { images: [] }; })
+              .then(function (payload) {
+                var images = (payload && payload.images) || [];
+                if (!images.length) {
+                  oldContainer.textContent = "No archived renders.";
+                  return;
+                }
+                oldContainer.innerHTML = "";
+                var label = document.createElement("div");
+                label.style.marginBottom = "4px";
+                label.textContent = "Archived renders";
+                oldContainer.appendChild(label);
+                images.forEach(function (item) {
+                  if (!item || !item.url) return;
+                  var img = document.createElement("img");
+                  img.src = item.url;
+                  img.alt = "Archived avatar";
+                  img.style.cssText = "width:72px;height:72px;object-fit:contain;margin:2px;border:1px solid #aebfd4;background:#fff;vertical-align:top;";
+                  img.loading = "lazy";
+                  oldContainer.appendChild(img);
+                });
+              })
+              .catch(function () {
+                if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
+              });
           }
 
         })
