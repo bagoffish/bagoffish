@@ -41,6 +41,13 @@ import * as serviceWorker from './serviceWorker';
       } catch (_) {}
     });
 
+    // Remove any previously registered worker before the next navigation.
+    if (navigator.serviceWorker && typeof navigator.serviceWorker.getRegistrations === 'function') {
+      navigator.serviceWorker.getRegistrations()
+        .then(registrations => Promise.all(registrations.map(registration => registration.unregister())))
+        .catch(() => {});
+    }
+
     // The app does not rely on offline caches; remove stale CacheStorage entries.
     if (window.caches && typeof window.caches.keys === 'function') {
       window.caches.keys()
