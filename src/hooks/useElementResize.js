@@ -324,11 +324,13 @@ function useCursor(ref, threshold, resizable) {
       if (e.target !== target) return;
       onHover(e);
       lock = true;
+      document.body.classList.add('xp-resizing');
       document.body.appendChild(cover);
       window.addEventListener('mouseup', onMouseUp);
     }
     function onMouseUp(e) {
       lock = false;
+      document.body.classList.remove('xp-resizing');
       cover.remove();
       window.removeEventListener('mouseup', onMouseUp);
     }

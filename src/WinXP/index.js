@@ -196,7 +196,8 @@ function injectXpCursors() {
     '#root .xp-cursor-diagonal-2 { cursor: url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize !important; }',
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
-    'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: text !important; }',
+    'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
+    'body.xp-resizing, body.xp-resizing * { cursor: inherit !important; }',
   ].join('\n');
   document.head.appendChild(style);
   const mark = () => {
