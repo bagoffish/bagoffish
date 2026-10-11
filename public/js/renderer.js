@@ -2,7 +2,9 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-wayback-avatars";
+  var RENDERER_SCRIPT_VERSION = "20261011-user-avatar-index";
+  var ARCHIVE_SHARDS = 256;
+  var ARCHIVE_RELEASE_BASE = "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -169,13 +171,35 @@
             return "https://web.archive.org/web/" + stamp + "im_/" + url;
           }
 
-          // Restore the original saved historical-render index. Wayback API discovery
-          // supplements these records; it must never replace the saved history files.
-          // The saved /avatar-history shard files are not present in this deployment.
-          // Avoid issuing guaranteed 404 requests; the backend Wayback discovery below
-          // remains active until the original saved shards can be restored.
-          function fetchSavedArchivedAvatars() {
-            return Promise.resolve([]);
+          // Load the prebuilt user-only index from public GitHub Release assets.
+          // Each gzipped shard contains only verified user thumbnail rows:
+          // userId<TAB>timestamp<TAB>original thumbnail URL.
+          function fetchSavedArchivedAvatars(userId) {
+            var id = text(userId).trim();
+            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            var shard = String(Number(id) % ARCHIVE_SHARDS);
+            var url = ARCHIVE_RELEASE_BASE + "/s" + shard + ".txt.gz";
+            return fetch(url, { cache: "force-cache" }).then(function (response) {
+              if (!response.ok) return [];
+              if (typeof DecompressionStream === "undefined") return [];
+              return response.arrayBuffer().then(function (bytes) {
+                var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+                return new Response(stream).text();
+              }).then(function (contents) {
+                var result = [];
+                var lines = contents.split(/\\r?\\n/);
+                for (var i = 0; i < lines.length; i++) {
+                  var parts = lines[i].split("\\t");
+                  if (parts.length < 3 || parts[0] !== id) continue;
+                  var stamp = text(parts[1]).trim();
+                  var originalUrl = text(parts.slice(2).join("\\t")).trim();
+                  if (!stamp || !originalUrl || !/^https?:\\/\\//i.test(originalUrl)) continue;
+                  var replayUrl = waybackImage(stamp, originalUrl);
+                  if (replayUrl) result.push({ url: replayUrl, timestamp: stamp });
+                }
+                return result;
+              });
+            }).catch(function () { return []; });
           }
 
           function normalizeArchivedItem(item) {
