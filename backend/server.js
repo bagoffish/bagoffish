@@ -880,12 +880,8 @@ async function fetchRobloxProfile(username) {
   const userJson = await userRes.json();
   const id = userJson?.data?.[0]?.id;
   if (!id) return null;
-  const [profileRes, avatarRes, headshotRes] = await Promise.all([
+  const [profileRes, headshotRes] = await Promise.all([
     fetchWithTimeout(`https://users.roblox.com/v1/users/${id}`, { headers: ROBLOX_UA }),
-    fetchWithTimeout(
-      `https://thumbnails.roblox.com/v1/users/avatar?userIds=${id}&size=420x420&format=Png&isCircular=false`,
-      { headers: ROBLOX_UA }
-    ),
     fetchWithTimeout(
       `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`,
       { headers: ROBLOX_UA }
@@ -893,7 +889,6 @@ async function fetchRobloxProfile(username) {
   ]);
   if (!profileRes.ok) throw new Error("Roblox profile HTTP " + profileRes.status);
   const profile = await profileRes.json();
-  const avatarResData = avatarRes.ok ? await avatarRes.json() : {};
   return {
     id: String(profile.id || id),
     username: profile.name,
@@ -901,7 +896,7 @@ async function fetchRobloxProfile(username) {
     joinDate: profile.created
       ? new Date(profile.created).toUTCString().replace(" GMT", "")
       : "Unknown",
-    liveAvatarUrl: avatarResData?.data?.[0]?.imageUrl || (headshotRes && headshotRes.ok ? (await headshotRes.json())?.data?.[0]?.imageUrl : "") || "",
+    liveAvatarUrl: headshotRes && headshotRes.ok ? (await headshotRes.json())?.data?.[0]?.imageUrl || "" : "",
   };
 }
 
