@@ -245,6 +245,85 @@ function WinXP() {
       const found = findSetting(event.detail && event.detail.name);
       if (found) dispatch({ type: ADD_APP, payload: found.setting });
     };
+    const onCoyAppAction = event => {
+      const detail = event.detail || {};
+      const action = String(detail.action || '').toLowerCase();
+      const appName = String(detail.name || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+      if (!appName || !['click', 'fill', 'search', 'press'].includes(action)) return;
+      const roots = Array.from(document.querySelectorAll('[data-app-window-id][data-app-title]'));
+      const root = roots.find(node => {
+        const title = String(node.getAttribute('data-app-title') || '').toLowerCase().replace(/[_-]+/g, ' ');
+        return title === appName || title.includes(appName) || appName.includes(title);
+      });
+      if (!root) return;
+      const labelOf = node => String(node.getAttribute('aria-label') || node.getAttribute('title') || node.value || node.innerText || node.textContent || '').trim();
+      const norm = value => String(value || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+      const setInputValue = (node, value) => {
+        if (node.isContentEditable) {
+          node.textContent = String(value ?? '');
+        } else {
+          const setter = Object.getOwnPropertyDescriptor(node.constructor.prototype, 'value')?.set;
+          if (setter) setter.call(node, String(value ?? ''));
+          else node.value = String(value ?? '');
+        }
+        node.dispatchEvent(new Event('input', { bubbles: true }));
+        node.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      if (action === 'click') {
+        const wanted = norm(detail.target);
+        if (!wanted) return;
+        const controls = Array.from(root.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"], a, summary, [onclick], [data-clickable]'));
+        const exact = controls.filter(node => norm(labelOf(node)) === wanted);
+        const matches = exact.length ? exact : controls.filter(node => norm(labelOf(node)).includes(wanted));
+        if (matches.length !== 1) return;
+        const control = matches[0];
+        if (/\\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off)\\b/i.test(labelOf(control)) &&
+            !window.confirm('Coy is about to click "' + labelOf(control) + '". Continue?')) return;
+        control.click();
+        return;
+      }
+      if (action === 'fill' || action === 'search') {
+        const fields = Array.from(root.querySelectorAll('input:not([type="hidden"]):not([type="button"]):not([type="submit"]):not([type="reset"]), textarea, select, [contenteditable="true"]'));
+        const wanted = norm(detail.target || 'search');
+        const score = node => {
+          const labels = [node.getAttribute('aria-label'), node.getAttribute('placeholder'), node.getAttribute('name'), node.id, node.getAttribute('title')]
+            .map(norm).filter(Boolean);
+          const labelNode = node.id ? root.querySelector('label[for="' + CSS.escape(node.id) + '"]') : null;
+          if (labelNode) labels.push(norm(labelNode.textContent));
+          if (labels.some(label => label === wanted)) return 3;
+          if (labels.some(label => label.includes(wanted) || wanted.includes(label))) return 2;
+          if (action === 'search' && (node.type === 'search' || labels.some(label => label.includes('search') || label.includes('username')))) return 1;
+          return 0;
+        };
+        const ranked = fields.map(node => ({ node, score: score(node) })).filter(item => item.score > 0).sort((a,b) => b.score - a.score);
+        const field = ranked[0]?.node || (action === 'search' ? fields.find(node => /^(text|search|)$/i.test(node.type || '')) : null);
+        if (!field) return;
+        const value = action === 'search' ? detail.value : detail.value;
+        setInputValue(field, value);
+        field.focus?.();
+        if (action === 'search') {
+          const form = field.closest('form');
+          const buttons = Array.from((form || root).querySelectorAll('button, [role="button"], input[type="submit"], [data-clickable]'));
+          const submit = buttons.find(node => /^(search|go|render|submit|find)$/i.test(labelOf(node))) ||
+            buttons.find(node => node.type === 'submit');
+          if (submit) submit.click();
+          else if (form?.requestSubmit) form.requestSubmit();
+          else {
+            field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
+            field.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+          }
+        }
+        return;
+      }
+      if (action === 'press') {
+        const key = String(detail.key || 'Enter');
+        const field = root.querySelector(':focus') || root.querySelector('input, textarea, [contenteditable="true"]') || root;
+        field.focus?.();
+        field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+        field.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+      }
+    };
+    window.addEventListener('coy:app-action', onCoyAppAction);
     const onCoyDesktopAction = event => {
       const detail = event.detail || {};
       const action = String(detail.action || '').toLowerCase();
@@ -282,9 +361,11 @@ function WinXP() {
     };
     window.addEventListener('coy:open-app', onCoyOpenApp);
     window.addEventListener('coy:desktop-action', onCoyDesktopAction);
+    window.addEventListener('coy:app-action', onCoyAppAction);
     return () => {
       window.removeEventListener('coy:open-app', onCoyOpenApp);
       window.removeEventListener('coy:desktop-action', onCoyDesktopAction);
+      window.removeEventListener('coy:app-action', onCoyAppAction);
     };
   }, [state.apps]);
 
