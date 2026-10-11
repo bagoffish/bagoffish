@@ -165,36 +165,102 @@
             }
           }
 
+          function waybackImage(stamp, url) {
+            if (!stamp || !url) return "";
+            return "https://web.archive.org/web/" + stamp + "im_/" + url;
+          }
+
+          // Restore the original saved historical-render index. Wayback API discovery
+          // supplements these records; it must never replace the saved history files.
+          function fetchSavedArchivedAvatars(userId) {
+            var id = text(userId).trim();
+            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            var shard = Number(id) % ARCHIVE_SHARDS;
+            return fetch("/avatar-history/s" + shard + ".txt?v=20261011-restore-saved-history", {
+              cache: "no-store"
+            }).then(function (response) {
+              if (!response.ok) return "";
+              return response.text();
+            }).then(function (body) {
+              if (!body) return [];
+              var lines = body.split("\\n");
+              var prefix = id + "\\t";
+              var archived = [];
+              var seen = Object.create(null);
+              lines.forEach(function (line) {
+                if (line.indexOf(prefix) !== 0) return;
+                var parts = line.split("\\t");
+                for (var p = 1; p + 1 < parts.length; p += 2) {
+                  var url = waybackImage(parts[p], parts[p + 1]);
+                  if (!url || seen[url]) continue;
+                  seen[url] = true;
+                  archived.push({ url: url, timestamp: parts[p] });
+                }
+              });
+              archived.sort(function (a, b) {
+                return text(a.timestamp).localeCompare(text(b.timestamp));
+              });
+              return archived;
+            }).catch(function () { return []; });
+          }
+
+          function normalizeArchivedItem(item) {
+            if (!item) return null;
+            var url = text(item.url || item.wayback).trim();
+            if (!url) return null;
+            return { url: url, timestamp: text(item.timestamp || "") };
+          }
+
           var oldContainer = document.getElementById("oldAvatars");
-          if (oldContainer && roblox.id) {
+          if (oldContainer) oldContainer.textContent = "Loading archived renders…";
+          Promise.all([
+            fetchSavedArchivedAvatars(roblox.id),
             fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
               headers: { Accept: "application/json" },
-              cache: "default"
-            }).then(function (r) { return r.ok ? r.json() : { images: [] }; })
-              .then(function (payload) {
-                var images = (payload && payload.images) || [];
-                if (!images.length) {
-                  oldContainer.textContent = "No archived renders.";
-                  return;
-                }
-                oldContainer.innerHTML = "";
-                var label = document.createElement("div");
-                label.style.marginBottom = "4px";
-                label.textContent = "Archived renders";
-                oldContainer.appendChild(label);
-                images.forEach(function (item) {
-                  if (!item || !item.url) return;
-                  var img = document.createElement("img");
-                  img.src = item.url;
-                  img.alt = "Archived avatar";
-                  img.style.cssText = "width:72px;height:72px;object-fit:contain;margin:2px;border:1px solid #aebfd4;background:#fff;vertical-align:top;";
-                  img.loading = "lazy";
-                  oldContainer.appendChild(img);
-                });
-              })
-              .catch(function () {
-                if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
+              cache: "no-store"
+            }).then(function (response) {
+              return response.ok ? response.json() : { images: [] };
+            }).then(function (payload) {
+              return Array.isArray(payload && payload.images) ? payload.images : [];
+            }).catch(function () { return []; })
+          ]).then(function (sources) {
+            if (!oldContainer || !document.body.contains(oldContainer)) return;
+            var merged = [];
+            var seen = Object.create(null);
+            sources[0].concat(sources[1]).forEach(function (raw) {
+              var item = normalizeArchivedItem(raw);
+              if (!item || seen[item.url]) return;
+              seen[item.url] = true;
+              merged.push(item);
+            });
+            if (!merged.length) {
+              oldContainer.textContent = "No archived renders.";
+              return;
+            }
+            oldContainer.innerHTML = "";
+            var label = document.createElement("div");
+            label.style.gridColumn = "1 / -1";
+            label.style.marginBottom = "4px";
+            label.textContent = "Archived renders";
+            oldContainer.appendChild(label);
+            merged.forEach(function (item) {
+              var img = document.createElement("img");
+              img.src = item.url;
+              img.alt = "";
+              img.loading = "eager";
+              img.decoding = "async";
+              img.className = "old-avatar-thumb";
+              img.title = "Open archived avatar";
+              img.addEventListener("error", function () { img.style.display = "none"; });
+              img.addEventListener("click", function () {
+                window.open(item.url, "_blank", "noopener,noreferrer");
               });
+              oldContainer.appendChild(img);
+            });
+          }).catch(function () {
+            if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
+          });
+
           }
 
         })
