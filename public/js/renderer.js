@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-archive-index-eager-load-v3";
+  var RENDERER_SCRIPT_VERSION = "20261011-xp-square-archive-v4";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -127,7 +127,7 @@
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
-              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;width:100%;margin-top:10px;padding-top:8px;border-top:1px solid #aebfd4;font-size:11px;color:#555;justify-items:center;">Loading archived renders…</div>' +
+              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
@@ -178,7 +178,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v3:" + id;
+            var storageKey = "avatar-history-index-v4:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -253,13 +253,19 @@
             label.style.marginBottom = "4px";
             label.textContent = "Archived renders";
             oldContainer.appendChild(label);
-            merged.forEach(function (item) {
+            merged.forEach(function (item, index) {
               var card = document.createElement("div");
               card.className = "old-avatar-card";
               card.style.minWidth = "0";
+              card.style.width = "100%";
+              card.style.boxSizing = "border-box";
               card.style.display = "flex";
               card.style.flexDirection = "column";
-              card.style.gap = "5px";
+              card.style.overflow = "hidden";
+              card.style.border = "1px solid #7f9db9";
+              card.style.background = "#ece9d8";
+              card.style.boxShadow = "inset 1px 1px 0 #fff, inset -1px -1px 0 #c2c2c2";
+              card.style.alignSelf = "stretch";
 
               var img = document.createElement("img");
               var archivedSrc = item.url;
@@ -267,18 +273,21 @@
                 archivedSrc = API_BASE + "/proxy-roblox-avatar?url=" + encodeURIComponent(item.url);
               }
               img.src = archivedSrc;
-              img.alt = "";
-              // Start archived thumbnail requests immediately instead of waiting for
-              // each card to approach the viewport. Keep decoding async so images
-              // don't block the Renderer UI while the browser fetches them.
-              img.loading = "eager";
+              img.alt = "Archived avatar from " + (item.timestamp || "an unknown date");
+              // Use identical square viewports and prioritize the first visible rows.
+              img.loading = index < 16 ? "eager" : "lazy";
               img.decoding = "async";
-              img.fetchPriority = "high";
+              img.fetchPriority = index < 8 ? "high" : index < 16 ? "auto" : "low";
               img.className = "old-avatar-thumb";
+              img.style.display = "block";
               img.style.width = "100%";
-              img.style.height = "140px";
+              img.style.aspectRatio = "1 / 1";
+              img.style.height = "auto";
+              img.style.flex = "0 0 auto";
+              img.style.boxSizing = "border-box";
               img.style.objectFit = "contain";
-              img.style.background = "#fff";
+              img.style.padding = "4px";
+              img.style.background = "#dce6f1";
               img.style.cursor = "pointer";
               img.title = "Open archived avatar";
               img.addEventListener("error", function () {
@@ -291,9 +300,24 @@
 
               var dateLabel = document.createElement("div");
               dateLabel.className = "old-avatar-date";
-              dateLabel.style.fontSize = "11px";
+              dateLabel.style.boxSizing = "border-box";
+              dateLabel.style.display = "flex";
+              dateLabel.style.alignItems = "center";
+              dateLabel.style.justifyContent = "center";
+              dateLabel.style.width = "100%";
+              dateLabel.style.minHeight = "27px";
+              dateLabel.style.marginTop = "auto";
+              dateLabel.style.padding = "5px 3px";
+              dateLabel.style.borderTop = "1px solid #7f9db9";
+              dateLabel.style.background = "linear-gradient(#f8f8f2,#d9e3ef)";
+              dateLabel.style.color = "#24364b";
+              dateLabel.style.fontSize = "10px";
+              dateLabel.style.fontWeight = "bold";
+              dateLabel.style.lineHeight = "1.2";
               dateLabel.style.textAlign = "center";
-              dateLabel.style.overflowWrap = "anywhere";
+              dateLabel.style.whiteSpace = "nowrap";
+              dateLabel.style.overflow = "hidden";
+              dateLabel.style.textOverflow = "ellipsis";
               var digits = text(item.timestamp).replace(/\D/g, "");
               if (digits.length >= 8) {
                 dateLabel.textContent = digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6, 8);
