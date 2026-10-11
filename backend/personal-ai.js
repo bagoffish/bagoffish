@@ -1040,9 +1040,44 @@ router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
 
-  // Coy's Scott Pilgrim voice is served by a separately hosted TTS + RVC worker.
-  // Configure SCOTTCERA_TTS_URL to the worker's HTTP endpoint. The worker should
-  // accept { text } as JSON and return audio bytes (audio/mpeg or audio/wav).
+  // Prefer the selected Fish Audio community voice. Keep the API key server-side.
+  const fishAudioKey = String(process.env.FISH_AUDIO_API_KEY || "").trim();
+  if (fishAudioKey) {
+    try {
+      const response = await fetch("https://api.fish.audio/v1/tts", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + fishAudioKey,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+          model: "s2.1-pro-free",
+        },
+        body: JSON.stringify({
+          text,
+          reference_id: "fa74c5d754084db9ad28a8408423259a",
+          format: "mp3",
+          normalize: true,
+        }),
+        signal: AbortSignal.timeout(60000),
+      });
+      if (response.ok) {
+        const audio = Buffer.from(await response.arrayBuffer());
+        if (audio.length) {
+          res.setHeader("Content-Type", response.headers.get("content-type") || "audio/mpeg");
+          res.setHeader("Cache-Control", "no-store");
+          return res.send(audio);
+        }
+        console.warn("Fish Audio returned an empty audio response.");
+      } else {
+        const detail = await response.text().catch(() => "");
+        console.warn("Fish Audio TTS failed:", response.status, detail.slice(0, 250));
+      }
+    } catch (err) {
+      console.warn("Fish Audio TTS error:", err?.message || err);
+    }
+  }
+
+  // Optional ScottCera RVC worker fallback.
   const scottCeraUrl = String(process.env.SCOTTCERA_TTS_URL || "").trim();
   const scottCeraKey = String(process.env.SCOTTCERA_TTS_API_KEY || "").trim();
   if (scottCeraUrl) {
@@ -1069,7 +1104,6 @@ router.post("/speak", async (req, res) => {
             res.setHeader("Cache-Control", "no-store");
             return res.send(audio);
           }
-          console.warn("ScottCera TTS endpoint returned JSON without audio.");
         } else {
           const audio = Buffer.from(await response.arrayBuffer());
           if (audio.length) {
@@ -1088,7 +1122,7 @@ router.post("/speak", async (req, res) => {
     }
   }
 
-  // Preserve the existing ElevenLabs fallback while the ScottCera worker is not configured.
+  // Preserve the existing ElevenLabs fallback if configured.
   if (ELEVENLABS_KEY && ELEVENLABS_VOICE_ID) {
     try {
       const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
@@ -1117,8 +1151,8 @@ router.post("/speak", async (req, res) => {
   }
 
   return res.status(503).json({
-    error: "ScottCera voice is not configured yet. Set SCOTTCERA_TTS_URL to the hosted voice worker endpoint.",
-    voice: "scottcera",
+    error: "Voice synthesis is not configured. Add FISH_AUDIO_API_KEY to the backend environment.",
+    voice: "fish-audio",
   });
 });
 
