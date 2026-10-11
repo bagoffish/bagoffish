@@ -1234,16 +1234,17 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
       console.warn("Full thumbnail index shard unavailable:", error && error.message ? error.message : error);
     }
 
+    // The full-index shards currently published are suspiciously small and have
+    // not been validated against the source dataset. Never let them replace
+    // records from the older archive: merge both sources until a rebuilt index
+    // has passed record-count and real-user checks.
     let images = parseAvatarHistoryShard(fullContents, userId, "full-thumbnail-index");
-    // Keep the old archive as a safety net until the new sharded index is validated.
-    if (!images.length) {
-      const oldShardName = `s${shardNumber}.txt.gz`;
-      try {
-        const oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
-        images = parseAvatarHistoryShard(oldContents, userId, "avatar-history-index");
-      } catch (error) {
-        if (fullError) console.warn("Legacy avatar history shard also failed:", error && error.message ? error.message : error);
-      }
+    const oldShardName = `s${shardNumber}.txt.gz`;
+    try {
+      const oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
+      images.push(...parseAvatarHistoryShard(oldContents, userId, "avatar-history-index"));
+    } catch (error) {
+      if (fullError) console.warn("Legacy avatar history shard also failed:", error && error.message ? error.message : error);
     }
 
     const seen = new Set();
@@ -1254,12 +1255,12 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
       return true;
     });
     images.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", "no-store");
     return res.json({
       images,
       indexed: true,
-      shard: fullContents !== null ? fullShardName : `s${shardNumber}.txt.gz`,
-      source: images.some((image) => image.source === "full-thumbnail-index") ? "full-thumbnail-index" : "legacy-fallback",
+      shard: fullContents !== null ? fullShardName + " + " + oldShardName : oldShardName,
+      source: images.some((image) => image.source === "full-thumbnail-index") ? "merged-indexes" : "legacy-fallback",
     });
   } catch (error) {
     console.error("Avatar history index lookup failed:", error && error.message ? error.message : error);
