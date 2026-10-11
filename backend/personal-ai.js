@@ -32,6 +32,11 @@ function isRomanticAdvance(message) {
   return /\b(?:i\s+(?:love|luv)\s+you|love\s+u|i'?m\s+in\s+love\s+with\s+you|i\s+have\s+a\s+crush\s+on\s+you|i\s+like\s+you\s+(?:romantically|as\s+more\s+than\s+a\s+friend)?|be\s+my\s+(?:boyfriend|girlfriend|partner|bf|gf)|will\s+you\s+(?:be\s+mine|date\s+me|marry\s+me)|date\s+me|go\s+out\s+with\s+me|kiss\s+me|marry\s+me|you're\s+(?:so\s+)?(?:hot|sexy)|you'?re\s+so\s+cute|i\s+want\s+you\s+to\s+be\s+mine)\b/.test(text);
 }
 
+function isBoyfriendNameQuestion(message) {
+  const text = String(message || "").toLowerCase().replace(/[’]/g, "'");
+  return /\b(?:who\s+(?:is|'s)\s+(?:your|my)\s+boyfriend|what\s+(?:is|'s)\s+(?:your|my)\s+boyfriend(?:'s)?\s+name|(?:your|my)\s+boyfriend's\s+name|name\s+of\s+(?:your|my)\s+boyfriend|who\s+is\s+the\s+author's\s+boyfriend)\b/.test(text);
+}
+
 function buildPersonality() {
   const age = calculateAge(process.env.PERSONAL_AI_BIRTH_DATE, new Date());
   const ageContext = age === null
@@ -1057,8 +1062,11 @@ router.post("/chat", rateLimit, async (req, res) => {
       try {
         const data = await callAiProvider(provider, conversation, mediaInputs, fileSearchStoreName);
         answer = capitalizeReply(extractProviderAnswer(provider, data));
-        // Enforce the relationship boundary for direct romantic advances, even if a model ignores its instructions.
-        if (isRomanticAdvance(message)) {
+        // Keep the boyfriend-name answer consistent; use only the preferred name.
+        if (isBoyfriendNameQuestion(message)) {
+          answer = "Oogly";
+        } else if (isRomanticAdvance(message)) {
+          // Enforce the relationship boundary for direct romantic advances, even if a model ignores its instructions.
           answer = "that's sweet, but I'm taken";
         } else if (/\bi\s+love\s+(?:u|you)\s+too\b/i.test(answer)) {
           answer = "aw, you're important to me";
