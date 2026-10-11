@@ -71,6 +71,7 @@ function parseCoyDesktopAction(message) {
   match = text.match(/^(?:please\s+)?(play|pause|stop|next|previous)\s+(?:track\s+)?in\s+(?:the\s+)?(winamp|music player)[.!?]*$/i);
   if (match) return { action: 'click', name: 'Winamp', target: match[1].toLowerCase() === 'previous' ? 'previous' : match[1] };
   match = text.match(/^(?:please\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (!match) return null;
   const actionWord = match[1].toLowerCase();
   const target = match[2].trim().toLowerCase()
     .replace(/\s+(?:app|window)$/i, '')
