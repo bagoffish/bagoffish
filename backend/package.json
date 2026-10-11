@@ -20,8 +20,6 @@
     "music-metadata": "^10.9.1",
     "@tensorflow/tfjs-node": "^4.22.0",
     "mammoth": "^1.9.1",
-    "pdf-parse": "^1.1.1",
-    "mammoth": "^1.9.1",
     "pdf-parse": "^1.1.1"
   }
 }
