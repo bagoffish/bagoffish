@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-full-avatar-index-v8";
+  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v9";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -121,13 +121,11 @@
                 escapeHtml(roblox.username || username) +
                 ']</div>' +
               '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
-              // Notify Coy if this is his own account
-              (String(roblox.id) === "37753591" ? (window.dispatchEvent(new CustomEvent("coy:activity", { detail: { type: "app-event", name: "Renderer", event: "User searched Coy's own Roblox ID 37753591" } })), "") : "") +
               '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> ' + escapeHtml(pastNames) + '</div>' +
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
-              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
+              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-flow:row;gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
@@ -178,7 +176,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v8:" + id;
+            var storageKey = "avatar-history-index-v9:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -243,16 +241,6 @@
               var bKey = archiveSortKey(b);
               return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
             });
-            window.dispatchEvent(new CustomEvent("coy:activity", {
-              detail: {
-                type: "app-event",
-                name: "Renderer",
-                event: "archive-results",
-                message: merged.length
-                  ? "Found " + merged.length + " archived renders for " + text(roblox.username || username) + "."
-                  : "No archived renders came up for " + text(roblox.username || username) + "."
-              }
-            }));
             if (!merged.length) {
               oldContainer.textContent = "No archived renders.";
               return;
