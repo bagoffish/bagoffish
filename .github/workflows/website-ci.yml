@@ -37,7 +37,7 @@ jobs:
           BACKEND_URL: https://bloxify-backend-sg.onrender.com
         run: |
           node --input-type=module <<'NODE'
-          const base = process.env.BACKEND_URL.replace(/\\/+$/, '');
+          const base = process.env.BACKEND_URL.replace(/\/+$/, '');
           const pause = ms => new Promise(resolve => setTimeout(resolve, ms));
           let lastError;
           for (let attempt = 1; attempt <= 18; attempt += 1) {
