@@ -59,7 +59,7 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
 
 async function fetchAiQuip(context, openApps = [], recentHistory = []) {
   const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 6000);
+  const timer = window.setTimeout(() => controller.abort(), 2500);
   try {
     const apps = openApps.length ? "Open apps: " + openApps.join(", ") + ". " : "";
     const response = await fetch(API_BASE + "/personal-ai/chat", {
@@ -250,7 +250,7 @@ export default function CoyCompanion() {
   useEffect(() => {
     if (!showBubble || busy) return undefined;
     // Give longer lines more reading time, but don't leave a bubble hanging around.
-    const readingTime = Math.min(9000, Math.max(2200, 1400 + line.length * 55));
+    const readingTime = Math.min(6000, Math.max(1600, 900 + line.length * 40));
     const timer = window.setTimeout(() => setShowBubble(false), readingTime);
     return () => window.clearTimeout(timer);
   }, [showBubble, busy, line]);
@@ -302,21 +302,22 @@ export default function CoyCompanion() {
       }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       const now = Date.now();
-      if (now - lastActivity.current < 12000) return;
+      if (now - lastActivity.current < 4000) return;
       lastActivity.current = now;
       if (detail.type === "app-open") {
         const name = detail.name || "an app";
         const options = APP_QUIPS[name] || ["Oh " + name, "Whatcha doing", "Ooh"];
         const fallback = randomLine(options);
+        announce(fallback);
         const context = "User just opened the " + name + " app";
-        fetchAiQuip(context, openAppsRef.current, history).then(ai => {
-          announce(ai || fallback);
-        }).catch(() => announce(fallback));
+        fetchAiQuip(context, openAppsRef.current, history).then(ai => { if (ai) announce(ai); });
       } else if (detail.type === "music") {
         const context = detail.title ? "Music started: " + detail.title : "Music is playing";
-        fetchAiQuip(context, openAppsRef.current, history).then(ai => announce(ai || "Music time"));
+        announce("Music time");
+        fetchAiQuip(context, openAppsRef.current, history).then(ai => { if (ai) announce(ai); });
       } else if (detail.type === "error") {
-        fetchAiQuip("Something went wrong on the desktop", openAppsRef.current, history).then(ai => announce(ai || "Looks like something broke"));
+        announce("Looks like something broke");
+        fetchAiQuip("Something went wrong on the desktop", openAppsRef.current, history).then(ai => { if (ai) announce(ai); });
       } else if (detail.type === "app-event") {
         const context = (detail.name || "App") + ": " + (detail.event || detail.message || "something happened");
         fetchAiQuip(context, openAppsRef.current, history).then(ai => { if (ai) announce(ai); });
@@ -415,12 +416,10 @@ export default function CoyCompanion() {
       if (justPickedUp && Date.now() - lastPickupAttempt.current > 8000) {
         lastPickupAttempt.current = Date.now();
         const fallback = randomLine(PICKUP_LINES);
+        setLine(formatCoyText(fallback));
+        setShowBubble(true);
         fetchAiQuip("User just picked up and started dragging Coy around the desktop. React short.").then(ai => {
-          setLine(formatCoyText(ai || fallback));
-          setShowBubble(true);
-        }).catch(() => {
-          setLine(formatCoyText(fallback));
-          setShowBubble(true);
+          if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
         });
       }
       const maxLeft = Math.max(0, window.innerWidth - state.width);
@@ -446,14 +445,12 @@ export default function CoyCompanion() {
         window.clearTimeout(clickTimer.current);
         clickTimer.current = null;
         const fallback = randomLine(PAT_LINES);
+        setLine(formatCoyText(fallback));
+        setShowBubble(true);
+        setIdleMood("happy");
+        window.setTimeout(() => setIdleMood("normal"), 1800);
         fetchAiQuip("User just headpatted Coy (double-click). React short and natural, a little soft or playful.").then(ai => {
-          setLine(formatCoyText(ai || fallback));
-          setShowBubble(true);
-          setIdleMood("happy");
-          window.setTimeout(() => setIdleMood("normal"), 1800);
-        }).catch(() => {
-          setLine(formatCoyText(fallback));
-          setShowBubble(true);
+          if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
         });
       } else {
         clickTimer.current = window.setTimeout(() => {
@@ -523,8 +520,8 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      bottom: "100%",
-      marginBottom: 8,
+      bottom: "calc(100% - 36px)",
+      marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
       pointerEvents: "auto",
