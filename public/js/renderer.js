@@ -2,9 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-avatar-history-backend-proxy";
-  var ARCHIVE_SHARDS = 256;
-  var ARCHIVE_RELEASE_BASE = "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
+  var RENDERER_SCRIPT_VERSION = "20261011-avatar-history-proxy-v2";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -83,7 +81,7 @@
       var username = usernameInput.value.trim();
       if (!username) {
         centerPanel.innerHTML = "";
-        showError("Enter a username, dumbass!");
+        showError("Enter a username first!");
         return;
       }
 
@@ -173,6 +171,8 @@
 
           // Query the backend proxy so release downloads and gzip decompression work
           // consistently across browsers, including browsers without DecompressionStream.
+          // Use the backend proxy because GitHub Release assets do not allow browser CORS.
+          // The backend caches and decompresses each shard so repeat lookups are faster.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
@@ -180,10 +180,11 @@
               headers: { Accept: "application/json" },
               cache: "force-cache"
             }).then(function (response) {
-              return response.ok ? response.json() : { images: [] };
+              if (!response.ok) throw new Error("Avatar history proxy HTTP " + response.status);
+              return response.json();
             }).then(function (payload) {
               return Array.isArray(payload && payload.images) ? payload.images : [];
-            }).catch(function () { return []; });
+            });
           }
 
           function normalizeArchivedItem(item) {
