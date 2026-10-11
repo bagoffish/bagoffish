@@ -50,33 +50,6 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
   : part);
 
 
-async function fetchAiQuip(context, openApps = [], recentHistory = []) {
-  const controller = new AbortController();
-  const timer = window.setTimeout(() => controller.abort(), 2500);
-  try {
-    const apps = openApps.length ? "Open apps: " + openApps.join(", ") + ". " : "";
-    const response = await fetch(API_BASE + "/personal-ai/chat", {
-      signal: controller.signal,
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({
-        message: "You are Coy on the desktop. Reply in ONE short natural message (under 40 chars preferred, max 70). React to this: " + apps + context + ". Match your real Discord style. No quotes, no labels, no question marks unless rare.",
-        history: recentHistory.slice(-6),
-        websiteContext: { source: "companion-bubble", openApps }
-      })
-    });
-    if (!response.ok) return null;
-    const data = await response.json().catch(() => ({}));
-    const answer = typeof data.answer === "string" ? data.answer.trim() : "";
-    if (!answer || answer.length > 90) return null;
-    return answer;
-  } catch (_) {
-    return null;
-  } finally {
-    window.clearTimeout(timer);
-  }
-}
-
 const usableQuip = value => {
   const text = String(value || "").trim();
   if (!text || /^\.{1,}$/.test(text) || text === "...") return "";
@@ -261,9 +234,6 @@ export default function CoyCompanion() {
       setLine(formatCoyText(fallback));
       setShowBubble(true);
       lastActivity.current = Date.now();
-      fetchAiQuip(context, openAppsRef.current, []).then(ai => {
-        if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
-      });
     };
     const timer = window.setInterval(() => {
       if (document.hidden) return;
@@ -351,17 +321,14 @@ export default function CoyCompanion() {
         const fallback = randomLine(APP_QUIPS[name] || ["Oh " + name]);
         announce(fallback);
         const context = "User just opened the " + name + " app. React in one short line in Coy's real voice.";
-        fetchAiQuip(context, openAppsRef.current, history).then(ai => announce(ai || fallback)).catch(() => announce(fallback));
       } else if (detail.type === "music") {
         const context = detail.title ? "Music started: " + detail.title : "Music is playing";
         announce("Music time");
-        fetchAiQuip(context + ". One short in-character line.", openAppsRef.current, history).then(ai => announce(ai || "Music time")).catch(() => announce("Music time"));
       } else if (detail.type === "error") {
         announce("Looks like something broke");
-        fetchAiQuip("Something went wrong on the desktop. One short in-character line.", openAppsRef.current, history).then(ai => announce(ai || "Looks like something broke")).catch(() => announce("Looks like something broke"));
       } else if (detail.type === "app-event") {
         const context = (detail.name || "App") + ": " + (detail.event || detail.message || "something happened");
-        fetchAiQuip(context, openAppsRef.current, history).then(ai => { if (ai) announce(ai); });
+        announce(randomLine(APP_QUIPS[detail.name] || ["Oh", "Hm", "What happened"]));
       } else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
         lastPickupAttempt.current = now;
         hasHeldImage.current = true;
@@ -460,10 +427,6 @@ export default function CoyCompanion() {
         setShowBubble(true);
         setDizzy(true);
         window.setTimeout(() => setDizzy(false), 1600);
-        fetchAiQuip("User just picked up and started dragging Coy around the desktop. One short in-character line. No ellipsis.").then(ai => {
-          const next = usableQuip(ai);
-          if (next) { setLine(formatCoyText(next)); setShowBubble(true); }
-        });
       }
       const maxLeft = Math.max(0, window.innerWidth - state.width);
       const taskbarTop = getTaskbarTop();
@@ -491,10 +454,6 @@ export default function CoyCompanion() {
         setShowBubble(true);
         setIdleMood("happy");
         window.setTimeout(() => setIdleMood("normal"), 1800);
-        fetchAiQuip("User just headpatted Coy (double-click). One short natural in-character line. No ellipsis.").then(ai => {
-          const next = usableQuip(ai);
-          if (next) { setLine(formatCoyText(next)); setShowBubble(true); }
-        });
       } else {
         clickTimer.current = window.setTimeout(() => {
           clickTimer.current = null;
