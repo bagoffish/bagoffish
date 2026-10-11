@@ -200,7 +200,6 @@ function injectXpCursors() {
     'body.xp-resizing, body.xp-resizing * { cursor: inherit !important; }',
     'body.xp-resizing .xp-cursor-cover { cursor: inherit !important; }',
     '.xp-cursor-cover { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
-    '#root [style*="cursor"] { cursor: inherit !important; }',
   ].join('\n');
   document.head.appendChild(style);
   const mark = () => {
