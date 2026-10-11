@@ -1069,7 +1069,7 @@ router.post("/speak", async (req, res) => {
     } catch (_) {}
   }
 
-  return res.status(501).json({ error: "Voice synthesis not available. Set FISH_API_KEY and upload a voice sample." });
+  return res.status(501).json({ error: "Voice synthesis not available. Set GRADIUM_API_KEY on Render and upload a voice sample." });
 });
 
 export default router;
