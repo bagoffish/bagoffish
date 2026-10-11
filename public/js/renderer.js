@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-archive-date-labels-v1";
+  var RENDERER_SCRIPT_VERSION = "20261011-archive-index-refresh-v2";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -178,7 +178,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v2:" + id;
+            var storageKey = "avatar-history-index-v3:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -290,7 +290,7 @@
               dateLabel.style.fontSize = "11px";
               dateLabel.style.textAlign = "center";
               dateLabel.style.overflowWrap = "anywhere";
-              var digits = text(item.timestamp).replace(/\\D/g, "");
+              var digits = text(item.timestamp).replace(/\D/g, "");
               if (digits.length >= 8) {
                 dateLabel.textContent = digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6, 8);
                 dateLabel.title = digits.length >= 14
