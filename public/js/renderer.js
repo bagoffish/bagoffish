@@ -243,6 +243,16 @@
               var bKey = archiveSortKey(b);
               return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
             });
+            window.dispatchEvent(new CustomEvent("coy:activity", {
+              detail: {
+                type: "app-event",
+                name: "Renderer",
+                event: "archive-results",
+                message: merged.length
+                  ? "Found " + merged.length + " archived renders for " + text(roblox.username || username) + "."
+                  : "No archived renders came up for " + text(roblox.username || username) + "."
+              }
+            }));
             if (!merged.length) {
               oldContainer.textContent = "No archived renders.";
               return;
