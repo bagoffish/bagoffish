@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-user-avatar-index";
+  var RENDERER_SCRIPT_VERSION = "20261011-avatar-history-backend-proxy";
   var ARCHIVE_SHARDS = 256;
   var ARCHIVE_RELEASE_BASE = "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
   var RETRY_LIMIT = 60;
@@ -171,34 +171,18 @@
             return "https://web.archive.org/web/" + stamp + "im_/" + url;
           }
 
-          // Load the prebuilt user-only index from public GitHub Release assets.
-          // Each gzipped shard contains only verified user thumbnail rows:
-          // userId<TAB>timestamp<TAB>original thumbnail URL.
+          // Query the backend proxy so release downloads and gzip decompression work
+          // consistently across browsers, including browsers without DecompressionStream.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
-            if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var shard = String(Number(id) % ARCHIVE_SHARDS);
-            var url = ARCHIVE_RELEASE_BASE + "/s" + shard + ".txt.gz";
-            return fetch(url, { cache: "force-cache" }).then(function (response) {
-              if (!response.ok) return [];
-              if (typeof DecompressionStream === "undefined") return [];
-              return response.arrayBuffer().then(function (bytes) {
-                var stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
-                return new Response(stream).text();
-              }).then(function (contents) {
-                var result = [];
-                var lines = contents.split(/\r?\n/);
-                for (var i = 0; i < lines.length; i++) {
-                  var parts = lines[i].split("\t");
-                  if (parts.length < 3 || parts[0] !== id) continue;
-                  var stamp = text(parts[1]).trim();
-                  var originalUrl = text(parts.slice(2).join("\t")).trim();
-                  if (!stamp || !(originalUrl.indexOf("http://") === 0 || originalUrl.indexOf("https://") === 0)) continue;
-                  var replayUrl = waybackImage(stamp, originalUrl);
-                  if (replayUrl) result.push({ url: replayUrl, timestamp: stamp });
-                }
-                return result;
-              });
+            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
+              headers: { Accept: "application/json" },
+              cache: "force-cache"
+            }).then(function (response) {
+              return response.ok ? response.json() : { images: [] };
+            }).then(function (payload) {
+              return Array.isArray(payload && payload.images) ? payload.images : [];
             }).catch(function () { return []; });
           }
 
