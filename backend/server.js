@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-10-bloxify-accuracy-pipeline";
+const BACKEND_VERSION = "2026-10-11-avatar-retry-pipeline";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -972,11 +972,27 @@ async function fetchRobloxDetails(id) {
 
 async function downloadAvatarPng(imageUrl) {
   if (!imageUrl) return null;
-  const res = await fetch(imageUrl, { headers: { "User-Agent": "WinXP Renderer/1.0" } });
-  if (!res.ok) return null;
-  const buf = Buffer.from(await res.arrayBuffer());
-  if (buf.length < 32 || buf.length > 2_000_000) return null;
-  return buf;
+  // Roblox thumbnail/CDN requests can intermittently return 429/5xx or transient network errors.
+  // Retry a few times with short backoff instead of silently losing this avatar capture.
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const res = await fetchWithTimeout(imageUrl, {
+        headers: { ...ROBLOX_UA, "Accept": "image/avif,image/webp,image/png,image/*,*/*;q=0.8" },
+      }, 12000);
+      if (res.ok && res.body) {
+        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
+        const buf = Buffer.from(await res.arrayBuffer());
+        if (buf.length >= 32 && buf.length <= 2_000_000 &&
+            (!contentType || contentType.startsWith("image/"))) {
+          return buf;
+        }
+      }
+    } catch (err) {
+      if (attempt === 2) console.warn("avatar download failed after retries:", err.message);
+    }
+    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
+  }
+  return null;
 }
 
 async function refreshRendererRecord(record) {
