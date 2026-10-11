@@ -101,8 +101,13 @@
             imageUrls.push(roblox.avatarUrl);
           }
 
-          var pastNames = "Loading…";
-          var terminated = "";
+          var pastNames = (Array.isArray(roblox.pastUsernames) && roblox.pastUsernames.length)
+            ? roblox.pastUsernames.join(", ")
+            : "None";
+          var lastOnline = rolimons.lastOnline || "Unknown";
+          var rap = rolimons.rap || "Unknown";
+          var value = rolimons.value || "Unknown";
+          var terminated = rolimons.terminated ? '<p class="rendererTermination">Terminated</p>' : "";
           var html =
             '<div class="info-box">' +
               '<div class="avatar-container">' +
@@ -110,7 +115,7 @@
                   '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async">' +
                 '</a>' +
               '</div>' +
-              '<div id="terminationLine"></div>' +
+              '<div id="terminationLine">' + terminated + '</div>' +
               '<div class="info-line rendererName"><b>' +
                 escapeHtml(roblox.displayName || "") +
                 '</b> [' +
@@ -119,11 +124,10 @@
               '<div class="info-line"><b>User ID:</b> ' + escapeHtml(roblox.id) + '</div>' +
               // Notify Coy if this is his own account
               (String(roblox.id) === "37753591" ? (window.dispatchEvent(new CustomEvent("coy:activity", { detail: { type: "app-event", name: "Renderer", event: "User searched Coy's own Roblox ID 37753591" } })), "") : "") +
-              '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> Loading…</div>' +
+              '<div id="pastUsernamesLine" class="info-line"><b>Past usernames:</b> ' + escapeHtml(pastNames) + '</div>' +
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
-              '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> Loading…</div>' +
-              '<div id="valueLine" class="info-line"><b>RAP:</b> Loading… &nbsp;&nbsp; <b>Value:</b> Loading…</div>' +
-              '<div id="oldAvatars"></div>' +
+              '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
+              '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
@@ -160,136 +164,6 @@
             }
           }
 
-          function renderArchivedAvatars(archived) {
-            var oldContainer = document.getElementById("oldAvatars");
-            if (!oldContainer) return;
-            oldContainer.innerHTML = "";
-            if (!archived.length) {
-              oldContainer.textContent = "No archived renders.";
-              return;
-            }
-
-            // Render every archived avatar immediately; no pagination or "Load more" click.
-            var fragment = document.createDocumentFragment();
-            var k;
-            for (k = 0; k < archived.length; k += 1) {
-              if (!archived[k] || !(archived[k].url || archived[k].wayback)) continue;
-              var thumb = document.createElement("img");
-              thumb.src = archived[k].url || archived[k].wayback;
-              thumb.alt = "Archived avatar";
-              thumb.loading = "eager";
-              thumb.decoding = "async";
-              thumb.fetchPriority = "low";
-              thumb.className = "old-avatar-thumb";
-              thumb.title = "Open archived avatar";
-              (function (node) {
-                node.addEventListener("error", function () { node.style.display = "none"; });
-                node.addEventListener("click", function () {
-                  window.open(node.src, "_blank", "noopener,noreferrer");
-                });
-              })(thumb);
-              fragment.appendChild(thumb);
-            }
-            oldContainer.appendChild(fragment);
-          }
-
-          function waybackImage(stamp, url) {
-            if (!stamp || !url) return "";
-            return "https://web.archive.org/web/" + stamp + "im_/" + url;
-          }
-
-          function fetchArchivedAvatars(userId) {
-            var id = text(userId).trim();
-            var numeric = Math.abs(parseInt(id, 10));
-            if (!id || !isFinite(numeric)) return Promise.resolve([]);
-            var shard = numeric % ARCHIVE_SHARDS;
-            return fetch("/avatar-history/s" + shard + ".txt?v=20261007c", { cache: "force-cache" })
-              .then(function (response) {
-                if (!response.ok) return "";
-                return response.text();
-              })
-              .then(function (body) {
-                if (!body) return [];
-                var lines = body.split("\n");
-                var prefix = id + "\t";
-                var archived = [];
-                var seen = {};
-                var i;
-                for (i = 0; i < lines.length; i += 1) {
-                  if (lines[i].indexOf(prefix) !== 0) continue;
-                  var parts = lines[i].split("\t");
-                  var p;
-                  for (p = 1; p + 1 < parts.length; p += 2) {
-                    var wb = waybackImage(parts[p], parts[p + 1]);
-                    if (!wb || seen[wb]) continue;
-                    seen[wb] = 1;
-                    archived.push({ wayback: wb });
-                  }
-                }
-                archived.sort(function (a, b) {
-                  return a.wayback < b.wayback ? -1 : a.wayback > b.wayback ? 1 : 0;
-                });
-                return archived;
-              })
-              .catch(function () { return []; });
-          }
-
-          var oldContainer = document.getElementById("oldAvatars");
-          if (oldContainer) oldContainer.textContent = "Loading archived renders…";
-          fetchArchivedAvatars(roblox.id).then(function (archived) {
-            var fromApi = oldAvatars.filter(function (item) {
-              return item && (item.url || item.wayback);
-            });
-            var seen = {};
-            var merged = [];
-            var n;
-            for (n = 0; n < fromApi.length; n += 1) {
-              var fromApiUrl = fromApi[n].url || fromApi[n].wayback;
-              if (!seen[fromApiUrl]) {
-                seen[fromApiUrl] = 1;
-                merged.push(fromApi[n]);
-              }
-            }
-            for (n = 0; n < archived.length; n += 1) {
-              var archivedUrl = archived[n].url || archived[n].wayback;
-              if (!seen[archivedUrl]) {
-                seen[archivedUrl] = 1;
-                merged.push(archived[n]);
-              }
-            }
-            renderArchivedAvatars(merged);
-          });
-
-          fetch(API_BASE + "/proxy-roblox-details?userId=" + encodeURIComponent(text(roblox.id)), {
-            headers: { "Accept": "application/json" },
-            cache: "default"
-          }).then(function (response) {
-            if (!response.ok) throw new Error("Details HTTP " + response.status);
-            return response.json();
-          }).then(function (details) {
-            var detailRobli = details && details.rolimons ? details.rolimons : {};
-            var names = Array.isArray(details && details.pastUsernames) && details.pastUsernames.length
-              ? details.pastUsernames.join(", ")
-              : "None";
-            var pastLine = document.getElementById("pastUsernamesLine");
-            var lastLine = document.getElementById("lastOnlineLine");
-            var valueLine = document.getElementById("valueLine");
-            var terminationLine = document.getElementById("terminationLine");
-            if (pastLine) pastLine.innerHTML = "<b>Past usernames:</b> " + escapeHtml(names);
-            if (lastLine) lastLine.innerHTML = "<b>Last Online:</b> " + escapeHtml(detailRobli.lastOnline || "Unknown");
-            if (valueLine) valueLine.innerHTML = "<b>RAP:</b> " + escapeHtml(detailRobli.rap || "Unknown") +
-              " &nbsp;&nbsp; <b>Value:</b> " + escapeHtml(detailRobli.value || "Unknown");
-            if (terminationLine && detailRobli.terminated) {
-              terminationLine.innerHTML = '<p class="rendererTermination">Terminated</p>';
-            }
-          }).catch(function () {
-            var pastLine = document.getElementById("pastUsernamesLine");
-            var lastLine = document.getElementById("lastOnlineLine");
-            var valueLine = document.getElementById("valueLine");
-            if (pastLine) pastLine.innerHTML = "<b>Past usernames:</b> Unavailable";
-            if (lastLine) lastLine.innerHTML = "<b>Last Online:</b> Unavailable";
-            if (valueLine) valueLine.innerHTML = "<b>RAP:</b> Unavailable &nbsp;&nbsp; <b>Value:</b> Unavailable";
-          });
         })
         .catch(function (error) {
           // Expected lookup failures are shown in the renderer UI; keep the browser console clean.
