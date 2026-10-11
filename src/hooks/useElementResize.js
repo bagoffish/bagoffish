@@ -307,41 +307,67 @@ function useElementResize(ref, options) {
 }
 function useCursor(ref, threshold, resizable) {
   const [position, setPosition] = useState('');
+
   useEffect(() => {
     const target = ref.current;
-    if (!target || !resizable) return undefined;
-    let locked = false;
+    if (!target || !resizable) {
+      setPosition('');
+      return undefined;
+    }
 
-    const clearResizeMode = () => {
-      document.body.classList.remove('xp-resizing');
-      document.body.style.removeProperty('--xp-resize-cursor');
-      document.body.removeAttribute('data-xp-resize');
+    let activeEdge = '';
+    let resizing = false;
+
+    const cursorForEdge = edge => {
+      switch (edge) {
+        case 'top':
+        case 'bottom':
+          return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
+        case 'left':
+        case 'right':
+          return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
+        case 'topLeft':
+        case 'bottomRight':
+          return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
+        case 'topRight':
+        case 'bottomLeft':
+          return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
+        default:
+          return '';
+      }
     };
-    const setResizeMode = next => {
-      const style = getCursorStyle(next);
-      setPosition(next);
-      if (next) {
-        document.body.setAttribute('data-xp-resize', next);
-        document.body.style.setProperty('--xp-resize-cursor', style);
-      } else {
+
+    const clear = () => {
+      document.body.classList.remove('xp-resizing');
+      document.body.removeAttribute('data-xp-resize');
+      document.body.style.removeProperty('--xp-resize-cursor');
+    };
+
+    const setEdge = edge => {
+      if (edge === activeEdge) return;
+      activeEdge = edge;
+      setPosition(edge);
+      if (edge) {
+        document.body.setAttribute('data-xp-resize', edge);
+        document.body.style.setProperty('--xp-resize-cursor', cursorForEdge(edge));
+      } else if (!resizing) {
         document.body.removeAttribute('data-xp-resize');
         document.body.style.removeProperty('--xp-resize-cursor');
       }
     };
 
-    // Use viewport coordinates and the window's bounding rectangle instead of
-    // offsetX/offsetY, which change when the pointer is over nested children.
-    function detectPosition(event) {
+    const detectEdge = event => {
       const rect = target.getBoundingClientRect();
+      if (!rect.width || !rect.height) return '';
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      const width = rect.width;
-      const height = rect.height;
-      if (x < 0 || y < 0 || x > width || y > height) return '';
+      if (x < 0 || y < 0 || x > rect.width || y > rect.height) return '';
+
       const left = x <= threshold;
-      const right = width - x <= threshold;
+      const right = rect.width - x <= threshold;
       const top = y <= threshold;
-      const bottom = height - y <= threshold;
+      const bottom = rect.height - y <= threshold;
+
       if (top && left) return 'topLeft';
       if (top && right) return 'topRight';
       if (bottom && left) return 'bottomLeft';
@@ -351,46 +377,50 @@ function useCursor(ref, threshold, resizable) {
       if (top) return 'top';
       if (bottom) return 'bottom';
       return '';
-    }
+    };
 
-    function onMouseMove(event) {
-      if (locked) return;
-      setResizeMode(detectPosition(event));
-    }
-    function onMouseDown(event) {
-      if (locked) return;
-      const next = detectPosition(event);
-      if (!next) return;
-      locked = true;
-      setResizeMode(next);
+    // Capture events at the window so nested app content cannot hide the edge.
+    const onPointerMove = event => {
+      if (resizing) return;
+      const edge = detectEdge(event);
+      setEdge(edge);
+    };
+
+    const onPointerDown = event => {
+      if (event.button !== 0 || resizing) return;
+      const edge = detectEdge(event);
+      if (!edge) return;
+      resizing = true;
+      setEdge(edge);
       document.body.classList.add('xp-resizing');
-      window.addEventListener('mouseup', onMouseUp, true);
-      window.addEventListener('blur', onMouseUp);
-    }
-    function onMouseUp() {
-      if (!locked) return;
-      locked = false;
-      clearResizeMode();
-      setPosition('');
-      window.removeEventListener('mouseup', onMouseUp, true);
-      window.removeEventListener('blur', onMouseUp);
-    }
-    function onMouseLeave() {
-      if (!locked) setResizeMode('');
-    }
+      document.body.setAttribute('data-xp-resize', edge);
+      document.body.style.setProperty('--xp-resize-cursor', cursorForEdge(edge));
+    };
 
-    target.addEventListener('mousemove', onMouseMove);
-    target.addEventListener('mouseleave', onMouseLeave);
-    target.addEventListener('mousedown', onMouseDown);
+    const onPointerUp = () => {
+      if (!resizing) return;
+      resizing = false;
+      clear();
+      activeEdge = '';
+      setPosition('');
+    };
+
+    const onWindowBlur = () => onPointerUp();
+
+    window.addEventListener('mousemove', onPointerMove, true);
+    window.addEventListener('mousedown', onPointerDown, true);
+    window.addEventListener('mouseup', onPointerUp, true);
+    window.addEventListener('blur', onWindowBlur);
+
     return () => {
-      target.removeEventListener('mousemove', onMouseMove);
-      target.removeEventListener('mouseleave', onMouseLeave);
-      target.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mouseup', onMouseUp, true);
-      window.removeEventListener('blur', onMouseUp);
-      clearResizeMode();
+      window.removeEventListener('mousemove', onPointerMove, true);
+      window.removeEventListener('mousedown', onPointerDown, true);
+      window.removeEventListener('mouseup', onPointerUp, true);
+      window.removeEventListener('blur', onWindowBlur);
+      clear();
     };
   }, [ref, threshold, resizable]);
+
   return position;
 }
 function getComputedPagePosition(e, boundary) {
