@@ -1050,7 +1050,8 @@ router.post("/speak", async (req, res) => {
           res.setHeader("Cache-Control", "no-store");
           return res.send(audio);
         }
-        console.warn("Gradium TTS failed:", ttsRes.status);
+        const errBody = await ttsRes.text().catch(() => "");
+        console.warn("Gradium TTS failed:", ttsRes.status, errBody.slice(0, 300));
       }
     } catch (err) {
       console.warn("Gradium error:", err?.message || err);
