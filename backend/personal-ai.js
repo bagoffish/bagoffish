@@ -188,7 +188,7 @@ function rateLimit(req, res, next) {
   if (requests.size > 5000) {
     for (const [ip, value] of requests) if (now > value.resetAt) requests.delete(ip);
   }
-  if (entry.count > 12) return res.status(429).json({ error: "Hold on, I’m busy..." });
+  if (entry.count > 40) return res.status(429).json({ error: "Hold on, I’m busy..." });
   next();
 }
 

@@ -241,15 +241,11 @@ export default function CoyCompanion() {
   // Desktop pet: always there, talks on his own, doesn't disappear.
   useEffect(() => {
     const say = (fallback, context) => {
-      setLine("...");
+      setLine(formatCoyText(fallback));
       setShowBubble(true);
       lastActivity.current = Date.now();
       fetchAiQuip(context, openAppsRef.current, []).then(ai => {
-        setLine(formatCoyText(ai || fallback));
-        setShowBubble(true);
-      }).catch(() => {
-        setLine(formatCoyText(fallback));
-        setShowBubble(true);
+        if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
       });
     };
     const timer = window.setInterval(() => {
@@ -336,15 +332,15 @@ export default function CoyCompanion() {
       if (detail.type === "app-open") {
         const name = detail.name || "an app";
         const fallback = randomLine(APP_QUIPS[name] || ["Oh " + name]);
-        announce("...");
+        announce(fallback);
         const context = "User just opened the " + name + " app. React in one short line in Coy's real voice.";
         fetchAiQuip(context, openAppsRef.current, history).then(ai => announce(ai || fallback)).catch(() => announce(fallback));
       } else if (detail.type === "music") {
         const context = detail.title ? "Music started: " + detail.title : "Music is playing";
-        announce("...");
+        announce("Music time");
         fetchAiQuip(context + ". One short in-character line.", openAppsRef.current, history).then(ai => announce(ai || "Music time")).catch(() => announce("Music time"));
       } else if (detail.type === "error") {
-        announce("...");
+        announce("Looks like something broke");
         fetchAiQuip("Something went wrong on the desktop. One short in-character line.", openAppsRef.current, history).then(ai => announce(ai || "Looks like something broke")).catch(() => announce("Looks like something broke"));
       } else if (detail.type === "app-event") {
         const context = (detail.name || "App") + ": " + (detail.event || detail.message || "something happened");
@@ -443,7 +439,7 @@ export default function CoyCompanion() {
       setIsDragging(true);
       if (justPickedUp && Date.now() - lastPickupAttempt.current > 8000) {
         lastPickupAttempt.current = Date.now();
-        setLine("...");
+        setLine(formatCoyText(randomLine(PICKUP_LINES)));
         setShowBubble(true);
         fetchAiQuip("User just picked up and started dragging Coy around the desktop. One short in-character line.").then(ai => {
           setLine(formatCoyText(ai || randomLine(PICKUP_LINES)));
@@ -472,7 +468,7 @@ export default function CoyCompanion() {
       if (clickTimer.current) {
         window.clearTimeout(clickTimer.current);
         clickTimer.current = null;
-        setLine("...");
+        setLine("Heyy");
         setShowBubble(true);
         setIdleMood("happy");
         window.setTimeout(() => setIdleMood("normal"), 1800);
@@ -548,7 +544,7 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      top: "-6%",
+      top: "2%",
       marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
