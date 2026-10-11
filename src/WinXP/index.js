@@ -268,7 +268,7 @@ function WinXP() {
       if (action === 'focus') dispatch({ type: FOCUS_APP, payload: app.id });
       else if (action === 'minimize') dispatch({ type: MINIMIZE_APP, payload: app.id });
       else if (action === 'maximize') {
-        if (!app.maximized) dispatch({ type: FOCUS_APP, payload: app.id });
+        dispatch({ type: FOCUS_APP, payload: app.id });
         if (!app.maximized) dispatch({ type: TOGGLE_MAXIMIZE_APP, payload: app.id });
       } else if (action === 'restore') {
         if (app.maximized) dispatch({ type: TOGGLE_MAXIMIZE_APP, payload: app.id });
