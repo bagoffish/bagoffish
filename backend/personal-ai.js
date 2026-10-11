@@ -1044,6 +1044,7 @@ router.post("/speak", async (req, res) => {
             model_name: "default",
             output_format: "mp3",
             only_audio: true,
+            json_config: { cfg_coef: 3.0, temp: 0.6 },
           }),
         });
         if (ttsRes.ok) {
