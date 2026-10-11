@@ -531,13 +531,21 @@ const Container = styled.div`
   }
 
   input, textarea, [contenteditable='true'] {
-    cursor: text !important;
+    cursor: url("/images/Normal%20Select.cur") 3 3, text !important;
   }
 
-  [style*='n-resize'], [style*='s-resize'], [style*='e-resize'], [style*='w-resize'],
-  [style*='ne-resize'], [style*='nw-resize'], [style*='se-resize'], [style*='sw-resize'],
-  [style*='ns-resize'], [style*='ew-resize'], [style*='col-resize'], [style*='row-resize'] {
-    cursor: inherit !important;
+  .xp-cursor-horizontal, [data-resize="horizontal"] {
+    cursor: url("/images/Horizontal%20Resize.cur") 8 8, ew-resize !important;
+  }
+  .xp-cursor-vertical, [data-resize="vertical"] {
+    cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important;
+  }
+  .xp-cursor-diagonal-1, [data-resize="diagonal-1"] {
+    cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important;
+  }
+  .xp-cursor-diagonal-2, [data-resize="diagonal-2"] {
+    cursor: url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize !important;
+  }
   }
   @media (max-width: 700px) {
     html, body, #root {
