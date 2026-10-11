@@ -920,6 +920,7 @@ router.post("/chat", rateLimit, async (req, res) => {
 // Voice sample for calls. Stored on disk; used by /speak if a TTS key is set.
 const VOICE_SAMPLE_PATH = process.env.VOICE_SAMPLE_PATH || path.join(process.env.DATA_ROOT || "/tmp/winxp-data", "coy-voice-sample.webm");
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY || "";
+const FISH_API_KEY = process.env.FISH_API_KEY || "";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
 
 router.post("/voice-sample", async (req, res) => {
@@ -966,36 +967,62 @@ router.get("/voice-sample", (req, res) => {
 router.post("/speak", async (req, res) => {
   const text = String(req.body?.text || "").trim().slice(0, 2000);
   if (!text) return res.status(400).json({ error: "No text to speak." });
-  if (!ELEVENLABS_KEY || !ELEVENLABS_VOICE_ID) {
-    return res.status(501).json({ error: "Voice cloning is not configured. Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID." });
-  }
-  try {
-    const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
-      method: "POST",
-      headers: {
-        "xi-api-key": ELEVENLABS_KEY,
-        "Content-Type": "application/json",
-        Accept: "audio/mpeg",
-      },
-      body: JSON.stringify({
-        text,
-        model_id: "eleven_monolingual_v1",
-        voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
-      }),
-    });
-    if (!response.ok) {
-      const err = await response.text().catch(() => "");
-      console.warn("ElevenLabs TTS failed:", response.status, err.slice(0, 200));
-      return res.status(502).json({ error: "Voice synthesis failed." });
+
+  // Prefer Fish Audio free model with the uploaded sample as reference.
+  if (FISH_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {
+    try {
+      const sample = fs.readFileSync(VOICE_SAMPLE_PATH);
+      const response = await fetch("https://api.fish.audio/v1/tts", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + FISH_API_KEY,
+          "Content-Type": "application/json",
+          model: "s2.1-pro-free",
+        },
+        body: JSON.stringify({
+          text,
+          references: [{ audio: sample.toString("base64"), text: "" }],
+          format: "mp3",
+        }),
+      });
+      if (response.ok) {
+        const audio = Buffer.from(await response.arrayBuffer());
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("Cache-Control", "no-store");
+        return res.send(audio);
+      }
+      console.warn("Fish Audio TTS failed:", response.status);
+    } catch (err) {
+      console.warn("Fish Audio error:", err?.message || err);
     }
-    const audio = Buffer.from(await response.arrayBuffer());
-    res.setHeader("Content-Type", "audio/mpeg");
-    res.setHeader("Cache-Control", "no-store");
-    return res.send(audio);
-  } catch (error) {
-    console.error("Speak failed:", error?.message || error);
-    return res.status(500).json({ error: "Could not generate speech." });
   }
+
+  // Fall back to ElevenLabs if configured.
+  if (ELEVENLABS_KEY && ELEVENLABS_VOICE_ID) {
+    try {
+      const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
+        method: "POST",
+        headers: {
+          "xi-api-key": ELEVENLABS_KEY,
+          "Content-Type": "application/json",
+          Accept: "audio/mpeg",
+        },
+        body: JSON.stringify({
+          text,
+          model_id: "eleven_monolingual_v1",
+          voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
+        }),
+      });
+      if (response.ok) {
+        const audio = Buffer.from(await response.arrayBuffer());
+        res.setHeader("Content-Type", "audio/mpeg");
+        res.setHeader("Cache-Control", "no-store");
+        return res.send(audio);
+      }
+    } catch (_) {}
+  }
+
+  return res.status(501).json({ error: "Voice synthesis not available. Set FISH_API_KEY and upload a voice sample." });
 });
 
 export default router;
