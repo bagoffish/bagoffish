@@ -136,82 +136,82 @@ def main() -> int:
         """)
 
         for member_name, stream in iter_input_members(args.input_file):
-                members_seen += 1
-                print(f"Reading {member_name}", file=sys.stderr)
-                try:
-                    with stream:
-                        for line in stream:
-                            if not line.strip():
+            members_seen += 1
+            print(f"Reading {member_name}", file=sys.stderr)
+            try:
+                with stream:
+                    for line in stream:
+                        if not line.strip():
+                            continue
+                        records += 1
+                        try:
+                            obj = json.loads(line)
+                        except (json.JSONDecodeError, UnicodeDecodeError):
+                            rejected += 1
+                            continue
+
+                        if not isinstance(obj, dict) or str(obj.get("type", "")).lower() != "user":
+                            continue
+                        raw_id = obj.get("id")
+                        if raw_id is None or not str(raw_id).isdigit():
+                            continue
+                        user_id = str(int(raw_id))
+                        images = obj.get("images")
+                        if not isinstance(images, list):
+                            continue
+
+                        for image in images:
+                            if not isinstance(image, dict):
                                 continue
-                            records += 1
-                            try:
-                                obj = json.loads(line)
-                            except (json.JSONDecodeError, UnicodeDecodeError):
+                            url = str(image.get("url") or "").strip()
+                            if not url.startswith(("http://", "https://")):
+                                continue
+                            if any(ch in url for ch in "\\t\\r\\n"):
+                                continue
+
+                            backlinks = image.get("backlinks")
+                            if not isinstance(backlinks, list):
+                                continue
+                            matching = [
+                                backlink for backlink in backlinks
+                                if isinstance(backlink, dict) and
+                                backlink_matches_user(backlink.get("url"), user_id)
+                            ]
+                            # A user-type record alone is not enough: verify the
+                            # image is actually linked from this user's profile.
+                            if not matching:
                                 rejected += 1
                                 continue
 
-                            if not isinstance(obj, dict) or str(obj.get("type", "")).lower() != "user":
-                                continue
-                            raw_id = obj.get("id")
-                            if raw_id is None or not str(raw_id).isdigit():
-                                continue
-                            user_id = str(int(raw_id))
-                            images = obj.get("images")
-                            if not isinstance(images, list):
-                                continue
-
-                            for image in images:
-                                if not isinstance(image, dict):
-                                    continue
-                                url = str(image.get("url") or "").strip()
-                                if not url.startswith(("http://", "https://")):
-                                    continue
-                                if any(ch in url for ch in "\\t\\r\\n"):
-                                    continue
-
-                                backlinks = image.get("backlinks")
-                                if not isinstance(backlinks, list):
-                                    continue
-                                matching = [
-                                    backlink for backlink in backlinks
-                                    if isinstance(backlink, dict) and
-                                    backlink_matches_user(backlink.get("url"), user_id)
-                                ]
-                                # A user-type record alone is not enough: verify the
-                                # image is actually linked from this user's profile.
-                                if not matching:
-                                    rejected += 1
-                                    continue
-
-                                stamps = [
-                                    normalize_timestamp(backlink.get("timestamp"))
-                                    for backlink in matching
-                                ]
-                                stamps = [stamp for stamp in stamps if stamp]
-                                if not stamps:
-                                    fallback = normalize_timestamp(
-                                        image.get("first_seen") or image.get("last_seen")
-                                    )
-                                    if fallback:
-                                        stamps = [fallback]
-                                if not stamps:
-                                    rejected += 1
-                                    continue
-
-                                # Keep the earliest verified profile capture for this
-                                # thumbnail; the original URL is replayed by the renderer.
-                                stamp = min(stamps)
-                                shard = int(user_id) % args.shards
-                                cur = conn.execute(
-                                    "INSERT OR IGNORE INTO entries(shard,user_id,stamp,url) VALUES(?,?,?,?)",
-                                    (shard, user_id, stamp, url),
+                            stamps = [
+                                normalize_timestamp(backlink.get("timestamp"))
+                                for backlink in matching
+                            ]
+                            stamps = [stamp for stamp in stamps if stamp]
+                            if not stamps:
+                                fallback = normalize_timestamp(
+                                    image.get("first_seen") or image.get("last_seen")
                                 )
-                                if cur.rowcount:
-                                    accepted += 1
-                except (OSError, EOFError, gzip.BadGzipFile) as exc:
-                    print(f"WARNING: skipped unreadable member {member_name}: {exc}", file=sys.stderr)
+                                if fallback:
+                                    stamps = [fallback]
+                            if not stamps:
+                                rejected += 1
+                                continue
 
-                conn.commit()
+                            # Keep the earliest verified profile capture for this
+                            # thumbnail; the original URL is replayed by the renderer.
+                            stamp = min(stamps)
+                            shard = int(user_id) % args.shards
+                            cur = conn.execute(
+                                "INSERT OR IGNORE INTO entries(shard,user_id,stamp,url) VALUES(?,?,?,?)",
+                                (shard, user_id, stamp, url),
+                            )
+                            if cur.rowcount:
+                                accepted += 1
+            except (OSError, EOFError, gzip.BadGzipFile) as exc:
+                print(f"WARNING: skipped unreadable member {member_name}: {exc}", file=sys.stderr)
+
+            conn.commit()
 
         # Write plain TSV shards only after successful parsing. Keep source ZIP and
         # source JSONL files untouched.
