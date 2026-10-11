@@ -221,7 +221,7 @@ function useElementResize(ref, options) {
       originMouseX = e.pageX;
       originMouseY = e.pageY;
       _boundary = { ...boundary };
-      if (dragTarget && e.target === dragTarget) {
+      if (dragTarget && e.target === dragTarget && !cursorPos) {
         shouldCover = true;
         return onDragStart(e);
       }
