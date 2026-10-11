@@ -302,7 +302,11 @@ export default function CoyCompanion() {
       } else if (detail.type === "error") {
         announce("Looks like something broke");
       } else if (detail.type === "app-event") {
-        announce(randomLine(APP_QUIPS[detail.name] || ["Oh", "Hm", "What happened"]));
+        // Apps can provide a short, concrete result so Coy reacts to what
+        // actually happened instead of always using a canned generic quip.
+        announce(typeof detail.message === "string" && detail.message.trim()
+          ? detail.message.trim()
+          : randomLine(APP_QUIPS[detail.name] || ["Oh", "Hm", "What happened"]));
       } else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
         lastPickupAttempt.current = now;
         hasHeldImage.current = true;
