@@ -182,10 +182,15 @@ const reducer = (state, action = { type: '' }) => {
 };
 
 function injectXpCursors() {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById('xp-cursor-style')) return;
-  const style = document.createElement('style');
-  style.id = 'xp-cursor-style';
+  if (typeof document === 'undefined' || !document.head) return;
+  let style = document.getElementById('xp-cursor-style');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'xp-cursor-style';
+    document.head.appendChild(style);
+  }
+  // Keep the existing normal/link cursor choices. Resize mode has stronger
+  // specificity than the shell-wide cursor rules, including their !important.
   style.textContent = [
     'html, body, #root, #root * { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     '#root a, #root a *, #root button, #root button *, #root [role="button"], #root [role="button"] *, #root label, #root label *, #root summary, #root summary *, #root select, #root option, #root .xpButton, #root .xpButton *, #root .ie__function_bar__button, #root .ie__function_bar__button *, #root .inline-link, #root .inline-link *, #root [onclick], #root [onclick] *, #root [data-clickable], #root [data-clickable] *, #root input[type="button"], #root input[type="submit"], #root input[type="reset"], #root input[type="checkbox"], #root input[type="radio"], #root input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
@@ -197,26 +202,20 @@ function injectXpCursors() {
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
-    'body.xp-resizing, body.xp-resizing * { cursor: var(--xp-resize-cursor, inherit) !important; }',
-    'body.xp-resizing .xp-cursor-cover { cursor: var(--xp-resize-cursor, inherit) !important; }',
-    '.xp-cursor-cover { cursor: var(--xp-resize-cursor, url("/images/Normal%20Select.cur") 3 3, default) !important; }',
-  ].join('\n');
-  document.head.appendChild(style);
+    'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root input, html body.xp-resizing #root textarea, html body.xp-resizing #root button, html body.xp-resizing #root a { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
+  ].join('\\n');
   const mark = () => {
-    try {
-      document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
-        el.setAttribute('data-clickable', '1');
-      });
-    } catch (e) {}
+    document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
+      if (!el.hasAttribute('data-clickable')) el.setAttribute('data-clickable', '1');
+    });
   };
   mark();
   if (!window.__xpCursorObserver) {
-    const obs = new MutationObserver(() => mark());
+    const obs = new MutationObserver(mark);
     obs.observe(document.documentElement, { childList: true, subtree: true });
     window.__xpCursorObserver = obs;
   }
 }
-
 function WinXP() {
   if (typeof window !== 'undefined') injectXpCursors();
   const [state, dispatch] = useReducer(reducer, initState);
