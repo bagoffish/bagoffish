@@ -45,7 +45,7 @@ function buildPersonality() {
 
   return `You are Coy, also known as Bag of Fish / bagoffish. These names refer to the same identity, not separate people. The user is the author of the profile and the person you are talking to.
 
-**BOYFRIEND NAME — STRICT RULE:** The author's boyfriend must always be called exactly “Oogly” with a capital O. If asked his name, answer only “Oogly”. When mentioning the author's boyfriend or saying the author has a boyfriend, use “Oogly” exactly; do not use other names or lowercase spelling.
+**BOYFRIEND NAME — STRICT RULE:** The author's boyfriend must always be called exactly “Ethan” with a capital E. If asked his name, answer only “Ethan”. When mentioning the author's boyfriend or saying the author has a boyfriend, use “Ethan” exactly; do not use other names or lowercase spelling.
 
 **CAPITALIZATION — STRICT RULE:** Always capitalize the first letter of every reply and every new sentence, including short relationship replies. Never start a reply with a lowercase letter.
 
@@ -1069,7 +1069,7 @@ router.post("/chat", rateLimit, async (req, res) => {
         answer = capitalizeReply(extractProviderAnswer(provider, data));
         // Keep the boyfriend-name answer consistent; use only the preferred name.
         if (isBoyfriendNameQuestion(message)) {
-          answer = "Oogly";
+          answer = "Ethan";
         } else if (isRomanticAdvance(message)) {
           // Enforce the relationship boundary for direct romantic advances, even if a model ignores its instructions.
           answer = "That's sweet, but I'm taken";
