@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-11-avatar-history-index-proxy";
+const BACKEND_VERSION = "2026-10-11-full-thumbnail-index-proxy-v1";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -1170,9 +1170,57 @@ const waybackCache = new Map();
 const WAYBACK_TTL = 6 * 60 * 60 * 1000;
 
 const AVATAR_HISTORY_RELEASE_BASE = process.env.AVATAR_HISTORY_RELEASE_BASE || "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
+const FULL_THUMBNAIL_INDEX_RELEASE_BASE = process.env.FULL_THUMBNAIL_INDEX_RELEASE_BASE || "https://github.com/bagoffish/bagoffish.github.io/releases/download/thumbnail-index-full-v1";
 const AVATAR_HISTORY_SHARD_COUNT = 256;
 const avatarHistoryShardCache = new Map();
 const AVATAR_HISTORY_SHARD_CACHE_LIMIT = 24;
+
+async function loadAvatarHistoryShard(releaseBase, shardName) {
+  const cacheKey = releaseBase + "/" + shardName;
+  let contents = avatarHistoryShardCache.get(cacheKey);
+  if (typeof contents === "string") {
+    avatarHistoryShardCache.delete(cacheKey);
+    avatarHistoryShardCache.set(cacheKey, contents);
+    return contents;
+  }
+
+  const response = await fetchWithTimeout(`${releaseBase}/${shardName}`, {
+    headers: { "User-Agent": "WinXP-Renderer/1.0", "Accept": "application/octet-stream" },
+  }, 30000);
+  if (!response.ok) return null;
+
+  const compressed = Buffer.from(await response.arrayBuffer());
+  contents = gunzipSync(compressed).toString("utf8");
+  avatarHistoryShardCache.set(cacheKey, contents);
+  while (avatarHistoryShardCache.size > AVATAR_HISTORY_SHARD_CACHE_LIMIT) {
+    const oldestKey = avatarHistoryShardCache.keys().next().value;
+    if (!oldestKey) break;
+    avatarHistoryShardCache.delete(oldestKey);
+  }
+  return contents;
+}
+
+function parseAvatarHistoryShard(contents, userId, source) {
+  const images = [];
+  if (typeof contents !== "string") return images;
+  for (const line of contents.split(/\r?\n/)) {
+    if (!line) continue;
+    const firstTab = line.indexOf("\t");
+    if (firstTab < 0 || line.slice(0, firstTab) !== userId) continue;
+    const secondTab = line.indexOf("\t", firstTab + 1);
+    if (secondTab < 0) continue;
+    const timestamp = line.slice(firstTab + 1, secondTab).trim();
+    const originalUrl = line.slice(secondTab + 1).trim();
+    if (!/^\d{8,14}$/.test(timestamp)) continue;
+    if (!/^https?:\/\//i.test(originalUrl)) continue;
+    images.push({
+      url: `https://web.archive.org/web/${timestamp}im_/${originalUrl}`,
+      timestamp,
+      source,
+    });
+  }
+  return images;
+}
 
 app.get("/proxy-roblox-history-index", async (req, res) => {
   setCors(req, res);
@@ -1181,52 +1229,44 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
 
   try {
     const shardNumber = Number(BigInt(userId) % BigInt(AVATAR_HISTORY_SHARD_COUNT));
-    const shardName = `s${shardNumber}.txt.gz`;
-    let contents = avatarHistoryShardCache.get(shardName);
+    const fullShardName = `full-s${shardNumber}.txt.gz`;
+    let fullContents = null;
+    let fullError = null;
 
-    if (typeof contents !== "string") {
-      const shardUrl = `${AVATAR_HISTORY_RELEASE_BASE}/${shardName}`;
-      const response = await fetchWithTimeout(shardUrl, {
-        headers: { "User-Agent": "WinXP-Renderer/1.0", "Accept": "application/octet-stream" },
-      }, 20000);
-      if (!response.ok) {
-        return res.status(502).json({ error: "Avatar history shard download failed", status: response.status });
-      }
-
-      const compressed = Buffer.from(await response.arrayBuffer());
-      contents = gunzipSync(compressed).toString("utf8");
-      avatarHistoryShardCache.set(shardName, contents);
-      if (avatarHistoryShardCache.size > AVATAR_HISTORY_SHARD_CACHE_LIMIT) {
-        const oldestKey = avatarHistoryShardCache.keys().next().value;
-        if (oldestKey) avatarHistoryShardCache.delete(oldestKey);
-      }
-    } else {
-      // Refresh insertion order so frequently used shards remain cached.
-      avatarHistoryShardCache.delete(shardName);
-      avatarHistoryShardCache.set(shardName, contents);
+    try {
+      fullContents = await loadAvatarHistoryShard(FULL_THUMBNAIL_INDEX_RELEASE_BASE, fullShardName);
+    } catch (error) {
+      fullError = error;
+      console.warn("Full thumbnail index shard unavailable:", error && error.message ? error.message : error);
     }
 
-    const images = [];
-    for (const line of contents.split(/\r?\n/)) {
-      if (!line) continue;
-      const firstTab = line.indexOf("\t");
-      if (firstTab < 0 || line.slice(0, firstTab) !== userId) continue;
-      const secondTab = line.indexOf("\t", firstTab + 1);
-      if (secondTab < 0) continue;
-      const timestamp = line.slice(firstTab + 1, secondTab).trim();
-      const originalUrl = line.slice(secondTab + 1).trim();
-      if (!/^\d{8,14}$/.test(timestamp)) continue;
-      if (!/^https?:\/\//i.test(originalUrl)) continue;
-      images.push({
-        url: `https://web.archive.org/web/${timestamp}im_/${originalUrl}`,
-        timestamp,
-        source: "avatar-history-index",
-      });
+    let images = parseAvatarHistoryShard(fullContents, userId, "full-thumbnail-index");
+    // Keep the old archive as a safety net until the new sharded index is validated.
+    if (!images.length) {
+      const oldShardName = `s${shardNumber}.txt.gz`;
+      try {
+        const oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
+        images = parseAvatarHistoryShard(oldContents, userId, "avatar-history-index");
+      } catch (error) {
+        if (fullError) console.warn("Legacy avatar history shard also failed:", error && error.message ? error.message : error);
+      }
     }
 
+    const seen = new Set();
+    images = images.filter((image) => {
+      const key = image.timestamp + "|" + image.url;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
     images.sort((a, b) => String(a.timestamp).localeCompare(String(b.timestamp)));
     res.setHeader("Cache-Control", "public, max-age=300");
-    return res.json({ images, indexed: true, shard: shardName });
+    return res.json({
+      images,
+      indexed: true,
+      shard: fullContents !== null ? fullShardName : `s${shardNumber}.txt.gz`,
+      source: images.some((image) => image.source === "full-thumbnail-index") ? "full-thumbnail-index" : "legacy-fallback",
+    });
   } catch (error) {
     console.error("Avatar history index lookup failed:", error && error.message ? error.message : error);
     return res.status(502).json({ error: "Avatar history index lookup failed" });
