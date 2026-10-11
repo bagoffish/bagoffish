@@ -990,7 +990,7 @@ router.post("/speak", async (req, res) => {
   // Use Gradium with a cloned voice from the uploaded sample.
   if (GRADIUM_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {
     try {
-      let voiceId = process.env.GRADIUM_VOICE_ID || "";
+      let voiceId = process.env.GRADIUM_VOICE_ID || "3gBNLjBg0qKmhmxu";
       if (!voiceId) {
         const form = new FormData();
         form.append("audio_file", new Blob([fs.readFileSync(VOICE_SAMPLE_PATH)]), "voice.webm");
