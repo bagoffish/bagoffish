@@ -19,7 +19,7 @@ function removeUnwantedCoyEmojis(value) {
 }
 
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
-  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
   : part);
 
 function safeWebUrl(value) {
@@ -171,7 +171,7 @@ function renderCoyContent(value) {
     const heading = line.match(/^#\s+(.+)$/);
     const newline = index < lines.length - 1 ? '\n' : '';
     if (!heading) return <React.Fragment key={index}>{renderCoyInline(line)}{newline}</React.Fragment>;
-    return <React.Fragment key={index}><span style={{ fontSize: '1.35em', fontWeight: 'bold' }}>{renderCoyInline(heading[1])}</span>{newline}</React.Fragment>;
+    return <React.Fragment key={index}><span style={{ fontSize: '1.6em', fontWeight: 'bold' }}>{renderCoyInline(heading[1])}</span>{newline}</React.Fragment>;
   });
 }
 
@@ -283,7 +283,7 @@ const styles = {
   status: { padding: '5px 9px', background: '#ece9d8', color: '#444', borderTop: '1px solid #d0cbb8', fontSize: 10, flexShrink: 0 },
 };
 
-export default function CoyChat({ initialImage }) {
+export default function CoyChat({ initialImage, initialText }) {
   const [messages, setMessages] = useState(() => {
     const saved = readCoyChatLog();
     // The first greeting is a real assistant message, so it stays in the transcript
@@ -292,7 +292,7 @@ export default function CoyChat({ initialImage }) {
       ? [{ role: 'assistant', content: 'Hey, wanna use this?', image: initialImage.src }]
       : [{ role: 'assistant', content: randomGreeting() }]);
   });
-  const [draft, setDraft] = useState('');
+  const [draft, setDraft] = useState(typeof initialText === 'string' ? initialText : '');
   const [attachments, setAttachments] = useState([]);
   const attachmentsRef = useRef([]);
   const addFilesInProgressRef = useRef(false);
