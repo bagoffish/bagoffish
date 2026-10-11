@@ -1003,6 +1003,39 @@ function isKorean(text) {
   return /[\uAC00-\uD7AF\u1100-\u11FF]/.test(text);
 }
 
+router.post("/transcribe", async (req, res) => {
+  if (!GRADIUM_API_KEY) return res.status(501).json({ error: "Gradium not configured." });
+  const audio = req.body?.audio;
+  if (!audio) return res.status(400).json({ error: "No audio." });
+  try {
+    const buffer = Buffer.from(String(audio).replace(/^data:audio\/[^;]+;base64,/, ""), "base64");
+    const response = await fetch("https://api.gradium.ai/api/post/speech/asr", {
+      method: "POST",
+      headers: {
+        "x-api-key": GRADIUM_API_KEY,
+        "Content-Type": "audio/webm",
+      },
+      body: buffer,
+    });
+    if (!response.ok) {
+      console.warn("Gradium STT failed:", response.status);
+      return res.status(502).json({ error: "Transcription failed." });
+    }
+    const lines = (await response.text()).split("\n").filter(Boolean);
+    let transcript = "";
+    for (const line of lines) {
+      try {
+        const msg = JSON.parse(line);
+        if (msg.type === "text" && msg.text) transcript += msg.text + " ";
+      } catch (_) {}
+    }
+    return res.json({ transcript: transcript.trim() });
+  } catch (err) {
+    console.warn("Transcribe error:", err?.message || err);
+    return res.status(500).json({ error: "Could not transcribe." });
+  }
+});
+
 router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
