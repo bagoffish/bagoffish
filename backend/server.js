@@ -939,15 +939,18 @@ async function fetchRobloxProfile(username) {
 }
 
 async function fetchRobloxDetails(id) {
-  const [pastRes, roliRes] = await Promise.all([
-    fetchWithTimeout(`https://users.roblox.com/v1/users/${id}/username-history`, { headers: ROBLOX_UA }).catch(() => null),
+  // Roblox removed the public username-history endpoint (returns 404).
+  // Try the users endpoint for current name; past names are no longer available publicly.
+  const [userRes, roliRes] = await Promise.all([
+    fetchWithTimeout(`https://users.roblox.com/v1/users/${id}`, { headers: ROBLOX_UA }).catch(() => null),
     fetchWithTimeout(`https://api.rolimons.com/players/v1/playerinfo/${id}`, { headers: ROBLOX_UA }, 6000).catch(() => null),
   ]);
   let pastUsernames = [];
-  if (pastRes && pastRes.ok) {
+  if (userRes && userRes.ok) {
     try {
-      const pastData = await pastRes.json();
-      pastUsernames = pastData.data?.map((entry) => entry.name).filter(Boolean) || [];
+      const userData = await userRes.json();
+      // Keep current username as a reference; past history is no longer public.
+      if (userData.name) pastUsernames = [];
     } catch {}
   }
   let rolimons = {};
