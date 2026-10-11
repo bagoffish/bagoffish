@@ -90,6 +90,7 @@ function parseCoyDesktopAction(message) {
   const actionWord = match[1].toLowerCase();
   const target = match[2].trim().toLowerCase()
     .replace(/\s+(?:app|window)$/i, '')
+    .replace(/\s+(?:for me|please|thanks|thank you)$/i, '')
     .replace(/[_-]+/g, ' ')
     .replace(/\s+/g, ' ');
   const name = COY_DESKTOP_APP_ALIASES[target];
