@@ -803,10 +803,13 @@ async function rendererGhPut(filePath, bytes, message, sha, attempt = 0) {
 }
 
 function enqueueRendererWrite(job) {
-  rendererWriteQueue = rendererWriteQueue.then(job).catch((err) => {
+  // Keep the queue alive after a failed write, but return the individual job's
+  // rejection to its caller so the renderer can fall back to the live Roblox URL.
+  const pending = rendererWriteQueue.catch(() => {}).then(job);
+  rendererWriteQueue = pending.catch((err) => {
     console.warn("renderer cache write failed:", err.message);
   });
-  return rendererWriteQueue;
+  return pending;
 }
 
 async function loadStoredRendererById(id) {
