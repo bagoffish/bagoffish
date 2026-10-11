@@ -965,8 +965,26 @@ router.get("/voice-sample", (req, res) => {
   res.json({ exists, bytes: exists ? fs.statSync(VOICE_SAMPLE_PATH).size : 0 });
 });
 
+function humanizeForSpeech(raw) {
+  return String(raw || "")
+    .replace(/\bidk\b/gi, "I don't know")
+    .replace(/\bugh\b/gi, "ugh")
+    .replace(/\blol\b/gi, "lol")
+    .replace(/\blmao\b/gi, "lmao")
+    .replace(/\bomg\b/gi, "oh my god")
+    .replace(/\bwtf\b/gi, "what the fuck")
+    .replace(/\btbh\b/gi, "to be honest")
+    .replace(/\bimo\b/gi, "in my opinion")
+    .replace(/\brn\b/gi, "right now")
+    .replace(/\bngl\b/gi, "not gonna lie")
+    .replace(/\bfr\b/gi, "for real")
+    .replace(/\basl\b/gi, "as hell")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 router.post("/speak", async (req, res) => {
-  const text = String(req.body?.text || "").trim().slice(0, 2000);
+  const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
 
   // Prefer Fish Audio free model with the uploaded sample as reference.
@@ -984,6 +1002,11 @@ router.post("/speak", async (req, res) => {
           text,
           references: [{ audio: sample.toString("base64"), text: "This is my voice." }],
           format: "mp3",
+          temperature: 0.8,
+          top_p: 0.8,
+          prosody: { speed: 1.0, volume: 0, normalize_loudness: true },
+          chunk_length: 200,
+          normalize: true,
         }),
       });
       if (response.ok) {
