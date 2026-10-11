@@ -42,7 +42,36 @@ const COY_DESKTOP_APP_ALIASES = {
 };
 
 function parseCoyDesktopAction(message) {
-  const match = String(message || '').trim().match(/^(?:please\s+)?(?:can you\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  const text = String(message || '').trim();
+  const clean = value => String(value || '').trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/, '').trim();
+  const appName = value => {
+    const normalized = clean(value).toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+(?:app|window)$/i, '').replace(/\s+/g, ' ');
+    return COY_DESKTOP_APP_ALIASES[normalized] || null;
+  };
+  let match = text.match(/^(?:please\s+)?click\s+(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: 'click', name, target: clean(match[1]).replace(/\s+button$/i, '') };
+  }
+  match = text.match(/^(?:please\s+)?(?:type|enter)\s+(.+?)\s+into\s+(?:the\s+)?(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[3]);
+    if (name) return { action: 'fill', name, value: clean(match[1]), target: clean(match[2]) };
+  }
+  match = text.match(/^(?:please\s+)?search\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: 'search', name, target: 'search', value: clean(match[1]) };
+  }
+  match = text.match(/^(?:please\s+)?press\s+(enter|escape|space|tab)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: 'press', name, key: ({ enter: 'Enter', escape: 'Escape', space: ' ', tab: 'Tab' })[match[1].toLowerCase()] };
+  }
+  match = text.match(/^(?:please\s+)?(play|pause|stop|next|previous)\s+(?:track\s+)?in\s+(?:the\s+)?(winamp|music player)[.!?]*$/i);
+  if (match) return { action: 'click', name: 'Winamp', target: match[1].toLowerCase() === 'previous' ? 'previous' : match[1] };
+  match = text.match(/^(?:please\s+)?(?:open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (!match) return null;
   if (!match) return null;
   const actionWord = match[1].toLowerCase();
   const target = match[2].trim().toLowerCase()
@@ -463,7 +492,8 @@ export default function CoyChat({ initialImage }) {
     // Ordinary conversation is never interpreted as a command.
     const desktopAction = parseCoyDesktopAction(message);
     if (desktopAction) {
-      window.dispatchEvent(new CustomEvent('coy:desktop-action', { detail: desktopAction }));
+      const appControlAction = ['click', 'fill', 'search', 'press'].includes(desktopAction.action);
+      window.dispatchEvent(new CustomEvent(appControlAction ? 'coy:app-action' : 'coy:desktop-action', { detail: desktopAction }));
     }
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
