@@ -204,7 +204,7 @@ const styles = {
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #9b9b9b', background: '#ece9d8', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
-  input: { flex: 1, minWidth: 0, height: 44, minHeight: 44, maxHeight: 100, boxSizing: 'border-box', resize: 'vertical', border: '1px solid #7f9db9', borderRadius: 0, padding: '7px 8px', font: '12px Tahoma, Arial', background: '#fff', color: '#111' },
+  input: { flex: 1, minWidth: 0, height: 44, minHeight: 44, maxHeight: 100, boxSizing: 'border-box', resize: 'vertical', border: '1px solid #7f9db9', borderRadius: 0, padding: '7px 8px', font: '16px Tahoma, Arial', background: '#fff', color: '#111' },
   attachButton: { width: 44, height: 44, minWidth: 44, minHeight: 44, flex: '0 0 44px', boxSizing: 'border-box', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, lineHeight: 1 },
   button: { minHeight: 30, padding: '4px 12px', border: '1px solid #003c74', borderRadius: 2, color: '#111', font: '12px Tahoma, Arial', background: 'linear-gradient(#fff,#e1e1e1)', cursor: 'pointer' },
   status: { padding: '5px 9px', background: '#ece9d8', color: '#444', borderTop: '1px solid #d0cbb8', fontSize: 10, flexShrink: 0 },
@@ -445,8 +445,8 @@ export default function CoyChat({ initialImage }) {
       };
       recognition.onerror = event => {
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setVoiceStatus('Allow microphone access to use voice wake-up');
-          setError('Coy needs microphone permission to hear “call with me”. Allow microphone access for this site, then refresh');
+          setVoiceStatus('Need mic access');
+          setError('Uhhh is your mic on? I can\'t hear you');
         }
       };
       recognition.onend = () => {
@@ -461,7 +461,7 @@ export default function CoyChat({ initialImage }) {
       recognition.start();
     } catch (_) {
       recognitionRef.current = null;
-      setVoiceStatus('Allow microphone access to use voice wake-up');
+      setVoiceStatus('Need mic access');
     }
   }
 
@@ -478,7 +478,7 @@ export default function CoyChat({ initialImage }) {
     if (!voiceCallActiveRef.current) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      setError('Voice input needs a browser with speech recognition, such as desktop Chrome');
+      setError('This browser won\'t let me hear you. Try Chrome');
       stopVoiceCall();
       return;
     }
@@ -507,7 +507,7 @@ export default function CoyChat({ initialImage }) {
       };
       recognition.onerror = event => {
         if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setError('Microphone access was blocked. Allow microphone access for this site, then try calling again');
+          setError('Mic\'s blocked. Allow it and try again');
           stopVoiceCall();
         } else if (event.error !== 'no-speech' && voiceCallActiveRef.current) {
           setVoiceStatus('Voice input paused');
@@ -524,7 +524,7 @@ export default function CoyChat({ initialImage }) {
       recognitionRef.current = recognition;
       recognition.start();
     } catch (_) {
-      setError('Could not start the microphone. Check site permissions and try again');
+      setError('Can\'t start the mic. Check permissions');
       stopVoiceCall();
     }
   }

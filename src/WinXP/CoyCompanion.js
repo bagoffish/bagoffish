@@ -547,7 +547,7 @@ export default function CoyCompanion() {
   }, []);
 
   const styles = {
-    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: 2147483000, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
+    root: { position: "fixed", left: position.left, top: position.top, width: spriteSize, boxSizing: "border-box", zIndex: (typeof window !== "undefined" && window.innerWidth < 768) ? 1 : 2147483000, display: "flex", flexDirection: "column", alignItems: "center", gap: 8, fontFamily: "Tahoma, Arial, sans-serif", pointerEvents: "none" },
     imageButton: { position: "relative", pointerEvents: "auto", display: "block", border: 0, padding: 0, background: "transparent", cursor: "grab", width: spriteSize, touchAction: "none", userSelect: "none", WebkitUserSelect: "none", WebkitUserDrag: "none" },
     image: { display: "block", width: spriteSize, height: "auto", objectFit: "contain", objectPosition: "bottom", filter: "drop-shadow(0 2px 2px rgba(0,0,0,.22))", transition: "filter 450ms ease" },
     heldRender: { position: "absolute", left: "50%", top: "58%", width: "38%", height: "auto", maxHeight: "20vh", objectFit: "contain", transform: "translate(-50%,-50%) rotate(-7deg)", border: "3px solid #fff", outline: "1px solid #555", boxShadow: "1px 3px 5px rgba(0,0,0,.35)", borderRadius: 2, pointerEvents: "none", zIndex: 2 },
