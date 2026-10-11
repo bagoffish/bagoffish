@@ -166,7 +166,7 @@ def main() -> int:
                             url = str(image.get("url") or "").strip()
                             if not url.startswith(("http://", "https://")):
                                 continue
-                            if any(ch in url for ch in "\\t\\r\\n"):
+                            if any(ch in url for ch in "\t\r\n"):
                                 continue
 
                             backlinks = image.get("backlinks")
