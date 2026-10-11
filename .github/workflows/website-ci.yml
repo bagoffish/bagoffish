@@ -67,7 +67,7 @@ jobs:
                 throw new Error('Chat CORS preflight failed (HTTP ' + preflight.status + ')');
               }
 
-              console.log('Backend health OK; visitor count endpoint returned ' + count + '; chat CORS preflight OK.');
+              console.log('Backend health OK; visitor count endpoint returned ' + count + '; visitor storage: ' + health.visitorStore + '; chat CORS preflight OK.');
               process.exit(0);
             } catch (error) {
               lastError = error;
