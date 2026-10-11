@@ -59,7 +59,7 @@ const formatCoyText = value => {
 export default function CoyCompanion() {
   const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
-  const [hideForMobileApp, setHideForMobileApp] = useState(false);
+  const [underAppWindows, setUnderAppWindows] = useState(false);
   const [line, setLine] = useState(randomGreeting);
   const [idleMood, setIdleMood] = useState("normal");
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
@@ -297,7 +297,7 @@ export default function CoyCompanion() {
           .some(header => header.getClientRects().length > 0 &&
             getComputedStyle(header).display !== "none" &&
             getComputedStyle(header.closest('[class]') || header).display !== "none");
-      setHideForMobileApp((isMobile && hasOpenApp) || (!isMobile && fullTabActiveRef.current));
+      setUnderAppWindows((isMobile && hasOpenApp) || (!isMobile && fullTabActiveRef.current));
     };
     const onActivity = event => {
       const detail = event.detail || {};
@@ -498,7 +498,7 @@ export default function CoyCompanion() {
       position: "fixed",
       left: position.left,
       top: position.top,
-      zIndex: 9999,
+      zIndex: underAppWindows ? 0 : 9999,
       pointerEvents: "none",
       userSelect: "none",
       touchAction: "none"
@@ -579,8 +579,6 @@ export default function CoyCompanion() {
       pointerEvents: "none"
     }
   };
-
-  if (hideForMobileApp) return null;
 
   return createPortal(
     <div ref={rootRef} style={styles.root} data-coy-ui="true">
