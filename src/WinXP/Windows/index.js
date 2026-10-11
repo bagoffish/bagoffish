@@ -95,7 +95,7 @@ const Window = memo(function({
       left: 1,
     },
     resizable,
-    resizeThreshold: 10,
+    resizeThreshold: 6,
   });
   let width, height, x, y;
   if (maximized || mobile) {
