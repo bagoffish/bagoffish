@@ -180,7 +180,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v9:" + id;
+            var storageKey = "avatar-history-index-v10:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -213,8 +213,10 @@
           var oldContainer = document.getElementById("oldAvatars");
           if (oldContainer) oldContainer.textContent = "Loading archived renders…";
           fetchSavedArchivedAvatars(roblox.id).then(function (saved) {
+            if (sequence !== lookupSequence) return [];
             // Prefer the prebuilt index and skip live Wayback discovery entirely
             // when it already has renders for this user.
+            if (sequence !== lookupSequence) return [];
             if (Array.isArray(saved) && saved.length) return saved;
             return fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
               headers: { Accept: "application/json" },
@@ -222,9 +224,11 @@
             }).then(function (response) {
               return response.ok ? response.json() : { images: [] };
             }).then(function (payload) {
+              if (sequence !== lookupSequence) return [];
               return Array.isArray(payload && payload.images) ? payload.images : [];
             }).catch(function () { return []; });
           }).then(function (rawItems) {
+            if (sequence !== lookupSequence) return;
             if (!oldContainer || !document.body.contains(oldContainer)) return;
             var merged = [];
             var seen = Object.create(null);
@@ -341,7 +345,8 @@
               oldContainer.appendChild(card);
             });
           }).catch(function () {
-            if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
+            if (sequence !== lookupSequence) return;
+            if (oldContainer && document.body.contains(oldContainer)) oldContainer.textContent = "Archived renders unavailable.";
           });
 
         })
