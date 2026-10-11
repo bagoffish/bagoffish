@@ -1137,11 +1137,11 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
       // Some index entries point to Roblox's thumbnail API, which returns JSON
       // containing the actual CDN imageUrl instead of returning image bytes.
       // Resolve that URL before deciding the archive capture is unusable.
-      if (!type.startsWith("image/") && (type.includes("json") || /thumbnails\\.roblox\\.com\\/v1\\/users\\/avatar/i.test(candidate))) {
+      if (!type.startsWith("image/") && (type.includes("json") || /thumbnails\.roblox\.com\/v1\/users\/avatar/i.test(candidate))) {
         let payload = null;
         try { payload = await upstream.json(); } catch (_) {}
         const rows = payload && Array.isArray(payload.data) ? payload.data : [];
-        const imageUrl = rows.map((row) => row && row.imageUrl).find((url) => typeof url === "string" && /^https?:\\/\\//i.test(url));
+        const imageUrl = rows.map((row) => row && row.imageUrl).find((url) => typeof url === "string" && /^https?:\/\//i.test(url));
         if (!imageUrl) continue;
         let imageHost;
         try { imageHost = new URL(imageUrl).hostname.toLowerCase(); } catch (_) { continue; }
