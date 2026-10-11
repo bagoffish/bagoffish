@@ -17,11 +17,13 @@ function useElementResize(ref, options) {
     if (!target) return;
     const dragTarget = options.dragRef && options.dragRef.current;
     const cover = document.createElement('div');
+    cover.className = 'xp-cursor-cover';
     cover.style.position = 'fixed';
     cover.style.top = 0;
     cover.style.left = 0;
     cover.style.right = 0;
     cover.style.bottom = 0;
+    cover.style.zIndex = '99999';
     const previousOffset = { ...offset };
     const previousSize = { ...size };
     let _boundary;
@@ -317,8 +319,10 @@ function useCursor(ref, threshold, resizable) {
     let lock = false;
     function _setPosition(p) {
       setPosition(p);
-      target.style.cursor = getCursorStyle(p);
-      cover.style.cursor = getCursorStyle(p);
+      const style = getCursorStyle(p);
+      target.style.cursor = style;
+      cover.style.cursor = style;
+      document.body.style.cursor = style;
     }
     function onMouseDown(e) {
       if (e.target !== target) return;
