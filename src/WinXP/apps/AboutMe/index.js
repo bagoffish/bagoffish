@@ -97,7 +97,8 @@ function AboutMe({ onClose }) {
           retryTimer = window.setTimeout(fetchVisitorCount, delay);
         });
     };
-    fetchCurrentCount().catch(() => {});
+    // The visit endpoint already returns the authoritative total. Avoid a
+    // parallel current-count request racing it and briefly overwriting the newer value.
     fetchVisitorCount();
 
     return () => {
