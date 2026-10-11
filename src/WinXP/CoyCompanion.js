@@ -6,15 +6,6 @@ const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/
 const GREETINGS = ["Sup", "Hru", "Hi", "Hello", "Haii", "Hai", "Hey", "Heyy", "Hii", "Haiii"];
 const IDLE_LINES = ["Hm", "Bored", "You there", "Sup", "Just sitting", "Hey", "Mm", "What now", "Still here"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PICKUP_LINES = [
-  "Where we going",
-  "Oh you moving me",
-  "Okay okay",
-  "Eep",
-  "Put me down somewhere nice",
-  "Relocating huh"
-];
-const DIZZY_LINES = ["Woah", "Dizzy", "Stop spinning me", "Okay okay I'm dizzy", "Too fast", "Eep"];
 const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "Eep", "Okay you can stay"];
 const APP_QUIPS = {
   Winamp: ["Oh music", "What we listening to", "Song time", "Ooh"],
@@ -87,15 +78,6 @@ export default function CoyCompanion() {
     top: Math.max(0, window.innerHeight - 30 - 40)
   }));
   const [isDragging, setIsDragging] = useState(false);
-  const [dizzy, setDizzy] = useState(false);
-
-  useEffect(() => {
-    if (document.getElementById("coy-dizzy-style")) return;
-    const style = document.createElement("style");
-    style.id = "coy-dizzy-style";
-    style.textContent = "@keyframes coy-dizzy{0%{transform:rotate(-10deg)}50%{transform:rotate(10deg)}100%{transform:rotate(-10deg)}}";
-    document.head.appendChild(style);
-  }, []);
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
@@ -413,12 +395,10 @@ export default function CoyCompanion() {
       state.movedCharacter = true;
       dragged.current = true;
       setIsDragging(true);
-      if (justPickedUp && Date.now() - lastPickupAttempt.current > 8000) {
-        lastPickupAttempt.current = Date.now();
-        setLine(formatCoyText(randomLine(PICKUP_LINES)));
-        setShowBubble(true);
-        setDizzy(true);
-        window.setTimeout(() => setDizzy(false), 1600);
+      if (justPickedUp) {
+        // Keep pickup visually neutral for the upcoming expression/pose system.
+        // No pickup wobble and no floating speech bubble.
+        setShowBubble(false);
       }
       const maxLeft = Math.max(0, window.innerWidth - state.width);
       const taskbarTop = getTaskbarTop();
@@ -510,8 +490,6 @@ export default function CoyCompanion() {
       cursor: isDragging ? "grabbing" : "grab",
       pointerEvents: "auto",
       filter: idleMood === "happy" ? "brightness(1.08)" : "none",
-      transform: dizzy ? "rotate(-8deg)" : "none",
-      animation: dizzy ? "coy-dizzy 0.35s linear infinite" : "none",
       transition: "filter 0.2s"
     },
     bubbleWrap: {
