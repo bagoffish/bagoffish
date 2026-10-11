@@ -320,9 +320,12 @@ function useCursor(ref, threshold, resizable) {
     function _setPosition(p) {
       setPosition(p);
       const style = getCursorStyle(p);
-      target.style.cursor = style;
-      cover.style.cursor = style;
-      document.body.style.cursor = style;
+      // The XP shell applies !important cursor rules globally, so ordinary
+      // inline assignments lose the cascade and leave the resize cursor invisible.
+      target.style.setProperty('cursor', style, 'important');
+      cover.style.setProperty('cursor', style, 'important');
+      document.body.style.setProperty('--xp-resize-cursor', style);
+      document.body.style.setProperty('cursor', style, 'important');
     }
     function onMouseDown(e) {
       if (e.target !== target) return;
@@ -336,6 +339,9 @@ function useCursor(ref, threshold, resizable) {
       lock = false;
       document.body.classList.remove('xp-resizing');
       cover.remove();
+      document.body.style.removeProperty('--xp-resize-cursor');
+      document.body.style.removeProperty('cursor');
+      target.style.removeProperty('cursor');
       window.removeEventListener('mouseup', onMouseUp);
     }
     function onHoverEnd(e) {
