@@ -174,7 +174,7 @@
           // supplements these records; it must never replace the saved history files.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
-            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            if (!/^\d+$/.test(id)) return Promise.resolve([]);
             var shard = Number(id) % ARCHIVE_SHARDS;
             return fetch("/avatar-history/s" + shard + ".txt?v=20261011-restore-saved-history", {
               cache: "no-store"
@@ -183,13 +183,13 @@
               return response.text();
             }).then(function (body) {
               if (!body) return [];
-              var lines = body.split("\\n");
-              var prefix = id + "\\t";
+              var lines = body.split("\n");
+              var prefix = id + "\t";
               var archived = [];
               var seen = Object.create(null);
               lines.forEach(function (line) {
                 if (line.indexOf(prefix) !== 0) return;
-                var parts = line.split("\\t");
+                var parts = line.split("\t");
                 for (var p = 1; p + 1 < parts.length; p += 2) {
                   var url = waybackImage(parts[p], parts[p + 1]);
                   if (!url || seen[url]) continue;
