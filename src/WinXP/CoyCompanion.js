@@ -619,14 +619,6 @@ export default function CoyCompanion() {
 
       {chatOpen && (
         <div style={styles.chatBox}>
-          <div style={{ marginBottom: 6, fontWeight: "bold" }}>{chatGreeting}</div>
-          <div style={{ maxHeight: 160, overflowY: "auto", marginBottom: 6 }}>
-            {history.slice(-6).map((item, i) => (
-              <div key={i} style={{ margin: "3px 0", color: item.role === "user" ? "#003c74" : "#111" }}>
-                {item.role === "user" ? "You: " : ""}{renderCoyEmoji(item.content)}
-              </div>
-            ))}
-          </div>
           {error && <div style={{ color: "#c00", fontSize: 11, marginBottom: 4 }}>{error}</div>}
           <form onSubmit={send} style={{ display: "flex", gap: 4 }}>
             <input
@@ -640,6 +632,16 @@ export default function CoyCompanion() {
             <button type="submit" disabled={busy || !draft.trim()} style={{ font: "12px Tahoma", padding: "3px 8px" }}>{busy ? "…" : ">"}</button>
           </form>
           <button type="button" onClick={() => setChatOpen(false)} style={{ marginTop: 4, font: "11px Tahoma" }}>Close</button>
+        </div>
+      )}
+
+      {showBubble && chatOpen && (
+        <div ref={bubbleWrapRef} style={{ ...styles.bubbleWrap, bottom: "calc(100% + 70px)" }}>
+          <div style={styles.bubble}>
+            {renderCoyEmoji(line)}
+            <div style={styles.tail} />
+            <div style={styles.tailInner} />
+          </div>
         </div>
       )}
     </div>,
