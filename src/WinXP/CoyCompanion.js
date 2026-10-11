@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hru", "Hi", "Hello", "Haii", "Hai", "Hey", "Heyy", "Hii", "Haiii"];
-const IDLE_LINES = ["Hm", "Bored", "You there", "Sup", "Just sitting", "Hey", "Mm", "What now", "Still here"];
+const IDLE_LINES = ["Hm", "Sup", "Hey", "Mm", "Just here", "Thinking", "Hru"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "Eep", "Okay you can stay"];
 const APP_QUIPS = {
