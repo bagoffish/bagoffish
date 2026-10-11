@@ -534,37 +534,35 @@ export default function CoyCompanion() {
       zIndex: 1
     },
     bubble: {
-      background: "#fff",
-      border: "2px solid #000",
-      borderRadius: 4,
-      padding: "6px 9px",
-      font: "12px Tahoma, Arial, sans-serif",
-      color: "#111",
-      maxWidth: 220,
+      position: "relative",
+      boxSizing: "border-box",
+      display: "-webkit-box",
+      WebkitBoxOrient: "vertical",
+      WebkitLineClamp: 6,
+      width: "max-content",
+      minWidth: 90,
+      maxWidth: "min(88vw, 260px)",
+      maxHeight: 100,
+      padding: "8px 12px",
+      background: "#0a0a0a",
+      borderRadius: 0,
+      color: "#00ff41",
+      fontSize: 13,
+      fontWeight: 400,
+      lineHeight: "18px",
+      overflow: "hidden",
+      overflowWrap: "break-word",
+      wordBreak: "normal",
       whiteSpace: "pre-wrap",
-      overflowWrap: "anywhere",
-      boxShadow: "2px 2px 0 rgba(0,0,0,0.15)"
+      textShadow: "0 0 2px #00ff41",
+      fontFamily: "Consolas, 'Courier New', monospace"
     },
-    tail: {
-      position: "absolute",
-      bottom: -8,
-      [bubblePlacement.side === "right" ? "left" : "right"]: 16,
-      width: 0,
-      height: 0,
-      borderTop: "8px solid #000",
-      borderLeft: "6px solid transparent",
-      borderRight: "6px solid transparent"
-    },
-    tailInner: {
-      position: "absolute",
-      bottom: -5,
-      [bubblePlacement.side === "right" ? "left" : "right"]: 17,
-      width: 0,
-      height: 0,
-      borderTop: "6px solid #fff",
-      borderLeft: "5px solid transparent",
-      borderRight: "5px solid transparent"
-    },
+    tail: bubblePlacement.side === "right"
+      ? { position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderRight: "10px solid #00ff41", pointerEvents: "none", zIndex: 1 }
+      : { position: "absolute", right: -10, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "10px solid #00ff41", pointerEvents: "none", zIndex: 1 },
+    tailInner: bubblePlacement.side === "right"
+      ? { position: "absolute", left: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderRight: "8px solid #0a0a0a" }
+      : { position: "absolute", right: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "8px solid #0a0a0a" },
     chatBox: {
       position: "absolute",
       bottom: "100%",
