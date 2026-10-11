@@ -308,10 +308,35 @@
               }
               addImageCandidate(archivedSrc);
               addImageCandidate(item.url);
-              if (/^https?:\/\/web\.archive\.org\/web\/\d{8,14}im_\//i.test(item.url)) {
-                addImageCandidate(item.url.replace(/\/web\/(\d{8,14})im_\//i, "/web/$1/"));
-                var originalMatch = item.url.match(/^https?:\/\/web\.archive\.org\/web\/\d{8,14}(?:im_)?\/(https?:\/\/.*)$/i);
-                if (originalMatch) addImageCandidate(originalMatch[1]);
+              // Parse Wayback replay URLs with string operations instead of regex literals.
+              // This avoids parser issues from malformed or stale copies of this script.
+              var itemUrl = String(item.url || "");
+              var lowerItemUrl = itemUrl.toLowerCase();
+              var archivePrefix = lowerItemUrl.indexOf("https://web.archive.org/web/") === 0
+                ? "https://web.archive.org/web/"
+                : (lowerItemUrl.indexOf("http://web.archive.org/web/") === 0
+                  ? "http://web.archive.org/web/"
+                  : "");
+              if (archivePrefix) {
+                var replayTail = itemUrl.slice(archivePrefix.length);
+                var replaySlash = replayTail.indexOf("/");
+                var replayStamp = replaySlash >= 0 ? replayTail.slice(0, replaySlash) : "";
+                var isImageReplay = replayStamp.slice(-3).toLowerCase() === "im_";
+                var stampDigits = isImageReplay ? replayStamp.slice(0, -3) : replayStamp;
+                var validStamp = stampDigits.length >= 8 && stampDigits.length <= 14;
+                for (var stampIndex = 0; validStamp && stampIndex < stampDigits.length; stampIndex += 1) {
+                  if (stampDigits.charAt(stampIndex) < "0" || stampDigits.charAt(stampIndex) > "9") validStamp = false;
+                }
+                if (isImageReplay && validStamp && replaySlash >= 0) {
+                  addImageCandidate(archivePrefix + stampDigits + "/" + replayTail.slice(replaySlash + 1));
+                }
+                if (validStamp && replaySlash >= 0) {
+                  var replayOriginal = replayTail.slice(replaySlash + 1);
+                  var replayOriginalLower = replayOriginal.toLowerCase();
+                  if (replayOriginalLower.indexOf("https://") === 0 || replayOriginalLower.indexOf("http://") === 0) {
+                    addImageCandidate(replayOriginal);
+                  }
+                }
               }
               var imageCandidateIndex = 0;
               img.addEventListener("error", function () {
