@@ -48,7 +48,7 @@ function parseCoyDesktopAction(message) {
     .replace(/^(?:hey\s+coy[,! ]*|coy[,! ]*)/i, '')
     .replace(/^(?:(?:please|kindly)\s+|(?:can|could|would|will)\s+you\s+(?:(?:please)\s+)?|i\s+(?:want|need)\s+you\s+to\s+|could\s+i\s+|can\s+i\s+)/i, '')
     .trim();
-  const clean = value => String(value || '').trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/, '').trim();
+  const clean = value => String(value || '').trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/, '').replace(/\s+(?:for me|please|thanks|thank you)$/i, '').trim();
   const appName = value => {
     const normalized = clean(value).toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+(?:app|window)$/i, '').replace(/\s+/g, ' ');
     return COY_DESKTOP_APP_ALIASES[normalized] || null;
@@ -85,7 +85,7 @@ function parseCoyDesktopAction(message) {
   }
   match = text.match(/^(?:please\s+)?(play|pause|stop|next|previous)\s+(?:track\s+)?in\s+(?:the\s+)?(winamp|music player)[.!?]*$/i);
   if (match) return { action: 'click', name: 'Winamp', target: match[1].toLowerCase() === 'previous' ? 'previous' : match[1] };
-  match = text.match(/^(?:please\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  match = text.match(/^(?:please\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)(?:\s+up)?\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (!match) return null;
   const actionWord = match[1].toLowerCase();
   const target = match[2].trim().toLowerCase()
