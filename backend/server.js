@@ -1154,12 +1154,33 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
         // Fetching only the live CDN URL loses historical images when the old
         // CDN asset has since been removed.
         const imageCandidates = [];
-        if (archiveTimestamp && archiveOriginalUrl) {
+        if (archiveTimestamp) {
+          // First try the exact capture date, then ask Wayback for the nearest
+          // saved copy of the actual CDN asset. The thumbnail API capture date
+          // and the CDN asset capture date often differ.
           imageCandidates.push(`https://web.archive.org/web/${archiveTimestamp}im_/${imageUrl}`);
+          try {
+            const imageAvailabilityUrl = "https://archive.org/wayback/available?url=" +
+              encodeURIComponent(imageUrl) + "&timestamp=" + encodeURIComponent(archiveTimestamp);
+            const imageAvailability = await fetchWithTimeout(imageAvailabilityUrl, {
+              headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "application/json" },
+            }, 8000);
+            if (imageAvailability.ok) {
+              const availabilityData = await imageAvailability.json();
+              const closestImage = availabilityData && availabilityData.archived_snapshots && availabilityData.archived_snapshots.closest;
+              if (closestImage && closestImage.available && typeof closestImage.url === "string") {
+                const closestParsed = new URL(closestImage.url);
+                if (closestParsed.hostname.toLowerCase() === "web.archive.org" && closestParsed.pathname.startsWith("/web/")) {
+                  const closestReplay = closestParsed.origin + closestParsed.pathname.replace(/^\/web\/(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\//i, "/web/$1im_/") + closestParsed.search;
+                  imageCandidates.push(closestReplay, closestImage.url);
+                }
+              }
+            }
+          } catch (_) {}
         }
         imageCandidates.push(imageUrl);
         let resolvedImage = false;
-        for (const imageCandidate of imageCandidates) {
+        for (const imageCandidate of [...new Set(imageCandidates)]) {
           try {
             const imageResponse = await fetchWithTimeout(imageCandidate, {
               headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
