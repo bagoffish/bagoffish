@@ -548,7 +548,7 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      top: "18%",
+      top: "-6%",
       marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
