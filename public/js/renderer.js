@@ -261,8 +261,6 @@
             if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
           });
 
-          }
-
         })
         .catch(function (error) {
           // Expected lookup failures are shown in the renderer UI; keep the browser console clean.
