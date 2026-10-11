@@ -9,7 +9,7 @@ const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.leng
 const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "Eep", "Okay you can stay"];
 const APP_QUIPS = {
   Winamp: ["Oh music", "What we listening to", "Song time", "Ooh"],
-  Renderer: ["Looking someone up?", "Avatar check", "Who's that", "Found the account?"],
+  Renderer: ["Looking someone up?", "Avatar check", "Found the account?"],
   Bloxify: ["Making music again", "Songmaking", "Cooking something", "Ooh music stuff"],
   Winter_Letter: ["Back to Winter Letter", "Writing time", "Winter Letter again"],
   Paint: ["Drawing something", "Art time", "Whatcha making"],
