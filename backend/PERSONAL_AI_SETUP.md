@@ -66,10 +66,10 @@ The app uses `REACT_APP_API_BASE` when provided, otherwise it calls the existing
 
 The main repo does not store the archives. The Render backend reads them at runtime from the private `bagoffish/coy-private-memory` repository using `COY_MEMORY_GITHUB_TOKEN`.
 
-Files loaded:
-- `coy-discord-style-corpus.txt` — Discord voice
-- `coy-twitter-rest.txt` — own tweets, replies, and other archive text
-- `coy-twitter-retweets.txt` — retweets, used as taste/likes, not as Coy's wording
-- `coy-approved-memory.md` — approved facts
+Files loaded at runtime from the private repository:
+- `coy-discord-style-corpus.txt` — primary Discord voice and conversation evidence (about 5.7 MB in the current Git tree)
+- `coy-twitter-rest.txt` — Coy's own Twitter/X posts and replies (about 3.1 MB in the current Git tree; it is not empty)
+- `coy-twitter-retweets.txt` — retweet text (about 394 KB / roughly 10k lines in the current Git tree); use only as a weak clue about topics Coy amplified, never as proof of a personal preference or as Coy's writing voice
+- `coy-approved-memory.md` — approved facts and explicit corrections
 
-On each chat, the backend studies those files into a personality-and-likes profile and injects it into the Coy app and the desktop companion. Do not copy these files into the public winXP repo.
+On each chat, the backend calculates source-specific counts, message-length/style statistics, frequent terms, and representative examples from every usable line in the loaded text. It analyzes Discord and Coy's own Twitter/X posts/replies for voice; retweets are analyzed separately as limited interest context. This is runtime contextual analysis, not model fine-tuning or a permanent trained model. Large private files may not display in GitHub connector previews even when they exist in the repository. The backend must successfully load them at runtime; check server logs/status if a source is reported unavailable. Do not copy these files into the public winXP repo.
