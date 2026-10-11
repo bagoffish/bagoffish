@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v9";
+  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v10";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -77,7 +77,10 @@
       });
     }
 
+    var lookupSequence = 0;
+
     function runLookup() {
+      var sequence = ++lookupSequence;
       var username = usernameInput.value.trim();
       if (!username) {
         centerPanel.innerHTML = "";
@@ -86,10 +89,11 @@
       }
 
       messageBox.style.display = "none";
-      centerPanel.innerHTML = "";
+      // Keep the last successful result visible while the next lookup loads.
       loadingIndicator.style.display = "flex";
       fetchRendererData(username)
         .then(function (data) {
+          if (sequence !== lookupSequence) return;
           var roblox = data && data.roblox ? data.roblox : {};
           var rolimons = data && data.rolimons ? data.rolimons : {};
           var oldAvatars = Array.isArray(roblox.oldAvatars) ? roblox.oldAvatars : [];
@@ -289,8 +293,16 @@
               img.style.cursor = "pointer";
               img.title = "Open archived avatar";
               img.addEventListener("error", function () {
-                card.remove();
-              });
+                // Keep the archive grid stable when an individual capture fails.
+                // Removing cards on transient proxy/CDN errors made the layout jump.
+                img.removeAttribute("src");
+                img.alt = "Archived avatar unavailable";
+                img.style.objectFit = "contain";
+                img.style.background = "#dce6f1";
+                img.style.minHeight = "104px";
+                img.style.opacity = "0.65";
+                img.title = "This archived image could not be loaded";
+              }, { once: true });
               img.addEventListener("click", function () {
                 window.open(item.url, "_blank", "noopener,noreferrer");
               });
@@ -334,7 +346,9 @@
 
         })
         .catch(function (error) {
+          if (sequence !== lookupSequence) return;
           // Expected lookup failures are shown in the renderer UI; keep the browser console clean.
+          loadingIndicator.style.display = "none";
           showError(
             error && error.message && error.message.indexOf("Failed to fetch") !== -1
               ? "Renderer service unavailable. Try again in a moment."
