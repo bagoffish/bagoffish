@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-full-index-cache-v6";
+  var RENDERER_SCRIPT_VERSION = "20261012-merged-avatar-index-v7";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -178,7 +178,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v5:" + id;
+            var storageKey = "avatar-history-index-v7:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
