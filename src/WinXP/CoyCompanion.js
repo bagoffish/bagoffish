@@ -287,12 +287,17 @@ export default function CoyCompanion() {
     // app windows on mobile (where windows fill the usable screen).
     const syncMobileAppVisibility = () => {
       const isMobile = window.matchMedia("(max-width: 700px)").matches;
-      const hasOpenApp = openAppsRef.current.length > 0 ||
-        Array.from(document.querySelectorAll(".app__header"))
-          .some(header => header.getClientRects().length > 0 &&
-            getComputedStyle(header).display !== "none" &&
-            getComputedStyle(header.closest('[class]') || header).display !== "none");
-      setUnderAppWindows((isMobile && hasOpenApp) || (!isMobile && fullTabActiveRef.current));
+      const visibleAppHeader = Array.from(document.querySelectorAll(".app__header"))
+        .some(header => {
+          const rect = header.getBoundingClientRect();
+          const style = getComputedStyle(header);
+          return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+        });
+      const fullscreenSurface = Boolean(document.fullscreenElement) ||
+        document.body.classList.contains("app-fullscreen") ||
+        document.body.classList.contains("fullscreen");
+      const hasOpenApp = openAppsRef.current.length > 0 || visibleAppHeader;
+      setUnderAppWindows((isMobile && hasOpenApp) || (!isMobile && (fullTabActiveRef.current || fullscreenSurface)));
     };
     const onActivity = event => {
       const detail = event.detail || {};
@@ -495,7 +500,7 @@ export default function CoyCompanion() {
       position: "fixed",
       left: position.left,
       top: position.top,
-      zIndex: underAppWindows ? 0 : 9999,
+      zIndex: chatOpen ? 10001 : underAppWindows ? 0 : 4,
       pointerEvents: "none",
       userSelect: "none",
       touchAction: "none"
