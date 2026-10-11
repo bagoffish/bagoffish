@@ -1094,10 +1094,20 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
   }
 
   // Wayback's im_ modifier can fail for old captures. Try the exact URL first,
-  // then the same capture without im_ before giving up.
+  // then the same capture without the modifier.
   const candidates = [parsed.toString()];
-  const replayMatch = parsed.toString().match(/^(https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14})im_(\\/.*)$/i);
-  if (replayMatch) candidates.push(replayMatch[1] + replayMatch[2]);
+  if (parsed.hostname.toLowerCase() === "web.archive.org") {
+    const replayPath = parsed.pathname;
+    const marker = replayPath.indexOf("im_");
+    if (marker >= 0 && replayPath.startsWith("/web/")) {
+      const timestamp = replayPath.slice(5, marker);
+      const isDigits = timestamp.length >= 8 && timestamp.length <= 14 &&
+        [...timestamp].every((character) => character >= "0" && character <= "9");
+      if (isDigits) {
+        candidates.push(parsed.origin + replayPath.slice(0, marker) + replayPath.slice(marker + 3) + parsed.search);
+      }
+    }
+  }
 
   for (const candidate of candidates) {
     try {
