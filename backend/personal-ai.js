@@ -919,6 +919,7 @@ router.post("/chat", rateLimit, async (req, res) => {
 
 // Voice sample for calls. Stored on disk; used by /speak if a TTS key is set.
 const VOICE_SAMPLE_PATH = process.env.VOICE_SAMPLE_PATH || path.join(process.env.DATA_ROOT || "/tmp/winxp-data", "coy-voice-sample.webm");
+// Set VOICE_SAMPLE_PATH to a persistent disk path on Render so the sample survives restarts.
 const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY || "";
 const FISH_API_KEY = process.env.FISH_API_KEY || "";
 const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
@@ -981,7 +982,7 @@ router.post("/speak", async (req, res) => {
         },
         body: JSON.stringify({
           text,
-          references: [{ audio: sample.toString("base64"), text: "" }],
+          references: [{ audio: sample.toString("base64"), text: "This is my voice." }],
           format: "mp3",
         }),
       });
