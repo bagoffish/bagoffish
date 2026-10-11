@@ -835,12 +835,7 @@ async function saveRendererRecord(record, png) {
   }
 
   const id = String(record.id);
-
-  // Current avatar images are not stored as the active renderer image.
-  // When Roblox changes the thumbnail, archive the previous render instead.
-  if (png && png.length) {
-    const hash = crypto.createHash("sha256").update(png).digest("hex");
-    const json = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
+  const json = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
   record._jsonSha = await rendererGhPut(
     `users/${id}.json`,
     json,
