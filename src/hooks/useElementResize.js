@@ -225,7 +225,7 @@ function useElementResize(ref, options) {
         shouldCover = true;
         return onDragStart(e);
       }
-      if (e.target !== target || !resizable) return;
+      if (!cursorPos || !resizable) return;
       switch (cursorPos) {
         case 'topLeft':
           _boundary.right = originMouseX + previousSize.width - constraintSize;
@@ -309,88 +309,90 @@ function useCursor(ref, threshold, resizable) {
   const [position, setPosition] = useState('');
   useEffect(() => {
     const target = ref.current;
-    if (!target || !resizable) return;
-    const cover = document.createElement('div');
-    cover.style.position = 'fixed';
-    cover.style.top = 0;
-    cover.style.left = 0;
-    cover.style.right = 0;
-    cover.style.bottom = 0;
-    let lock = false;
-    function _setPosition(p) {
-      setPosition(p);
-      const style = getCursorStyle(p);
-      // The XP shell applies !important cursor rules globally, so ordinary
-      // inline assignments lose the cascade and leave the resize cursor invisible.
-      target.style.setProperty('cursor', style, 'important');
-      cover.style.setProperty('cursor', style, 'important');
-      document.body.style.setProperty('--xp-resize-cursor', style);
-      document.body.style.setProperty('cursor', style, 'important');
-    }
-    function onMouseDown(e) {
-      if (e.target !== target) return;
-      onHover(e);
-      lock = true;
-      document.body.classList.add('xp-resizing');
-      document.body.appendChild(cover);
-      window.addEventListener('mouseup', onMouseUp);
-    }
-    function onMouseUp(e) {
-      lock = false;
+    if (!target || !resizable) return undefined;
+    let locked = false;
+
+    const clearResizeMode = () => {
       document.body.classList.remove('xp-resizing');
-      cover.remove();
       document.body.style.removeProperty('--xp-resize-cursor');
-      document.body.style.removeProperty('cursor');
-      target.style.removeProperty('cursor');
-      window.removeEventListener('mouseup', onMouseUp);
-    }
-    function onHoverEnd(e) {
-      if (lock) return;
-      _setPosition('');
-    }
-    function onHover(e) {
-      if (lock) return;
-      if (e.target !== target) return _setPosition('');
-      const { offsetX, offsetY } = e;
-      const { width, height } = target.getBoundingClientRect();
-      if (offsetX < threshold) {
-        if (offsetY < threshold) {
-          _setPosition('topLeft');
-        } else if (height - offsetY < threshold) {
-          _setPosition('bottomLeft');
-        } else {
-          _setPosition('left');
-        }
-      } else if (offsetY < threshold) {
-        if (width - offsetX < threshold) {
-          _setPosition('topRight');
-        } else {
-          _setPosition('top');
-        }
-      } else if (width - offsetX < threshold) {
-        if (height - offsetY < threshold) _setPosition('bottomRight');
-        else _setPosition('right');
-      } else if (height - offsetY < threshold) {
-        _setPosition('bottom');
+      document.body.removeAttribute('data-xp-resize');
+    };
+    const setResizeMode = next => {
+      const style = getCursorStyle(next);
+      setPosition(next);
+      if (next) {
+        document.body.setAttribute('data-xp-resize', next);
+        document.body.style.setProperty('--xp-resize-cursor', style);
       } else {
-        _setPosition('');
+        document.body.removeAttribute('data-xp-resize');
+        document.body.style.removeProperty('--xp-resize-cursor');
       }
+    };
+
+    // Use viewport coordinates and the window's bounding rectangle instead of
+    // offsetX/offsetY, which change when the pointer is over nested children.
+    function detectPosition(event) {
+      const rect = target.getBoundingClientRect();
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      const width = rect.width;
+      const height = rect.height;
+      if (x < 0 || y < 0 || x > width || y > height) return '';
+      const left = x <= threshold;
+      const right = width - x <= threshold;
+      const top = y <= threshold;
+      const bottom = height - y <= threshold;
+      if (top && left) return 'topLeft';
+      if (top && right) return 'topRight';
+      if (bottom && left) return 'bottomLeft';
+      if (bottom && right) return 'bottomRight';
+      if (left) return 'left';
+      if (right) return 'right';
+      if (top) return 'top';
+      if (bottom) return 'bottom';
+      return '';
     }
-    target.addEventListener('mouseleave', onHoverEnd);
-    target.addEventListener('mousemove', onHover);
+
+    function onMouseMove(event) {
+      if (locked) return;
+      setResizeMode(detectPosition(event));
+    }
+    function onMouseDown(event) {
+      if (locked) return;
+      const next = detectPosition(event);
+      if (!next) return;
+      locked = true;
+      setResizeMode(next);
+      document.body.classList.add('xp-resizing');
+      window.addEventListener('mouseup', onMouseUp, true);
+      window.addEventListener('blur', onMouseUp);
+    }
+    function onMouseUp() {
+      if (!locked) return;
+      locked = false;
+      clearResizeMode();
+      setPosition('');
+      window.removeEventListener('mouseup', onMouseUp, true);
+      window.removeEventListener('blur', onMouseUp);
+    }
+    function onMouseLeave() {
+      if (!locked) setResizeMode('');
+    }
+
+    target.addEventListener('mousemove', onMouseMove);
+    target.addEventListener('mouseleave', onMouseLeave);
     target.addEventListener('mousedown', onMouseDown);
     return () => {
-      cover.remove();
-      target.removeEventListener('mouseleave', onHoverEnd);
-      target.removeEventListener('mousemove', onHover);
+      target.removeEventListener('mousemove', onMouseMove);
+      target.removeEventListener('mouseleave', onMouseLeave);
       target.removeEventListener('mousedown', onMouseDown);
-      window.removeEventListener('mouseup', onMouseUp);
+      window.removeEventListener('mouseup', onMouseUp, true);
+      window.removeEventListener('blur', onMouseUp);
+      clearResizeMode();
     };
-    // eslint-disable-next-line
-  }, []);
+  }, [ref, threshold, resizable]);
   return position;
 }
-
 function getComputedPagePosition(e, boundary) {
   let { pageX, pageY } = e;
   if (!boundary) return { pageX, pageY };
