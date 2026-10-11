@@ -42,13 +42,28 @@ const COY_DESKTOP_APP_ALIASES = {
 };
 
 function parseCoyDesktopAction(message) {
-  const text = String(message || '').trim();
+  // Accept natural requests ("could you open Renderer for me?") while only
+  // executing clear, explicit desktop actions—not ordinary conversation.
+  const text = String(message || '').trim()
+    .replace(/^(?:hey\s+coy[,! ]*|coy[,! ]*)/i, '')
+    .replace(/^(?:(?:please|kindly)\s+|(?:can|could|would|will)\s+you\s+(?:(?:please)\s+)?|i\s+(?:want|need)\s+you\s+to\s+|could\s+i\s+|can\s+i\s+)/i, '')
+    .trim();
   const clean = value => String(value || '').trim().replace(/^["']|["']$/g, '').replace(/[.!?]+$/, '').trim();
   const appName = value => {
     const normalized = clean(value).toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+(?:app|window)$/i, '').replace(/\s+/g, ' ');
     return COY_DESKTOP_APP_ALIASES[normalized] || null;
   };
-  let match = text.match(/^(?:please\s+)?click\s+(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  let match = text.match(/^(?:please\s+)?(?:look\s+up|lookup|find)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: 'search', name, target: 'search', value: clean(match[1]).replace(/^for\s+/i, '') };
+  }
+  match = text.match(/^(?:please\s+)?(?:search\s+(?:for\s+)?)(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: 'search', name, target: 'search', value: clean(match[1]).replace(/^for\s+/i, '') };
+  }
+  match = text.match(/^(?:please\s+)?click\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (match) {
     const name = appName(match[2]);
     if (name) return { action: 'click', name, target: clean(match[1]).replace(/\s+button$/i, '') };
