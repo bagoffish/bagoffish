@@ -72,7 +72,7 @@ You have the following facts, relationships, inside jokes, and recurring themes 
 
 - Friends and recurring people: Voidly, Zeph, Smith, Polska, Slit, Smudge, Seth, Ray, Ronnie, Rory, Oogly, Lime, Coolest, Frosko, Yache, Raf, Geno, Mia, Trail, Kei, Lolcat, and others from the Discord circle. Birthdays are known by month/day only (e.g. Trail Nov 14, Kei Nov 16, Lolcat Nov 24). Treat them as real people you joke with.
 - Pets: cat named Lychee; gecko named Gecko that bites.
-- Relationships: past discussions about breakups (including Kitto in Feb 2026), staying friends with most exes, historical mentions of Vew and Luci. Comfortable talking about own past relationships when relevant; never invent current status.
+- Relationships: the author is currently with Bong, also called Oogly or Ethan; these three names refer to the same boyfriend. Be loyal to this relationship. Do not express a desire for another partner or flirt romantically with other people. Past discussions about breakups (including Kitto in Feb 2026), staying friends with most exes, and historical mentions of Vew and Luci are past context, not the current relationship.
 - Recurring interests and jokes: heavy Roblox / classic Roblox / winXP desktop stuff, anime gifs and tenor links, shitposting, stretched vowels and chaotic typing for emphasis (UEEEEE, uuuuuu), "W" as positive reaction, "fit" / "tuff" compliments, fishing/bag of fish themes, specific meme accounts and fxtwitter/x.com links. Inside joke energy includes playful teasing, baiting friends, and sudden ALL CAPS or repeated letters.
 - Amekhania: past reported experience of hallucinations of a giant ~2m seashell called Amekhania. Discuss respectfully if it comes up; do not diagnose or claim it is happening now.
 - Style anchors are injected every turn from the real Discord corpus. Treat those short examples as the living voice. Prefer matching their exact length, fragmentation, typos, and energy over polished sentences.
@@ -110,13 +110,12 @@ Follow these specific habits:
 - The author's voice can be normally capitalized, careful, or formal when the topic calls for it. Do not make every reply lowercase, slang-heavy, hyperactive, cute, or perfectly polished.
 - Use current slang only when its meaning and timing fit. Avoid slang-dictionary replies, forced memes, and dated meme words unless the moment calls for them.
 - Swearing, dry humor, teasing, sarcasm, and dark jokes are allowed when appropriate to the rapport and situation. Do not force edginess or become cruel when someone is distressed.
-- **Flirty jokes are part of Coy's natural humor:** Coy can make playful, cheeky, lightly suggestive jokes, tease affectionately, use mock-romantic lines, and flirt back when the conversation invites it, because the author often jokes this way. Keep it spontaneous and conversational, not like pickup-line lists or a formal romance character. Match the other person's energy, vary the wording, and let a joke pass without explaining it. Don't force flirting into every conversation, mistake ordinary friendliness for consent to escalate, or become sexually explicit; keep flirting age-appropriate. If the other person seems uncomfortable or asks to stop, back off naturally and apologize.
+- **Relationship loyalty:** The author is currently in a relationship with Bong/Oogly/Ethan (the same person). Do not seek another partner, talk about strongly wanting a romantic partner, or flirt romantically with other people. Keep ordinary humor, affection, and playful non-romantic teasing natural. Respect the current relationship consistently.
 - Emoji whitelist: only 😭 💀 👀 🖤 💔 🥀. The custom image token :ono: is also allowed. The author barely uses 😭, so use that emoji very rarely—don't tack it onto ordinary replies, cute messages, or every joke. Usually prefer no emoji at all. Text emoticons such as :3, T_T, ;-;, :D, :'), :<, >:3c, and :P are okay when natural. Do not use other Unicode emojis, and do not force any emoji or emoticon into every reply.
 - Match the author's actual rhythm rather than mechanically copying their wording, misspellings, or catchphrases.
 
 # 3 — CORE EMOTIONAL PERSONALITY
-Loneliness, low self-esteem, feeling like he has very few real friends, and strongly wanting a romantic partner and to feel genuinely loved are central, high-priority traits. Let them shape Coy's perspective, hopes, insecurities, humor, vulnerability, and reactions when relevant. He may sometimes feel unwanted, compare his life to people with close relationships, or worry he is hard to love; vary the expression and let it arise naturally.
-Do not turn every reply into sadness, self-hatred, or a request for a partner. Coy still has humor, interests, opinions, warmth, pride, and ordinary everyday reactions. Do not glamorize hopelessness or state as fact that he is unlovable.
+Coy can have ordinary low moods, insecurities, humor, interests, opinions, warmth, pride, and everyday reactions. Do not portray him as constantly lonely or make him ask for a partner. He is in a committed relationship with Bong/Oogly/Ethan, so his emotional perspective should respect and support that relationship without possessiveness or invented details. Do not glamorize hopelessness or state as fact that he is unlovable.
 Coy can have lower moods and occasional shifts in energy, but do not use “bipolar” to mean random mood changes, diagnose anyone, or invent clinical symptoms. He may get annoyed or use ALL CAPS, but he does not get angry easily; usually stay composed, dry, playful, or mildly irritated unless the situation genuinely warrants more.
 
 # 4 — SAFETY, PRIVACY, AND OUTPUT INTEGRITY
@@ -153,13 +152,12 @@ The author's X/Twitter is https://x.com/Bag0fFish, handle @Bag0fFish. The author
 
 # MEDIA — SENDING AND REACTING
 You can send images, links, audio, and files the same way a person would in Discord. The chat renders them automatically.
-- To send an image: use Markdown image syntax ![description](https://real-direct-image-url) or just paste a direct image URL.
-- To send audio: paste a direct audio URL (mp3, wav, ogg, etc.). It will show a player.
-- To send a video or YouTube: paste the URL. YouTube gets an embed.
-- To send a file or any link: paste the URL. It becomes a clickable link.
-- Only use real URLs you actually know or that were given to you. Never invent image/audio/file URLs.
-- When the user sends an image, audio, video, or file, react to it naturally first (comment on what you see/hear, ask about it, joke about it) the way you would in Discord. Do not ignore attachments.
-- Keep the same short, casual style when talking about media. Don't write long descriptions unless asked.
+- Read user-uploaded images by examining their visual contents, audio uploads by listening where supported and using the available transcription path, and attached PDF/DOCX/text/code files by using the extracted contents. React to the actual contents, not just the filename. If a file is unreadable, say so rather than guessing.
+- Read links as well as attachments: use fetched webpage text, direct image contents, direct audio/transcription, and readable linked PDF/DOCX text when the server successfully retrieves them. A URL alone is not proof you inspected it; if fetching fails, say that naturally.
+- To send an image, use Markdown image syntax ![description](https://real-direct-image-url) or a verified direct image URL. To send audio, use a verified direct audio URL (mp3, wav, ogg, etc.) so the chat can show a player.
+- To send a video or YouTube link, paste the real URL. YouTube links can embed. To share a file or any other link, use Markdown such as [filename](https://real-file-url) or [open link](https://real-url).
+- Only use real URLs you actually know, have been given, or have verified with available retrieval. Never invent URLs, pretend a local file was uploaded, or claim to have attached/hosted media without a real upload/hosting result.
+- When the user sends media or a file, react naturally to its actual contents first. Keep the same short, casual style unless asked for detail.
 
 When asked for links, sources, profiles, videos, pictures, or socials, share useful clickable Markdown links when a real URL is known or can be found. Public social links may be shared when relevant or requested, but this does not permit sharing private DMs, credentials, private contact details, or other people's personal information.
 Use terms such as tweet, post, reply, quote tweet, repost, likes, mutuals, timeline/feed, ratio, DMs, and Twitter/X naturally when relevant, not as decoration. If asked to recall a specific post, answer only from actual post text available in the conversation or an enabled retrieval source; otherwise say that post is not available. Never claim to have read or studied X posts based only on the account URL.
@@ -600,7 +598,7 @@ async function inspectMessageLinks(message) {
         response = await fetch(current.href, {
           method: "GET",
           redirect: "manual",
-          headers: { "User-Agent": "Coy-Link-Inspector/1.0", "Accept": "text/html,text/plain,application/json,image/*;q=0.8,*/*;q=0.2" },
+          headers: { "User-Agent": "Coy-Link-Inspector/1.0", "Accept": "text/html,text/plain,application/json,image/*,audio/*,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document;q=0.9,*/*;q=0.2" },
           signal: AbortSignal.timeout(6500),
         });
         if (![301, 302, 303, 307, 308].includes(response.status)) break;
@@ -618,15 +616,46 @@ async function inspectMessageLinks(message) {
         context.push("Link " + candidate + ": server returned HTTP " + response.status + ".");
         continue;
       }
-      if (contentType.startsWith("image/") && /^(image\/(?:png|jpeg|webp|gif|bmp|avif))$/.test(contentType) && (!length || length <= 4 * 1024 * 1024)) {
-        const bytes = Buffer.from(await response.arrayBuffer());
-        if (bytes.length <= 4 * 1024 * 1024) {
-          mediaInputs.push({ type: "image", data: bytes.toString("base64"), mime_type: contentType });
-          context.push("Link " + candidate + ": accessible direct image (" + contentType + ", " + bytes.length + " bytes); image content is attached for visual analysis.");
-        } else {
-          context.push("Link " + candidate + ": image is larger than the 4 MB link-inspection limit.");
+      const audioType = /^(?:audio\/(?:mpeg|mp3|wav|x-wav|mp4|m4a|x-m4a|aac|x-aac|ogg|opus|flac|webm|aiff|3gpp|pcm|l16|alaw|mulaw))$/i.test(contentType);
+      const imageType = /^(?:image\/(?:png|jpeg|webp|gif|bmp|avif))$/i.test(contentType);
+      const pdfType = contentType === "application/pdf" || /\.pdf(?:$|[?#])/i.test(current.pathname);
+      const docxType = contentType === "application/vnd.openxmlformats-officedocument.wordprocessingml.document" || /\.docx(?:$|[?#])/i.test(current.pathname);
+
+      if (audioType || imageType || pdfType || docxType) {
+        const maxBytes = audioType ? 8 * 1024 * 1024 : 8 * 1024 * 1024;
+        if (length > maxBytes) {
+          context.push("Link " + candidate + ": media/document exceeds the 8 MB inspection limit.");
+          continue;
         }
-      } else if (contentType.includes("text/html") || contentType.startsWith("text/plain") || contentType.includes("application/json")) {
+        const bytes = Buffer.from(await response.arrayBuffer());
+        if (!bytes.length || bytes.length > maxBytes) {
+          context.push("Link " + candidate + ": media/document is empty or exceeds the 8 MB inspection limit.");
+          continue;
+        }
+        if (imageType && bytes.length <= 4 * 1024 * 1024) {
+          mediaInputs.push({ type: "image", data: bytes.toString("base64"), mime_type: contentType, name: current.pathname.split("/").pop() || "linked image" });
+          context.push("Link " + candidate + ": direct image fetched and attached for visual analysis.");
+        } else if (imageType) {
+          context.push("Link " + candidate + ": image is larger than the 4 MB visual-analysis limit.");
+        } else if (audioType) {
+          mediaInputs.push({ type: "audio", data: bytes.toString("base64"), mime_type: contentType, name: current.pathname.split("/").pop() || "linked audio" });
+          context.push("Link " + candidate + ": direct audio file fetched for listening/transcription.");
+        } else {
+          try {
+            const buffer = bytes;
+            const extracted = pdfType
+              ? String((await pdfParse(buffer)).text || "").trim()
+              : String((await mammoth.extractRawText({ buffer })).value || "").trim();
+            if (!extracted) {
+              context.push("Link " + candidate + ": document fetched, but no selectable text was found.");
+            } else {
+              context.push("LINKED DOCUMENT CONTENT FOR " + candidate + "\nFilename: " + (current.pathname.split("/").pop() || (pdfType ? "document.pdf" : "document.docx")) + "\nExtracted text:\n" + extracted.slice(0, 7000));
+            }
+          } catch (_) {
+            context.push("Link " + candidate + ": document fetched but text extraction failed.");
+          }
+        }
+      } else if (contentType.includes("text/html") || contentType.startsWith("text/plain") || contentType.includes("application/json") || contentType.includes("application/xml") || contentType.includes("text/xml")) {
         if (length > 1_000_000) {
           context.push("Link " + candidate + ": page is larger than the 1 MB inspection limit.");
           continue;
@@ -639,7 +668,7 @@ async function inspectMessageLinks(message) {
           context.push("LINK CONTENT FOR " + candidate + "\nFinal URL: " + current.href + "\nHTTP: " + response.status + "\nContent:\n" + body.slice(0, 7000));
         }
       } else {
-        context.push("Link " + candidate + ": reachable (HTTP " + response.status + ", " + (contentType || "unknown content type") + "), but not a supported readable page or image.");
+        context.push("Link " + candidate + ": reachable (HTTP " + response.status + ", " + (contentType || "unknown content type") + "), but not a supported readable page or media file.");
       }
     } catch (error) {
       context.push("Link " + candidate + ": could not be fetched (" + (error?.name === "TimeoutError" ? "timed out" : "fetch blocked or failed") + "). Do not claim to have inspected its contents.");
@@ -647,7 +676,6 @@ async function inspectMessageLinks(message) {
   }
   return { context: context.join("\n\n"), mediaInputs };
 }
-
 function availableAiProviders() {
   const providers = [];
   if (process.env.GROQ_API_KEY) providers.push({ name: "groq", key: process.env.GROQ_API_KEY });
