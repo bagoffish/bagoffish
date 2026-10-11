@@ -42,14 +42,14 @@ const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part
 
 
 function renderCoyLine(value) {
-  const lines = String(value ?? "").split("\\n");
+  const lines = String(value ?? "").split("\n");
   return lines.map((line, index) => {
-    const heading = line.match(/^#\\s+(.+)$/);
+    const heading = line.match(/^#\s+(.+)$/);
     return <React.Fragment key={index}>
       {heading
         ? <span style={{ fontSize: "1.6em", fontWeight: "bold" }}>{renderCoyEmoji(heading[1])}</span>
         : renderCoyEmoji(line)}
-      {index < lines.length - 1 ? "\\n" : ""}
+      {index < lines.length - 1 ? "\n" : ""}
     </React.Fragment>;
   });
 }
