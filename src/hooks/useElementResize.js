@@ -382,12 +382,16 @@ function useCursor(ref, threshold, resizable) {
     // Capture events at the window so nested app content cannot hide the edge.
     const onPointerMove = event => {
       if (resizing) return;
+      if (!target.contains(event.target)) {
+        setEdge('');
+        return;
+      }
       const edge = detectEdge(event);
       setEdge(edge);
     };
 
     const onPointerDown = event => {
-      if (event.button !== 0 || resizing) return;
+      if (event.button !== 0 || resizing || !target.contains(event.target)) return;
       const edge = detectEdge(event);
       if (!edge) return;
       resizing = true;
