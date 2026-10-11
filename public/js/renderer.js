@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v13";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v14";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -115,7 +115,7 @@
             '<div class="info-box">' +
               '<div class="avatar-container">' +
                 '<a href="https://www.roblox.com/users/' + encodeURIComponent(text(roblox.id)) + '/profile" target="_blank" rel="noopener noreferrer">' +
-                  '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async">' +
+                  '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async" style="width:120px;height:120px;object-fit:cover;background:#fff;">' +
                 '</a>' +
               '</div>' +
               '<div id="terminationLine">' + terminated + '</div>' +
@@ -129,7 +129,7 @@
               '<div class="info-line"><b>Joined:</b> ' + escapeHtml(roblox.joinDate || "Unknown") + '</div>' +
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
-              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(104px,1fr));grid-auto-flow:row;gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
+              '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row;gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
