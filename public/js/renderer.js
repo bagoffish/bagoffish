@@ -5,7 +5,6 @@
   var RENDERER_SCRIPT_VERSION = "20261011-wayback-avatars";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
-  var ARCHIVE_SHARDS = 128;
 
   function text(value) {
     return value == null ? "" : String(value);
@@ -172,36 +171,11 @@
 
           // Restore the original saved historical-render index. Wayback API discovery
           // supplements these records; it must never replace the saved history files.
-          function fetchSavedArchivedAvatars(userId) {
-            var id = text(userId).trim();
-            if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var shard = Number(id) % ARCHIVE_SHARDS;
-            return fetch("/avatar-history/s" + shard + ".txt?v=20261011-restore-saved-history", {
-              cache: "no-store"
-            }).then(function (response) {
-              if (!response.ok) return "";
-              return response.text();
-            }).then(function (body) {
-              if (!body) return [];
-              var lines = body.split("\n");
-              var prefix = id + "\t";
-              var archived = [];
-              var seen = Object.create(null);
-              lines.forEach(function (line) {
-                if (line.indexOf(prefix) !== 0) return;
-                var parts = line.split("\t");
-                for (var p = 1; p + 1 < parts.length; p += 2) {
-                  var url = waybackImage(parts[p], parts[p + 1]);
-                  if (!url || seen[url]) continue;
-                  seen[url] = true;
-                  archived.push({ url: url, timestamp: parts[p] });
-                }
-              });
-              archived.sort(function (a, b) {
-                return text(a.timestamp).localeCompare(text(b.timestamp));
-              });
-              return archived;
-            }).catch(function () { return []; });
+          // The saved /avatar-history shard files are not present in this deployment.
+          // Avoid issuing guaranteed 404 requests; the backend Wayback discovery below
+          // remains active until the original saved shards can be restored.
+          function fetchSavedArchivedAvatars() {
+            return Promise.resolve([]);
           }
 
           function normalizeArchivedItem(item) {
