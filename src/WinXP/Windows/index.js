@@ -113,6 +113,8 @@ const Window = memo(function({
     <div
       className={className}
       ref={ref}
+      data-app-title={header.title}
+      data-app-window-id={id}
       onMouseDown={_onMouseDown}
       style={{
         transform: `translate(${x}px,${y}px)`,
