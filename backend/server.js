@@ -1065,28 +1065,70 @@ app.get("/proxy-roblox-details", async (req, res) => {
   }
 });
 
+const archivedAvatarCache = new Map();
+const ARCHIVED_AVATAR_CACHE_LIMIT = 300;
+
 app.get("/proxy-roblox-avatar", async (req, res) => {
   setCors(req, res);
-  const source = String(req.query.url || "");
+  const source = String(req.query.url || "").trim();
   if (!source) return res.status(400).end();
+
   let parsed;
   try { parsed = new URL(source); } catch { return res.status(400).end(); }
   if (!["http:", "https:"].includes(parsed.protocol)) return res.status(400).end();
-  try {
-    const upstream = await fetch(parsed.toString(), { headers: { "User-Agent": "WinXP Renderer/1.0" } });
-    if (!upstream.ok || !upstream.body) return res.status(upstream.status || 502).end();
-    let ct = (upstream.headers.get("content-type") || "image/png").toLowerCase();
-    if (ct.includes("png")) ct = "image/png";
-    else if (ct.includes("jpeg") || ct.includes("jpg")) ct = "image/jpeg";
-    else if (ct.includes("gif")) ct = "image/gif";
-    else if (ct.includes("webp")) ct = "image/webp";
-    res.setHeader("Content-Type", ct);
-    res.setHeader("Cache-Control", "public, max-age=3600");
-    const buf = Buffer.from(await upstream.arrayBuffer());
-    res.send(buf);
-  } catch (err) {
-    res.status(502).end();
+
+  // Only proxy expected Roblox/Wayback image hosts, not arbitrary URLs.
+  const host = parsed.hostname.toLowerCase();
+  const allowed = host === "web.archive.org" ||
+    host === "wayback.archive-it.org" ||
+    host === "roblox.com" || host.endsWith(".roblox.com") ||
+    host === "rbxcdn.com" || host.endsWith(".rbxcdn.com");
+  if (!allowed) return res.status(400).end();
+
+  const cacheKey = parsed.toString();
+  const cached = archivedAvatarCache.get(cacheKey);
+  if (cached) {
+    res.setHeader("Content-Type", cached.type);
+    res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+    return res.send(cached.body);
   }
+
+  // Wayback's im_ modifier can fail for old captures. Try the exact URL first,
+  // then the same capture without im_ before giving up.
+  const candidates = [parsed.toString()];
+  const replayMatch = parsed.toString().match(/^(https?:\\/\\/web\\.archive\\.org\\/web\\/\\d{8,14})im_(\\/.*)$/i);
+  if (replayMatch) candidates.push(replayMatch[1] + replayMatch[2]);
+
+  for (const candidate of candidates) {
+    try {
+      const upstream = await fetchWithTimeout(candidate, {
+        headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+      }, 12000);
+      if (!upstream.ok || !upstream.body) continue;
+
+      const type = (upstream.headers.get("content-type") || "").toLowerCase();
+      if (!type.startsWith("image/")) continue;
+      const body = Buffer.from(await upstream.arrayBuffer());
+      if (!body.length) continue;
+      const normalizedType = type.includes("png") ? "image/png" :
+        (type.includes("jpeg") || type.includes("jpg")) ? "image/jpeg" :
+        type.includes("gif") ? "image/gif" :
+        type.includes("webp") ? "image/webp" : type.split(";")[0];
+
+      archivedAvatarCache.set(cacheKey, { body, type: normalizedType });
+      if (archivedAvatarCache.size > ARCHIVED_AVATAR_CACHE_LIMIT) {
+        archivedAvatarCache.delete(archivedAvatarCache.keys().next().value);
+      }
+      res.setHeader("Content-Type", normalizedType);
+      res.setHeader("Cache-Control", "public, max-age=86400, stale-while-revalidate=604800");
+      return res.send(body);
+    } catch (_) {
+      // Try the alternate Wayback replay URL, if available.
+    }
+  }
+
+  // Do not cache failures; a later request may succeed when the archive recovers.
+  return res.status(404).end();
 });
 
 
