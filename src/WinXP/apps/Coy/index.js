@@ -614,7 +614,8 @@ export default function CoyChat({ initialImage }) {
         }
       }
     } catch (_) {}
-    // Fallback: browser TTS with a more robotic/Vocaloid-ish pitch and rate.
+    // Always keep a usable no-key fallback. Prefer a natural English voice with a
+    // softer, youthful delivery instead of accidentally choosing a female voice.
     return new Promise(resolve => {
       if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') {
         resolve();
@@ -622,11 +623,16 @@ export default function CoyChat({ initialImage }) {
       }
       window.speechSynthesis.cancel();
       const utterance = new window.SpeechSynthesisUtterance(String(text).slice(0, 4000));
-      utterance.rate = 1.15;
-      utterance.pitch = 1.35;
+      utterance.rate = 1.04;
+      utterance.pitch = 1.02;
       const voices = window.speechSynthesis.getVoices();
-      const robotic = voices.find(v => /google|samantha|alex|daniel/i.test(v.name)) || voices[0];
-      if (robotic) utterance.voice = robotic;
+      const englishVoices = voices.filter(v => /^en(?:-|$)/i.test(v.lang));
+      const preferred = englishVoices.find(v => /\b(?:alex|daniel|david|fred|tom|guy|aaron|google us english|microsoft david)\b/i.test(v.name))
+        || englishVoices.find(v => /male|natural/i.test(v.name))
+        || englishVoices.find(v => /en-us/i.test(v.lang))
+        || englishVoices[0]
+        || voices[0];
+      if (preferred) utterance.voice = preferred;
       utterance.onend = resolve;
       utterance.onerror = resolve;
       window.speechSynthesis.speak(utterance);
