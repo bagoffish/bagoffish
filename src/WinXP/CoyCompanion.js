@@ -37,9 +37,22 @@ function writeCompanionChatCookie(messages) {
   } catch (_) {}
 }
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
-  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.2em", height: "1.2em", objectFit: "contain", verticalAlign: "-0.25em", display: "inline-block" }} />
+  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
   : part);
 
+
+function renderCoyLine(value) {
+  const lines = String(value ?? "").split("\\n");
+  return lines.map((line, index) => {
+    const heading = line.match(/^#\\s+(.+)$/);
+    return <React.Fragment key={index}>
+      {heading
+        ? <span style={{ fontSize: "1.6em", fontWeight: "bold" }}>{renderCoyEmoji(heading[1])}</span>
+        : renderCoyEmoji(line)}
+      {index < lines.length - 1 ? "\\n" : ""}
+    </React.Fragment>;
+  });
+}
 
 const formatCoyText = value => {
   const text = String(value ?? "").trim();
@@ -580,7 +593,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <div style={styles.bubble}>
-            {renderCoyEmoji(line)}
+            {renderCoyLine(line)}
             <div style={styles.tail} />
             <div style={styles.tailInner} />
           </div>
