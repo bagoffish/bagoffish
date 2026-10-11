@@ -1052,17 +1052,20 @@ router.post("/speak", async (req, res) => {
       const response = await fetch(scottCeraUrl, {
         method: "POST",
         headers,
-        body: JSON.stringify({ text }),
-        signal: AbortSignal.timeout(90000),
+        body: JSON.stringify(/api\\.runpod\\.ai\\/v2\\/[^/]+\\/runsync/.test(scottCeraUrl)
+          ? { input: { text } }
+          : { text }),
+        signal: AbortSignal.timeout(120000),
       });
       if (response.ok) {
         const contentType = response.headers.get("content-type") || "audio/mpeg";
         if (contentType.includes("application/json")) {
           const data = await response.json();
-          const encoded = data.audio || data.audio_base64;
+          const workerOutput = data.output && typeof data.output === "object" ? data.output : data;
+          const encoded = workerOutput.audio || workerOutput.audio_base64;
           if (typeof encoded === "string" && encoded) {
             const audio = Buffer.from(encoded.replace(/^data:audio\/[^;]+;base64,/, ""), "base64");
-            res.setHeader("Content-Type", data.content_type || "audio/mpeg");
+            res.setHeader("Content-Type", workerOutput.content_type || "audio/mpeg");
             res.setHeader("Cache-Control", "no-store");
             return res.send(audio);
           }
