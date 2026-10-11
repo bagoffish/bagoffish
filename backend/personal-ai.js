@@ -1002,6 +1002,7 @@ function isKorean(text) {
 router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
+  console.info("speak: key set=" + !!GRADIUM_API_KEY + " voice=" + (process.env.GRADIUM_VOICE_ID || "default"));
 
   // Gradium has no Korean. Signal the frontend to use a Korean browser voice.
   if (isKorean(text)) {
