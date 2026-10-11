@@ -173,18 +173,32 @@
           // consistently across browsers, including browsers without DecompressionStream.
           // Use the backend proxy because GitHub Release assets do not allow browser CORS.
           // The backend caches and decompresses each shard so repeat lookups are faster.
+          // Use the backend proxy because GitHub Release assets do not allow browser CORS.
+          // Cache each user's immutable release-index results locally for instant repeat lookups.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
+            var storageKey = "avatar-history-index-v2:" + id;
+            try {
+              var cached = window.localStorage.getItem(storageKey);
+              if (cached) {
+                var cachedItems = JSON.parse(cached);
+                if (Array.isArray(cachedItems) && cachedItems.length) return Promise.resolve(cachedItems);
+              }
+            } catch (_) {}
             return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
               headers: { Accept: "application/json" },
               cache: "force-cache"
             }).then(function (response) {
-              if (!response.ok) throw new Error("Avatar history proxy HTTP " + response.status);
+              if (!response.ok) return { images: [] };
               return response.json();
             }).then(function (payload) {
-              return Array.isArray(payload && payload.images) ? payload.images : [];
-            });
+              var images = Array.isArray(payload && payload.images) ? payload.images : [];
+              if (images.length) {
+                try { window.localStorage.setItem(storageKey, JSON.stringify(images)); } catch (_) {}
+              }
+              return images;
+            }).catch(function () { return []; });
           }
 
           function normalizeArchivedItem(item) {
