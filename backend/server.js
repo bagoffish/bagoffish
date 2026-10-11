@@ -33,18 +33,12 @@ const allowedOrigins = [
 ];
 
 function setCors(req, res) {
-  const origin = String(req.headers.origin || "");
-  if (allowedOrigins.includes(origin)) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Vary", "Origin");
-  } else if (!origin) {
-    // Non-browser/server-to-server requests do not need an ACAO header.
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "https://bagof.fish");
-    res.setHeader("Vary", "Origin");
-  }
+  // This API is intentionally public and does not use cookie-based auth.
+  // A wildcard avoids browser CORS failures even on JSON-parser errors, 404s,
+  // provider failures, and preflight requests—not only successful chat replies.
+  res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type, X-Requested-With");
+  res.setHeader("Access-Control-Allow-Headers", "Accept, Content-Type, X-Requested-With, Authorization");
   res.setHeader("Access-Control-Max-Age", "86400");
 }
 
