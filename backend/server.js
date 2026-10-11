@@ -57,12 +57,22 @@ app.use((req, res, next) => {
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    // Reflect bagof.fish / github.io even if the exact string differs slightly.
+    if (/^https:\/\/(www\.)?bagof\.fish$/i.test(origin) || /github\.io$/i.test(origin)) {
+      return callback(null, origin);
+    }
     return callback(null, false);
   },
   methods: ["GET", "POST", "DELETE", "OPTIONS"],
   allowedHeaders: ["Accept", "Content-Type", "X-Requested-With"],
   optionsSuccessStatus: 204,
 }));
+
+app.use((err, req, res, next) => {
+  setCors(req, res);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: "Internal error" });
+});
 
 app.use(express.json({ limit: "18mb" }));
 app.use("/personal-ai", personalAiRouter);
@@ -870,8 +880,12 @@ async function fetchRobloxProfile(username) {
   const userJson = await userRes.json();
   const id = userJson?.data?.[0]?.id;
   if (!id) return null;
-  const [profileRes, avatarRes] = await Promise.all([
+  const [profileRes, avatarRes, headshotRes] = await Promise.all([
     fetchWithTimeout(`https://users.roblox.com/v1/users/${id}`, { headers: ROBLOX_UA }),
+    fetchWithTimeout(
+      `https://thumbnails.roblox.com/v1/users/avatar?userIds=${id}&size=420x420&format=Png&isCircular=false`,
+      { headers: ROBLOX_UA }
+    ),
     fetchWithTimeout(
       `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${id}&size=180x180&format=Png`,
       { headers: ROBLOX_UA }
@@ -887,7 +901,7 @@ async function fetchRobloxProfile(username) {
     joinDate: profile.created
       ? new Date(profile.created).toUTCString().replace(" GMT", "")
       : "Unknown",
-    liveAvatarUrl: avatarResData?.data?.[0]?.imageUrl || "",
+    liveAvatarUrl: avatarResData?.data?.[0]?.imageUrl || (headshotRes && headshotRes.ok ? (await headshotRes.json())?.data?.[0]?.imageUrl : "") || "",
   };
 }
 
@@ -1011,7 +1025,7 @@ app.get("/proxy-roblox", async (req, res) => {
       console.warn("renderer cache write failed:", err.message);
     }
     res.setHeader("Cache-Control", "private, max-age=60");
-    res.json(rendererPayload(record, saved ? "" : profile.liveAvatarUrl));
+    res.json(rendererPayload(record, profile.liveAvatarUrl));
   } catch (err) {
     console.error("proxy-roblox error:", err);
     res.status(500).json({ error: "Internal error" });
@@ -1056,6 +1070,7 @@ app.get("/proxy-roblox-details", async (req, res) => {
 });
 
 app.get("/proxy-roblox-avatar", async (req, res) => {
+  setCors(req, res);
   const source = String(req.query.url || "");
   if (!source) return res.status(400).end();
   let parsed;

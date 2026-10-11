@@ -245,7 +245,11 @@
             oldContainer.appendChild(label);
             merged.forEach(function (item) {
               var img = document.createElement("img");
-              img.src = item.url;
+              var archivedSrc = item.url;
+              if (archivedSrc && archivedSrc.indexOf("/proxy-roblox-avatar") === -1) {
+                archivedSrc = API_BASE + "/proxy-roblox-avatar?url=" + encodeURIComponent(item.url);
+              }
+              img.src = archivedSrc;
               img.alt = "";
               img.loading = "eager";
               img.decoding = "async";
