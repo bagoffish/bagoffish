@@ -254,7 +254,17 @@ function WinXP() {
         const title = String(node.getAttribute('data-app-title') || '').toLowerCase().replace(/[_-]+/g, ' ');
         return title === appName || title.includes(appName) || appName.includes(title);
       });
-      if (!root) return;
+      if (!root) {
+        // If a request targets a closed app, open it and retry the explicit
+        // action once after React has mounted the app window.
+        if (!detail._openedForAction) {
+          window.dispatchEvent(new CustomEvent('coy:desktop-action', { detail: { action: 'open', name: detail.name } }));
+          window.setTimeout(() => window.dispatchEvent(new CustomEvent('coy:app-action', {
+            detail: { ...detail, _openedForAction: true },
+          })), 450);
+        }
+        return;
+      }
       const notifyInteraction = (message, eventName = action) => window.dispatchEvent(new CustomEvent('coy:activity', {
         detail: { type: 'app-event', name: detail.name || 'Desktop', event: eventName, message },
       }));
