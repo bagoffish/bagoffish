@@ -6,6 +6,7 @@ import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
 import crypto from "crypto";
+import { gunzipSync } from "zlib";
 import personalAiRouter from "./personal-ai.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -13,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-11-renderer-wayback-parallel";
+const BACKEND_VERSION = "2026-10-11-avatar-history-index-proxy";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -1092,6 +1093,70 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
 // Historical avatar renders via Wayback CDX (no pre-scraped files).
 const waybackCache = new Map();
 const WAYBACK_TTL = 6 * 60 * 60 * 1000;
+
+const AVATAR_HISTORY_RELEASE_BASE = process.env.AVATAR_HISTORY_RELEASE_BASE || "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
+const AVATAR_HISTORY_SHARD_COUNT = 256;
+const avatarHistoryShardCache = new Map();
+const AVATAR_HISTORY_SHARD_CACHE_LIMIT = 24;
+
+app.get("/proxy-roblox-history-index", async (req, res) => {
+  setCors(req, res);
+  const userId = String(req.query.userId || "").trim();
+  if (!/^\\d+$/.test(userId)) return res.status(400).json({ error: "User ID required" });
+
+  try {
+    const shardNumber = Number(BigInt(userId) % BigInt(AVATAR_HISTORY_SHARD_COUNT));
+    const shardName = `s${shardNumber}.txt.gz`;
+    let contents = avatarHistoryShardCache.get(shardName);
+
+    if (typeof contents !== "string") {
+      const shardUrl = `${AVATAR_HISTORY_RELEASE_BASE}/${shardName}`;
+      const response = await fetchWithTimeout(shardUrl, {
+        headers: { "User-Agent": "WinXP-Renderer/1.0", "Accept": "application/octet-stream" },
+      }, 20000);
+      if (!response.ok) {
+        return res.status(502).json({ error: "Avatar history shard download failed", status: response.status });
+      }
+
+      const compressed = Buffer.from(await response.arrayBuffer());
+      contents = gunzipSync(compressed).toString("utf8");
+      avatarHistoryShardCache.set(shardName, contents);
+      if (avatarHistoryShardCache.size > AVATAR_HISTORY_SHARD_CACHE_LIMIT) {
+        const oldestKey = avatarHistoryShardCache.keys().next().value;
+        if (oldestKey) avatarHistoryShardCache.delete(oldestKey);
+      }
+    } else {
+      // Refresh insertion order so frequently used shards remain cached.
+      avatarHistoryShardCache.delete(shardName);
+      avatarHistoryShardCache.set(shardName, contents);
+    }
+
+    const images = [];
+    for (const line of contents.split(/\\r?\\n/)) {
+      if (!line) continue;
+      const firstTab = line.indexOf("\\t");
+      if (firstTab < 0 || line.slice(0, firstTab) !== userId) continue;
+      const secondTab = line.indexOf("\\t", firstTab + 1);
+      if (secondTab < 0) continue;
+      const timestamp = line.slice(firstTab + 1, secondTab).trim();
+      const originalUrl = line.slice(secondTab + 1).trim();
+      if (!/^\\d{8,14}$/.test(timestamp)) continue;
+      if (!/^https?:\\/\\//i.test(originalUrl)) continue;
+      images.push({
+        url: `https://web.archive.org/web/${timestamp}im_/${originalUrl}`,
+        timestamp,
+        source: "avatar-history-index",
+      });
+    }
+
+    images.sort((a, b) => String(b.timestamp).localeCompare(String(a.timestamp)));
+    res.setHeader("Cache-Control", "public, max-age=300");
+    return res.json({ images, indexed: true, shard: shardName });
+  } catch (error) {
+    console.error("Avatar history index lookup failed:", error && error.message ? error.message : error);
+    return res.status(502).json({ error: "Avatar history index lookup failed" });
+  }
+});
 
 app.get("/proxy-roblox-archived", async (req, res) => {
   setCors(req, res);
