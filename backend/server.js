@@ -903,7 +903,7 @@ async function fetchRobloxProfile(username) {
 async function fetchRobloxDetails(id) {
   const [userRes, historyRes, roliRes] = await Promise.all([
     fetchWithTimeout(`https://users.roblox.com/v1/users/${id}`, { headers: ROBLOX_UA }).catch(() => null),
-    fetchWithTimeout(`https://users.roblox.com/v1/users/${id}/username-history?limit=10`, { headers: ROBLOX_UA }).catch(() => null),
+    fetchWithTimeout(`https://users.roblox.com/v1/users/${id}/username-history?limit=100&sortOrder=Asc`, { headers: ROBLOX_UA }).catch(() => null),
     fetchWithTimeout(`https://api.rolimons.com/players/v1/playerinfo/${id}`, { headers: ROBLOX_UA }, 6000).catch(() => null),
   ]);
   let pastUsernames = [];
