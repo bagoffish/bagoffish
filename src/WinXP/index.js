@@ -197,9 +197,9 @@ function injectXpCursors() {
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
-    'body.xp-resizing, body.xp-resizing * { cursor: inherit !important; }',
-    'body.xp-resizing .xp-cursor-cover { cursor: inherit !important; }',
-    '.xp-cursor-cover { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    'body.xp-resizing, body.xp-resizing * { cursor: var(--xp-resize-cursor, inherit) !important; }',
+    'body.xp-resizing .xp-cursor-cover { cursor: var(--xp-resize-cursor, inherit) !important; }',
+    '.xp-cursor-cover { cursor: var(--xp-resize-cursor, url("/images/Normal%20Select.cur") 3 3, default) !important; }',
   ].join('\n');
   document.head.appendChild(style);
   const mark = () => {
@@ -227,14 +227,66 @@ function WinXP() {
 
   // Let Coy open real XP-shell apps without reaching outside the website/browser.
   useEffect(() => {
+    const findSetting = name => {
+      const normalized = String(name || '').trim().toLowerCase().replace(/[_-]+/g, ' ');
+      const aliases = {
+        'about': 'About Me', 'about me': 'About Me', 'profile': 'About Me',
+        'letters': 'Winter_Letter', 'winter letter': 'Winter_Letter',
+        'winterletter': 'Winter_Letter', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
+        'paint': 'Paint', 'ms paint': 'Paint', 'minesweeper': 'Minesweeper',
+        'mine sweeper': 'Minesweeper', 'music player': 'Winamp', 'winamp': 'Winamp',
+        'poem': 'Poems', 'poems': 'Poems', 'roblox renderer': 'Renderer',
+        'avatar renderer': 'Renderer', 'renderer': 'Renderer', 'coy chat': 'Coy', 'coy': 'Coy',
+      };
+      const key = aliases[normalized] || Object.keys(appSettings).find(key => key.toLowerCase().replace(/[_-]+/g, ' ') === normalized);
+      return key ? { name: key, setting: appSettings[key] } : null;
+    };
     const onCoyOpenApp = event => {
-      const name = event.detail && event.detail.name;
-      const setting = name && appSettings[name];
-      if (setting) dispatch({ type: ADD_APP, payload: setting });
+      const found = findSetting(event.detail && event.detail.name);
+      if (found) dispatch({ type: ADD_APP, payload: found.setting });
+    };
+    const onCoyDesktopAction = event => {
+      const detail = event.detail || {};
+      const action = String(detail.action || '').toLowerCase();
+      const found = findSetting(detail.name);
+      if (!found) return;
+      const title = found.setting.header.title;
+      const matching = state.apps.filter(app =>
+        String(app.header && app.header.title || '').toLowerCase() === String(title).toLowerCase()
+      );
+      if (action === 'open' || action === 'launch') {
+        dispatch({ type: ADD_APP, payload: found.setting });
+        return;
+      }
+      const app = matching.sort((a, b) => b.zIndex - a.zIndex)[0];
+      if (!app) {
+        if (action === 'focus' || action === 'maximize' || action === 'minimize' || action === 'restore') {
+          dispatch({ type: ADD_APP, payload: found.setting });
+        }
+        return;
+      }
+      if (action === 'focus') dispatch({ type: FOCUS_APP, payload: app.id });
+      else if (action === 'minimize') dispatch({ type: MINIMIZE_APP, payload: app.id });
+      else if (action === 'maximize') {
+        if (!app.maximized) dispatch({ type: FOCUS_APP, payload: app.id });
+        if (!app.maximized) dispatch({ type: TOGGLE_MAXIMIZE_APP, payload: app.id });
+      } else if (action === 'restore') {
+        if (app.maximized) dispatch({ type: TOGGLE_MAXIMIZE_APP, payload: app.id });
+        dispatch({ type: FOCUS_APP, payload: app.id });
+      } else if (action === 'close') {
+        const risky = ['Paint', 'Winter_Letter'].includes(found.name);
+        if (risky && !window.confirm('Close ' + title + '? Any unsaved work in this window may be lost.')) return;
+        dispatch({ type: DEL_APP, payload: app.id });
+        if (found.name === 'Coy') window.dispatchEvent(new CustomEvent('coy:close-chat'));
+      }
     };
     window.addEventListener('coy:open-app', onCoyOpenApp);
-    return () => window.removeEventListener('coy:open-app', onCoyOpenApp);
-  }, []);
+    window.addEventListener('coy:desktop-action', onCoyDesktopAction);
+    return () => {
+      window.removeEventListener('coy:open-app', onCoyOpenApp);
+      window.removeEventListener('coy:desktop-action', onCoyDesktopAction);
+    };
+  }, [state.apps]);
 
   // Open Coy's conversation inside the same XP window manager used by every app.
   useEffect(() => {
