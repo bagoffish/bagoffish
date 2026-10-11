@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hru", "Hi", "Hello", "Haii", "Hai", "Hey", "Heyy", "Hii", "Haiii"];
+const IDLE_LINES = ["...", "Hm", "Bored", "You there", "Sup", "Just sitting", "Hey", "Mm", "What now", "Still here"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PICKUP_LINES = [
   "Where we going",
@@ -246,6 +247,18 @@ export default function CoyCompanion() {
       window.visualViewport?.removeEventListener("resize", placeBubble);
     };
   }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
+
+  // Ukagaka-style: talk on his own every so often when nothing else is happening.
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      if (Date.now() - lastActivity.current < 8000) return;
+      const next = IDLE_LINES[Math.floor(Math.random() * IDLE_LINES.length)];
+      setLine(formatCoyText(next));
+      setShowBubble(true);
+    }, 28000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     if (!showBubble || busy) return undefined;
@@ -520,7 +533,7 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      bottom: "calc(100% - 36px)",
+      top: "18%",
       marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
