@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v11";
+  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v12";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -180,7 +180,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v10:" + id;
+            var storageKey = "avatar-history-index-v11:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -241,13 +241,14 @@
             // Sort by capture time, earliest first. Unknown dates go last.
             function archiveSortKey(item) {
               var digits = text(item.timestamp).replace(/\D/g, "");
-              if (!digits) return "99999999999999";
-              return (digits + "00000000000000").slice(0, 14);
+              if (!digits) return Number.MAX_SAFE_INTEGER;
+              // Archive timestamps are YYYYMMDD[hhmmss]. Pad missing time
+              // components on the right so date-only captures sort by date.
+              return Number((digits + "000000").slice(0, 14));
             }
+            // Explicit oldest-to-newest ordering, with undated items at the end.
             merged.sort(function (a, b) {
-              var aKey = archiveSortKey(a);
-              var bKey = archiveSortKey(b);
-              return aKey < bKey ? -1 : aKey > bKey ? 1 : 0;
+              return archiveSortKey(a) - archiveSortKey(b);
             });
             if (!merged.length) {
               oldContainer.textContent = "No archived renders.";
