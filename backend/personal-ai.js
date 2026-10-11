@@ -1039,64 +1039,53 @@ router.post("/transcribe", async (req, res) => {
 router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
-  console.info("speak: key set=" + !!GRADIUM_API_KEY + " voice=" + (process.env.GRADIUM_VOICE_ID || "default"));
 
-  // Gradium has no Korean. Signal the frontend to use a Korean browser voice.
-  if (isKorean(text)) {
-    return res.status(200).json({ korean: true, text });
-  }
-
-  // Use Gradium. Prefer the configured voice ID; fall back to creating one from the sample.
-  if (GRADIUM_API_KEY) {
+  // Coy's Scott Pilgrim voice is served by a separately hosted TTS + RVC worker.
+  // Configure SCOTTCERA_TTS_URL to the worker's HTTP endpoint. The worker should
+  // accept { text } as JSON and return audio bytes (audio/mpeg or audio/wav).
+  const scottCeraUrl = String(process.env.SCOTTCERA_TTS_URL || "").trim();
+  const scottCeraKey = String(process.env.SCOTTCERA_TTS_API_KEY || "").trim();
+  if (scottCeraUrl) {
     try {
-      let voiceId = process.env.GRADIUM_VOICE_ID || "3gBNLjBg0qKmhmxu";
-      if (!voiceId) {
-        const form = new FormData();
-        form.append("audio_file", new Blob([fs.readFileSync(VOICE_SAMPLE_PATH)]), "voice.webm");
-        form.append("name", "Coy");
-        form.append("language", "en");
-        const createRes = await fetch("https://api.gradium.ai/api/voices/", {
-          method: "POST",
-          headers: { "x-api-key": GRADIUM_API_KEY },
-          body: form,
-        });
-        if (createRes.ok) {
-          const created = await createRes.json();
-          voiceId = created.uid || created.voice_id || "";
-          console.info("Gradium voice created:", voiceId);
+      const headers = { "Content-Type": "application/json", "Accept": "audio/mpeg, audio/wav, application/octet-stream" };
+      if (scottCeraKey) headers.Authorization = "Bearer " + scottCeraKey;
+      const response = await fetch(scottCeraUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ text }),
+        signal: AbortSignal.timeout(90000),
+      });
+      if (response.ok) {
+        const contentType = response.headers.get("content-type") || "audio/mpeg";
+        if (contentType.includes("application/json")) {
+          const data = await response.json();
+          const encoded = data.audio || data.audio_base64;
+          if (typeof encoded === "string" && encoded) {
+            const audio = Buffer.from(encoded.replace(/^data:audio\/[^;]+;base64,/, ""), "base64");
+            res.setHeader("Content-Type", data.content_type || "audio/mpeg");
+            res.setHeader("Cache-Control", "no-store");
+            return res.send(audio);
+          }
+          console.warn("ScottCera TTS endpoint returned JSON without audio.");
+        } else {
+          const audio = Buffer.from(await response.arrayBuffer());
+          if (audio.length) {
+            res.setHeader("Content-Type", contentType);
+            res.setHeader("Cache-Control", "no-store");
+            return res.send(audio);
+          }
         }
-      }
-      if (voiceId) {
-        const ttsRes = await fetch("https://api.gradium.ai/api/post/speech/tts", {
-          method: "POST",
-          headers: {
-            "x-api-key": GRADIUM_API_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            text,
-            voice_id: voiceId,
-            model_name: "default",
-            output_format: "mp3",
-            only_audio: true,
-            json_config: { cfg_coef: 3.0, temp: 0.6 },
-          }),
-        });
-        if (ttsRes.ok) {
-          const audio = Buffer.from(await ttsRes.arrayBuffer());
-          res.setHeader("Content-Type", "audio/mpeg");
-          res.setHeader("Cache-Control", "no-store");
-          return res.send(audio);
-        }
-        const errBody = await ttsRes.text().catch(() => "");
-        console.warn("Gradium TTS failed:", ttsRes.status, errBody.slice(0, 300));
+        console.warn("ScottCera TTS endpoint returned an empty or unsupported response.");
+      } else {
+        const detail = await response.text().catch(() => "");
+        console.warn("ScottCera TTS failed:", response.status, detail.slice(0, 250));
       }
     } catch (err) {
-      console.warn("Gradium error:", err?.message || err);
+      console.warn("ScottCera TTS error:", err?.message || err);
     }
   }
 
-  // Fall back to ElevenLabs if configured.
+  // Preserve the existing ElevenLabs fallback while the ScottCera worker is not configured.
   if (ELEVENLABS_KEY && ELEVENLABS_VOICE_ID) {
     try {
       const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
@@ -1108,9 +1097,10 @@ router.post("/speak", async (req, res) => {
         },
         body: JSON.stringify({
           text,
-          model_id: "eleven_monolingual_v1",
+          model_id: "eleven_multilingual_v2",
           voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
         }),
+        signal: AbortSignal.timeout(45000),
       });
       if (response.ok) {
         const audio = Buffer.from(await response.arrayBuffer());
@@ -1118,10 +1108,15 @@ router.post("/speak", async (req, res) => {
         res.setHeader("Cache-Control", "no-store");
         return res.send(audio);
       }
-    } catch (_) {}
+    } catch (err) {
+      console.warn("ElevenLabs fallback failed:", err?.message || err);
+    }
   }
 
-  return res.status(501).json({ error: "Voice synthesis not available. Set GRADIUM_API_KEY on Render and upload a voice sample." });
+  return res.status(503).json({
+    error: "ScottCera voice is not configured yet. Set SCOTTCERA_TTS_URL to the hosted voice worker endpoint.",
+    voice: "scottcera",
+  });
 });
 
 export default router;
