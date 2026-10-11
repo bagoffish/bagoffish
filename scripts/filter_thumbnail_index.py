@@ -88,13 +88,23 @@ def classify(record: Any) -> tuple[bool, str]:
 
 def open_text(path: Path):
     raw = path.open("rb")
-    if path.suffix.lower() == ".zst":
+    if path.name.lower().endswith(".zst"):
         if zstandard is None:
             raw.close()
             raise RuntimeError("Missing dependency. Install it with: py -m pip install zstandard")
         reader = zstandard.ZstdDecompressor().stream_reader(raw)
         return io.TextIOWrapper(reader, encoding="utf-8", errors="replace"), raw
     return io.TextIOWrapper(raw, encoding="utf-8", errors="replace"), raw
+
+
+def open_output(path: Path):
+    if path.name.lower().endswith(".zst"):
+        if zstandard is None:
+            raise RuntimeError("Missing dependency. Install it with: py -m pip install zstandard")
+        raw = path.open("wb")
+        writer = zstandard.ZstdCompressor(level=6).stream_writer(raw)
+        return io.TextIOWrapper(writer, encoding="utf-8", newline="\n")
+    return path.open("w", encoding="utf-8", newline="\n")
 
 
 def main() -> int:
@@ -122,7 +132,7 @@ def main() -> int:
 
     text_stream, raw_stream = open_text(source)
     try:
-        with output.open("w", encoding="utf-8", newline="\n") as out:
+        with open_output(output) as out:
             for line_number, line in enumerate(text_stream, 1):
                 if not line.strip():
                     continue
