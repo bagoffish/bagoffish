@@ -412,6 +412,12 @@ export default function CoyChat({ initialImage }) {
     }, 450);
   }
 
+
+  function getRecognitionLang() {
+    const nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    if (nav.startsWith('ko')) return 'ko-KR';
+    return 'en-US';
+  }
   function startWakeRecognition() {
     if (voiceCallActiveRef.current || recognitionRef.current || document.visibilityState === 'hidden') return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -421,7 +427,7 @@ export default function CoyChat({ initialImage }) {
     }
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
+      recognition.lang = getRecognitionLang();
       recognition.interimResults = false;
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
@@ -469,7 +475,7 @@ export default function CoyChat({ initialImage }) {
     }
     try {
       const recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
+      recognition.lang = getRecognitionLang();
       recognition.interimResults = false;
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
@@ -480,7 +486,7 @@ export default function CoyChat({ initialImage }) {
           .join(' ')
           .trim();
         if (!transcript || !voiceCallActiveRef.current) return;
-        if (/\b(end call|hang up|stop calling|end the call|goodbye coy|stop|stop call|end the call)\b/i.test(transcript)) {
+        if (/\b(end call|hang up|stop calling|end the call|goodbye coy|stop|stop call|end the call|그만|멈춰|통화 종료|끊어)\b/i.test(transcript)) {
           stopVoiceCall();
           return;
         }
@@ -565,7 +571,7 @@ export default function CoyChat({ initialImage }) {
     const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
     const voiceInputTurn = typeof forcedMessage === 'string';
     // Start a call if the typed message asks for one.
-    const callRequest = /\b(call|call me|call with me|let'?s call|start a call|can we call|wanna call|want to call)\b/i.test(message);
+    const callRequest = /\b(call|call me|call with me|let'?s call|start a call|can we call|wanna call|want to call|전화|통화|콜)\b/i.test(message);
     const stopRequest = /\b(stop|stop call|end call|hang up|end the call)\b/i.test(message);
     if (stopRequest && voiceCallActiveRef.current) {
       stopVoiceCall();
