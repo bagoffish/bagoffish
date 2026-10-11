@@ -1040,120 +1040,59 @@ router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
 
-  // Prefer the selected Fish Audio community voice. Keep the API key server-side.
-  const fishAudioKey = String(process.env.FISH_AUDIO_API_KEY || "").trim();
-  if (fishAudioKey) {
-    try {
-      const response = await fetch("https://api.fish.audio/v1/tts", {
-        method: "POST",
-        headers: {
-          Authorization: "Bearer " + fishAudioKey,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
-          model: "s2.1-pro-free",
-        },
-        body: JSON.stringify({
-          text,
-          reference_id: "fa74c5d754084db9ad28a8408423259a",
-          format: "mp3",
-          normalize: true,
-        }),
-        signal: AbortSignal.timeout(60000),
-      });
-      if (response.ok) {
-        const audio = Buffer.from(await response.arrayBuffer());
-        if (audio.length) {
-          res.setHeader("Content-Type", response.headers.get("content-type") || "audio/mpeg");
-          res.setHeader("Cache-Control", "no-store");
-          return res.send(audio);
-        }
-        console.warn("Fish Audio returned an empty audio response.");
-      } else {
-        const detail = await response.text().catch(() => "");
-        console.warn("Fish Audio TTS failed:", response.status, detail.slice(0, 250));
-      }
-    } catch (err) {
-      console.warn("Fish Audio TTS error:", err?.message || err);
-    }
+  const apiKey = String(process.env.FISH_AUDIO_API_KEY || "").trim();
+  if (!apiKey) {
+    return res.status(503).json({
+      error: "Voice synthesis is not configured. Add FISH_AUDIO_API_KEY to the backend environment.",
+      voice: "fish-audio",
+    });
   }
 
-  // Optional ScottCera RVC worker fallback.
-  const scottCeraUrl = String(process.env.SCOTTCERA_TTS_URL || "").trim();
-  const scottCeraKey = String(process.env.SCOTTCERA_TTS_API_KEY || "").trim();
-  if (scottCeraUrl) {
-    try {
-      const headers = { "Content-Type": "application/json", "Accept": "audio/mpeg, audio/wav, application/octet-stream" };
-      if (scottCeraKey) headers.Authorization = "Bearer " + scottCeraKey;
-      const response = await fetch(scottCeraUrl, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(scottCeraUrl.includes("api.runpod.ai/v2/") && scottCeraUrl.includes("/runsync")
-          ? { input: { text } }
-          : { text }),
-        signal: AbortSignal.timeout(120000),
-      });
-      if (response.ok) {
-        const contentType = response.headers.get("content-type") || "audio/mpeg";
-        if (contentType.includes("application/json")) {
-          const data = await response.json();
-          const workerOutput = data.output && typeof data.output === "object" ? data.output : data;
-          const encoded = workerOutput.audio || workerOutput.audio_base64;
-          if (typeof encoded === "string" && encoded) {
-            const audio = Buffer.from(encoded.replace(/^data:audio\/[^;]+;base64,/, ""), "base64");
-            res.setHeader("Content-Type", workerOutput.content_type || "audio/mpeg");
-            res.setHeader("Cache-Control", "no-store");
-            return res.send(audio);
-          }
-        } else {
-          const audio = Buffer.from(await response.arrayBuffer());
-          if (audio.length) {
-            res.setHeader("Content-Type", contentType);
-            res.setHeader("Cache-Control", "no-store");
-            return res.send(audio);
-          }
-        }
-        console.warn("ScottCera TTS endpoint returned an empty or unsupported response.");
-      } else {
-        const detail = await response.text().catch(() => "");
-        console.warn("ScottCera TTS failed:", response.status, detail.slice(0, 250));
-      }
-    } catch (err) {
-      console.warn("ScottCera TTS error:", err?.message || err);
-    }
-  }
+  try {
+    const response = await fetch("https://api.fish.audio/v1/tts", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + apiKey,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+        model: "s2.1-pro-free",
+      },
+      body: JSON.stringify({
+        text,
+        reference_id: "fa74c5d754084db9ad28a8408423259a",
+        format: "mp3",
+        normalize: true,
+      }),
+      signal: AbortSignal.timeout(60000),
+    });
 
-  // Preserve the existing ElevenLabs fallback if configured.
-  if (ELEVENLABS_KEY && ELEVENLABS_VOICE_ID) {
-    try {
-      const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
-        method: "POST",
-        headers: {
-          "xi-api-key": ELEVENLABS_KEY,
-          "Content-Type": "application/json",
-          Accept: "audio/mpeg",
-        },
-        body: JSON.stringify({
-          text,
-          model_id: "eleven_multilingual_v2",
-          voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
-        }),
-        signal: AbortSignal.timeout(45000),
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      console.warn("Fish Audio TTS failed:", response.status, detail.slice(0, 250));
+      return res.status(502).json({
+        error: "Fish Audio could not generate speech.",
+        voice: "fish-audio",
       });
-      if (response.ok) {
-        const audio = Buffer.from(await response.arrayBuffer());
-        res.setHeader("Content-Type", "audio/mpeg");
-        res.setHeader("Cache-Control", "no-store");
-        return res.send(audio);
-      }
-    } catch (err) {
-      console.warn("ElevenLabs fallback failed:", err?.message || err);
     }
-  }
 
-  return res.status(503).json({
-    error: "Voice synthesis is not configured. Add FISH_AUDIO_API_KEY to the backend environment.",
-    voice: "fish-audio",
-  });
+    const audio = Buffer.from(await response.arrayBuffer());
+    if (!audio.length) {
+      console.warn("Fish Audio returned an empty audio response.");
+      return res.status(502).json({
+        error: "Fish Audio returned empty audio.",
+        voice: "fish-audio",
+      });
+    }
+
+    res.setHeader("Content-Type", response.headers.get("content-type") || "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(audio);
+  } catch (err) {
+    console.warn("Fish Audio TTS error:", err?.message || err);
+    return res.status(502).json({
+      error: "Could not connect to Fish Audio.",
+      voice: "fish-audio",
+    });
+  }
 });
-
 export default router;
