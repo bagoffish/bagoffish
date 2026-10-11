@@ -7,7 +7,7 @@ export default function WinterLetter() {
   return (
     <iframe
       title="Winter Letter visual novel"
-      src="/" onLoad={e => { e.currentTarget.src = "/"; }}
+      src="/vn/index.html"
       style={{
         display: 'block',
         width: '100%',
