@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-xp-square-archive-v4";
+  var RENDERER_SCRIPT_VERSION = "20261011-xp-square-archive-v5";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -188,7 +188,7 @@
             } catch (_) {}
             return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
               headers: { Accept: "application/json" },
-              cache: "force-cache"
+              cache: "no-store"
             }).then(function (response) {
               if (!response.ok) return { images: [] };
               return response.json();
