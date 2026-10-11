@@ -114,7 +114,7 @@ export default function CoyCompanion() {
   const dragged = useRef(false);
   const clickTimer = useRef(null);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(76);
+  const [spriteSize, setSpriteSize] = useState(92);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -539,27 +539,29 @@ export default function CoyCompanion() {
       width: "max-content",
       minWidth: 90,
       maxWidth: "min(88vw, 260px)",
-      maxHeight: 100,
+      maxHeight: 110,
       padding: "8px 12px",
       background: "#0a0a0a",
+      border: "2px solid #00ff41",
       borderRadius: 0,
       color: "#00ff41",
       fontSize: 13,
       fontWeight: 400,
       lineHeight: "18px",
-      overflow: "hidden",
+      overflow: "visible",
       overflowWrap: "break-word",
       wordBreak: "normal",
       whiteSpace: "pre-wrap",
       textShadow: "0 0 2px #00ff41",
       fontFamily: "Consolas, 'Courier New', monospace"
     },
+    // Outer green triangle = border; inner black triangle = fill. Points at Coy.
     tail: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -10, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderRight: "10px solid #00ff41", pointerEvents: "none", zIndex: 1 }
-      : { position: "absolute", right: -10, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "8px solid transparent", borderBottom: "8px solid transparent", borderLeft: "10px solid #00ff41", pointerEvents: "none", zIndex: 1 },
+      ? { position: "absolute", left: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderRight: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 }
+      : { position: "absolute", right: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderLeft: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 },
     tailInner: bubblePlacement.side === "right"
-      ? { position: "absolute", left: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderRight: "8px solid #0a0a0a" }
-      : { position: "absolute", right: 2, top: -6, width: 0, height: 0, borderTop: "6px solid transparent", borderBottom: "6px solid transparent", borderLeft: "8px solid #0a0a0a" },
+      ? { position: "absolute", left: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 }
+      : { position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 },
     chatBox: {
       position: "absolute",
       bottom: "100%",
