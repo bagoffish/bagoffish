@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v15";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v16";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -115,7 +115,7 @@
             '<div class="info-box">' +
               '<div class="avatar-container">' +
                 '<a href="https://www.roblox.com/users/' + encodeURIComponent(text(roblox.id)) + '/profile" target="_blank" rel="noopener noreferrer">' +
-                  '<img src="' + escapeHtml(roblox.avatarUrl || "") + '" alt="" loading="eager" decoding="async" style="width:120px;height:120px;object-fit:cover;background:#fff;">' +
+                  '<img alt="" loading="eager" decoding="async" fetchpriority="high" style="width:120px;height:120px;object-fit:cover;background:#fff;">' +
                 '</a>' +
               '</div>' +
               '<div id="terminationLine">' + terminated + '</div>' +
@@ -156,11 +156,15 @@
               if (avatarAttempt < avatarCandidates.length) {
                 liveAvatarImage.src = avatarCandidates[avatarAttempt];
               } else {
+                liveAvatarImage.removeAttribute("src");
                 liveAvatarImage.alt = "Avatar unavailable";
                 liveAvatarImage.title = "Roblox did not return a usable avatar image. Try checking again.";
               }
             });
-            if (!avatarCandidates.length) {
+            if (avatarCandidates.length) {
+              // Attach fallback handling before the first request to avoid losing fast errors.
+              liveAvatarImage.src = avatarCandidates[0];
+            } else {
               liveAvatarImage.alt = "Avatar unavailable";
               liveAvatarImage.title = "No live avatar thumbnail URL was returned by Roblox.";
             }
