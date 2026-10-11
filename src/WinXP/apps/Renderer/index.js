@@ -33,7 +33,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261012-full-avatar-index-v10"; // themed square archive cards, capture dates, contextual Coy reactions
+    s.src = "/js/renderer.js?v=20261012-full-avatar-index-v11"; // themed square archive cards, capture dates, contextual Coy reactions
     s.async = true;
     document.body.appendChild(s);
   }, []);
