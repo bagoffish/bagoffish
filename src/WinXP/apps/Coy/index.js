@@ -550,30 +550,25 @@ export default function CoyChat({ initialImage }) {
     });
   }
 
-  async function uploadVoiceSample(file) {
-    if (!file) return;
-    setError('');
-    setVoiceStatus('Uploading voice sample...');
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      const response = await fetch(API_BASE + '/personal-ai/voice-sample', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ data: dataUrl }),
-      });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.error || 'Upload failed');
-      setVoiceStatus(result.voiceId ? 'Voice trained. Calls will use it.' : 'Voice sample saved. Set ELEVENLABS_API_KEY for full cloning.');
-    } catch (err) {
-      setError(err.message || 'Could not upload the voice sample.');
-      setVoiceStatus('');
-    }
+  function startCallFromChat() {
+    if (voiceCallActiveRef.current) return;
+    voiceCallActiveRef.current = true;
+    setVoiceCallActive(true);
+    setVoiceStatus('Call started. Speak when ready.');
+    window.setTimeout(() => {
+      if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
+    }, 200);
   }
 
   async function send(event, forcedMessage) {
     event?.preventDefault?.();
     const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
     const voiceInputTurn = typeof forcedMessage === 'string';
+    // Start a call if the typed message asks for one.
+    const callRequest = /\b(call|call me|call with me|let'?s call|start a call|can we call|wanna call|want to call)\b/i.test(message);
+    if (callRequest && !voiceCallActiveRef.current) {
+      startCallFromChat();
+    }
     let voiceReply = '';
     // React state updates after this handler returns; use a synchronous lock so
     // Enter + click or rapid repeated events cannot launch duplicate requests.
@@ -732,13 +727,6 @@ export default function CoyChat({ initialImage }) {
           <button type="button" style={{ ...styles.button, minHeight: 22, padding: '1px 5px' }} aria-label={'Remove ' + file.name} onClick={() => updateAttachments(previous => previous.filter((_, i) => i !== index))}>×</button>
         </div>)}
       </div>}
-      <div style={{ padding: '4px 8px', background: '#f0f0f0', borderTop: '1px solid #ccc', fontSize: 11 }}>
-        <label style={{ cursor: 'pointer', color: '#003c74' }}>
-          Train voice from recording
-          <input type="file" accept="audio/*" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) uploadVoiceSample(f); e.target.value = ''; }} />
-        </label>
-        {voiceStatus && <span style={{ marginLeft: 8, color: '#555' }}>{voiceStatus}</span>}
-      </div>
       <form style={styles.form} onSubmit={send}>
         <input ref={fileInputRef} type="file" accept="image/*,audio/*,.heic,.heif,.m4a,.mp3,.wav,.ogg,.flac,.aac,.opus,.pdf,.docx,.txt,.md,.markdown,.csv,.tsv,.json,.jsonl,.xml,.html,.htm,.css,.js,.jsx,.ts,.tsx,.mjs,.cjs,.py,.java,.c,.h,.cpp,.hpp,.cs,.go,.rs,.php,.rb,.sql,.log,.yaml,.yml,.toml,.ini,.conf,.sh,.bash,.bat,.ps1,.diff,.patch,.env,.gitignore" multiple onChange={chooseFiles} disabled={busy} style={{ display: 'none' }} />
         <button type="button" style={{ ...styles.button, ...styles.attachButton }} onClick={() => fileInputRef.current?.click()} disabled={busy || attachments.length >= 3} aria-label="Attach a file" title="Attach images, audio, text, or code">+</button>
