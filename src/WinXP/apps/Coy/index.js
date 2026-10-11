@@ -245,6 +245,8 @@ export default function CoyChat({ initialImage }) {
   const [voiceCallActive, setVoiceCallActive] = useState(false);
   const [voiceStatus, setVoiceStatus] = useState('');
   const recognitionRef = useRef(null);
+  const voiceAudioRef = useRef(null);
+  const voiceAudioUrlRef = useRef('');
   const voiceCallActiveRef = useRef(false);
   const voiceTurnRef = useRef(false);
   const bottomRef = useRef(null);
@@ -255,6 +257,15 @@ export default function CoyChat({ initialImage }) {
     return () => {
       try { recognitionRef.current?.stop(); } catch (_) {}
       if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+      const activeAudio = voiceAudioRef.current;
+      if (activeAudio) {
+        activeAudio.pause();
+        if (typeof activeAudio.onabort === 'function') activeAudio.onabort();
+      }
+      if (voiceAudioUrlRef.current) {
+        URL.revokeObjectURL(voiceAudioUrlRef.current);
+        voiceAudioUrlRef.current = '';
+      }
     };
   }, []);
 
@@ -416,6 +427,11 @@ export default function CoyChat({ initialImage }) {
     try { recognitionRef.current?.stop(); } catch (_) {}
     recognitionRef.current = null;
     if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
+    const activeAudio = voiceAudioRef.current;
+    if (activeAudio) {
+      activeAudio.pause();
+      if (typeof activeAudio.onabort === 'function') activeAudio.onabort();
+    }
     window.setTimeout(() => {
       if (!voiceCallActiveRef.current && !recognitionRef.current) startWakeRecognition();
     }, 450);
@@ -552,24 +568,48 @@ export default function CoyChat({ initialImage }) {
         const contentType = response.headers.get('content-type') || '';
         if (contentType.includes('application/json')) {
           const data = await response.json();
-          if (data.korean) {
-            // Use Korean browser voice.
-            const utterance = new SpeechSynthesisUtterance(data.text || text);
-            utterance.lang = 'ko-KR';
-            const voices = window.speechSynthesis.getVoices();
-            const koVoice = voices.find(v => v.lang.startsWith('ko'));
-            if (koVoice) utterance.voice = koVoice;
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            window.speechSynthesis.speak(utterance);
+          if (data.korean && window.speechSynthesis && typeof window.SpeechSynthesisUtterance !== 'undefined') {
+            // Wait until the spoken reply finishes before opening the microphone again.
+            await new Promise(resolve => {
+              const utterance = new window.SpeechSynthesisUtterance(data.text || text);
+              utterance.lang = 'ko-KR';
+              const voices = window.speechSynthesis.getVoices();
+              const koVoice = voices.find(v => v.lang.startsWith('ko'));
+              if (koVoice) utterance.voice = koVoice;
+              utterance.rate = 1.0;
+              utterance.pitch = 1.0;
+              utterance.onend = resolve;
+              utterance.onerror = resolve;
+              window.speechSynthesis.speak(utterance);
+            });
             return;
           }
         } else {
           const blob = await response.blob();
           const url = URL.createObjectURL(blob);
           const audio = new Audio(url);
-          audio.onended = () => { URL.revokeObjectURL(url); };
-          await audio.play();
+          voiceAudioRef.current = audio;
+          voiceAudioUrlRef.current = url;
+          await new Promise(resolve => {
+            let settled = false;
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+              window.clearTimeout(timer);
+              audio.onended = null;
+              audio.onerror = null;
+              audio.onabort = null;
+              if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
+              if (voiceAudioUrlRef.current === url) voiceAudioUrlRef.current = '';
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            const timer = window.setTimeout(finish, 120000);
+            audio.onended = finish;
+            audio.onerror = finish;
+            audio.onabort = finish;
+            audio.play().catch(finish);
+          });
           return;
         }
       }
