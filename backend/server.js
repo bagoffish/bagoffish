@@ -722,10 +722,6 @@ function rendererJson(record) {
     joinDate: record.joinDate,
     pastUsernames: record.pastUsernames || [],
     rolimons: record.rolimons || {},
-    oldAvatars: record.oldAvatars || [],
-    hasAvatar: Boolean(record.hasAvatar),
-    avatarSha256: record.avatarSha256 || "",
-    avatarCapturedAt: record.avatarCapturedAt || 0,
     refreshedAt: record.refreshedAt || 0,
     savedAt: record.savedAt || 0,
   };
@@ -743,8 +739,7 @@ function rendererPayload(record, liveAvatarUrl) {
       displayName: record.displayName,
       joinDate: record.joinDate || "Unknown",
       avatarUrl,
-      oldAvatars: record.oldAvatars || [],
-      pastUsernames: record.pastUsernames || [],
+            pastUsernames: record.pastUsernames || [],
     },
     rolimons: record.rolimons || {},
     detailsPending: false,
@@ -755,81 +750,7 @@ function rendererDetailsPayload(record) {
   return {
     pastUsernames: record.pastUsernames || [],
     rolimons: record.rolimons || {},
-    oldAvatars: record.oldAvatars || [],
-  };
-}
-
-// On-demand Wayback Machine historical avatar renders (no pre-scraped JSONL).
-// CDX is public; no API key required.
-const waybackCache = new Map(); // id -> { at, images }
-const WAYBACK_TTL = 6 * 60 * 60 * 1000;
-
-async function fetchWaybackAvatars(userId) {
-  const cached = waybackCache.get(String(userId));
-  if (cached && Date.now() - cached.at < WAYBACK_TTL) return cached.images;
-
-  const patterns = [
-    `https://www.roblox.com/users/${userId}/profile`,
-    `http://www.roblox.com/users/${userId}/profile`,
-    `http://www.roblox.com/User.aspx?ID=${userId}`,
-    `http://www.roblox.com/User.aspx?id=${userId}`,
-    `http://roblox.com/User.aspx?id=${userId}`,
-  ];
-  const images = [];
-  const seen = new Set();
-
-  for (const url of patterns) {
-    try {
-      const cdxUrl = `https://web.archive.org/cdx/search/cdx?url=${encodeURIComponent(url)}&output=json&fl=timestamp,original&filter=statuscode:200&limit=3&collapse=timestamp:6`;
-      const res = await fetchWithTimeout(cdxUrl, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 12000);
-      if (!res.ok) continue;
-      const rows = await res.json();
-      if (!Array.isArray(rows) || rows.length < 2) continue;
-      for (const row of rows.slice(1)) {
-        const ts = row[0];
-        const original = row[1];
-        if (!ts || !original) continue;
-        const replay = `https://web.archive.org/web/${ts}/${original}`;
-        try {
-          const page = await fetchWithTimeout(replay, { headers: { "User-Agent": "WinXP-Renderer/1.0" } }, 15000);
-          if (!page.ok) continue;
-          const html = await page.text();
-          const re = /https?:\/\/(?:tr|t[0-7])\.rbxcdn\.com\/[^\s"'<>]+(?:\/Avatar\/|Avatar)/gi;
-          const matches = html.match(re) || [];
-          for (const m of matches) {
-            if (seen.has(m)) continue;
-            if (/placeholder|deleted|question|blank\.ashx|dialog_avatar/i.test(m)) continue;
-            seen.add(m);
-            const waybackImg = `https://web.archive.org/web/${ts}im_/${m}`;
-            images.push({
-              hash: "wayback-" + ts,
-              capturedAt: parseInt(ts.slice(0, 8), 10) || 0,
-              url: waybackImg,
-              source: "wayback",
-              timestamp: ts,
-            });
-          }
-        } catch {}
-      }
-      if (images.length) break;
-    } catch {}
-  }
-
-  waybackCache.set(String(userId), { at: Date.now(), images });
-  return images;
-}
-
-async function rendererDetailsPayloadWithWayback(record) {
-  const base = rendererDetailsPayload(record);
-  try {
-    const wayback = await fetchWaybackAvatars(record.id);
-    if (wayback.length) {
-      base.oldAvatars = [...(base.oldAvatars || []), ...wayback].slice(0, 100);
-    }
-  } catch (err) {
-    console.warn("wayback avatars failed for", record.id, err.message);
-  }
-  return base;
+      };
 }
 
 async function rendererGhGet(filePath) {
@@ -919,46 +840,7 @@ async function saveRendererRecord(record, png) {
   // When Roblox changes the thumbnail, archive the previous render instead.
   if (png && png.length) {
     const hash = crypto.createHash("sha256").update(png).digest("hex");
-    const previousHash = String(record.avatarSha256 || "");
-
-    if (previousHash && previousHash !== hash) {
-      let previousPng = record.avatarPng || null;
-      if (!previousPng) previousPng = await rendererGhGetRaw(`avatars/${id}.png`).catch(() => null);
-
-      if (previousPng && previousPng.length) {
-        const archivePath = `avatars/${id}-${previousHash}.png`;
-        const existingArchive = await rendererGhGet(archivePath).catch(() => null);
-        if (!existingArchive) {
-          await rendererGhPut(archivePath, previousPng, `Archive old renderer avatar ${id}`, "");
-        }
-        const oldAvatars = Array.isArray(record.oldAvatars) ? record.oldAvatars.slice() : [];
-        if (!oldAvatars.some((item) => item && item.hash === previousHash)) {
-          oldAvatars.unshift({
-            hash: previousHash,
-            capturedAt: record.avatarCapturedAt || record.refreshedAt || Date.now(),
-            url: `${RENDERER_PUBLIC_BASE}/renderer-old-avatar/${id}/${previousHash}.png`,
-          });
-          record.oldAvatars = oldAvatars.slice(0, 100);
-        }
-      }
-    }
-
-    record.avatarSha256 = hash;
-    record.avatarCapturedAt = Date.now();
-    record.hasAvatar = true;
-
-    // Keep one private rollover copy only so the next avatar change can
-    // archive this render. It is never returned as the current thumbnail.
-    await rendererGhPut(
-      `avatars/${id}.png`,
-      png,
-      `Update renderer avatar rollover ${id}`,
-      ""
-    );
-    record.avatarPng = null;
-  }
-
-  const json = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
+    const json = Buffer.from(JSON.stringify(rendererJson(record), null, 2));
   record._jsonSha = await rendererGhPut(
     `users/${id}.json`,
     json,
@@ -1046,30 +928,6 @@ async function fetchRobloxDetails(id) {
   return { pastUsernames, rolimons };
 }
 
-async function downloadAvatarPng(imageUrl) {
-  if (!imageUrl) return null;
-  // Roblox thumbnail/CDN requests can intermittently return 429/5xx or transient network errors.
-  // Retry a few times with short backoff instead of silently losing this avatar capture.
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    try {
-      const res = await fetchWithTimeout(imageUrl, {
-        headers: { ...ROBLOX_UA, "Accept": "image/avif,image/webp,image/png,image/*,*/*;q=0.8" },
-      }, 12000);
-      if (res.ok && res.body) {
-        const contentType = String(res.headers.get("content-type") || "").toLowerCase();
-        const buf = Buffer.from(await res.arrayBuffer());
-        if (buf.length >= 32 && buf.length <= 2_000_000 &&
-            (!contentType || contentType.startsWith("image/"))) {
-          return buf;
-        }
-      }
-    } catch (err) {
-      if (attempt === 2) console.warn("avatar download failed after retries:", err.message);
-    }
-    if (attempt < 2) await new Promise(resolve => setTimeout(resolve, 250 * (attempt + 1)));
-  }
-  return null;
-}
 
 async function refreshRendererRecord(record) {
   if (!record || record._refreshing) return;
@@ -1094,10 +952,9 @@ async function refreshRendererRecord(record) {
       const body = await avatarRes.json();
       liveAvatarUrl = body?.data?.[0]?.imageUrl || "";
     }
-    const png = await downloadAvatarPng(liveAvatarUrl).catch(() => null);
-    record.refreshedAt = Date.now();
+        record.refreshedAt = Date.now();
     rememberRenderer(record);
-    await enqueueRendererWrite(() => saveRendererRecord(record, png));
+    await enqueueRendererWrite(() => saveRendererRecord(record, null));
   } catch (err) {
     console.warn("renderer refresh failed:", err.message);
   } finally {
@@ -1120,8 +977,7 @@ app.get("/proxy-roblox", async (req, res) => {
       // Stored data is metadata/history only, never the current thumbnail.
       const live = await fetchRobloxProfile(username);
       if (!live) return res.status(404).json({ error: "Not found" });
-      const livePng = await downloadAvatarPng(live.liveAvatarUrl).catch(() => null);
-      stored.username = live.username || stored.username;
+            stored.username = live.username || stored.username;
       stored.displayName = live.displayName || stored.displayName;
       stored.joinDate = live.joinDate || stored.joinDate;
       const details = await fetchRobloxDetails(stored.id).catch(() => null);
@@ -1131,7 +987,7 @@ app.get("/proxy-roblox", async (req, res) => {
       }
       stored.refreshedAt = Date.now();
       try {
-        await enqueueRendererWrite(() => saveRendererRecord(stored, livePng));
+        await enqueueRendererWrite(() => saveRendererRecord(stored, null));
       } catch (err) {
         console.warn("renderer live-avatar history save failed:", err.message);
       }
@@ -1143,7 +999,6 @@ app.get("/proxy-roblox", async (req, res) => {
     const profile = await fetchRobloxProfile(username);
     if (!profile) return res.status(404).json({ error: "Not found" });
     const details = await fetchRobloxDetails(profile.id);
-    const png = await downloadAvatarPng(profile.liveAvatarUrl).catch(() => null);
     const record = rememberRenderer({
       id: profile.id,
       username: profile.username,
@@ -1151,19 +1006,15 @@ app.get("/proxy-roblox", async (req, res) => {
       joinDate: profile.joinDate,
       pastUsernames: details.pastUsernames,
       rolimons: details.rolimons,
-      oldAvatars: [],
-      hasAvatar: false,
       refreshedAt: Date.now(),
       savedAt: 0,
     });
     let saved = false;
     try {
-      saved = await enqueueRendererWrite(() => saveRendererRecord(record, png));
+      saved = await enqueueRendererWrite(() => saveRendererRecord(record, null));
     } catch (err) {
       console.warn("renderer cache write failed:", err.message);
     }
-    if (png) record.avatarPng = png;
-    if (saved && png) record.hasAvatar = true;
     res.setHeader("Cache-Control", "private, max-age=60");
     res.json(rendererPayload(record, saved ? "" : profile.liveAvatarUrl));
   } catch (err) {
@@ -1184,7 +1035,7 @@ app.get("/proxy-roblox-details", async (req, res) => {
     });
     if (stored) {
       res.setHeader("Cache-Control", "private, max-age=60");
-      res.json(await rendererDetailsPayloadWithWayback(stored));
+      res.json(rendererDetailsPayload(stored));
       refreshRendererRecord(stored);
       return;
     }
@@ -1197,39 +1048,16 @@ app.get("/proxy-roblox-details", async (req, res) => {
       joinDate: "Unknown",
       pastUsernames: details.pastUsernames,
       rolimons: details.rolimons,
-      oldAvatars: [],
-      hasAvatar: false,
       refreshedAt: Date.now(),
       savedAt: 0,
     });
     enqueueRendererWrite(() => saveRendererRecord(record, null)).catch(() => {});
     res.setHeader("Cache-Control", "private, max-age=60");
-    res.json(await rendererDetailsPayloadWithWayback(record));
+    res.json(rendererDetailsPayload(record));
   } catch (err) {
     console.error("proxy-roblox-details error:", err);
     res.status(500).json({ error: "Details unavailable" });
   }
-});
-
-app.get("/renderer-old-avatar/:id/:hash.png", async (req, res) => {
-  const id = String(req.params.id || "");
-  const hash = String(req.params.hash || "").toLowerCase();
-  if (!/^\d+$/.test(id) || !/^[a-f0-9]{64}$/.test(hash)) return res.status(400).end();
-  try {
-    const file = await rendererGhGetRaw(`avatars/${id}-${hash}.png`);
-    if (!file || !file.length) return res.status(404).end();
-    res.setHeader("Content-Type", "image/png");
-    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
-    res.send(file);
-  } catch (err) {
-    console.warn("old renderer avatar read failed:", err.message);
-    res.status(502).end();
-  }
-});
-
-app.get("/renderer-avatar/:id", async (req, res) => {
-  // Current thumbnails are live-only. Do not serve a saved current avatar.
-  return res.status(404).end();
 });
 
 app.get("/proxy-roblox-avatar", async (req, res) => {
