@@ -242,13 +242,7 @@ export default function CoyChat({ initialImage }) {
     if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
     setError('');
   };
-  const [voiceCallActive, setVoiceCallActive] = useState(false);
-  const [voiceStatus, setVoiceStatus] = useState('');
   const recognitionRef = useRef(null);
-  const voiceAudioRef = useRef(null);
-  const voiceAudioUrlRef = useRef('');
-  const voiceCallActiveRef = useRef(false);
-  const voiceTurnRef = useRef(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -256,16 +250,6 @@ export default function CoyChat({ initialImage }) {
     inputRef.current?.focus();
     return () => {
       try { recognitionRef.current?.stop(); } catch (_) {}
-      if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
-      const activeAudio = voiceAudioRef.current;
-      if (activeAudio) {
-        activeAudio.pause();
-        if (typeof activeAudio.onabort === 'function') activeAudio.onabort();
-      }
-      if (voiceAudioUrlRef.current) {
-        URL.revokeObjectURL(voiceAudioUrlRef.current);
-        voiceAudioUrlRef.current = '';
-      }
     };
   }, []);
 
@@ -419,236 +403,6 @@ export default function CoyChat({ initialImage }) {
   }
 
 
-  function stopVoiceCall() {
-    voiceCallActiveRef.current = false;
-    voiceTurnRef.current = false;
-    setVoiceCallActive(false);
-    setVoiceStatus('Waiting for “call with me”');
-    try { recognitionRef.current?.stop(); } catch (_) {}
-    recognitionRef.current = null;
-    if (typeof window !== 'undefined' && window.speechSynthesis) window.speechSynthesis.cancel();
-    const activeAudio = voiceAudioRef.current;
-    if (activeAudio) {
-      activeAudio.pause();
-      if (typeof activeAudio.onabort === 'function') activeAudio.onabort();
-    }
-    window.setTimeout(() => {
-      if (!voiceCallActiveRef.current && !recognitionRef.current) startWakeRecognition();
-    }, 450);
-  }
-
-
-  function getRecognitionLang() {
-    const nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
-    if (nav.startsWith('ko')) return 'ko-KR';
-    return 'en-US';
-  }
-  function startWakeRecognition() {
-    if (voiceCallActiveRef.current || recognitionRef.current || document.visibilityState === 'hidden') return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      setVoiceStatus('Voice wake-up needs desktop Chrome');
-      return;
-    }
-    try {
-      const recognition = new SpeechRecognition();
-      recognition.lang = getRecognitionLang();
-      recognition.interimResults = false;
-      recognition.continuous = false;
-      recognition.maxAlternatives = 1;
-      recognition.onstart = () => setVoiceStatus('Say “call with me” to start');
-      recognition.onresult = event => {
-        const transcript = Array.from(event.results || []).map(result => result[0]?.transcript || '').join(' ').trim();
-        const normalized = transcript.toLowerCase().replace(/[^a-z0-9\s']/g, ' ').replace(/\s+/g, ' ').trim();
-        const wakePhrase = /\b(call with me|call me|coy call me|coy let's call|coy lets call|start a call|let's call|lets call)\b/.test(normalized);
-        if (!wakePhrase || voiceCallActiveRef.current) return;
-        voiceCallActiveRef.current = true;
-        setVoiceCallActive(true);
-        setVoiceStatus('Connecting...');
-        voiceTurnRef.current = true;
-        void send({ preventDefault() {} }, transcript);
-      };
-      recognition.onerror = event => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          setVoiceStatus('Need mic access');
-          showError('Uhhh is your mic on? I can\'t hear you');
-        }
-      };
-      recognition.onend = () => {
-        if (recognitionRef.current === recognition) recognitionRef.current = null;
-        if (!voiceCallActiveRef.current && document.visibilityState !== 'hidden') {
-          window.setTimeout(() => {
-            if (!voiceCallActiveRef.current && !recognitionRef.current) startWakeRecognition();
-          }, 650);
-        }
-      };
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (_) {
-      recognitionRef.current = null;
-      setVoiceStatus('Need mic access');
-    }
-  }
-
-  async function prepareMic() {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
-      });
-      stream.getTracks().forEach(t => t.stop());
-    } catch (_) {}
-  }
-
-  function startVoiceRecognition() {
-    if (!voiceCallActiveRef.current) return;
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      showError('This browser won\'t let me hear you. Try Chrome');
-      stopVoiceCall();
-      return;
-    }
-    try {
-      void prepareMic();
-      const recognition = new SpeechRecognition();
-      recognition.lang = getRecognitionLang();
-      recognition.interimResults = false;
-      recognition.continuous = false;
-      recognition.maxAlternatives = 1;
-      recognition.onstart = () => { clearError(); setVoiceStatus('Listening...'); };
-      recognition.onresult = async event => {
-        // Prefer Gradium STT if we can capture audio; fall back to browser transcript.
-        let transcript = Array.from(event.results || [])
-          .map(result => result[0]?.transcript || '')
-          .join(' ')
-          .trim();
-        if (!transcript || !voiceCallActiveRef.current) return;
-        if (/\b(end call|hang up|stop calling|end the call|goodbye coy|stop|stop call|end the call|그만|멈춰|통화 종료|끊어)\b/i.test(transcript)) {
-          stopVoiceCall();
-          return;
-        }
-        voiceTurnRef.current = true;
-        setVoiceStatus('Thinking...');
-        void send({ preventDefault() {} }, transcript);
-      };
-      recognition.onerror = event => {
-        if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
-          showError('Mic\'s blocked. Allow it and try again');
-          stopVoiceCall();
-        } else if (event.error !== 'no-speech' && voiceCallActiveRef.current) {
-          setVoiceStatus('Voice input paused');
-        }
-      };
-      recognition.onend = () => {
-        if (recognitionRef.current === recognition) recognitionRef.current = null;
-        if (voiceCallActiveRef.current && !voiceTurnRef.current) {
-          window.setTimeout(() => {
-            if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
-          }, 350);
-        }
-      };
-      recognitionRef.current = recognition;
-      recognition.start();
-    } catch (_) {
-      showError('Can\'t start the mic. Check permissions');
-      stopVoiceCall();
-    }
-  }
-
-  async function speakCoyReply(text) {
-    if (!voiceCallActiveRef.current || !text) return;
-    setVoiceStatus('Coy is talking...');
-    // Try the backend cloned voice first.
-    try {
-      const response = await fetch(API_BASE + '/personal-ai/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: String(text).slice(0, 2000) }),
-      });
-      if (response.ok) {
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const data = await response.json();
-          if (data.korean && window.speechSynthesis && typeof window.SpeechSynthesisUtterance !== 'undefined') {
-            // Wait until the spoken reply finishes before opening the microphone again.
-            await new Promise(resolve => {
-              const utterance = new window.SpeechSynthesisUtterance(data.text || text);
-              utterance.lang = 'ko-KR';
-              const voices = window.speechSynthesis.getVoices();
-              const koVoice = voices.find(v => v.lang.startsWith('ko'));
-              if (koVoice) utterance.voice = koVoice;
-              utterance.rate = 1.0;
-              utterance.pitch = 1.0;
-              utterance.onend = resolve;
-              utterance.onerror = resolve;
-              window.speechSynthesis.speak(utterance);
-            });
-            return;
-          }
-        } else {
-          const blob = await response.blob();
-          const url = URL.createObjectURL(blob);
-          const audio = new Audio(url);
-          voiceAudioRef.current = audio;
-          voiceAudioUrlRef.current = url;
-          await new Promise(resolve => {
-            let settled = false;
-            const finish = () => {
-              if (settled) return;
-              settled = true;
-              window.clearTimeout(timer);
-              audio.onended = null;
-              audio.onerror = null;
-              audio.onabort = null;
-              if (voiceAudioRef.current === audio) voiceAudioRef.current = null;
-              if (voiceAudioUrlRef.current === url) voiceAudioUrlRef.current = '';
-              URL.revokeObjectURL(url);
-              resolve();
-            };
-            const timer = window.setTimeout(finish, 120000);
-            audio.onended = finish;
-            audio.onerror = finish;
-            audio.onabort = finish;
-            audio.play().catch(finish);
-          });
-          return;
-        }
-      }
-    } catch (_) {}
-    // Always keep a usable no-key fallback. Prefer a natural English voice with a
-    // softer, youthful delivery instead of accidentally choosing a female voice.
-    return new Promise(resolve => {
-      if (!window.speechSynthesis || typeof window.SpeechSynthesisUtterance === 'undefined') {
-        resolve();
-        return;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new window.SpeechSynthesisUtterance(String(text).slice(0, 4000));
-      utterance.rate = 1.04;
-      utterance.pitch = 1.02;
-      const voices = window.speechSynthesis.getVoices();
-      const englishVoices = voices.filter(v => /^en(?:-|$)/i.test(v.lang));
-      const preferred = englishVoices.find(v => /\b(?:alex|daniel|david|fred|tom|guy|aaron|google us english|microsoft david)\b/i.test(v.name))
-        || englishVoices.find(v => /male|natural/i.test(v.name))
-        || englishVoices.find(v => /en-us/i.test(v.lang))
-        || englishVoices[0]
-        || voices[0];
-      if (preferred) utterance.voice = preferred;
-      utterance.onend = resolve;
-      utterance.onerror = resolve;
-      window.speechSynthesis.speak(utterance);
-    });
-  }
-
-  function startCallFromChat() {
-    if (voiceCallActiveRef.current) return;
-    voiceCallActiveRef.current = true;
-    setVoiceCallActive(true);
-    setVoiceStatus('Call started. Speak when ready.');
-    window.setTimeout(() => {
-      if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
-    }, 200);
-  }
-
   async function send(event, forcedMessage) {
     event?.preventDefault?.();
     const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
@@ -656,21 +410,13 @@ export default function CoyChat({ initialImage }) {
     // Start a call if the typed message asks for one.
     const callRequest = /\b(call|call me|call with me|let'?s call|start a call|can we call|wanna call|want to call|전화|통화|콜)\b/i.test(message);
     const stopRequest = /\b(stop|stop call|end call|hang up|end the call)\b/i.test(message);
-    if (stopRequest && voiceCallActiveRef.current) {
-      stopVoiceCall();
-    } else if (callRequest && !voiceCallActiveRef.current) {
-      startCallFromChat();
-    }
     let voiceReply = '';
     // React state updates after this handler returns; use a synchronous lock so
     // Enter + click or rapid repeated events cannot launch duplicate requests.
     if (sendLockRef.current || (!message && !attachmentsRef.current.length) || busy) {
       if (voiceInputTurn) {
         voiceTurnRef.current = false;
-        if (voiceCallActiveRef.current) window.setTimeout(() => {
-          if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
-        }, 350);
-      }
+}
       return;
     }
     // Ignore accidental rapid re-submits of the same text (e.g. Enter + click or a sticky button).
@@ -679,10 +425,7 @@ export default function CoyChat({ initialImage }) {
     if (sendFingerprint && sendFingerprint === lastSendRef.current.message && now - lastSendRef.current.at < 1800) {
       if (voiceInputTurn) {
         voiceTurnRef.current = false;
-        if (voiceCallActiveRef.current) window.setTimeout(() => {
-          if (voiceCallActiveRef.current && !recognitionRef.current) startVoiceRecognition();
-        }, 350);
-      }
+}
       return;
     }
     lastSendRef.current = { message: sendFingerprint, at: now };
@@ -774,10 +517,6 @@ export default function CoyChat({ initialImage }) {
       setBusy(false);
       if (voiceInputTurn) {
         voiceTurnRef.current = false;
-        if (voiceCallActiveRef.current) {
-          if (voiceReply) await speakCoyReply(voiceReply);
-          if (voiceCallActiveRef.current) startVoiceRecognition();
-        }
       }
     }
   }
