@@ -238,7 +238,7 @@ export default function CoyCompanion() {
     };
   }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
 
-  // Talk and react on his own, like a ghost. No click required.
+  // Clippy / Bonzi / Ukagaka: sit quiet, then pop in when something happens or after a long idle.
   useEffect(() => {
     const say = (fallback, context) => {
       setLine(formatCoyText(fallback));
@@ -250,19 +250,18 @@ export default function CoyCompanion() {
     };
     const timer = window.setInterval(() => {
       if (document.hidden) return;
-      if (Date.now() - lastActivity.current < 6000) return;
+      // Only speak if he's been quiet for a while.
+      if (Date.now() - lastActivity.current < 45000) return;
+      if (Math.random() > 0.55) return;
       const apps = openAppsRef.current || [];
-      const roll = Math.random();
-      if (apps.length && roll < 0.45) {
+      if (apps.length && Math.random() < 0.6) {
         const app = apps[Math.floor(Math.random() * apps.length)];
-        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Still on " + app, "Whatcha doing"]);
-        say(fallback, "Coy notices the open app " + app + " on his own and comments in character, one short line.");
-      } else if (roll < 0.7) {
-        say(randomLine(IDLE_LINES), "Idle desktop. Coy mutters one short in-character line on his own. Match Coy's real voice.");
+        const fallback = randomLine(APP_QUIPS[app] || ["Still on " + app + "?", "Need help with that?", "Oh " + app]);
+        say(fallback, "Like Clippy noticing what the user is doing. Coy pops in with one short in-character line about the open app " + app + ".");
       } else {
-        say(randomLine(["Huh", "Wait", "Oh", "Mm", "Anyway"]), "Coy says something random and unprompted, one short line, in his real voice.");
+        say(randomLine(IDLE_LINES), "Long idle. Coy pops in once with one short unprompted line in his real voice, then goes quiet.");
       }
-    }, 16000);
+    }, 20000);
     return () => window.clearInterval(timer);
   }, []);
 
@@ -321,7 +320,7 @@ export default function CoyCompanion() {
       }
       if (detail.type === "app-open" && String(detail.name || "").toLowerCase() === "coy") return;
       const now = Date.now();
-      if (now - lastActivity.current < 4000) return;
+      if (now - lastActivity.current < 12000) return;
       lastActivity.current = now;
       if (detail.type === "app-open") {
         const name = detail.name || "an app";
