@@ -3,17 +3,17 @@ import { createPortal } from "react-dom";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
-const GREETINGS = ["Sup", "Hru", "Hi", "Hello", "Haii", "Hai", "Hey", "Heyy", "Hii", "Haiii"];
-const IDLE_LINES = ["Hm", "Sup", "Hey", "Mm", "Just here", "Thinking", "Hru"];
+const GREETINGS = ["Sup", "Hru", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii"];
+const IDLE_LINES = ["Hm", "Sup", "Yah", "Mm", "oh", "im here", "hmm"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "Eep", "Okay you can stay"];
+const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "eep", "Yahh"];
 const APP_QUIPS = {
-  Winamp: ["Oh music", "What we listening to", "Song time", "Ooh"],
-  Renderer: ["Looking someone up?", "Avatar check", "Found the account?"],
-  Bloxify: ["Making music again", "Songmaking", "Cooking something", "Ooh music stuff"],
-  Winter_Letter: ["Back to Winter Letter", "Writing time", "Winter Letter again"],
-  Paint: ["Drawing something", "Art time", "Whatcha making"],
-  Minesweeper: ["Good luck", "Don't explode", "Minesweeper time"]
+  Winamp: ["What are we listening to", "put something on", "oh music"],
+  Renderer: ["Roblox stuff again", "classic avatars", "hm"],
+  Bloxify: ["what are we making", "making something again", "lemme hear it"],
+  Winter_Letter: ["Back to Winter Letter", "the story is still here", "Winter Letter"],
+  Paint: ["What are you making", "painting again", "lemme see"],
+  Minesweeper: ["good luck", "do not click the wrong one", "that board looks evil"]
 };
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
@@ -231,7 +231,7 @@ export default function CoyCompanion() {
       const apps = openAppsRef.current || [];
       if (apps.length && Math.random() < 0.4) {
         const app = apps[Math.floor(Math.random() * apps.length)];
-        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Whatcha doing", "Hm"]);
+        const fallback = randomLine(APP_QUIPS[app] || ["oh", "what are you doing", "hm"]);
         say(fallback, "Coy is a desktop pet who lives here. He comments on the open app " + app + " in one short in-character line.");
       } else {
         say(randomLine(IDLE_LINES), "Coy is a desktop pet sitting on the desktop. He says one short random in-character line on his own, like Bonzi or an ukagaka.");
@@ -318,21 +318,21 @@ export default function CoyCompanion() {
         const fallback = randomLine(APP_QUIPS[name] || ["Oh " + name]);
         announce(fallback);
       } else if (detail.type === "music") {
-        announce("Music time");
+        announce("oh music");
       } else if (detail.type === "error") {
-        announce("Looks like something broke");
+        announce("oh, something broke");
       } else if (detail.type === "app-event") {
         // Apps can provide a short, concrete result so Coy reacts to what
         // actually happened instead of always using a canned generic quip.
         announce(typeof detail.message === "string" && detail.message.trim()
           ? detail.message.trim()
-          : randomLine(APP_QUIPS[detail.name] || ["Oh", "Hm", "What happened"]));
+          : randomLine(APP_QUIPS[detail.name] || ["oh", "hm", "what happened"]));
       } else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
         lastPickupAttempt.current = now;
         hasHeldImage.current = true;
         setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
         setHoldingImage(true);
-        announce("oh, an image.", { image: detail.src });
+        announce("oh, look at that", { image: detail.src });
       }
     };
     window.addEventListener("coy:activity", onActivity);
@@ -371,7 +371,7 @@ export default function CoyCompanion() {
       setHoldingImage(true);
       if (now - lastActivity.current > 9000) {
         lastActivity.current = now;
-        announce("Ohh, an avatar render. Wanna use it in chat?");
+        announce("ohh, an avatar render");
       }
     };
     const observer = new MutationObserver(scanImages);
