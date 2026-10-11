@@ -480,7 +480,7 @@ export default function CoyChat({ initialImage }) {
           .join(' ')
           .trim();
         if (!transcript || !voiceCallActiveRef.current) return;
-        if (/\b(end call|hang up|stop calling|end the call|goodbye coy)\b/i.test(transcript)) {
+        if (/\b(end call|hang up|stop calling|end the call|goodbye coy|stop|stop call|end the call)\b/i.test(transcript)) {
           stopVoiceCall();
           return;
         }
@@ -566,7 +566,10 @@ export default function CoyChat({ initialImage }) {
     const voiceInputTurn = typeof forcedMessage === 'string';
     // Start a call if the typed message asks for one.
     const callRequest = /\b(call|call me|call with me|let'?s call|start a call|can we call|wanna call|want to call)\b/i.test(message);
-    if (callRequest && !voiceCallActiveRef.current) {
+    const stopRequest = /\b(stop|stop call|end call|hang up|end the call)\b/i.test(message);
+    if (stopRequest && voiceCallActiveRef.current) {
+      stopVoiceCall();
+    } else if (callRequest && !voiceCallActiveRef.current) {
       startCallFromChat();
     }
     let voiceReply = '';
