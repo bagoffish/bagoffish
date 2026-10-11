@@ -1008,8 +1008,8 @@ router.post("/speak", async (req, res) => {
     return res.status(200).json({ korean: true, text });
   }
 
-  // Use Gradium with a cloned voice from the uploaded sample.
-  if (GRADIUM_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {
+  // Use Gradium. Prefer the configured voice ID; fall back to creating one from the sample.
+  if (GRADIUM_API_KEY) {
     try {
       let voiceId = process.env.GRADIUM_VOICE_ID || "3gBNLjBg0qKmhmxu";
       if (!voiceId) {
