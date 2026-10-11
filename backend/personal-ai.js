@@ -208,7 +208,7 @@ function normalizeCoyReply(value) {
   // Strip leaked provider diagnostics and special control tokens before a reply
   // reaches the chat UI. These are formatting artifacts, not Coy's message.
   const diagnosticHeader = /^\s*(?:user\s+safety|response\s+safety|safety\s+categories?|moderation(?:\s+(?:label|category|result|status))?|classifier(?:\s+(?:result|label|score))?|risk(?:\s+(?:label|score|category))?|intent|sentiment|policy)\s*:/i;
-  const aiBoilerplate = /^\s*(?:(?:well[, ]+|honestly[, ]+|look[, ]+)?(?:as an ai(?: language model| assistant)?|i am an ai(?: language model| assistant)?|i'm an ai(?: language model| assistant)?|as a large language model|i(?:'m| am) (?:just |only )?(?:a bot|a chatbot|an? (?:ai|artificial intelligence|program|language model))|i(?:'m| am) not (?:a real person|human|a human|real|a person)|i do not exist|i don't exist|this is (?:just |only )?(?:an? ai|a chatbot|a bot))\b[.!?]?\s*/i;
+  const aiBoilerplate = /^\s*(?:as an ai|as a large language model|i am an ai|i'm an ai|i am just an ai|i'm just an ai|i am a bot|i'm a bot|i am a chatbot|i'm a chatbot|i am not human|i'm not human|i do not exist|i don't exist|this is just an ai|this is just a chatbot)\b/i;
   const unpromptedIdentityLine = /^\s*(?:as an ai\b|as a language model\b|i(?:'m| am) (?:an? ai|a bot|a chatbot|not human|not a real person|just a program)\b|i cannot (?:feel|have feelings|experience emotions) because (?:i am|i'm) (?:an? ai|a bot|a language model)\b)/i;
   return String(value ?? "")
     .split(/\r?\n/)
