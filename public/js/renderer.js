@@ -211,21 +211,23 @@
 
           var oldContainer = document.getElementById("oldAvatars");
           if (oldContainer) oldContainer.textContent = "Loading archived renders…";
-          Promise.all([
-            fetchSavedArchivedAvatars(roblox.id),
-            fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
+          fetchSavedArchivedAvatars(roblox.id).then(function (saved) {
+            // Prefer the prebuilt index and skip live Wayback discovery entirely
+            // when it already has renders for this user.
+            if (Array.isArray(saved) && saved.length) return saved;
+            return fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
               headers: { Accept: "application/json" },
               cache: "no-store"
             }).then(function (response) {
               return response.ok ? response.json() : { images: [] };
             }).then(function (payload) {
               return Array.isArray(payload && payload.images) ? payload.images : [];
-            }).catch(function () { return []; })
-          ]).then(function (sources) {
+            }).catch(function () { return []; });
+          }).then(function (rawItems) {
             if (!oldContainer || !document.body.contains(oldContainer)) return;
             var merged = [];
             var seen = Object.create(null);
-            sources[0].concat(sources[1]).forEach(function (raw) {
+            rawItems.forEach(function (raw) {
               var item = normalizeArchivedItem(raw);
               if (!item || seen[item.url]) return;
               seen[item.url] = true;
