@@ -490,8 +490,9 @@ export default function CoyChat({ initialImage }) {
       recognition.continuous = false;
       recognition.maxAlternatives = 1;
       recognition.onstart = () => setVoiceStatus('Listening...');
-      recognition.onresult = event => {
-        const transcript = Array.from(event.results || [])
+      recognition.onresult = async event => {
+        // Prefer Gradium STT if we can capture audio; fall back to browser transcript.
+        let transcript = Array.from(event.results || [])
           .map(result => result[0]?.transcript || '')
           .join(' ')
           .trim();
