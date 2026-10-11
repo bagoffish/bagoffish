@@ -318,6 +318,66 @@ async function loadGithubMemory() {
   return text;
 }
 
+
+const personalityStudyCache = { source: "", text: "" };
+
+function sectionOf(corpus, fileName) {
+  const marker = "===== " + fileName + " =====";
+  const start = corpus.indexOf(marker);
+  if (start < 0) return "";
+  const from = start + marker.length;
+  const next = corpus.indexOf("\n\n===== ", from);
+  return corpus.slice(from, next < 0 ? corpus.length : next).trim();
+}
+
+function linesOf(block) {
+  return (block || "").split(/\r?\n/).map(v => v.trim()).filter(v => v.length >= 2 && v.length <= 400 && !v.startsWith("=====") && !v.startsWith("#"));
+}
+
+function topTerms(lines, limit = 18) {
+  const stop = new Set("the a an and or but if to of in on for with at from by as is it this that was were be been being i im you u ur your we they he she my me rt http https www com just like dont its not are was lol lmao yeah yea nah ok okay idk tho bro".split(" "));
+  const counts = new Map();
+  for (const line of lines) {
+    for (const raw of line.toLowerCase().split(/[^a-z0-9_#@]+/)) {
+      const word = raw.replace(/^#+/, "#");
+      if (word.length < 3 || stop.has(word)) continue;
+      counts.set(word, (counts.get(word) || 0) + 1);
+    }
+  }
+  return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit).map(([word]) => word);
+}
+
+function sampleLines(lines, count = 8) {
+  if (lines.length <= count) return lines;
+  const out = [];
+  const step = Math.max(1, Math.floor(lines.length / count));
+  for (let i = 0; i < lines.length && out.length < count; i += step) out.push(lines[i].slice(0, 180));
+  return out;
+}
+
+function studyArchives(corpus) {
+  if (personalityStudyCache.source === corpus && personalityStudyCache.text) return personalityStudyCache.text;
+  const discord = linesOf(sectionOf(corpus, "coy-discord-style-corpus.txt"));
+  const rest = linesOf(sectionOf(corpus, "coy-twitter-rest.txt"));
+  const retweets = linesOf(sectionOf(corpus, "coy-twitter-retweets.txt"));
+  const own = discord.concat(rest);
+  const likes = topTerms(retweets, 20);
+  const ownTopics = topTerms(own, 16);
+  const text = [
+    "STUDIED PERSONALITY AND LIKES — derived from Coy's Discord messages, own tweets/replies, and retweets. Use this as who Coy is and what Coy is into. Do not quote it back as a list unless asked.",
+    "Voice: match the short, direct, casual energy of Coy's own Discord messages and tweets. Do not sound like the retweeted accounts.",
+    ownTopics.length ? "Topics Coy actually talks about: " + ownTopics.join(", ") : "",
+    likes.length ? "Things Coy likes or amplifies (from retweets, treat as taste not as Coy's wording): " + likes.join(", ") : "",
+    "Own-message samples:",
+    ...sampleLines(own, 8).map(line => "- " + line),
+    retweets.length ? "Retweet taste samples (interests, not voice):" : "",
+    ...sampleLines(retweets, 6).map(line => "- " + line),
+  ].filter(Boolean).join("\n");
+  personalityStudyCache.source = corpus;
+  personalityStudyCache.text = text;
+  return text;
+}
+
 function getStyleCorpusLines(corpus) {
   if (githubStyleLinesCache.source === corpus && githubStyleLinesCache.lines.length) {
     return githubStyleLinesCache.lines;
@@ -437,6 +497,7 @@ async function getGithubMemoryContext(query) {
     const styleCorpus = factsStart >= 0 ? corpus.slice(0, factsStart) : corpus;
     const { relevant, styleAnchors, styleProfile } = findGithubMemoryExcerpts(styleCorpus, query);
     return [
+      studyArchives(corpus),
       "APPROVED PERSONAL MEMORY INDEX — use this grounded information whenever relevant:",
       approvedMemory || "(Approved memory index was not available.)",
       "DISCORD VOICE EXAMPLES — ALWAYS USE THESE TO CALIBRATE HOW COY TALKS:",
