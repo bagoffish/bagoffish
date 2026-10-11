@@ -32,7 +32,7 @@ function safeWebUrl(value) {
 const COY_DESKTOP_APP_ALIASES = {
   'about me': 'About Me', about: 'About Me', profile: 'About Me',
   'winter letter': 'Winter_Letter', winterletter: 'Winter_Letter', letters: 'Winter_Letter',
-  poems: 'Poems', poem: 'Poems,
+  poems: 'Poems', poem: 'Poems',
   renderer: 'Renderer', 'roblox renderer': 'Renderer', 'avatar renderer': 'Renderer',
   bloxify: 'Bloxify', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
   paint: 'Paint', 'ms paint': 'Paint',
