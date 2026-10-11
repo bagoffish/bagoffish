@@ -296,21 +296,29 @@ async function loadGithubMemory() {
       encodeURIComponent(branch) + "/" + encodedPath;
     let lastStatus = "network error";
 
-    for (const url of [apiUrl, rawUrl]) {
+    // Prefer raw.githubusercontent.com first. The GitHub Contents API may return
+    // a JSON/base64 envelope for multi-megabyte files; treating that envelope as
+    // the corpus makes style retrieval silently see zero usable Discord messages.
+    for (const url of [rawUrl, apiUrl]) {
       try {
         const response = await fetch(url, {
-          headers: url === apiUrl ? headers : {
+          headers: url === rawUrl ? {
             Authorization: "Bearer " + token,
             Accept: "application/vnd.github.raw",
             "User-Agent": "Coy-Personal-Memory",
-          },
-          signal: AbortSignal.timeout(30_000),
+          } : headers,
+          signal: AbortSignal.timeout(60_000),
         });
         lastStatus = String(response.status);
         if (!response.ok) continue;
         const content = await response.text();
         if (!content.trim()) {
           lastStatus = "empty response";
+          continue;
+        }
+        // Do not accept a JSON Contents-API envelope as plain corpus text.
+        if (url === apiUrl && /^\s*\{\s*"(?:name|path|sha|size|content)"\s*:/.test(content)) {
+          lastStatus = "GitHub returned a JSON file envelope instead of raw text";
           continue;
         }
         loadedFiles.push(filePath);
