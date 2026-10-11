@@ -501,6 +501,7 @@ export default function CoyCompanion() {
       left: position.left,
       top: position.top,
       zIndex: chatOpen ? 10001 : underAppWindows ? 0 : 1,
+      visibility: underAppWindows && !chatOpen ? "hidden" : "visible",
       pointerEvents: "none",
       userSelect: "none",
       touchAction: "none"
