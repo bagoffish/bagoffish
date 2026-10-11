@@ -238,18 +238,31 @@ export default function CoyCompanion() {
     };
   }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
 
-  // Ukagaka-style: talk on his own every so often when nothing else is happening.
+  // Talk and react on his own, like a ghost. No click required.
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      if (document.hidden) return;
-      if (Date.now() - lastActivity.current < 8000) return;
-      const next = IDLE_LINES[Math.floor(Math.random() * IDLE_LINES.length)];
-      setLine(formatCoyText(next));
+    const say = (fallback, context) => {
+      setLine(formatCoyText(fallback));
       setShowBubble(true);
-      fetchAiQuip("Idle desktop moment. Say one short in-character line as Coy, like an ukagaka ghost muttering. Match Coy's real voice.").then(ai => {
+      lastActivity.current = Date.now();
+      fetchAiQuip(context, openAppsRef.current, []).then(ai => {
         if (ai) { setLine(formatCoyText(ai)); setShowBubble(true); }
       });
-    }, 28000);
+    };
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      if (Date.now() - lastActivity.current < 6000) return;
+      const apps = openAppsRef.current || [];
+      const roll = Math.random();
+      if (apps.length && roll < 0.45) {
+        const app = apps[Math.floor(Math.random() * apps.length)];
+        const fallback = randomLine(APP_QUIPS[app] || ["Oh " + app, "Still on " + app, "Whatcha doing"]);
+        say(fallback, "Coy notices the open app " + app + " on his own and comments in character, one short line.");
+      } else if (roll < 0.7) {
+        say(randomLine(IDLE_LINES), "Idle desktop. Coy mutters one short in-character line on his own. Match Coy's real voice.");
+      } else {
+        say(randomLine(["Huh", "Wait", "Oh", "Mm", "Anyway"]), "Coy says something random and unprompted, one short line, in his real voice.");
+      }
+    }, 16000);
     return () => window.clearInterval(timer);
   }, []);
 
