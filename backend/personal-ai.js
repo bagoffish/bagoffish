@@ -1,4 +1,6 @@
 import express from "express";
+import fs from "fs";
+import path from "path";
 import mammoth from "mammoth";
 import pdfParse from "pdf-parse";
 
@@ -911,6 +913,88 @@ router.post("/chat", rateLimit, async (req, res) => {
   } catch (error) {
     console.error("Coy request failed:", error?.name || "Error");
     return res.status(502).json({ error: "I’m tryna sleep dude." });
+  }
+});
+
+
+// Voice sample for calls. Stored on disk; used by /speak if a TTS key is set.
+const VOICE_SAMPLE_PATH = process.env.VOICE_SAMPLE_PATH || path.join(process.env.DATA_ROOT || "/tmp/winxp-data", "coy-voice-sample.webm");
+const ELEVENLABS_KEY = process.env.ELEVENLABS_API_KEY || "";
+const ELEVENLABS_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "";
+
+router.post("/voice-sample", async (req, res) => {
+  try {
+    const data = String(req.body?.data || "").replace(/^data:[^,]*,/, "");
+    if (!data || !/^[A-Za-z0-9+/]*={0,2}$/.test(data)) {
+      return res.status(400).json({ error: "Send a base64 audio recording." });
+    }
+    const buffer = Buffer.from(data, "base64");
+    if (buffer.length < 1000 || buffer.length > 8 * 1024 * 1024) {
+      return res.status(413).json({ error: "Voice sample must be between 1 KB and 8 MB." });
+    }
+    const dir = path.dirname(VOICE_SAMPLE_PATH);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(VOICE_SAMPLE_PATH, buffer);
+    // If ElevenLabs is configured, create/update a voice clone from the sample.
+    let voiceId = ELEVENLABS_VOICE_ID;
+    if (ELEVENLABS_KEY && !voiceId) {
+      try {
+        const form = new FormData();
+        form.append("name", "Coy");
+        form.append("files", new Blob([buffer], { type: "audio/webm" }), "sample.webm");
+        const clone = await fetch("https://api.elevenlabs.io/v1/voices/add", {
+          method: "POST",
+          headers: { "xi-api-key": ELEVENLABS_KEY },
+          body: form,
+        });
+        const result = await clone.json().catch(() => ({}));
+        if (result.voice_id) voiceId = result.voice_id;
+      } catch (_) {}
+    }
+    return res.json({ ok: true, bytes: buffer.length, voiceId: voiceId || null });
+  } catch (error) {
+    console.error("Voice sample save failed:", error?.message || error);
+    return res.status(500).json({ error: "Could not save the voice sample." });
+  }
+});
+
+router.get("/voice-sample", (req, res) => {
+  const exists = fs.existsSync(VOICE_SAMPLE_PATH);
+  res.json({ exists, bytes: exists ? fs.statSync(VOICE_SAMPLE_PATH).size : 0 });
+});
+
+router.post("/speak", async (req, res) => {
+  const text = String(req.body?.text || "").trim().slice(0, 2000);
+  if (!text) return res.status(400).json({ error: "No text to speak." });
+  if (!ELEVENLABS_KEY || !ELEVENLABS_VOICE_ID) {
+    return res.status(501).json({ error: "Voice cloning is not configured. Set ELEVENLABS_API_KEY and ELEVENLABS_VOICE_ID." });
+  }
+  try {
+    const response = await fetch("https://api.elevenlabs.io/v1/text-to-speech/" + ELEVENLABS_VOICE_ID, {
+      method: "POST",
+      headers: {
+        "xi-api-key": ELEVENLABS_KEY,
+        "Content-Type": "application/json",
+        Accept: "audio/mpeg",
+      },
+      body: JSON.stringify({
+        text,
+        model_id: "eleven_monolingual_v1",
+        voice_settings: { stability: 0.4, similarity_boost: 0.75, style: 0.3, use_speaker_boost: true },
+      }),
+    });
+    if (!response.ok) {
+      const err = await response.text().catch(() => "");
+      console.warn("ElevenLabs TTS failed:", response.status, err.slice(0, 200));
+      return res.status(502).json({ error: "Voice synthesis failed." });
+    }
+    const audio = Buffer.from(await response.arrayBuffer());
+    res.setHeader("Content-Type", "audio/mpeg");
+    res.setHeader("Cache-Control", "no-store");
+    return res.send(audio);
+  } catch (error) {
+    console.error("Speak failed:", error?.message || error);
+    return res.status(500).json({ error: "Could not generate speech." });
   }
 });
 
