@@ -465,6 +465,15 @@ export default function CoyChat({ initialImage }) {
     }
   }
 
+  async function prepareMic() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 },
+      });
+      stream.getTracks().forEach(t => t.stop());
+    } catch (_) {}
+  }
+
   function startVoiceRecognition() {
     if (!voiceCallActiveRef.current) return;
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -474,6 +483,7 @@ export default function CoyChat({ initialImage }) {
       return;
     }
     try {
+      void prepareMic();
       const recognition = new SpeechRecognition();
       recognition.lang = getRecognitionLang();
       recognition.interimResults = false;
