@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v12";
+  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v13";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -180,7 +180,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v11:" + id;
+            var storageKey = "avatar-history-index-v12:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -234,8 +234,11 @@
             var seen = Object.create(null);
             rawItems.forEach(function (raw) {
               var item = normalizeArchivedItem(raw);
-              if (!item || seen[item.url]) return;
-              seen[item.url] = true;
+              // The same image URL can have many valid archived captures.
+              // Deduplicate exact URL+timestamp pairs, never the URL alone.
+              var captureKey = item ? item.timestamp + "|" + item.url : "";
+              if (!item || seen[captureKey]) return;
+              seen[captureKey] = true;
               merged.push(item);
             });
             // Sort by capture time, earliest first. Unknown dates go last.
