@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v14";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v15";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -180,7 +180,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v12:" + id;
+            var storageKey = "avatar-history-index-v13:" + id;
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
@@ -204,10 +204,19 @@
           }
 
           function normalizeArchivedItem(item) {
-            if (!item) return null;
+            if (!item || typeof item !== "object") return null;
             var url = text(item.url || item.wayback).trim();
-            if (!url) return null;
-            return { url: url, timestamp: text(item.timestamp || "") };
+            // Damaged index rows sometimes put a date where the image URL belongs.
+            // Reject those rows before creating an image element or network request.
+            if (!/^https?:\\/\\//i.test(url) || /^\\d{4}[-/]?\\d{2}[-/]?\\d{2}(?:\\D.*)?$/.test(url)) return null;
+            try {
+              var parsed = new URL(url);
+              if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
+                  !parsed.hostname || parsed.hostname.indexOf(".") === -1) return null;
+            } catch (_) { return null; }
+            var timestamp = text(item.timestamp || "");
+            if (timestamp && !/^\\d{8,14}$/.test(timestamp)) timestamp = "";
+            return { url: url, timestamp: timestamp };
           }
 
           var oldContainer = document.getElementById("oldAvatars");
@@ -345,14 +354,8 @@
                   img.src = imageCandidates[imageCandidateIndex];
                   return;
                 }
-                // Keep the archive grid stable even when every source fails.
-                img.removeAttribute("src");
-                img.alt = "Archived avatar unavailable";
-                img.style.objectFit = "contain";
-                img.style.background = "#dce6f1";
-                img.style.minHeight = "104px";
-                img.style.opacity = "0.65";
-                img.title = "Wayback and direct image fallbacks all failed for this capture";
+                // Do not show a blank tile for a deleted or unreachable capture.
+                card.remove();
               });
 
               // Assign only after the fallback error handler is attached.
