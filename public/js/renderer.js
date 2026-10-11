@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v10";
+  var RENDERER_SCRIPT_VERSION = "20261012-avatar-grid-v11";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -326,6 +326,8 @@
                 img.title = "Wayback and direct image fallbacks all failed for this capture";
               });
 
+              // Assign only after the fallback error handler is attached.
+              img.src = imageCandidates[0] || archivedSrc;
               img.addEventListener("click", function () {
                 window.open(item.url, "_blank", "noopener,noreferrer");
               });
