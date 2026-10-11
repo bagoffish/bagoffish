@@ -1093,19 +1093,42 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
     return res.send(cached.body);
   }
 
-  // Wayback's im_ modifier can fail for old captures. Try the exact URL first,
-  // then the same capture without the modifier.
+  // Try the exact replay, a non-im_ replay, then Wayback's closest available capture.
   const candidates = [parsed.toString()];
-  if (parsed.hostname.toLowerCase() === "web.archive.org") {
-    const replayPath = parsed.pathname;
-    const marker = replayPath.indexOf("im_");
-    if (marker >= 0 && replayPath.startsWith("/web/")) {
-      const timestamp = replayPath.slice(5, marker);
-      const isDigits = timestamp.length >= 8 && timestamp.length <= 14 &&
-        [...timestamp].every((character) => character >= "0" && character <= "9");
-      if (isDigits) {
-        candidates.push(parsed.origin + replayPath.slice(0, marker) + replayPath.slice(marker + 3) + parsed.search);
+  let archiveOriginalUrl = '';
+  let archiveTimestamp = '';
+  if (parsed.hostname.toLowerCase() === 'web.archive.org' && parsed.pathname.startsWith('/web/')) {
+    const rest = parsed.pathname.slice(5);
+    const match = rest.match(/^(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\/(https?:\/.*)$/i);
+    if (match) {
+      archiveTimestamp = match[1];
+      archiveOriginalUrl = match[2];
+      const withoutModifier = parsed.origin + '/web/' + archiveTimestamp + '/' + archiveOriginalUrl + parsed.search;
+      if (!candidates.includes(withoutModifier)) candidates.push(withoutModifier);
+    }
+  }
+
+  if (archiveOriginalUrl && archiveTimestamp) {
+    try {
+      const availabilityUrl = 'https://archive.org/wayback/available?url=' +
+        encodeURIComponent(archiveOriginalUrl) + '&timestamp=' + encodeURIComponent(archiveTimestamp);
+      const availability = await fetchWithTimeout(availabilityUrl, {
+        headers: { 'User-Agent': 'WinXP Renderer/1.0', 'Accept': 'application/json' },
+      }, 8000);
+      if (availability.ok) {
+        const data = await availability.json();
+        const closest = data && data.archived_snapshots && data.archived_snapshots.closest;
+        if (closest && closest.available && typeof closest.url === 'string') {
+          const closestUrl = new URL(closest.url);
+          if (closestUrl.hostname.toLowerCase() === 'web.archive.org' && closestUrl.pathname.startsWith('/web/')) {
+            const replayUrl = closestUrl.origin + closestUrl.pathname.replace(/^\/web\/(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\//i, '/web/$1im_/') + closestUrl.search;
+            if (!candidates.includes(replayUrl)) candidates.push(replayUrl);
+            if (!candidates.includes(closest.url)) candidates.push(closest.url);
+          }
+        }
       }
+    } catch (_) {
+      // Continue with the candidates already collected.
     }
   }
 
