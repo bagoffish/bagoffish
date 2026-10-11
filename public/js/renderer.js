@@ -175,7 +175,7 @@
           // consistently across browsers, including browsers without DecompressionStream.
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
-            if (!/^\\d+$/.test(id)) return Promise.resolve([]);
+            if (!/^\d+$/.test(id)) return Promise.resolve([]);
             return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
               headers: { Accept: "application/json" },
               cache: "force-cache"
