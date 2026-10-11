@@ -212,6 +212,7 @@ function normalizeCoyReply(value) {
   const unpromptedIdentityLine = /^\s*(?:as an ai\b|as a language model\b|i(?:'m| am) (?:an? ai|a bot|a chatbot|not human|not a real person|just a program)\b|i cannot (?:feel|have feelings|experience emotions) because (?:i am|i'm) (?:an? ai|a bot|a language model)\b)/i;
   return String(value ?? "")
     .split(/\r?\n/)
+    .map(line => line.replace(/(^|[.!?]\s+)(?:as an ai(?: language model| assistant)?\b|as a large language model\b|i(?:'m| am) (?:just |only )?(?:an? ai|a bot|a chatbot|a language model|not human|not a real person)\b|i cannot (?:feel|have feelings|experience emotions) because i(?:'m| am) (?:an? ai|a bot|a language model)\b)[^.!?]*(?:[.!?]|$)/gi, "$1"))
     .filter(line => !diagnosticHeader.test(line) && !aiBoilerplate.test(line) && !unpromptedIdentityLine.test(line))
     .join("\n")
     .replace(/<\|[^|\r\n]*\|>/g, "")
