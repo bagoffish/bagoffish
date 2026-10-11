@@ -33,7 +33,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261012-full-avatar-index-v11"; // themed square archive cards, capture dates, contextual Coy reactions
+    s.src = "/js/renderer.js?v=20261012-headshot-grid-v14"; // themed square archive cards, capture dates, contextual Coy reactions
     s.async = true;
     document.body.appendChild(s);
   }, []);
@@ -337,7 +337,15 @@ const legacyCss = `
   font-family: Tahoma, Verdana, sans-serif;
   font-size: 12px;
 }
-.avatar-container img,
+.avatar-container img{
+  width: 120px;
+  height: 120px;
+  border: 1px solid #808080;
+  box-shadow: inset 0 0 0 1px #fff;
+  object-fit: cover;
+  cursor: url("/images/Link Select.cur") 3 3, pointer;
+  background: #fff;
+}
 .old-avatar-thumb{
   width: 100%;
   height: 140px;
@@ -349,10 +357,10 @@ const legacyCss = `
 }
 #oldAvatars{
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 8px;
   width: 100%;
-  justify-items: center;
+  justify-items: stretch;
   margin-top: 10px;
 }
 .info-line{ text-align: center; }

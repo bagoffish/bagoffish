@@ -1098,7 +1098,11 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
       archiveTimestamp = match[1];
       archiveOriginalUrl = match[2];
       const withoutModifier = parsed.origin + '/web/' + archiveTimestamp + '/' + archiveOriginalUrl + parsed.search;
-      if (!candidates.includes(withoutModifier)) candidates.push(withoutModifier);
+      const withImageModifier = parsed.origin + '/web/' + archiveTimestamp + 'im_/' + archiveOriginalUrl + parsed.search;
+      const withIdModifier = parsed.origin + '/web/' + archiveTimestamp + 'id_/' + archiveOriginalUrl + parsed.search;
+      for (const candidate of [withImageModifier, withoutModifier, withIdModifier]) {
+        if (!candidates.includes(candidate)) candidates.push(candidate);
+      }
     }
   }
 
@@ -1184,6 +1188,7 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
           try {
             const imageResponse = await fetchWithTimeout(imageCandidate, {
               headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
+              redirect: "follow",
             }, 12000);
             const imageType = (imageResponse.headers.get("content-type") || "").toLowerCase();
             if (imageResponse.ok && imageResponse.body && imageType.startsWith("image/")) {
