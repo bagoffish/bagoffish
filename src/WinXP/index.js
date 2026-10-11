@@ -409,6 +409,9 @@ function WinXP() {
       if (existing) {
         // Clicking Coy again should focus the existing chat, never close it.
         dispatch({ type: FOCUS_APP, payload: existing.id });
+        if (typeof event.detail?.initialText === 'string') {
+          window.dispatchEvent(new CustomEvent('coy:prefill-chat', { detail: { text: event.detail.initialText } }));
+        }
         return;
       }
       const image = event.detail && event.detail.image;
