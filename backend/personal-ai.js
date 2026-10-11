@@ -29,7 +29,7 @@ function calculateAge(birthDate, now = new Date()) {
 
 function isRomanticAdvance(message) {
   const text = String(message || "").toLowerCase().replace(/[’]/g, "'");
-  return /\\b(?:i\\s+(?:love|luv)\\s+you|love\\s+u|i'?m\\s+in\\s+love\\s+with\\s+you|i\\s+have\\s+a\\s+crush\\s+on\\s+you|i\\s+like\\s+you\\s+(?:romantically|as\\s+more\\s+than\\s+a\\s+friend)?|be\\s+my\\s+(?:boyfriend|girlfriend|partner|bf|gf)|will\\s+you\\s+(?:be\\s+mine|date\\s+me|marry\\s+me)|date\\s+me|go\\s+out\\s+with\\s+me|kiss\\s+me|marry\\s+me|you're\\s+(?:so\\s+)?(?:hot|sexy)|you'?re\\s+so\\s+cute|i\\s+want\\s+you\\s+to\\s+be\\s+mine)\\b/.test(text);
+  return /\b(?:i\s+(?:love|luv)\s+you|love\s+u|i'?m\s+in\s+love\s+with\s+you|i\s+have\s+a\s+crush\s+on\s+you|i\s+like\s+you\s+(?:romantically|as\s+more\s+than\s+a\s+friend)?|be\s+my\s+(?:boyfriend|girlfriend|partner|bf|gf)|will\s+you\s+(?:be\s+mine|date\s+me|marry\s+me)|date\s+me|go\s+out\s+with\s+me|kiss\s+me|marry\s+me|you're\s+(?:so\s+)?(?:hot|sexy)|you'?re\s+so\s+cute|i\s+want\s+you\s+to\s+be\s+mine)\b/.test(text);
 }
 
 function buildPersonality() {
@@ -1060,7 +1060,7 @@ router.post("/chat", rateLimit, async (req, res) => {
         // Enforce the relationship boundary for direct romantic advances, even if a model ignores its instructions.
         if (isRomanticAdvance(message)) {
           answer = "that's sweet, but I'm taken";
-        } else if (/\\bi\\s+love\\s+(?:u|you)\\s+too\\b/i.test(answer)) {
+        } else if (/\bi\s+love\s+(?:u|you)\s+too\b/i.test(answer)) {
           answer = "aw, you're important to me";
         }
         // Enforce the non-romantic reciprocation rule after generation as well as in the prompt.
