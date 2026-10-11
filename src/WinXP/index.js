@@ -255,6 +255,9 @@ function WinXP() {
         return title === appName || title.includes(appName) || appName.includes(title);
       });
       if (!root) return;
+      const notifyInteraction = (message, eventName = action) => window.dispatchEvent(new CustomEvent('coy:activity', {
+        detail: { type: 'app-event', name: detail.name || 'Desktop', event: eventName, message },
+      }));
       const labelOf = node => String(node.getAttribute('aria-label') || node.getAttribute('title') || node.value || node.innerText || node.textContent || '').trim();
       const norm = value => String(value || '').trim().toLowerCase().replace(/\\s+/g, ' ');
       const setInputValue = (node, value) => {
@@ -279,6 +282,7 @@ function WinXP() {
         if (/\\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off)\\b/i.test(labelOf(control)) &&
             !window.confirm('Coy is about to click "' + labelOf(control) + '". Continue?')) return;
         control.click();
+        notifyInteraction('Clicked ' + labelOf(control) + ' in ' + (detail.name || 'that app') + '.');
         return;
       }
       if (action === 'fill' || action === 'search') {
@@ -301,6 +305,7 @@ function WinXP() {
         setInputValue(field, value);
         field.focus?.();
         if (action === 'search') {
+          notifyInteraction('Searching ' + (detail.name || 'that app') + ' for ' + String(value || '').trim() + '.', 'search');
           const form = field.closest('form');
           const buttons = Array.from((form || root).querySelectorAll('button, [role="button"], input[type="submit"], [data-clickable]'));
           const submit = buttons.find(node => /^(search|go|render|submit|find)$/i.test(labelOf(node))) ||
@@ -320,6 +325,7 @@ function WinXP() {
         field.focus?.();
         field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
         field.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+        notifyInteraction('Pressed ' + key + ' in ' + (detail.name || 'that app') + '.');
       }
     };
     window.addEventListener('coy:app-action', onCoyAppAction);
