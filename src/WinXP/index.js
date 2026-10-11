@@ -202,7 +202,9 @@ function injectXpCursors() {
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
-    'html body[data-xp-resize] #root, html body[data-xp-resize] #root *, html body[data-xp-resize] #root *::before, html body[data-xp-resize] #root *::after, html body.xp-resizing, html body.xp-resizing *, html body.xp-resizing *::before, html body.xp-resizing *::after { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
+    // Only force the resize cursor across the desktop while the mouse is held.
+    // Hovering a border changes the cursor only on that window's edge.
+    'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root *::before, html body.xp-resizing #root *::after { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
   ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
@@ -384,6 +386,20 @@ function WinXP() {
     };
   }, [state.apps]);
 
+  // Discord-like slash shortcut: "/" opens Coy chat and starts the draft with "/".
+  useEffect(() => {
+    const onSlashChat = event => {
+      if (event.key !== '/' || event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+      const target = event.target;
+      if (target && (target.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName))) return;
+      if (target && target.closest && target.closest('[role="textbox"], [contenteditable="true"]')) return;
+      event.preventDefault();
+      window.dispatchEvent(new CustomEvent('coy:open-chat', { detail: { initialText: '/' } }));
+    };
+    window.addEventListener('keydown', onSlashChat);
+    return () => window.removeEventListener('keydown', onSlashChat);
+  }, []);
+
   // Open Coy's conversation inside the same XP window manager used by every app.
   useEffect(() => {
     const onCoyOpenChat = event => {
@@ -400,7 +416,10 @@ function WinXP() {
         type: ADD_APP,
         payload: {
           ...setting,
-          injectProps: image ? { initialImage: image } : undefined,
+          injectProps: (image || event.detail?.initialText) ? {
+            ...(image ? { initialImage: image } : {}),
+            ...(typeof event.detail?.initialText === 'string' ? { initialText: event.detail.initialText } : {}),
+          } : undefined,
         },
       });
     };
