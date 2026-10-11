@@ -64,4 +64,12 @@ The app uses `REACT_APP_API_BASE` when provided, otherwise it calls the existing
 
 ## Verify Discord-style learning is actually available
 
-The backend reads `coy-discord-style-corpus.txt` and `coy-approved-memory.md` from the private `bagoffish/coy-private-memory` repository using `COY_MEMORY_GITHUB_TOKEN`, `COY_MEMORY_GITHUB_REPO`, `COY_MEMORY_GITHUB_PATH`, and `COY_MEMORY_GITHUB_FACTS_PATH`. A successful file fetch does not mean the corpus contains messages: an empty `coy-discord-style-corpus.txt` provides no examples to learn from. Check the backend memory status endpoint/logs and confirm the corpus file has privacy-reviewed, non-sensitive style examples before expecting stronger Discord-style matching. Do not commit a raw Discord export to a public repository or include private messages verbatim in the prompt. For broader retrieval, use only a private, access-controlled archive or a Gemini File Search store containing curated, privacy-reviewed material, and verify that retrieval is returning relevant excerpts.
+The main repo does not store the archives. The Render backend reads them at runtime from the private `bagoffish/coy-private-memory` repository using `COY_MEMORY_GITHUB_TOKEN`.
+
+Files loaded:
+- `coy-discord-style-corpus.txt` — Discord voice
+- `coy-twitter-rest.txt` — own tweets, replies, and other archive text
+- `coy-twitter-retweets.txt` — retweets, used as taste/likes, not as Coy's wording
+- `coy-approved-memory.md` — approved facts
+
+On each chat, the backend studies those files into a personality-and-likes profile and injects it into the Coy app and the desktop companion. Do not copy these files into the public winXP repo.
