@@ -353,6 +353,16 @@ export default function CoyChat({ initialImage, initialText }) {
     };
   }, []);
 
+  useEffect(() => {
+    const onPrefill = event => {
+      const text = typeof event.detail?.text === 'string' ? event.detail.text : '';
+      setDraft(text);
+      window.requestAnimationFrame(() => inputRef.current?.focus());
+    };
+    window.addEventListener('coy:prefill-chat', onPrefill);
+    return () => window.removeEventListener('coy:prefill-chat', onPrefill);
+  }, []);
+
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: 'end' });
