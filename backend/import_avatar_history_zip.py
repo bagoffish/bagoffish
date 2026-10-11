@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Convert the backlink-search JSONL ZIP into a compact user-avatar TSV index.
+"""Convert a backlink-search JSONL ZIP or Zstandard-compressed JSONL (.zst) into a compact user-avatar TSV index.
 
 Input records are expected to have the shape:
   {"type":"user","id":123,"images":[{"url":"https://...","first_seen":"...","backlinks":[...]}]}
@@ -77,16 +77,37 @@ def iter_jsonl_members(archive: zipfile.ZipFile):
         yield info.filename, io.TextIOWrapper(raw, encoding="utf-8-sig", errors="replace")
 
 
+def iter_input_members(input_path: Path):
+    """Yield (name, text stream) from a ZIP archive or a .jsonl.zst stream."""
+    if input_path.suffix.lower() == ".zst":
+        try:
+            import zstandard
+        except ImportError as exc:
+            raise RuntimeError(
+                "Reading .zst requires zstandard; install it with: py -m pip install zstandard"
+            ) from exc
+        raw = input_path.open("rb")
+        reader = zstandard.ZstdDecompressor().stream_reader(raw)
+        buffered = io.BufferedReader(reader)
+        yield input_path.name, io.TextIOWrapper(
+            buffered, encoding="utf-8-sig", errors="replace"
+        )
+        return
+
+    with zipfile.ZipFile(input_path, "r") as archive:
+        yield from iter_jsonl_members(archive)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("zip_file", type=Path, help="Original backlink-search ZIP")
+    parser.add_argument("input_file", type=Path, help="Backlink-search ZIP or JSONL Zstandard file (.zst)")
     parser.add_argument("--out", type=Path, default=Path("backend/thumbnail_chunks/avatar-history"),
                         help="Output directory (default: backend/thumbnail_chunks/avatar-history)")
     parser.add_argument("--shards", type=int, default=256, help="Number of user-ID modulo shards (default: 256)")
     args = parser.parse_args()
 
-    if not args.zip_file.is_file():
-        parser.error(f"ZIP file does not exist: {args.zip_file}")
+    if not args.input_file.is_file():
+        parser.error(f"Input file does not exist: {args.input_file}")
     if args.shards < 1 or args.shards > 4096:
         parser.error("--shards must be between 1 and 4096")
 
@@ -114,8 +135,7 @@ def main() -> int:
             ) WITHOUT ROWID
         """)
 
-        with zipfile.ZipFile(args.zip_file, "r") as archive:
-            for member_name, stream in iter_jsonl_members(archive):
+        for member_name, stream in iter_input_members(args.input_file):
                 members_seen += 1
                 print(f"Reading {member_name}", file=sys.stderr)
                 try:
