@@ -983,9 +983,18 @@ function humanizeForSpeech(raw) {
     .trim();
 }
 
+function isKorean(text) {
+  return /[\uAC00-\uD7AF\u1100-\u11FF]/.test(text);
+}
+
 router.post("/speak", async (req, res) => {
   const text = humanizeForSpeech(String(req.body?.text || "").trim().slice(0, 2000));
   if (!text) return res.status(400).json({ error: "No text to speak." });
+
+  // Gradium has no Korean. Signal the frontend to use a Korean browser voice.
+  if (isKorean(text)) {
+    return res.status(200).json({ korean: true, text });
+  }
 
   // Use Gradium with a cloned voice from the uploaded sample.
   if (GRADIUM_API_KEY && fs.existsSync(VOICE_SAMPLE_PATH)) {

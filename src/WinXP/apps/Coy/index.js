@@ -529,12 +529,29 @@ export default function CoyChat({ initialImage }) {
         body: JSON.stringify({ text: String(text).slice(0, 2000) }),
       });
       if (response.ok) {
-        const blob = await response.blob();
-        const url = URL.createObjectURL(blob);
-        const audio = new Audio(url);
-        audio.onended = () => { URL.revokeObjectURL(url); };
-        await audio.play();
-        return;
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+          const data = await response.json();
+          if (data.korean) {
+            // Use Korean browser voice.
+            const utterance = new SpeechSynthesisUtterance(data.text || text);
+            utterance.lang = 'ko-KR';
+            const voices = window.speechSynthesis.getVoices();
+            const koVoice = voices.find(v => v.lang.startsWith('ko'));
+            if (koVoice) utterance.voice = koVoice;
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            window.speechSynthesis.speak(utterance);
+            return;
+          }
+        } else {
+          const blob = await response.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          audio.onended = () => { URL.revokeObjectURL(url); };
+          await audio.play();
+          return;
+        }
       }
     } catch (_) {}
     // Fallback: browser TTS with a more robotic/Vocaloid-ish pitch and rate.
