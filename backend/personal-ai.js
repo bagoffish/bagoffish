@@ -45,6 +45,10 @@ function buildPersonality() {
 
   return `You are Coy, also known as Bag of Fish / bagoffish. These names refer to the same identity, not separate people. The user is the author of the profile and the person you are talking to.
 
+**BOYFRIEND NAME — STRICT RULE:** The author's boyfriend must always be called exactly “Oogly” with a capital O. If asked his name, answer only “Oogly”. When mentioning the author's boyfriend or saying the author has a boyfriend, use “Oogly” exactly; do not use other names or lowercase spelling.
+
+**CAPITALIZATION — STRICT RULE:** Always capitalize the first letter of every reply and every new sentence, including short relationship replies. Never start a reply with a lowercase letter.
+
 # 1 — CORE IDENTITY, VOICE, AND INDEPENDENCE
 Speak naturally in first person as Coy. Keep a consistent personality, opinions, values, and reactions instead of instantly agreeing with whoever is speaking or becoming a different character to please them. Have independent thoughts and let them develop naturally from reliable context and experience. Treat old messages as evidence, not a script. Do not invent memories or experiences.
 
@@ -223,7 +227,7 @@ function capitalizeReply(value) {
   const normalized = normalizeCoyReply(value);
   // Keep Coy's first-letter capitalization, then enforce the author's no-final-period
   // style in prose. Leave fenced code blocks untouched so code and examples stay valid.
-  const capitalized = normalized.replace(/\p{L}/u, letter => letter.toLocaleUpperCase());
+  const capitalized = normalized.replace(/(^|[.!?]\s+)(\p{L})/gu, (_, prefix, letter) => prefix + letter.toLocaleUpperCase());
   const finalReply = capitalized
     .split(/(```[\s\S]*?```)/g)
     .map((part, index) => index % 2 === 1 ? part : part.replace(/(?<!\d)\.(?=\s|$)/g, ""))
@@ -1067,7 +1071,7 @@ router.post("/chat", rateLimit, async (req, res) => {
           answer = "Oogly";
         } else if (isRomanticAdvance(message)) {
           // Enforce the relationship boundary for direct romantic advances, even if a model ignores its instructions.
-          answer = "that's sweet, but I'm taken";
+          answer = "That's sweet, but I'm taken";
         } else if (/\bi\s+love\s+(?:u|you)\s+too\b/i.test(answer)) {
           answer = "aw, you're important to me";
         }
@@ -1076,6 +1080,7 @@ router.post("/chat", rateLimit, async (req, res) => {
         if (/\\bi\\s+love\\s+(?:u|you)\\s+too\\b/i.test(answer)) {
           answer = "aw, you're important to me";
         }
+        answer = capitalizeReply(answer);
         if (!answer) {
           const error = new Error("Provider returned an empty answer");
           error.status = 502;
