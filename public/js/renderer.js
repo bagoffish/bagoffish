@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261011-avatar-history-proxy-v2";
+  var RENDERER_SCRIPT_VERSION = "20261011-archive-date-labels-v1";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -243,6 +243,13 @@
             label.textContent = "Archived renders";
             oldContainer.appendChild(label);
             merged.forEach(function (item) {
+              var card = document.createElement("div");
+              card.className = "old-avatar-card";
+              card.style.minWidth = "0";
+              card.style.display = "flex";
+              card.style.flexDirection = "column";
+              card.style.gap = "5px";
+
               var img = document.createElement("img");
               var archivedSrc = item.url;
               if (archivedSrc && archivedSrc.indexOf("/proxy-roblox-avatar") === -1) {
@@ -250,19 +257,39 @@
               }
               img.src = archivedSrc;
               img.alt = "";
-              img.loading = "eager";
+              img.loading = "lazy";
               img.decoding = "async";
               img.className = "old-avatar-thumb";
               img.style.width = "100%";
               img.style.height = "140px";
               img.style.objectFit = "contain";
               img.style.background = "#fff";
+              img.style.cursor = "pointer";
               img.title = "Open archived avatar";
-              img.addEventListener("error", function () { img.style.display = "none"; });
+              img.addEventListener("error", function () {
+                card.remove();
+              });
               img.addEventListener("click", function () {
                 window.open(item.url, "_blank", "noopener,noreferrer");
               });
-              oldContainer.appendChild(img);
+              card.appendChild(img);
+
+              var dateLabel = document.createElement("div");
+              dateLabel.className = "old-avatar-date";
+              dateLabel.style.fontSize = "11px";
+              dateLabel.style.textAlign = "center";
+              dateLabel.style.overflowWrap = "anywhere";
+              var digits = text(item.timestamp).replace(/\\D/g, "");
+              if (digits.length >= 8) {
+                dateLabel.textContent = digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6, 8);
+                dateLabel.title = digits.length >= 14
+                  ? digits.slice(0, 4) + "-" + digits.slice(4, 6) + "-" + digits.slice(6, 8) + " " + digits.slice(8, 10) + ":" + digits.slice(10, 12) + ":" + digits.slice(12, 14) + " UTC"
+                  : "Archive capture date";
+              } else {
+                dateLabel.textContent = "Date unknown";
+              }
+              card.appendChild(dateLabel);
+              oldContainer.appendChild(card);
             });
           }).catch(function () {
             if (oldContainer) oldContainer.textContent = "Archived renders unavailable.";
