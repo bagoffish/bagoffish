@@ -22,8 +22,8 @@ import * as serviceWorker from './serviceWorker';
       const staleKeys = [];
       for (let i = 0; i < window.localStorage.length; i += 1) {
         const key = window.localStorage.key(i);
-        if (key && (/^bagof-fish-coy-chat-v\\d+$/i.test(key) ||
-          /^avatar-history-index-v\\d+:/i.test(key) ||
+        if (key && (/^bagof-fish-coy-chat-v\d+$/i.test(key) ||
+          /^avatar-history-index-v\d+:/i.test(key) ||
           /^renderer-cache(?:-|$)/i.test(key) ||
           key === 'bagof-fish-visitor-count')) {
           staleKeys.push(key);
