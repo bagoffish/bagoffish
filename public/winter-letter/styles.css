@@ -1,231 +1,238 @@
-/* Winter Letter — a quiet, cold visual novel about guilt and an impossible letter.
-   Keep the interface simple; the backgrounds, character art, narration and letter carry the mood. */
+/* WINTER LETTER — a confession printed on old paper.
+   Art direction: archival typesetting, cold ink, letter paper, one restrained rust-red mark. */
+:root {
+  --ink: #111517;
+  --paper: #e4ddcc;
+  --paper-shadow: #bdb29d;
+  --type: #e8e1d3;
+  --muted: #aaa99f;
+  --red: #8d3935;
+  --rule: rgba(224, 216, 199, .25);
+}
 * { box-sizing: border-box; }
 html, body {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  overflow: hidden;
-  background: #151719;
-  color: #e7e4df;
+  width: 100%; height: 100%; margin: 0; overflow: hidden;
+  background: #101416; color: var(--type);
   font-family: Georgia, "Times New Roman", serif;
   user-select: none;
 }
+body::selection { background: var(--red); color: #fff; }
+
+/* Title card: the title artwork is treated like a printed cover, not a dashboard. */
 #title-screen {
-  position: fixed;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #202224;
-  z-index: 100;
+  position: fixed; inset: 0; z-index: 100;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(ellipse at 50% 45%, rgba(70,77,76,.28), transparent 55%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
+    #171b1c;
   transition: opacity 1.2s ease;
 }
+#title-screen::before {
+  content: "A CONFESSION IN WINTER";
+  position: absolute; top: 28px; left: 34px;
+  color: #aaa69b; font: 10px/1.4 "Courier New", monospace;
+  letter-spacing: .19em; text-transform: uppercase;
+}
+#title-screen::after {
+  content: "IN THE MATTER OF THE DEAD";
+  position: absolute; right: 30px; bottom: 29px;
+  color: #777b77; font: 9px/1.4 "Courier New", monospace;
+  letter-spacing: .16em; writing-mode: vertical-rl;
+}
 .top-menu {
-  position: absolute;
-  top: 30px;
-  display: flex;
-  gap: 28px;
-  font-size: 14px;
+  position: absolute; z-index: 2; top: 29px; left: 50%;
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 24px;
+  white-space: nowrap;
 }
 .top-menu a {
-  color: #d8d5ce;
-  cursor: pointer;
-  text-decoration: underline;
-  text-underline-offset: 4px;
+  color: #d6d0c3; cursor: pointer; text-decoration: none;
+  font: 11px/1.5 "Courier New", monospace; letter-spacing: .16em;
+  padding: 7px 0; border-bottom: 1px solid transparent;
+  transition: color .2s, border-color .2s;
 }
-.top-menu a:hover { color: #fff; }
+.top-menu a:first-child { color: #f0e8d9; border-color: var(--red); }
+.top-menu a:hover { color: #fff; border-color: #b65b50; }
 #title-art {
-  width: min(78vw, 760px);
-  max-height: 70vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  position: relative; width: min(76vw, 820px); max-height: 72vh;
+  display: flex; align-items: center; justify-content: center;
+  padding: clamp(12px, 2.4vw, 30px);
+}
+#title-art::before {
+  content: ""; position: absolute; inset: 0;
+  border: 1px solid rgba(208,199,180,.23);
+  outline: 1px solid rgba(208,199,180,.08); outline-offset: 7px;
+  pointer-events: none;
+}
+#title-art::after {
+  content: "WINTER / LETTER / RECORD 01";
+  position: absolute; left: 16px; bottom: -23px;
+  color: #8f918a; font: 9px "Courier New", monospace; letter-spacing: .14em;
 }
 #title-art img {
-  display: block;
-  max-width: 100%;
-  max-height: 68vh;
-  object-fit: contain;
+  display: block; max-width: 100%; max-height: 65vh;
+  object-fit: contain; filter: saturate(.78) contrast(1.04);
 }
 .footer {
-  position: absolute;
-  bottom: 22px;
-  color: #9b9da0;
-  font-size: 12px;
-  letter-spacing: .08em;
+  position: absolute; left: 34px; bottom: 28px;
+  color: #8e918a; font: 10px "Courier New", monospace;
+  letter-spacing: .14em; text-transform: uppercase;
 }
 
-/* Story scenes: let the original artwork do the work. */
+/* Keep the original scenes prominent. The frame and dialogue are the designed elements. */
 #game-screen {
-  position: fixed;
-  inset: 0;
-  display: none;
-  overflow: hidden;
-  background: #101112;
+  position: fixed; inset: 0; display: none; overflow: hidden;
+  background: #101416;
 }
 #background {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
-  background-color: #222;
-  background-size: cover;
-  background-position: center 40%;
-  filter: saturate(.72) brightness(.86);
+  position: absolute; inset: 0; z-index: 1;
+  background-color: #202729; background-size: cover; background-position: center 42%;
+  filter: saturate(.76) brightness(.78) contrast(1.04);
+  transform: scale(1.012);
 }
 #background::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(to bottom, rgba(0,0,0,.03) 45%, rgba(0,0,0,.28));
-  pointer-events: none;
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    linear-gradient(90deg, rgba(9,13,15,.3), transparent 22%, transparent 75%, rgba(9,13,15,.3)),
+    linear-gradient(0deg, rgba(7,10,11,.58), transparent 48%, rgba(7,10,11,.12));
 }
 #overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
+  position: absolute; inset: 0; z-index: 2; pointer-events: none;
 }
 #character {
-  position: absolute;
-  z-index: 4;
-  bottom: 0;
-  left: 50%;
+  position: absolute; z-index: 4; bottom: 0; left: 50%;
   transform: translateX(-50%);
-  max-width: min(58vw, 760px);
-  max-height: 88vh;
-  object-fit: contain;
-  object-position: bottom;
-  filter: drop-shadow(0 4px 9px rgba(0,0,0,.24));
-  transition: opacity .2s linear;
-  pointer-events: none;
+  max-width: min(58vw, 760px); max-height: 88vh;
+  object-fit: contain; object-position: bottom;
+  filter: drop-shadow(0 5px 13px rgba(0,0,0,.32));
+  transition: opacity .2s linear; pointer-events: none;
 }
 
-/* Plain dark dialogue panel, like a traditional horror VN. */
+/* Dialogue panel: an ink-dark typeset strip with a single red editorial mark. */
 #textbox {
-  position: absolute;
-  z-index: 10;
-  left: 4%;
-  right: 4%;
-  bottom: 20px;
-  min-height: 145px;
-  padding: 23px 30px 28px;
-  color: #e8e5df;
-  background: rgba(17,18,18,.91);
-  border: 1px solid rgba(224,220,210,.35);
-  cursor: pointer;
+  position: absolute; z-index: 10; left: 5.2%; right: 5.2%; bottom: 24px;
+  min-height: 150px; padding: 25px 38px 30px 42px;
+  color: var(--type); cursor: pointer;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 5px),
+    rgba(13,17,18,.94);
+  border: 1px solid rgba(211,202,184,.3);
+  box-shadow: 0 15px 45px rgba(0,0,0,.24);
+}
+#textbox::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
+  background: var(--red);
+}
+#textbox::after {
+  content: "▼"; position: absolute; right: 19px; bottom: 13px;
+  color: #a99e8b; font: 9px "Courier New", monospace;
+  animation: page-prompt 2.4s ease-in-out infinite;
 }
 #namebox {
-  min-height: 1.2em;
-  margin: 0 0 10px;
-  color: #cbb9a4;
-  font-size: 15px;
-  font-weight: bold;
+  min-height: 1.2em; margin: 0 0 11px;
+  color: #c7a89a; font: bold 11px/1.3 "Courier New", monospace;
+  letter-spacing: .17em; text-transform: uppercase;
 }
 #text {
-  max-width: 1100px;
-  color: #e8e5df;
-  font-size: clamp(17px, 1.55vw, 21px);
-  line-height: 1.55;
-  font-weight: normal;
+  max-width: 1120px; color: #e8e1d3;
+  font-size: clamp(17px, 1.5vw, 21px); line-height: 1.58;
+  font-weight: normal; letter-spacing: .005em;
 }
 #text::after { content: none; }
 .narration #namebox { display: none; }
-.narration #text { color: #d7d2c9; }
-#textbox::after {
-  content: "▼";
-  position: absolute;
-  right: 16px;
-  bottom: 10px;
-  color: #bdb6aa;
-  font-size: 10px;
-}
+.narration #text { color: #d8d2c6; }
+.narration { border-color: rgba(211,202,184,.22); }
+.narration::before { background: #6c7776 !important; }
 
-/* Letter passages should feel like paper against the dark scene. */
+/* The letter itself changes medium: warm, uneven paper against the cold scene. */
 #letter-box {
-  position: absolute;
-  z-index: 20;
-  top: 50%;
-  left: 50%;
+  position: absolute; z-index: 20; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(620px, 88vw);
-  max-height: 78vh;
-  overflow: auto;
-  padding: 38px 36px;
-  color: #292720;
-  background: #e9dfcb;
-  border: 1px solid #b9aa91;
-  box-shadow: 0 12px 38px rgba(0,0,0,.36);
-  cursor: pointer;
+  width: min(650px, 88vw); max-height: 80vh; overflow: auto;
+  padding: 43px clamp(25px, 5vw, 55px) 48px;
+  color: #28251f; cursor: pointer;
+  background:
+    radial-gradient(ellipse at 8% 10%, rgba(121,93,55,.09), transparent 35%),
+    repeating-linear-gradient(0deg, rgba(75,57,35,.025) 0 1px, transparent 1px 4px),
+    var(--paper);
+  border: 1px solid #a99c84;
+  box-shadow: 0 22px 70px rgba(0,0,0,.52), 0 0 0 7px rgba(12,15,15,.24);
 }
 #letter-box::before {
-  content: " ";
-  display: block;
-  height: 1px;
-  margin: 0 0 24px;
-  background: rgba(85,70,52,.28);
+  content: "PRIVATE CORRESPONDENCE  ·  UNDATED";
+  display: block; margin: 0 0 27px; padding: 0 0 12px;
+  color: #756a59; border-bottom: 1px solid rgba(73,61,46,.38);
+  font: 9px/1.5 "Courier New", monospace; letter-spacing: .14em;
 }
 #letter-paper { min-height: 90px; }
 #letter-text {
-  color: #292720;
-  font-family: Georgia, "Times New Roman", serif;
-  font-size: clamp(17px, 1.5vw, 20px);
-  line-height: 1.9;
+  color: #292720; font: clamp(17px, 1.5vw, 20px)/1.9 Georgia, "Times New Roman", serif;
   white-space: pre-wrap;
 }
+#letter-box::after {
+  content: ""; display: block; width: 38px; height: 2px;
+  margin-top: 28px; background: var(--red); opacity: .8;
+}
 
-/* Credits are deliberately plain; no extra title-card artwork or UI ornament. */
+/* Credits resemble the final page of the same record. */
 #credits-screen {
-  position: fixed;
-  inset: 0;
-  display: none;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  z-index: 200;
-  text-align: center;
-  opacity: 0;
-  color: #e7e4df;
-  background: #171819;
+  position: fixed; inset: 0; z-index: 200; display: none;
+  flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; opacity: 0; color: #ded6c7;
+  background:
+    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
+    #171b1c;
   transition: opacity 2s ease;
 }
+#credits-screen::before {
+  content: "END OF STATEMENT";
+  position: absolute; top: 28px; color: #898d86;
+  font: 10px "Courier New", monospace; letter-spacing: .2em;
+}
 #credits-screen h1 {
-  margin: 0 0 32px;
-  font: normal clamp(28px, 5vw, 46px) Georgia, "Times New Roman", serif;
-  letter-spacing: .06em;
+  margin: 0 0 26px; padding: 0 0 20px;
+  border-bottom: 1px solid rgba(215,203,181,.3);
+  font: normal clamp(30px, 5vw, 48px) Georgia, "Times New Roman", serif;
+  letter-spacing: .1em;
 }
-#credits-screen p { color: #c7c1b8; font-size: 16px; }
-#credits-screen a { color: #cbb9a4; }
+#credits-screen p { color: #bdb5a7; font: 13px/1.8 "Courier New", monospace; }
+#credits-screen a { color: #c7a89a; text-decoration-color: var(--red); text-underline-offset: 3px; }
 #credits-screen button {
-  margin-top: 36px;
-  padding: 8px 0;
-  border: 0;
-  border-bottom: 1px solid #77766f;
-  background: transparent;
-  color: #e7e4df;
-  font: 15px Georgia, "Times New Roman", serif;
-  cursor: pointer;
+  margin-top: 30px; padding: 10px 0;
+  border: 0; border-bottom: 1px solid var(--red);
+  background: transparent; color: #e0d8ca;
+  font: 10px "Courier New", monospace; letter-spacing: .16em;
+  cursor: pointer; transition: color .2s;
 }
-#credits-screen button:hover { color: white; border-color: white; }
+#credits-screen button:hover { color: #fff; }
+
+@keyframes page-prompt { 0%,100% { opacity: .45; transform: translateY(0); } 50% { opacity: 1; transform: translateY(2px); } }
 
 @media (max-width: 700px) {
-  .top-menu { top: 22px; gap: 22px; }
-  #title-art { width: 90vw; }
-  #title-art img { max-height: 60vh; }
-  #character { max-width: 90vw; max-height: 70vh; }
-  #textbox {
-    left: 10px;
-    right: 10px;
-    bottom: 10px;
-    min-height: 138px;
-    padding: 20px 18px 25px;
-  }
-  #namebox { margin-bottom: 8px; font-size: 14px; }
+  #title-screen::before { top: 18px; left: 16px; font-size: 8px; letter-spacing: .12em; }
+  #title-screen::after { right: 11px; bottom: 20px; font-size: 8px; }
+  .top-menu { top: 17px; gap: 17px; }
+  .top-menu a { font-size: 10px; }
+  #title-art { width: 86vw; max-height: 65vh; padding: 12px; }
+  #title-art img { max-height: 59vh; }
+  #title-art::after { left: 12px; bottom: -20px; font-size: 7px; }
+  .footer { left: 16px; bottom: 20px; font-size: 8px; }
+  #character { max-width: 92vw; max-height: 70vh; }
+  #textbox { left: 10px; right: 10px; bottom: 10px; min-height: 140px; padding: 21px 23px 27px 25px; }
+  #namebox { margin-bottom: 8px; font-size: 10px; }
   #text { font-size: clamp(16px, 4.1vw, 19px); line-height: 1.5; }
-  #letter-box { width: calc(100vw - 28px); padding: 28px 23px; }
+  #textbox::after { right: 12px; bottom: 10px; }
+  #letter-box { width: calc(100vw - 28px); padding: 29px 24px 34px; }
+  #letter-box::before { font-size: 8px; letter-spacing: .09em; }
 }
 @media (max-height: 520px) and (min-width: 701px) {
   #textbox { min-height: 110px; padding-top: 15px; padding-bottom: 18px; }
   #text { font-size: 16px; line-height: 1.4; }
+  #title-art img { max-height: 58vh; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #textbox::after { animation: none; }
+  *, *::before, *::after { transition-duration: .01ms !important; }
 }
