@@ -120,7 +120,7 @@ async function loadApprovedMemoryFresh() {
     return "";
   }
   const repo = (process.env.COY_MEMORY_GITHUB_REPO || "bagoffish/coy-private-memory")
-    .trim().replace(/^https?:\\/\\/github\\.com\\//i, "").replace(/\\.git$/i, "").replace(/\\/+$/, "");
+    .trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "").replace(/\/+$/, "");
   const branch = (process.env.COY_MEMORY_GITHUB_BRANCH || "main").trim() || "main";
   const configuredPath = (process.env.COY_MEMORY_GITHUB_FACTS_PATH || "coy-approved-memory.md").trim();
   // If a stale/mistyped Render override exists, also try the known default facts path.
@@ -146,7 +146,7 @@ async function loadApprovedMemoryFresh() {
         lastFailure = filePath + " returned HTTP " + response.status;
         if (!response.ok) continue;
         let text = await response.text();
-        if (url === apiUrl && /^\\s*\\{\\s*"(?:name|path|sha|size|content)"\\s*:/.test(text)) {
+        if (url === apiUrl && /^\s*\{\s*"(?:name|path|sha|size|content)"\s*:/.test(text)) {
           try {
             const envelope = JSON.parse(text);
             if (typeof envelope.content === "string" && envelope.encoding === "base64") {
