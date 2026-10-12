@@ -330,6 +330,15 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
+        // Patting squashes Coy's body, but counter-scale the head so the
+        // global squash never flattens it into the torso or makes it vanish.
+        if (L.pose === "pat" && av.head) {
+          av.head.scale.set(
+            1 / Math.max(0.5, 1 + pose.sq),
+            1 / Math.max(0.5, 1 - pose.sq),
+            1 / Math.max(0.5, 1 + pose.sq)
+          );
+        }
       } else {
         // Imported clips own the whole pose for this frame; clear root transforms
         // left by procedural dance/fall/held poses before applying the clip.
@@ -358,7 +367,13 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         if (L.pose === "pat") {
           av.head.position.set(0, 1, 0);
           av.head.quaternion.identity();
-          av.head.scale.set(1, 1, 1);
+          // Invert the body's current squash scale on the head only, keeping
+          // its world-space size stable while the torso compresses.
+          av.head.scale.set(
+            1 / Math.max(0.5, av.body.scale.x),
+            1 / Math.max(0.5, av.body.scale.y),
+            1 / Math.max(0.5, av.body.scale.z)
+          );
         }
         if (![av.head.position.x, av.head.position.y, av.head.position.z].every(Number.isFinite) ||
             Math.abs(av.head.position.x) > 0.4 || av.head.position.y < 0.5 ||
@@ -374,10 +389,7 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
           part.visible = true;
           if (part.isMesh) {
             part.frustumCulled = false;
-            if (L.pose === "pat") {
-              part.scale.set(1, 1, 1);
-              part.updateMatrix();
-            }
+            if (L.pose === "pat") part.updateMatrix();
           }
         });
       }
