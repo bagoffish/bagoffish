@@ -47,7 +47,7 @@ function resetAvatarPose(av) {
   // is applied. Otherwise procedural Euler rotations and imported keyframes
   // can accumulate and make Coy look like two animations are playing at once.
   const joints = [
-    [av.torso || av.body, [0, 0, 0]],
+    [av.torso || av.body, [0, 3, 0]],
     [av.head, [0, 4, 0]],
     [av.rArm, [1.5, 4, 0]],
     [av.lArm, [-1.5, 4, 0]],
@@ -86,7 +86,7 @@ function applyImportedAnimation(av, clip, elapsed) {
     // pivot; adding them directly makes limbs slide away from their joints.
     part.position.set(...basePosition);
   };
-  applyPose(av.torso || av.body, "Torso", [0, 0, 0]);
+  applyPose(av.torso || av.body, "Torso", [0, 3, 0]);
   applyPose(av.head, "Head", [0, 4, 0]);
   applyPose(av.rArm, "Right Arm", [1.5, 4, 0]);
   applyPose(av.lArm, "Left Arm", [-1.5, 4, 0]);
@@ -111,7 +111,8 @@ function buildAvatar(colors) {
 
   const body = new THREE.Group();                         // origin = feet
   const torso = new THREE.Group();                         // torso joint pivot
-  const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 3; torso.add(torsoMesh); body.add(torso);
+  torso.position.set(0, 3, 0);
+  const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 0; torso.add(torsoMesh); body.add(torso);
   const head = new THREE.Group(); head.position.set(0, 4, 0); body.add(head);
   const hm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), [mat(colors.head), mat(colors.head), mat(colors.head), mat(colors.head), faceMat, mat(colors.head)]);
   hm.position.y = .65; head.add(hm);
@@ -166,7 +167,7 @@ function loadModel(model) {
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
  */
-export default function CoyAvatar3D({ size = 180, pose = "idle", dir = 1, vx = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0, look, getPos }) {
   const canvasRef = useRef(null);
   const live = useRef({});
   live.current = { pose, dir, vx, look, getPos };
