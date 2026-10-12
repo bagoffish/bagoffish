@@ -197,9 +197,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       clock.getDelta();
       const t = clock.elapsedTime, L = live.current;
-      const clipName = ({ idle: "idle1", idle1: "idle1", idle2: "idle2", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
       const clip = animations[clipName];
-      if (clipName !== activeAnimation) { activeAnimation = clipName; animationStart = t; }
+      // Don't start the animation clock until its imported clip is actually available.
+      // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
+      if (clip && clipName !== activeAnimation) {
+        activeAnimation = clipName;
+        animationStart = t;
+      }
       const usingImported = applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
