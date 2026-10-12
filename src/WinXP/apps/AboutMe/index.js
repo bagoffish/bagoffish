@@ -38,27 +38,38 @@ function AboutMe({ onClose }) {
     let cancelled = false;
     let visitorId = "";
 
+    // localStorage is the primary stable ID; cookies alone can be blocked or
+    // unavailable in embedded app contexts, which previously stopped counting.
+    const cookieName = "bagof-fish-visitor";
     try {
-      const cookieName = "bagof-fish-visitor";
-      const existing = document.cookie
-        .split("; ")
-        .find(v => v.startsWith(cookieName + "="));
-
-      if (existing) {
-        visitorId = decodeURIComponent(existing.slice(cookieName.length + 1));
-      } else {
-        visitorId = (window.crypto && window.crypto.randomUUID)
-          ? window.crypto.randomUUID()
-          : Date.now().toString(36) + Math.random().toString(36).slice(2);
-        document.cookie =
-          cookieName +
-          "=" +
-          encodeURIComponent(visitorId) +
-          "; max-age=31536000; path=/; SameSite=Lax";
-      }
+      visitorId = window.localStorage.getItem(cookieName) || "";
     } catch (e) {}
 
-    if (!visitorId) return () => { cancelled = true; };
+    if (!visitorId) {
+      try {
+        const existing = document.cookie
+          .split("; ")
+          .find(v => v.startsWith(cookieName + "="));
+        if (existing) visitorId = decodeURIComponent(existing.slice(cookieName.length + 1));
+      } catch (e) {}
+    }
+
+    if (!visitorId) {
+      visitorId = (window.crypto && window.crypto.randomUUID)
+        ? window.crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+
+    try {
+      window.localStorage.setItem(cookieName, visitorId);
+    } catch (e) {}
+    try {
+      document.cookie =
+        cookieName +
+        "=" +
+        encodeURIComponent(visitorId) +
+        "; max-age=31536000; path=/; SameSite=Lax; Secure";
+    } catch (e) {}
 
     // Keep the displayed number fresh from the shared backend, and register
     // this browser as a visitor. Both endpoints bypass caches.
