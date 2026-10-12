@@ -173,34 +173,34 @@ jobs:
             # Pages is built separately from source, so it still receives these
             # assets in its build artifact.
             python3 <<'PY'
-            import hashlib
-            import os
+          import hashlib
+          import os
 
-            public_root = "public"
-            canonical_hashes = set()
-            for base, _, names in os.walk(public_root):
-                for name in names:
-                    path = os.path.join(base, name)
-                    try:
-                        with open(path, "rb") as file:
-                            canonical_hashes.add(hashlib.sha256(file.read()).digest())
-                    except OSError:
-                        pass
+          public_root = "public"
+          canonical_hashes = set()
+          for base, _, names in os.walk(public_root):
+              for name in names:
+                  path = os.path.join(base, name)
+                  try:
+                      with open(path, "rb") as file:
+                          canonical_hashes.add(hashlib.sha256(file.read()).digest())
+                  except OSError:
+                      pass
 
-            removed = []
-            for base, dirs, names in os.walk("."):
-                dirs[:] = [d for d in dirs if d not in {".git", "public", "source"}]
-                for name in names:
-                    path = os.path.join(base, name)
-                    try:
-                        with open(path, "rb") as file:
-                            digest = hashlib.sha256(file.read()).digest()
-                    except OSError:
-                        continue
-                    if digest in canonical_hashes:
-                        os.remove(path)
-                        removed.append(path)
-            print(f"Removed {len(removed)} root/build copies duplicated in public/.")
+          removed = []
+          for base, dirs, names in os.walk("."):
+              dirs[:] = [d for d in dirs if d not in {".git", "public", "source"}]
+              for name in names:
+                  path = os.path.join(base, name)
+                  try:
+                      with open(path, "rb") as file:
+                          digest = hashlib.sha256(file.read()).digest()
+                  except OSError:
+                      continue
+                  if digest in canonical_hashes:
+                      os.remove(path)
+                      removed.append(path)
+          print(f"Removed {len(removed)} root/build copies duplicated in public/.")
             PY
             printf '%s\\n' "$SOURCE_SHA" > site-source-commit.txt
             test -s index.html || { echo "::error::Published site is missing index.html"; exit 1; }
