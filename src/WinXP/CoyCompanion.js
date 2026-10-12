@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
+const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PAT_LINES = ["Hehe..", "Eek!", ":3c", "Again..!", "Thank you.."];
@@ -138,7 +139,7 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(92);
+  const [spriteSize, setSpriteSize] = useState(120);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -149,7 +150,6 @@ export default function CoyCompanion() {
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
-  const [bubblePlacement, setBubblePlacement] = useState({ left: "50%", arrowLeft: "50%", transform: "translateX(-50%)" });
   const hasInitialPlacement = useRef(false);
   const wasStandingAligned = useRef(true);
   const standingSurfaceRef = useRef({ kind: "taskbar", minLeft: 0, maxLeft: 0, top: 0, zIndex: -1 });
@@ -280,53 +280,7 @@ export default function CoyCompanion() {
     };
   }, [spriteSize]);
 
-  // Place the balloon on the side opposite Coy so it never clips off-screen.
-  // Coy on the left half → balloon to the right of Coy.
-  // Coy on the right half → balloon to the left of Coy.
-  // Tail points back toward Coy from whichever side the balloon sits.
-  useEffect(() => {
-    const placeBubble = () => {
-      const root = rootRef.current;
-      const bubble = bubbleWrapRef.current;
-      if (!root || !bubble) return;
-      const bubbleWidth = bubble.getBoundingClientRect().width;
-      if (!bubbleWidth) return;
-      const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-      const margin = 8;
-      const coyCenter = position.left + spriteSize / 2;
-      const coyOnLeft = coyCenter < viewportWidth / 2;
-
-      let bubbleLeft;
-      if (coyOnLeft) {
-        // Balloon to the right of Coy
-        bubbleLeft = position.left + spriteSize + 12;
-        if (bubbleLeft + bubbleWidth > viewportWidth - margin) {
-          bubbleLeft = Math.max(margin, viewportWidth - bubbleWidth - margin);
-        }
-      } else {
-        // Balloon to the left of Coy
-        bubbleLeft = position.left - bubbleWidth - 12;
-        if (bubbleLeft < margin) {
-          bubbleLeft = margin;
-        }
-      }
-
-      // side: "right" means balloon is to the right of Coy (tail on left edge)
-      // side: "left" means balloon is to the left of Coy (tail on right edge)
-      setBubblePlacement({
-        left: bubbleLeft - position.left,
-        side: coyOnLeft ? "right" : "left",
-        transform: "none"
-      });
-    };
-    placeBubble();
-    window.addEventListener("resize", placeBubble);
-    window.visualViewport?.addEventListener("resize", placeBubble);
-    return () => {
-      window.removeEventListener("resize", placeBubble);
-      window.visualViewport?.removeEventListener("resize", placeBubble);
-    };
-  }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
+  // Keep the classic Roblox dialog centered above Coy's head.\n\n
 
 
   useEffect(() => {
@@ -722,73 +676,71 @@ export default function CoyCompanion() {
       animation: "none",
       transform: "none"
     },
+    // Original 2013 Roblox ChatGreen textures downloaded into public during prebuild.
     bubbleWrap: {
       position: "absolute",
-      top: "2%",
-      marginBottom: 0,
-      left: bubblePlacement.left,
-      transform: bubblePlacement.transform,
-      pointerEvents: "auto",
+      top: -72,
+      left: "calc(50% - 48px)",
+      width: 112,
+      height: 65,
+      overflow: "visible",
+      pointerEvents: "none",
+      zIndex: 3
+    },
+    dialogBody: {
+      position: "absolute",
+      inset: 0,
+      width: 112,
+      height: 65,
+      overflow: "hidden",
       zIndex: 1
     },
-    // Real Roblox "Money Dialog" thumbnail sprite: green face and lightning-bolt tail.
-    bubbleSprite: {
-      position: "relative",
-      width: "min(168px, 44vw)",
-      aspectRatio: "1 / 1",
-      flex: "0 0 auto",
-      pointerEvents: "none"
-    },
-    bubbleSpriteImage: {
+    dialogBackground: {
       position: "absolute",
       inset: 0,
       width: "100%",
       height: "100%",
-      objectFit: "contain",
-      userSelect: "none",
+      objectFit: "fill",
+      display: "block",
       pointerEvents: "none"
     },
-    // Cover only the $ emblem inside the real sprite so Coy's message fits in it.
-    bubbleSpritePanel: {
+    // This archived tail points down-left toward Coy's head.
+    dialogTail: {
       position: "absolute",
-      left: "10.5%",
-      top: "6.5%",
-      width: "79%",
-      height: "59%",
-      boxSizing: "border-box",
-      padding: "2px 7px",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      background: "#073d0b",
-      clipPath: bubblePlacement.side === "left"
-        ? "polygon(0 0, 100% 0, 90% 92%, 4% 92%)"
-        : "polygon(0 0, 100% 0, 96% 92%, 10% 92%)",
-      overflow: "hidden"
+      left: "32%",
+      bottom: -17,
+      width: 46,
+      height: 29,
+      objectFit: "fill",
+      display: "block",
+      pointerEvents: "none",
+      zIndex: 0
     },
-    bubbleSpriteText: {
+    dialogText: {
+      position: "absolute",
+      inset: "7px 9px 6px",
+      boxSizing: "border-box",
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
-      WebkitLineClamp: 6,
-      width: "100%",
-      maxHeight: "100%",
+      WebkitLineClamp: 3,
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 12,
+      fontSize: 11,
       fontWeight: 600,
-      lineHeight: "14px",
+      lineHeight: "13px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
       wordBreak: "normal",
-      textShadow: "0 1px 1px rgba(0,0,0,.45)"
+      textShadow: "none",
+      pointerEvents: "none"
     },
     chatBox: {
       position: "absolute",
       bottom: "100%",
       marginBottom: 12,
-      left: bubblePlacement.left,
+      left: "50%",
       width: 240,
       background: "#ece9d8",
       border: "2px solid #000",
@@ -826,19 +778,22 @@ export default function CoyCompanion() {
 
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
-          <div style={styles.bubble}>
-            <div style={styles.bubbleSprite}>
-              <img
-                src="https://tr.rbxcdn.com/180DAY-923eb202c4ff35c2c7a9924db081ec94/420/420/Hat/Webp/noFilter"
-                alt=""
-                aria-hidden="true"
-                draggable={false}
-                style={{ ...styles.bubbleSpriteImage, ...(bubblePlacement.side === "left" ? { transform: "scaleX(-1)" } : {}) }}
-              />
-              <div style={styles.bubbleSpritePanel}>
-                <div style={styles.bubbleSpriteText}>{renderCoyLine(line)}</div>
-              </div>
-            </div>
+          <img
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={styles.dialogTail}
+          />
+          <div style={styles.dialogBody}>
+            <img
+              src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_bkg.png"}
+              alt=""
+              aria-hidden="true"
+              draggable={false}
+              style={styles.dialogBackground}
+            />
+            <div style={styles.dialogText}>{renderCoyLine(line)}</div>
           </div>
         </div>
       )}
