@@ -254,7 +254,10 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         animationStart = t;
       }
       // The imported pat clip has malformed head transforms on this rig; use the safe procedural pat pose instead.
-      const usingImported = L.pose !== "pat" && applyImportedAnimation(av, clip, t - animationStart);
+      // Imported Roblox keyframes are not correctly retargeted to this reconstructed rig yet.
+      // Applying their local CFrames directly causes twisted limbs and disappearing parts;
+      // use the consistent procedural poses until the clips are retargeted to these pivots.
+      const usingImported = false;
       if (!usingImported) {
         resetAvatarPose(av);
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
