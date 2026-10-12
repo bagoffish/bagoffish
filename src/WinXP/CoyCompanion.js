@@ -3,9 +3,9 @@ import { createPortal } from "react-dom";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
-const GREETINGS = ["Sup", "Hru", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii"];
+const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "eep", "Yahh"];
+const PAT_LINES = ["Hehe..", "Eek!", ":3c", "Again..!", "Thank you.."];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
@@ -57,8 +57,8 @@ const COY_APP_ALIASES = {
   "poem": "Poems", "poems": "Poems",
   "renderer": "Renderer", "roblox renderer": "Renderer", "avatar renderer": "Renderer",
   "bloxify": "Bloxify", "music ai": "Bloxify", "music generator": "Bloxify",
-  "paint": "Paint", "ms paint": "Paint",
-  "winamp": "Winamp", "music player": "Winamp",
+  "paint": "Paint", "ms paint": "Paint", "minesweeper": "Minesweeper",
+  "mine sweeper": "Minesweeper", "winamp": "Winamp", "music player": "Winamp",
   "coy": "Coy", "coy chat": "Coy"
 };
 
