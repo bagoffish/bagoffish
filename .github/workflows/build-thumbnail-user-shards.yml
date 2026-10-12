@@ -51,7 +51,7 @@ jobs:
               if value is None:
                   return ""
               raw = str(value).strip()
-              digits = re.sub(r"\\D", "", raw)
+              digits = re.sub(r"\D", "", raw)
               if len(digits) in (10, 13) and digits.startswith(("1", "2")):
                   try:
                       from datetime import datetime, timezone
@@ -132,7 +132,7 @@ jobs:
                               continue
                           shard = int(user_id) % COUNT
                           for stamp in stamps:
-                              handles[shard].write(f"{user_id}\\t{stamp}\\t{url}\\n")
+                              handles[shard].write(f"{user_id}\t{stamp}\t{url}\n")
                               counts[shard] += 1
                               matched += 1
                               record_matched = True
