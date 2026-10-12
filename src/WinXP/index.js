@@ -295,8 +295,8 @@ function WinXP() {
         node.innerText ||
         node.textContent ||
         ''
-      ).replace(/\\s+/g, ' ').trim();
-      const norm = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\\s+/g, ' ');
+      ).replace(/\s+/g, ' ').trim();
+      const norm = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
       const fail = message => notifyInteraction(message, action, false);
       const isUsable = node => {
         if (!node || node.disabled || node.getAttribute('aria-disabled') === 'true') return false;
@@ -332,7 +332,7 @@ function WinXP() {
           return fail('I found more than one matching control in ' + (detail.name || 'that app') + (choices.length ? ': ' + choices.join(', ') : '') + '. Be a little more specific.');
         }
         const control = ranked[0].node;
-        if (/\\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off|new game)\\b/i.test(labelOf(control)) &&
+        if (/\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off|new game)\b/i.test(labelOf(control)) &&
             !window.confirm('Coy is about to click "' + labelOf(control) + '". Continue?')) return fail('Okay, I didn’t click it.');
         control.click();
         notifyInteraction('Clicked ' + (labelOf(control) || detail.target) + ' in ' + (detail.name || 'that app') + '.');
