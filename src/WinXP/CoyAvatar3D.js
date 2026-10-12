@@ -53,22 +53,29 @@ function applyImportedAnimation(av, clip, elapsed) {
   }
   const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
   const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
-  const q = name => {
-    const qa = poseQuaternion(a.poses?.[name]);
-    const qb = poseQuaternion(b.poses?.[name]);
-    if (!qa && !qb) return null;
-    return (qa || qb).clone().slerp(qb || qa, alpha);
+  let applied = 0;
+  let applied = 0;
+  const applyPose = (part, name, basePosition) => {
+    const ca = a.poses?.[name], cb = b.poses?.[name];
+    if (!part || (!ca && !cb)) return;
+    applied += 1;
+    applied += 1;
+    const from = ca || cb, to = cb || ca;
+    const qa = poseQuaternion(from), qb = poseQuaternion(to);
+    if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
+    // Roblox Pose CFrames include both rotation and joint translation. Apply
+    // translation relative to each R6 joint pivot instead of discarding it.
+    const pa = new THREE.Vector3(Number(from[0]) || 0, Number(from[1]) || 0, Number(from[2]) || 0);
+    const pb = new THREE.Vector3(Number(to[0]) || 0, Number(to[1]) || 0, Number(to[2]) || 0);
+    part.position.copy(new THREE.Vector3(...basePosition).add(pa.lerp(pb, alpha)));
   };
-  const torso = q("Torso"), head = q("Head");
-  const rightArm = q("Right Arm"), leftArm = q("Left Arm");
-  const rightLeg = q("Right Leg"), leftLeg = q("Left Leg");
-  if (torso) av.torso.quaternion.copy(torso);
-  if (head) av.head.quaternion.copy(head);
-  if (rightArm) av.rArm.quaternion.copy(rightArm);
-  if (leftArm) av.lArm.quaternion.copy(leftArm);
-  if (rightLeg) av.rLeg.quaternion.copy(rightLeg);
-  if (leftLeg) av.lLeg.quaternion.copy(leftLeg);
-  return true;
+  applyPose(av.torso || av.body, "Torso", [0, 0, 0]);
+  applyPose(av.head, "Head", [0, 4, 0]);
+  applyPose(av.rArm, "Right Arm", [1.5, 4, 0]);
+  applyPose(av.lArm, "Left Arm", [-1.5, 4, 0]);
+  applyPose(av.rLeg, "Right Leg", [0.5, 2, 0]);
+  applyPose(av.lLeg, "Left Leg", [-0.5, 2, 0]);
+  return applied > 0;
 }
 
 function buildAvatar(colors) {
@@ -86,14 +93,15 @@ function buildAvatar(colors) {
   const faceMat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(fc) });
 
   const body = new THREE.Group();                         // origin = feet
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torso.position.y = 3; body.add(torso);
+  const torso = new THREE.Group();                         // torso joint pivot
+  const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 3; torso.add(torsoMesh); body.add(torso);
   const head = new THREE.Group(); head.position.set(0, 4, 0); body.add(head);
   const hm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), [mat(colors.head), mat(colors.head), mat(colors.head), mat(colors.head), faceMat, mat(colors.head)]);
   hm.position.y = .65; head.add(hm);
   const rArm = limb(colors.rightArm, 1.5, 4), lArm = limb(colors.leftArm, -1.5, 4);
   const rLeg = limb(colors.rightLeg, .5, 2), lLeg = limb(colors.leftLeg, -.5, 2);
   body.add(rArm, lArm, rLeg, lLeg);
-  return { body, head, rArm, lArm, rLeg, lLeg };
+  return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
 function disposeAvatar(root) {
@@ -164,10 +172,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let animationStart = 0;
     const pose = P({});
     const clock = new THREE.Clock();
-    fetch(BASE + "animations.json")
-      .then(response => response.ok ? response.json() : null)
-      .then(data => { animations = data?.animations || {}; })
-      .catch(() => { /* keep the hand-authored fallback if no exported clips exist */ });
+    fetch(BASE + "animations.json?v=1", { cache: "no-store" })
+      .then(response => {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(data => {
+        animations = data?.animations || {};
+        const names = Object.keys(animations);
+        console.info("Coy: imported Roblox animations loaded", names);
+        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
+      })
+      .catch(error => {
+        animations = {};
+        console.error("Coy: imported Roblox animations failed to load; using procedural fallback", error);
+      });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -197,9 +216,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       clock.getDelta();
       const t = clock.elapsedTime, L = live.current;
-      const clipName = ({ idle: "idle1", idle1: "idle1", idle2: "idle2", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
       const clip = animations[clipName];
-      if (clipName !== activeAnimation) { activeAnimation = clipName; animationStart = t; }
+      // Don't start the animation clock until its imported clip is actually available.
+      // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
+      if (clip && clipName !== activeAnimation) {
+        activeAnimation = clipName;
+        animationStart = t;
+        console.debug("Coy: playing imported animation", clipName);
+      }
       const usingImported = applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
