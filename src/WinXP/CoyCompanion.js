@@ -657,28 +657,27 @@ export default function CoyCompanion() {
       minWidth: 90,
       maxWidth: "min(88vw, 260px)",
       maxHeight: 110,
-      padding: "8px 12px",
-      background: "#0a0a0a",
-      border: "2px solid #00ff41",
-      borderRadius: 0,
-      color: "#00ff41",
+      padding: "9px 13px",
+      background: "#003b08",
+      border: "5px solid #00ff24",
+      borderRadius: 12,
+      color: "#fff",
       fontSize: 13,
-      fontWeight: 400,
+      fontWeight: 500,
       lineHeight: "18px",
       overflow: "visible",
       overflowWrap: "break-word",
       wordBreak: "normal",
       whiteSpace: "pre-wrap",
-      textShadow: "0 0 2px #00ff41",
-      fontFamily: "Consolas, 'Courier New', monospace"
+      textShadow: "0 1px 1px rgba(0,0,0,.45)",
+      boxShadow: "0 0 2px 1px rgba(0,255,36,.45)",
+      fontFamily: "Arial, Helvetica, sans-serif"
     },
-    // Outer green triangle = border; inner black triangle = fill. Points at Coy.
+    // Classic Roblox-style angular lightning tail, aimed toward Coy.
     tail: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderRight: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 }
-      : { position: "absolute", right: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderLeft: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 },
-    tailInner: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 }
-      : { position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 },
+      ? { position: "absolute", left: -25, top: "56%", width: 34, height: 54, overflow: "visible", pointerEvents: "none", zIndex: 1 }
+      : { position: "absolute", right: -25, top: "56%", width: 34, height: 54, overflow: "visible", pointerEvents: "none", zIndex: 1 },
+    tailInner: { display: "none" },
     chatBox: {
       position: "absolute",
       bottom: "100%",
@@ -723,8 +722,14 @@ export default function CoyCompanion() {
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <div style={styles.bubble}>
             {renderCoyLine(line)}
-            <div style={styles.tail} />
-            <div style={styles.tailInner} />
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 34 54"
+              style={{ ...styles.tail, ...(bubblePlacement.side === "left" ? { transform: "scaleX(-1)" } : {}) }}
+            >
+              <polygon points="2,0 29,0 19,16 30,16 5,52 10,25 0,25"
+                fill="#003b08" stroke="#00ff24" strokeWidth="5" strokeLinejoin="round" />
+            </svg>
           </div>
         </div>
       )}
