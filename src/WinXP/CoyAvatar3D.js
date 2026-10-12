@@ -81,11 +81,10 @@ function applyImportedAnimation(av, clip, elapsed) {
     const from = ca || cb, to = cb || ca;
     const qa = poseQuaternion(from), qb = poseQuaternion(to);
     if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
-    // Roblox Pose CFrames include both rotation and joint translation. Apply
-    // translation relative to each R6 joint pivot instead of discarding it.
-    const pa = new THREE.Vector3(Number(from[0]) || 0, Number(from[1]) || 0, Number(from[2]) || 0);
-    const pb = new THREE.Vector3(Number(to[0]) || 0, Number(to[1]) || 0, Number(to[2]) || 0);
-    part.position.copy(new THREE.Vector3(...basePosition).add(pa.lerp(pb, alpha)));
+    // Keep the R6 joint anchored to its pivot. These exported Roblox CFrame
+    // translations are animation-space offsets, not absolute offsets from the
+    // pivot; adding them directly makes limbs slide away from their joints.
+    part.position.set(...basePosition);
   };
   applyPose(av.torso || av.body, "Torso", [0, 0, 0]);
   applyPose(av.head, "Head", [0, 4, 0]);
@@ -167,7 +166,7 @@ function loadModel(model) {
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
  */
-export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 180, pose = "idle", dir = 1, vx = 0, look, getPos }) {
   const canvasRef = useRef(null);
   const live = useRef({});
   live.current = { pose, dir, vx, look, getPos };
