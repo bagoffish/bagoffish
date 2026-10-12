@@ -86,6 +86,8 @@ export default function CoyCompanion() {
     top: Math.max(0, window.innerHeight - 30 - 40)
   }));
   const [isDragging, setIsDragging] = useState(false);
+  const dizzyTimer = useRef(null);
+  const lastDesktopReaction = useRef(0);
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
@@ -344,6 +346,31 @@ export default function CoyCompanion() {
     };
   }, []);
 
+  // Coy occasionally comments on desktop controls, media, and app-window activity.
+  useEffect(() => {
+    const onDesktopClick = event => {
+      const target = event.target?.closest?.('button, [role="button"], [data-app-title], .app__header, .desktop-icon, audio, video, canvas');
+      if (!target || target.closest('[data-coy-ui="true"]')) return;
+      const tag = String(target.tagName || '').toLowerCase();
+      if (['input', 'textarea', 'select'].includes(tag) || target.isContentEditable) return;
+      const now = Date.now();
+      if (now - lastDesktopReaction.current < 14000 || now - lastActivity.current < 9000 || Math.random() > 0.24) return;
+      lastDesktopReaction.current = now;
+      lastActivity.current = now;
+      const label = String(target.getAttribute('aria-label') || target.getAttribute('title') || target.getAttribute('data-app-title') || target.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 48);
+      const media = tag === 'audio' || tag === 'video';
+      const windowControl = target.matches('.app__header') || Boolean(target.closest('.app-window, [data-app-title]'));
+      const lines = media ? ["oh, media", "what are we watching", "lemme listen"]
+        : windowControl ? ["moving windows around?", "which window now", "desktop's busy today"]
+        : label ? ["oh, " + label, "what's that", "hm, clicking around"]
+        : ["what was that", "hm?", "you clicked something"];
+      setLine(formatCoyText(randomLine(lines)));
+      setShowBubble(true);
+    };
+    document.addEventListener('click', onDesktopClick, true);
+    return () => document.removeEventListener('click', onDesktopClick, true);
+  }, []);
+
   function startDrag(event) {
     if (event.button !== 0) return;
     const spriteRect = event.currentTarget.getBoundingClientRect();
@@ -353,6 +380,11 @@ export default function CoyCompanion() {
       left: rootRect.left, top: rootRect.top,
       width: rootRect.width, height: rootRect.height,
       movedCharacter: false,
+      lastDirectionX: 0,
+      lastDirectionY: 0,
+      lastX: event.clientX,
+      lastY: event.clientY,
+      shakeChanges: 0,
       pointerId: event.pointerId
     };
     dragged.current = false;
@@ -367,6 +399,14 @@ export default function CoyCompanion() {
     const deltaX = event.clientX - state.x;
     const deltaY = event.clientY - state.y;
     const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+    const directionX = Math.sign(event.clientX - state.lastX);
+    const directionY = Math.sign(event.clientY - state.lastY);
+    if ((directionX && state.lastDirectionX && directionX !== state.lastDirectionX) ||
+        (directionY && state.lastDirectionY && directionY !== state.lastDirectionY)) state.shakeChanges += 1;
+    if (directionX) state.lastDirectionX = directionX;
+    if (directionY) state.lastDirectionY = directionY;
+    state.lastX = event.clientX;
+    state.lastY = event.clientY;
     // Headpats are double-click only. Any actual pointer movement is reserved
     // for dragging so tiny strokes never get mistaken for a pat.
     if (distance >= 5) {
@@ -393,9 +433,21 @@ export default function CoyCompanion() {
   function endDrag(event) {
     if (!dragState.current) return;
     event.currentTarget.releasePointerCapture?.(dragState.current.pointerId);
-    const wasDrag = dragState.current.movedCharacter;
+    const finishedDrag = dragState.current;
+    const wasDrag = finishedDrag.movedCharacter;
+    const wasShaken = wasDrag && finishedDrag.shakeChanges >= 3;
     dragState.current = null;
     setIsDragging(false);
+    if (wasShaken) {
+      if (dizzyTimer.current) window.clearTimeout(dizzyTimer.current);
+      setIdleMood("dizzy");
+      setLine(formatCoyText(randomLine(["woah... everything's spinning", "wait wait... dizzy", "ugh... stop spinning me", "where'd everything go", "i need a second..."])));
+      setShowBubble(true);
+      dizzyTimer.current = window.setTimeout(() => setIdleMood("normal"), 3200);
+    } else if (wasDrag) {
+      setLine(formatCoyText(randomLine(["hey, easy", "where are we going", "hm?", "you picked me up"])));
+      setShowBubble(true);
+    }
     if (!wasDrag) {
       // Double-click = headpat. Single click = open chat.
       if (clickTimer.current) {
@@ -469,7 +521,9 @@ export default function CoyCompanion() {
       display: "block",
       cursor: isDragging ? "grabbing" : "grab",
       pointerEvents: "auto",
-      filter: idleMood === "happy" ? "brightness(1.08)" : "none",
+      filter: idleMood === "happy" ? "brightness(1.08)" : idleMood === "dizzy" ? "saturate(1.35)" : "none",
+      animation: idleMood === "dizzy" ? "coy-dizzy-spin 0.42s linear infinite" : isDragging ? "coy-being-carried 0.2s ease-in-out infinite" : "none",
+      transformOrigin: "50% 70%",
       transition: "filter 0.2s"
     },
     bubbleWrap: {
@@ -540,6 +594,7 @@ export default function CoyCompanion() {
 
   return createPortal(
     <div ref={rootRef} style={styles.root} data-coy-ui="true">
+      <style>{'@keyframes coy-dizzy-spin { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg) translateY(-2px); } } @keyframes coy-being-carried { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }'}</style>
       <button
         type="button"
         aria-label="Coy companion"
