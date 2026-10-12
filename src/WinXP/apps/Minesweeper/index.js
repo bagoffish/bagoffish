@@ -201,7 +201,7 @@ function MineSweeper({ defaultDifficulty, onClose }) {
     const mineIndex = indexes.find(
       i => state.ceils[i].minesAround < 0 && state.ceils[i].state !== 'flag',
     );
-    if (mineIndex) {
+    if (mineIndex !== undefined) {
       dispatch({ type: 'GAME_OVER', payload: mineIndex });
     } else {
       indexes.forEach(i => dispatch({ type: 'OPEN_CEIL', payload: i }));
@@ -332,23 +332,35 @@ function getNearIndexes(index, rows, columns) {
 
 function useTimer(status) {
   const [seconds, setSeconds] = useState(0);
-  function addSecond() {
-    setSeconds(sec => sec + 1);
-  }
+  const startedAt = React.useRef(null);
+
   useEffect(() => {
-    let timer;
-    switch (status) {
-      case 'started':
-        timer = setInterval(addSecond, 1000);
-        break;
-      case 'new':
-        setSeconds(0);
-        break;
-      default:
-        break;
+    if (status === 'new') {
+      startedAt.current = null;
+      setSeconds(0);
+      return undefined;
     }
-    return () => clearInterval(timer);
+
+    if (status === 'started') {
+      if (startedAt.current === null) startedAt.current = Date.now();
+
+      const updateElapsedTime = () => {
+        if (startedAt.current === null) return;
+        setSeconds(Math.min(999, Math.floor((Date.now() - startedAt.current) / 1000)));
+      };
+
+      updateElapsedTime();
+      const timer = setInterval(updateElapsedTime, 200);
+      return () => clearInterval(timer);
+    }
+
+    // Freeze the exact elapsed time when the game ends.
+    if (startedAt.current !== null) {
+      setSeconds(Math.min(999, Math.floor((Date.now() - startedAt.current) / 1000)));
+    }
+    return undefined;
   }, [status]);
+
   return seconds;
 }
 
