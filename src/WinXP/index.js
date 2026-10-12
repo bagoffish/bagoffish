@@ -257,13 +257,25 @@ function WinXP() {
         return title === appName || title.includes(appName) || appName.includes(title);
       });
       if (!root) {
-        // If a request targets a closed app, open it and retry the explicit
-        // action once after React has mounted the app window.
+        // Opening an XP app is asynchronous. Watch for its real window element
+        // and retry the requested action when React has mounted it, even if
+        // the app was closed immediately before this command.
         if (!detail._openedForAction) {
           window.dispatchEvent(new CustomEvent('coy:desktop-action', { detail: { action: 'open', name: detail.name } }));
-          window.setTimeout(() => window.dispatchEvent(new CustomEvent('coy:app-action', {
-            detail: { ...detail, _openedForAction: true },
-          })), 450);
+          let attempts = 0;
+          const retryWhenMounted = () => {
+            attempts += 1;
+            const exists = Array.from(document.querySelectorAll('[data-app-window-id][data-app-title]')).some(node => {
+              const title = String(node.getAttribute('data-app-title') || '').toLowerCase().replace(/[_-]+/g, ' ');
+              return title === appName || title.includes(appName) || appName.includes(title);
+            });
+            if (exists) {
+              window.dispatchEvent(new CustomEvent('coy:app-action', { detail: { ...detail, _openedForAction: true } }));
+              return;
+            }
+            if (attempts < 40) window.setTimeout(retryWhenMounted, 100);
+          };
+          window.setTimeout(retryWhenMounted, 50);
         }
         return;
       }
