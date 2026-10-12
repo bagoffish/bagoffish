@@ -198,8 +198,6 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
       .then(data => {
         animations = data?.animations || {};
         const names = Object.keys(animations);
-        console.info("Coy: imported Roblox animations loaded", names);
-        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
       })
       .catch(error => {
         animations = {};
@@ -241,7 +239,6 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
       if (clip && clipName !== activeAnimation) {
         activeAnimation = clipName;
         animationStart = t;
-        console.debug("Coy: playing imported animation", clipName);
       }
       const usingImported = applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
