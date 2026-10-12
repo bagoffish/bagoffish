@@ -716,7 +716,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} look={lookRef.current} getPos={() => posRef.current} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
 
       {showBubble && (
