@@ -127,6 +127,8 @@ export default function CoyCompanion() {
   const openAppsRef = useRef([]);
   const fullTabActiveRef = useRef(false);
   const clickTimer = useRef(null);
+  const dragState = useRef(null);
+  const suppressClickAfterDrag = useRef(false);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(92);
 
@@ -385,8 +387,61 @@ export default function CoyCompanion() {
     return () => document.removeEventListener('click', onDesktopClick, true);
   }, []);
 
+  function onCoyPointerDown(event) {
+    if (event.button !== undefined && event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dragState.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originLeft: position.left,
+      originTop: position.top,
+      moved: false
+    };
+    suppressClickAfterDrag.current = false;
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
+  }
+
+  function onCoyPointerMove(event) {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    drag.moved = true;
+    suppressClickAfterDrag.current = true;
+    wasTaskbarAligned.current = false;
+    const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+    const taskbarTop = getTaskbarTop();
+    const maxTop = Math.max(0, taskbarTop - getCoyHeight());
+    setPosition({
+      left: Math.max(0, Math.min(maxLeft, drag.originLeft + dx)),
+      top: Math.max(0, Math.min(maxTop, drag.originTop + dy))
+    });
+  }
+
+  function onCoyPointerUp(event) {
+    const drag = dragState.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+    if (drag.moved) {
+      suppressClickAfterDrag.current = true;
+      // Keep the click suppression through the browser's synthesized click.
+      window.setTimeout(() => { suppressClickAfterDrag.current = false; }, 0);
+    }
+    dragState.current = null;
+    try {
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+    } catch (_) {}
+  }
+
   function onCoyClick() {
-    // Coy stays fixed in place until custom movement/expression sprites are added.
+    if (suppressClickAfterDrag.current) {
+      suppressClickAfterDrag.current = false;
+      return;
+    }
     // A single click opens chat; a double click is a simple headpat reaction.
     if (clickTimer.current) {
       window.clearTimeout(clickTimer.current);
@@ -536,9 +591,13 @@ export default function CoyCompanion() {
         type="button"
         aria-label="Coy companion"
         onClick={onCoyClick}
-        style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "inherit" }}
+        onPointerDown={onCoyPointerDown}
+        onPointerMove={onCoyPointerMove}
+        onPointerUp={onCoyPointerUp}
+        onPointerCancel={onCoyPointerUp}
+        style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <img src={COY_SPRITE} alt="Coy" style={styles.sprite} />
+        <img src={COY_SPRITE} alt="Coy" style={{ ...styles.sprite, cursor: "grab", touchAction: "none" }} />
       </button>
 
       {showBubble && (
