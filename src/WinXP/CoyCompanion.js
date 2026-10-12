@@ -138,7 +138,7 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(180);
+  const [spriteSize, setSpriteSize] = useState(145);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
