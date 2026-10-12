@@ -71,15 +71,10 @@ export default function CoyCompanion() {
   const [history, setHistory] = useState(() => readCompanionChatCookie());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [foundImage, setFoundImage] = useState(null);
-  const [holdingImage, setHoldingImage] = useState(false);
   const inputRef = useRef(null);
-  const seenImages = useRef(new Set());
   const lastActivity = useRef(0);
   const openAppsRef = useRef([]);
   const fullTabActiveRef = useRef(false);
-  const lastPickupAttempt = useRef(0);
-  const hasHeldImage = useRef(false);
   const dragState = useRef(null);
   const dragged = useRef(false);
   const clickTimer = useRef(null);
@@ -554,7 +549,6 @@ export default function CoyCompanion() {
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "inherit" }}
       >
         <img src={COY_SPRITE} alt="Coy" style={styles.sprite} />
-        {holdingImage && foundImage && <img src={foundImage.src} alt="Roblox avatar render Coy is holding" style={styles.heldRender} />}
       </button>
 
       {showBubble && (
