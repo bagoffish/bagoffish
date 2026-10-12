@@ -22,13 +22,23 @@ const PIVOTS = {
 };
 
 function sourcePartName(object) {
+  // OBJLoader versions differ in whether a "g" name is stored on the mesh,
+  // its parent, or the object's userData. Check all of them before falling back.
   for (let current = object; current; current = current.parent) {
-    if (RIG_TO_PART[current.name]) return current.name;
-    if (/^Handle\d+$/.test(current.name)) return "head";
+    const candidates = [
+      current.name,
+      current.userData?.name,
+      current.userData?.objectName,
+      current.userData?.groupName,
+    ].filter(value => typeof value === "string");
+    for (const candidate of candidates) {
+      const rig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|\\s)/);
+      if (rig && RIG_TO_PART[rig[1]]) return rig[1];
+      const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:$|\\s)/);
+      if (handle) return handle[1];
+    }
   }
-  // Roblox avatar exports can name accessory and head meshes differently across
-  // outfits. Preserve otherwise-unrecognized meshes by attaching them to the head
-  // rather than silently dropping hair, hats, faces, and layered accessories.
+  // Preserve unknown accessory meshes rather than dropping them.
   return "head";
 }
 
