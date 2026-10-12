@@ -1298,6 +1298,8 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
     const fullShardName = `full-s${shardNumber}.txt.gz`;
     let fullContents = null;
     let fullError = null;
+    let oldContents = null;
+    let oldError = null;
 
     try {
       fullContents = await loadAvatarHistoryShard(FULL_THUMBNAIL_INDEX_RELEASE_BASE, fullShardName);
@@ -1313,12 +1315,14 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
     let images = parseAvatarHistoryShard(fullContents, userId, "full-thumbnail-index");
     const oldShardName = `s${shardNumber}.txt.gz`;
     try {
-      const oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
+      oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
       images.push(...parseAvatarHistoryShard(oldContents, userId, "avatar-history-index"));
     } catch (error) {
+      oldError = error;
       if (fullError) console.warn("Legacy avatar history shard also failed:", error && error.message ? error.message : error);
     }
 
+    const parsedEntryCount = images.length;
     const seen = new Set();
     images = images.filter((image) => {
       const key = image.timestamp + "|" + image.url;
@@ -1333,6 +1337,18 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
       indexed: true,
       shard: fullContents !== null ? fullShardName + " + " + oldShardName : oldShardName,
       source: images.some((image) => image.source === "full-thumbnail-index") ? "merged-indexes" : "legacy-fallback",
+      diagnostics: {
+        userId,
+        fullShardLoaded: fullContents !== null,
+        legacyShardLoaded: oldContents !== null,
+        fullShardError: fullError ? String(fullError.message || fullError) : null,
+        legacyShardError: oldError ? String(oldError.message || oldError) : null,
+        parsedEntryCount,
+        returnedEntryCount: images.length,
+        duplicateEntriesRemoved: parsedEntryCount - images.length,
+        indexCompleteForUser: fullContents !== null && oldContents !== null,
+        note: "A loaded shard does not prove every source record exists; completeness requires comparison with the original dataset."
+      },
     });
   } catch (error) {
     console.error("Avatar history index lookup failed:", error && error.message ? error.message : error);
