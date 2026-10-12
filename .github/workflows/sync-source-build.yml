@@ -1,0 +1,232 @@
+# Canonical architecture: private winXP is the source; this public repository contains only
+# the compiled GitHub Pages output plus public site data/history. Keep the private source and
+# coy-private-memory out of this repository. Render continues to host the backend separately.
+# 2026-10-12: retrigger publishing so GitHub Pages catches up to the latest private source commit.
+# 2026-10-12: publish the secure archived-avatar proxy fix from winXP source e1b05fc5f3622cd6a7e19bf2e219bd726df1bd68.
+# 2026-10-10: rebuild after fixing Coy speech bubble width and two-line height (source 1ec48273e7dfed5282d3bbf4aed283b7be22c544).
+# 2026-10-10: rebuild after keeping Coy's speech bubble fully visible with a two-line maximum (source 0de2e4a39f07b57f40a0a105f40e06401e447f72).
+# 2026-10-10: rebuild after matching Coy chatbot message-tail outline to its black bubble border (source 64045bf7bc12d6f02cd039df40b8369219d1f689).
+# Trigger site rebuild for Coy chat icon: 8e867faef0c53f18d1e14ee6df1730a566336347
+# 2026-10-10: rebuild after widening Coy speech bubble (source 63b54e8e7840e05fdb33248f334e5d18bbd9cada).
+# 2026-10-10: rebuild after adaptive Coy speech bubble placement and edge-aware tail (source f376d2c5b489558fde0857b60657e56606a94ed9).
+# 2026-10-10: rebuild after Coy speech bubble sizing, timed dismissal, and click-to-dismiss (source b72750e07cadbfe09e10b4df5774695d837279df).
+# 2026-10-10: rebuild after Coy current slang/personality update (source 2cfb740375c139f315a20ecefad85e840380a275).
+# 2026-10-10: rebuild after Coy chatbot reply borders changed to black (source 86c51c906609fb82d2517e180c73ff5673d226fa).
+# 2026-10-10: rebuild after fixing narrow/tall Coy speech bubble (source 78ff041c95801da46cfe87ede02971f3177dfbeb).
+# 2026-10-10: rebuild after Coy quarter-size and centered speech-bubble update (source 53c65dbac91aa4870c48a5d99beb691cae3dc440).
+# 2026-10-10: widen Coy speech bubbles and add artist/music-artist/programmer persona (source 2a0c705e2de4d1eb4dc7c14fb42d221d1723cc6b).
+# 2026-10-10: render Coy at 50% of the source sprite width and follow Korean/English/Chinese/other-language reply rules (source 22bbc0f168e046d842d30036d3668193573a3774).
+# 2026-10-10: keep Coy interactive with other apps open, show pickup bubble while dragging, use 10% renderer avatar pickup chance, and refresh About Me visitor count (source 62f2efaa6097b858b94bfd25bc0c70b8a29f80aa).
+# 2026-10-10: fix Coy chat bubble tail/border color consistency and strip leaked safety/moderation diagnostic headers (source 2513e3d39a9773f4293e8b19f7aa54f422416c91).
+# 2026-10-10: show the same tailed floating speech bubble with 'Typing...' while Coy responds (source 03414ad583a15844827c20c8dcdf43323bf2c422).
+# 2026-10-10: increase Coy sprite size to 76px (source 05e5758b5ea68203d976be52b07747f77335bb9c).
+# 2026-10-10: improve speech-bubble tail alignment for short text and thicken gray outline (source 89c0bd9038a2b434ede618373dcc0a8f4f97ddef).
+# 2026-10-10: make Coy's floating speech bubble size naturally to its text (source c7db919350e9f85fa3eaf5455a4c62ae7476418e).
+# 2026-10-10: thicker Coy speech/chat borders and left/right message tails (source e25f579dbae2327b9fa51ae7fa587020f5c042cc).
+# 2026-10-10: bump Coy's sprite to 60px (source a55ce6c153faae74c0d3ea7291eb621227bcc903).
+# Force a fresh publish after stale chat/cache cleanup in the private source.
+# Rebuild once more after the renderer's final cache-busting update.
+# Include the latest avatar archive cache-key and Coy voice fixes.
+# Keep the published bundle aligned with the latest mobile-tab and chat voice updates.
+# Rebuild against the latest merged avatar-history lookup fix.
+# Publish current Coy voice, mobile-tab visibility, and full-index cache fixes from winXP main.
+# Rebuild after adding fullscreenchange handling for Coy's visibility.
+# Publish the v8 full-avatar-index cache-bust from winXP main.
+name: Sync compiled site from winXP source
+# 2026-10-10: match floating speech bubble to the exact 2010-2015 Roblox reference (source 4466265b1f456c1e9becb85005d48eae96c42e36).
+# 2026-10-10: restore original chat bubbles and style only Coy's floating speech bubble like classic Roblox (source 883685f085fc00c8214ee760e008d64d002faa03).
+# 2026-10-10: rebuild after Coy's classic Roblox-style chat bubble update (source 7368b3fedddcb78c9984fb9974a6cc0eea81c74e).
+# 2026-10-10: rebuild latest source including Winter Letter icon/order and Coy chat fixes.
+# 2026-10-10: rebuild latest Coy upload, taskbar-placement, and natural-expression source fixes.
+# 2026-10-10: include attachment retry preservation and readable text/code file support.
+# 2026-10-10: rebuild after Coy sprite was halved, Roblox lookup quips were corrected, and secondary AI provider keys were added.
+# 2026-10-10: remove Coy drag tooltip and chat log footer.
+# 2026-10-10: square > send button matching + and / shortcut to open Coy chat.
+# 2026-10-10: rebuild latest Coy fixes: taskbar clearance, desktop z-index, multi-bubble replies, and Cotto label cleanup (source 7202c3dcad10d9e3b8684d70a3f0ca17f2db659d).
+# 2026-10-10: distinguish single-click chat from double-click headpat.
+# 2026-10-10: rebuild for double-click-only Coy headpats and prompt-injection resistance.
+# 2026-10-10: rebuild for Coy's stable taskbar alignment and bubble-position fix.
+# 2026-10-10: rebuild after keeping Coy fully inside the viewport on load and resize.
+# 2026-10-10: rebuild for Coy's smoother drag handling and square + attachment button.
+# 2026-10-10: rebuild after fixing Coy's total visitor-count intent detection.
+# 2026-10-10: rebuild for persistent greeting transcript and Typing... label.
+# 2026-10-10: include desktop full-tab visibility condition in Coy rebuild.
+# 2026-10-10: rebuild after Coy desktop drag, pat, full-tab visibility, image-copy, and upload syntax fixes.
+# 2026-10-10: rebuild after Coy dragging fix in private winXP source.
+# Bloxify mix: track melody continuously when assigning instruments.
+# Rebuild the published site from latest winXP source, including Bloxify, public/audios, active backend URLs, and Coy chatbot UI changes.
+# 2026-10-10: rebuild after Coy wording and chatbot endpoint fixes.
+# 2026-10-10: remove all yoink references from Coy source.
+# 2026-10-10: rebuild after Gemini backend and Coy integration fixes.
+# 2026-10-10: rebuild again after final Coy sprite sizing adjustment.
+# 2026-10-10: remove the Windows XP virus notification balloon.
+# 2026-10-10: rebuild Coy chat close behavior, greetings, and Roblox-style bubble polish.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-compiled-site
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out published site
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          submodules: false
+
+      - name: Check for the private source token
+        id: token-check
+        shell: bash
+        env:
+          SOURCE_TOKEN: ${{ secrets.WINXP_SOURCE_TOKEN }}
+        run: |
+          if [ -n "$SOURCE_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::error::Missing WINXP_SOURCE_TOKEN. Add a repository Actions secret with read access to bagoffish/winXP."
+            exit 1
+          fi
+
+      - name: Check out private source repository
+        if: steps.token-check.outputs.available == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: bagoffish/winXP
+          ref: main
+          path: source
+          token: ${{ secrets.WINXP_SOURCE_TOKEN }}
+          submodules: false
+
+      - name: Skip when source has not changed
+        id: source-check
+        if: steps.token-check.outputs.available == 'true'
+        shell: bash
+        run: |
+          SOURCE_SHA="$(git -C source rev-parse HEAD)"
+          echo "sha=$SOURCE_SHA" >> "$GITHUB_OUTPUT"
+          if [ -f site-source-commit.txt ] && [ "$(tr -d '\r\n' < site-source-commit.txt)" = "$SOURCE_SHA" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Source is unchanged at $SOURCE_SHA; no build needed."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "Building source commit $SOURCE_SHA."
+          fi
+
+      - name: Set up Node.js
+        if: steps.source-check.outputs.changed == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: source/.nvmrc
+          cache: yarn
+          cache-dependency-path: source/yarn.lock
+
+      - name: Install dependencies and build
+        if: steps.source-check.outputs.changed == 'true'
+        working-directory: source
+        env:
+          CI: "false"
+          NODE_OPTIONS: --max_old_space_size=4096
+        run: |
+          corepack enable
+          yarn install --frozen-lockfile
+          yarn build
+
+      - name: Verify compiled site assets
+        if: steps.source-check.outputs.changed == 'true'
+        working-directory: source
+        shell: bash
+        run: |
+          test -s build/index.html || { echo "::error::Build is missing index.html"; exit 1; }
+          test -s build/asset-manifest.json || { echo "::error::Build is missing asset-manifest.json"; exit 1; }
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const manifest = JSON.parse(fs.readFileSync('build/asset-manifest.json', 'utf8'));
+          const files = Object.values(manifest.files || {});
+          if (!files.length) throw new Error('Asset manifest contains no files');
+          const missing = files
+            .filter((file) => typeof file === 'string' && file.startsWith('./'))
+            .map((file) => file.slice(2))
+            .filter((file) => !fs.existsSync(path.join('build', file)));
+          if (missing.length) throw new Error('Missing built assets: ' + missing.join(', '));
+          console.log('Verified ' + files.length + ' compiled asset references.');
+          NODE
+
+      - name: Publish compiled files while preserving avatar history
+        if: steps.source-check.outputs.changed == 'true'
+        shell: bash
+        env:
+          SOURCE_SHA: ${{ steps.source-check.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          # Publish on top of the latest main instead of rebasing a stale generated
+          # commit over concurrent edits to index.html or asset-manifest.json.
+          # rsync intentionally avoids deleting unrelated files, including avatar history.
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git reset --hard origin/main
+
+            rsync -a source/build/ ./ --exclude='.git/' --exclude='source/'
+            # Keep only the current build's generated bundles; preserve unrelated root assets and avatar history.
+            rsync -a --delete source/build/static/ ./static/
+            printf '%s\\n' "$SOURCE_SHA" > site-source-commit.txt
+            test -s index.html || { echo "::error::Published site is missing index.html"; exit 1; }
+            test -s asset-manifest.json || { echo "::error::Published site is missing asset-manifest.json"; exit 1; }
+            test "$(tr -d '\\r\\n' < site-source-commit.txt)" = "$SOURCE_SHA" || { echo "::error::Published source SHA does not match checked-out source"; exit 1; }
+
+            # Never stage the nested private source checkout as a submodule pointer.
+            git add -A -- . ':(exclude)source'
+            if git diff --cached --quiet; then
+              echo "Build produced no file changes."
+              exit 0
+            fi
+
+            git commit -m "Build site from winXP source $SOURCE_SHA"
+            if git push origin HEAD:main; then
+              echo "Published source $SOURCE_SHA successfully."
+              exit 0
+            fi
+            echo "Push attempt $attempt lost a race with another main update; retrying on the latest main."
+          done
+
+          echo "::error::Could not publish after three attempts."
+          exit 1
+# 2026-10-10: use randomized casual Coy greetings instead of image-found wording.
+# 2026-10-10: use the standard site window frame and close control for Coy.
+
+# 2026-10-10: position Coy above the taskbar.
+
+# 2026-10-10: remove Coy speech bubble and include browser-local time context.
+
+# 2026-10-10: use Coy's random greeting inside chatbot too.
+
+# 2026-10-10: randomize app interaction speech and make Coy's speech bubble clickable to dismiss.
+# 2026-10-10: capitalize Coy replies and speech bubbles; allow period-free single-sentence chat.
+# 2026-10-10: auto-dismiss Coy speech bubbles after three seconds and support dragging Coy around the viewport.
+# 2026-10-10: ensure drag release doesn't trigger the chat click.
+# 2026-10-10: scale Coy speech bubble auto-dismiss delay to the message length.
+# 2026-10-10: keep Coy's chat greeting independent of speech bubbles and retain history across close/reopen only.
+
+# 2026-10-10: rebuild after Coy persona, identity, and capitalization corrections.
+
+# 2026-10-10: rebuild published assets after correcting Coy's friend and pet memory facts.
+# 2026-10-10: rebuild published assets after refining Coy's classic Roblox speech bubble.
+# 2026-10-10: rebuild after removing Coy's duplicate inline chatbot.
+
+# 2026-10-10: rebuild Coy chat without visible speaker labels and add PDF/DOCX text extraction (source 9966a2cc9e571f680a6b4d8fbfbcac5c1624e219).

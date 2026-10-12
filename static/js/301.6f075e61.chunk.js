@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkwinXP=self.webpackChunkwinXP||[]).push([[301],{3301:function(e,t,n){n.r(t),n.d(t,{default:function(){return r}});n(2791);var i=n(184);function r(){return(0,i.jsx)("iframe",{title:"Winter Letter visual novel",src:"/winter-letter/index.html",style:{display:"block",width:"100%",height:"100%",minHeight:320,border:0,background:"#000"},allow:"autoplay"})}}}]);
+//# sourceMappingURL=301.6f075e61.chunk.js.map
