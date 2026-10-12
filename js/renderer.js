@@ -212,14 +212,14 @@
             var url = text(item.url || item.wayback).trim();
             // Damaged index rows sometimes put a date where the image URL belongs.
             // Reject those rows before creating an image element or network request.
-            if (!/^https?:\\/\\//i.test(url) || /^\\d{4}[-/]?\\d{2}[-/]?\\d{2}(?:\\D.*)?$/.test(url)) return null;
+            if (!/^https?:\/\//i.test(url) || /^\d{4}[-/]?\d{2}[-/]?\d{2}(?:\D.*)?$/.test(url)) return null;
             try {
               var parsed = new URL(url);
               if ((parsed.protocol !== "https:" && parsed.protocol !== "http:") ||
                   !parsed.hostname || parsed.hostname.indexOf(".") === -1) return null;
             } catch (_) { return null; }
             var timestamp = text(item.timestamp || "");
-            if (timestamp && !/^\\d{8,14}$/.test(timestamp)) timestamp = "";
+            if (timestamp && !/^\d{8,14}$/.test(timestamp)) timestamp = "";
             return { url: url, timestamp: timestamp };
           }
 
