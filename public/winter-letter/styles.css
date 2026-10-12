@@ -127,7 +127,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
 }
 #textbox::before {
   content: ""; position: absolute; top: -14px; left: 17px;
-  width: auto; min-width: 94px; height: 23px; padding: 0 12px;
+  width: 112px; height: 23px;
   background: linear-gradient(#7994ba, #3a5783 50%, #263f66);
   border: 1px solid #c2cee0;
   box-shadow: inset 1px 1px 0 rgba(255,255,255,.4), inset -1px -1px 0 rgba(0,0,0,.45);
@@ -138,10 +138,13 @@ a, button { -webkit-tap-highlight-color: transparent; }
   animation: prompt 1.3s steps(2, end) infinite;
 }
 #namebox {
-  min-height: 1.2em; margin: -8px 0 12px;
-  color: #f3dca8; font: bold 13px/1.4 "MS PGothic", Tahoma, sans-serif;
-  letter-spacing: .02em;
-  text-shadow: 1px 1px #101a2b;
+  position: absolute; z-index: 2; top: -13px; left: 22px;
+  display: flex; align-items: center;
+  width: 102px; height: 21px; min-height: 0;
+  margin: 0; padding: 0 6px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  color: #fff4d5; font: bold 12px/1 "MS PGothic", Tahoma, sans-serif;
+  letter-spacing: .02em; text-shadow: 1px 1px #101a2b;
 }
 #text {
   max-width: 1100px; color: #fffdf6;
@@ -219,7 +222,7 @@ a, button { -webkit-tap-highlight-color: transparent; }
   #textbox { left: 2%; right: 2%; bottom: 2%; min-height: 142px; padding: 26px 16px 24px; }
   #textbox::before { left: 12px; }
   #textbox::after { right: 10px; bottom: 8px; }
-  #namebox { margin-bottom: 8px; font-size: 12px; }
+  #namebox { top: -13px; left: 17px; width: 102px; height: 21px; padding: 0 5px; font-size: 11px; }
   #text { font-size: clamp(15px, 4vw, 18px); line-height: 1.5; }
   #letter-box { width: calc(100vw - 28px); max-height: 82vh; padding: 28px 23px; }
 }
