@@ -359,6 +359,17 @@ export default function CoyChat({ initialImage, initialText }) {
   }, []);
 
   useEffect(() => {
+    const onActionResult = event => {
+      const detail = event.detail || {};
+      if (detail.success === false && typeof detail.message === 'string' && detail.message.trim()) {
+        setMessages(previous => [...previous, { role: 'assistant', content: detail.message.trim() }].slice(-100));
+      }
+    };
+    window.addEventListener('coy:app-action-result', onActionResult);
+    return () => window.removeEventListener('coy:app-action-result', onActionResult);
+  }, []);
+
+  useEffect(() => {
     const onPrefill = event => {
       const text = typeof event.detail?.text === 'string' ? event.detail.text : '';
       setDraft(text);
