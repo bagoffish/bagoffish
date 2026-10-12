@@ -281,7 +281,10 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       // Treat each requested pose as a fresh animation state. This prevents a
       // previous one-shot clip or smoothed procedural pose from leaking into the next.
       if (L.pose !== previousPose) {
-        transitionFrom = captureAvatarPose(av);
+        // Patting, falling and landing are physical reactions: start them on
+        // the very first frame instead of cross-fading from the old pose.
+        const immediatePose = ["pat", "fall", "land"].includes(L.pose);
+        transitionFrom = immediatePose ? null : captureAvatarPose(av);
         transitionStart = t;
         previousPose = L.pose;
         activeAnimation = "";
@@ -291,6 +294,11 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         av.body.position.set(0, 0, 0);
         av.body.rotation.set(0, 0, 0);
         av.body.scale.set(1, 1, 1);
+        if (L.pose === "pat" && av.head) {
+          av.head.visible = true;
+          av.head.position.set(0, 1, 0);
+          av.head.quaternion.identity();
+        }
       }
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
       const clip = animations[clipName];
@@ -311,7 +319,10 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       if (!usingImported) {
         resetAvatarPose(av);
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-        for (const k in pose) pose[k] += (tg[k] - pose[k]) * blend;
+        const immediatePose = ["pat", "fall", "land"].includes(L.pose);
+        for (const k in pose) {
+          pose[k] = immediatePose ? tg[k] : pose[k] + (tg[k] - pose[k]) * blend;
+        }
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
