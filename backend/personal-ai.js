@@ -273,6 +273,7 @@ async function loadGithubMemory() {
 
 
 const personalityStudyCache = { source: "", text: "" };
+let archiveStudyStatus = { analyzedAt: null, discordMessages: 0, ownTwitterMessages: 0, retweets: 0, corpusLoaded: false };
 
 function sectionOf(corpus, fileName) {
   const marker = "===== " + fileName + " =====";
@@ -284,10 +285,11 @@ function sectionOf(corpus, fileName) {
 }
 
 function linesOf(block) {
-  // Keep long posts too: archive analysis must not silently discard them.
+  // Analyze long messages too; only discard empty lines and our own source separators.
+  // 10k chars is a safety bound, not a sampling strategy for normal Discord/X messages.
   return (block || "").split(/\r?\n/)
     .map(v => v.trim())
-    .filter(v => v.length >= 2 && v.length <= 3000 && !v.startsWith("=====") && !v.startsWith("#"));
+    .filter(v => v.length >= 2 && v.length <= 10000 && !v.startsWith("====="));
 }
 
 function topTerms(lines, limit = 24) {
@@ -331,6 +333,13 @@ function studyArchives(corpus) {
   const tweets = linesOf(sectionOf(corpus, "coy-twitter-rest.txt"));
   const retweets = linesOf(sectionOf(corpus, "coy-twitter-retweets.txt"));
   const own = discord.concat(tweets);
+  archiveStudyStatus = {
+    analyzedAt: new Date().toISOString(),
+    discordMessages: discord.length,
+    ownTwitterMessages: tweets.length,
+    retweets: retweets.length,
+    corpusLoaded: Boolean(corpus && corpus.trim()),
+  };
   const text = [
     "FULL ARCHIVE PERSONALITY STUDY — calculated from every usable line in each loaded source on this request. This is a statistical profile, not model fine-tuning. Use repeated evidence naturally; do not dump this report into conversation.",
     "Source counts: Discord=" + discord.length.toLocaleString("en-US") + "; own Twitter/X posts and replies=" + tweets.length.toLocaleString("en-US") + "; retweets=" + retweets.length.toLocaleString("en-US") + ". These counts describe extracted text lines, not necessarily unique posts.",
@@ -353,10 +362,11 @@ function getStyleCorpusLines(corpus) {
   if (githubStyleLinesCache.source === corpus && githubStyleLinesCache.lines.length) {
     return githubStyleLinesCache.lines;
   }
+  // Preserve long and hash-prefixed authored messages instead of silently dropping them.
   const lines = (corpus || "").split(/\n\s*\n|\r?\n/)
     .map(value => value.trim())
-    .filter(value => value.length >= 1 && value.length <= 3000)
-    .filter(value => !/^(?:\{|\[|=====|# )/.test(value))
+    .filter(value => value.length >= 1 && value.length <= 10000)
+    .filter(value => !value.startsWith("====="))
     .sort((a, b) => a.length - b.length); // short-to-long voice examples
   githubStyleLinesCache = { source: corpus, lines };
   return lines;
@@ -831,7 +841,8 @@ function extractProviderAnswer(provider, data) {
 }
 
 router.get("/health", async (req, res) => {
-  await loadGithubMemory();
+  const loadedCorpus = await loadGithubMemory();
+  studyArchives(loadedCorpus);
   res.json({
     ok: true,
     configured: availableAiProviders().length > 0,
@@ -841,6 +852,7 @@ router.get("/health", async (req, res) => {
     githubMemoryLoaded: Boolean(githubMemoryCache.text),
     githubMemoryFilesLoaded: githubMemoryStatus.loadedFiles,
     githubMemoryFilesFailed: githubMemoryStatus.failedFiles,
+    archiveStudy: { ...archiveStudyStatus },
     approvedMemoryLoaded: Boolean(approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim()),
     approvedMemoryLastFetchAt: approvedMemoryLastFetch.fetchedAt ? new Date(approvedMemoryLastFetch.fetchedAt).toISOString() : null,
     ageConfigured: Boolean(calculateAge(process.env.PERSONAL_AI_BIRTH_DATE)),
