@@ -2,9 +2,6 @@ name: Extract full thumbnail index
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/extract-thumbnail-index.yml
 
 permissions:
   contents: write
