@@ -14,7 +14,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-10-12-full-avatar-shards-v2";
+const BACKEND_VERSION = "2026-10-12-thumbnail-index-full-v2";
 const BLOXIFY_REQUEST_TIMEOUT = 15 * 60 * 1000;
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
@@ -1235,9 +1235,9 @@ const waybackCache = new Map();
 const WAYBACK_TTL = 6 * 60 * 60 * 1000;
 
 const AVATAR_HISTORY_RELEASE_BASE = process.env.AVATAR_HISTORY_RELEASE_BASE || "https://github.com/bagoffish/bagoffish.github.io/releases/download/avatar-history-v1";
-const FULL_THUMBNAIL_INDEX_RELEASE_BASE = process.env.FULL_THUMBNAIL_INDEX_RELEASE_BASE || "https://github.com/bagoffish/bagoffish.github.io/releases/download/thumbnail-index-full-v1";
+const FULL_THUMBNAIL_INDEX_RELEASE_BASE = process.env.FULL_THUMBNAIL_INDEX_RELEASE_BASE || "https://github.com/bagoffish/bagoffish/releases/download/thumbnail-index-full-v2";
 const AVATAR_HISTORY_SHARD_COUNT = 256;
-const AVATAR_HISTORY_INDEX_VERSION = "20261012-full-avatar-shards-v2";
+const AVATAR_HISTORY_INDEX_VERSION = "20261012-thumbnail-index-full-v2";
 const avatarHistoryShardCache = new Map();
 const AVATAR_HISTORY_SHARD_CACHE_LIMIT = 24;
 
