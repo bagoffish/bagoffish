@@ -54,11 +54,9 @@ function applyImportedAnimation(av, clip, elapsed) {
   const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
   const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
   let applied = 0;
-  let applied = 0;
   const applyPose = (part, name, basePosition) => {
     const ca = a.poses?.[name], cb = b.poses?.[name];
     if (!part || (!ca && !cb)) return;
-    applied += 1;
     applied += 1;
     const from = ca || cb, to = cb || ca;
     const qa = poseQuaternion(from), qb = poseQuaternion(to);
