@@ -42,8 +42,28 @@ function poseQuaternion(cframe) {
   return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
 }
 
+function resetAvatarPose(av) {
+  // Clear transforms from the previous animation system before another clip
+  // is applied. Otherwise procedural Euler rotations and imported keyframes
+  // can accumulate and make Coy look like two animations are playing at once.
+  const joints = [
+    [av.torso || av.body, [0, 0, 0]],
+    [av.head, [0, 4, 0]],
+    [av.rArm, [1.5, 4, 0]],
+    [av.lArm, [-1.5, 4, 0]],
+    [av.rLeg, [0.5, 2, 0]],
+    [av.lLeg, [-0.5, 2, 0]]
+  ];
+  joints.forEach(([part, position]) => {
+    if (!part) return;
+    part.quaternion.identity();
+    part.position.set(...position);
+  });
+}
+
 function applyImportedAnimation(av, clip, elapsed) {
   if (!clip?.frames?.length) return false;
+  resetAvatarPose(av);
   const frames = clip.frames;
   const duration = Math.max(0, Number(clip.duration) || frames[frames.length - 1]?.time || 0);
   const time = duration > 0 && clip.loop !== false ? elapsed % duration : Math.min(elapsed, duration);
@@ -147,7 +167,7 @@ function loadModel(model) {
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0, look, getPos }) {
   const canvasRef = useRef(null);
   const live = useRef({});
   live.current = { pose, dir, vx, look, getPos };
@@ -225,6 +245,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       const usingImported = applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
+        resetAvatarPose(av);
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
         for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
