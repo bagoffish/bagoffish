@@ -55,6 +55,7 @@ function FooterMenu({ className, onClick }) {
               { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
               { icon: music, text: 'Bloxify' },
+              { icon: outlook, text: 'Winter_Letter' },
             ]}
           />
           <div style={{ flex: 1 }} />
