@@ -189,9 +189,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
         for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
-        av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
-        av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
-        av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
+        // Scene +X is Coy's anatomical left when he faces the camera (+Z).
+        // Swap names so the procedural fallback matches the Roblox joint tracks.
+        av.lArm.rotation.z = pose.rZ; av.rArm.rotation.z = pose.lZ;
+        av.lArm.rotation.x = pose.rX; av.rArm.rotation.x = pose.lX;
+        av.lLeg.rotation.x = pose.rL; av.rLeg.rotation.x = pose.lL;
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
