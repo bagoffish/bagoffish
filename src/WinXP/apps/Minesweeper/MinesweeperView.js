@@ -236,12 +236,6 @@ function MineSweeperView({
       default:
     }
   }
-  useEffect(() => {
-    window.addEventListener('mouseup', onMouseUp);
-    return () => {
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, []);
   function onMouseUp(e) {
     setOpenBehavior({ index: -1, behavior: '' });
     setMouseDownContent(false);
