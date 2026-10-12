@@ -327,13 +327,6 @@ export default function CoyCompanion() {
         announce(typeof detail.message === "string" && detail.message.trim()
           ? detail.message.trim()
           : randomLine(APP_QUIPS[detail.name] || ["oh", "hm", "what happened"]));
-      } else if (detail.type === "image" && detail.src && !hasHeldImage.current && now - lastPickupAttempt.current > 30000 && Math.random() <= 0.1) {
-        lastPickupAttempt.current = now;
-        hasHeldImage.current = true;
-        setFoundImage({ src: detail.src, alt: detail.alt || "A visible image" });
-        setHoldingImage(true);
-        announce("oh, look at that", { image: detail.src });
-      }
     };
     window.addEventListener("coy:activity", onActivity);
     // Keep the companion state correct if the viewport rotates/resizes, and
@@ -346,48 +339,12 @@ export default function CoyCompanion() {
     syncMobileAppVisibility();
     window.dispatchEvent(new CustomEvent("coy:request-app-state"));
 
-    // Coy can notice images rendered inside this website, especially the avatar renderer.
-    // He never reads outside the page or tries to access private browser data.
-    const scanImages = () => {
-      // Coy only occasionally picks up one image, and won't look for another while holding it.
-      if (hasHeldImage.current) return;
-      const now = Date.now();
-      if (now - lastPickupAttempt.current < 30000) return;
-      lastPickupAttempt.current = now;
-      const candidates = Array.from(document.querySelectorAll(".avatar-container img, .old-avatar-thumb, img"))
-        .filter(img => img.complete && img.naturalWidth > 100 && img.naturalHeight > 100)
-        .filter(img => !img.closest("[data-coy-ui]"))
-        .filter(img => img.matches(".avatar-container img, .old-avatar-thumb") || /renderer|avatar|render|thumbnail|roblox/i.test(
-          [img.alt, img.className, img.closest("[class]")?.className, img.src].join(" ")
-        ))
-        .filter(img => img.src && !seenImages.current.has(img.src) && img.style.visibility !== "hidden");
-      // Keep this genuinely rare even on pages with lots of avatar thumbnails.
-      if (!candidates.length || Math.random() > 0.1) return;
-      const img = candidates[Math.floor(Math.random() * candidates.length)];
-      seenImages.current.add(img.src);
-      // Coy carries a copy of the image. Never hide, move, or mutate the original page image.
-      hasHeldImage.current = true;
-      setFoundImage({ src: img.src, alt: img.alt || "Roblox avatar render" });
-      setHoldingImage(true);
-      if (now - lastActivity.current > 9000) {
-        lastActivity.current = now;
-        announce("ohh, an avatar render");
-      }
-    };
-    const observer = new MutationObserver(scanImages);
-    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "alt"] });
-    // The renderer often inserts an <img> before the image bytes finish loading.
-    // Re-scan on load so Coy actually picks up the completed avatar render.
-    document.addEventListener("load", scanImages, true);
-    scanImages();
     return () => {
       window.removeEventListener("coy:activity", onActivity);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("fullscreenchange", onResize);
       window.removeEventListener("coy:close-chat", onCloseChat);
       appWindowObserver.disconnect();
-      document.removeEventListener("load", scanImages, true);
-      observer.disconnect();
     };
   }, []);
 
