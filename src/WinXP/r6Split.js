@@ -26,7 +26,10 @@ function sourcePartName(object) {
     if (RIG_TO_PART[current.name]) return current.name;
     if (/^Handle\d+$/.test(current.name)) return "head";
   }
-  return null;
+  // Roblox avatar exports can name accessory and head meshes differently across
+  // outfits. Preserve otherwise-unrecognized meshes by attaching them to the head
+  // rather than silently dropping hair, hats, faces, and layered accessories.
+  return "head";
 }
 
 export function splitIntoR6Parts(root) {
