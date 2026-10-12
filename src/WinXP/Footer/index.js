@@ -27,6 +27,8 @@ const getTime = () => {
 
 function Footer({
   onMouseDownApp,
+  onClickPinnedApp,
+  icons = [],
   apps,
   focusedAppId,
   onMouseDown,
@@ -75,19 +77,37 @@ function Footer({
           className="footer__start"
           onMouseDown={toggleMenu}
         />
-        {[...apps].map(
-          app =>
-            !app.header.noFooterWindow && (
-              <FooterWindow
-                key={app.id}
-                id={app.id}
-                icon={app.header.icon}
-                title={app.header.title}
-                onMouseDown={onMouseDownApp}
-                isFocus={focusedAppId === app.id}
+        {icons
+          .filter(icon => icon.title !== 'Coy')
+          .map(icon => {
+            const runningApp = apps.find(app => app.component === icon.component);
+            return (
+              <PinnedFooterWindow
+                key={icon.id}
+                icon={icon.icon}
+                title={icon.title}
+                onMouseDown={() => onClickPinnedApp(icon)}
+                isRunning={Boolean(runningApp)}
+                isFocus={Boolean(runningApp && focusedAppId === runningApp.id)}
               />
-            ),
-        )}
+            );
+          })}
+        {[...apps]
+          .filter(app =>
+            !app.header.noFooterWindow &&
+            app.header.title !== 'Coy' &&
+            !icons.some(icon => icon.title !== 'Coy' && icon.component === app.component)
+          )
+          .map(app => (
+            <FooterWindow
+              key={app.id}
+              id={app.id}
+              icon={app.header.icon}
+              title={app.header.title}
+              onMouseDown={onMouseDownApp}
+              isFocus={focusedAppId === app.id}
+            />
+          ))}
       </div>
 
       <div className="footer__items right">
@@ -97,6 +117,28 @@ function Footer({
         <div className="footer__time">{time}</div>
       </div>
     </Container>
+  );
+}
+
+function PinnedFooterWindow({ icon, title, onMouseDown, isRunning, isFocus }) {
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      title={title}
+      aria-label={title}
+      onMouseDown={onMouseDown}
+      onKeyDown={event => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onMouseDown();
+        }
+      }}
+      className={`footer__window pinned ${isFocus ? 'focus' : isRunning ? 'running' : 'cover'}`}
+    >
+      <img className="footer__icon" src={icon} alt="" />
+      <div className="footer__text">{title}</div>
+    </div>
   );
 }
 
@@ -192,7 +234,8 @@ const Container = styled.footer`
     bottom: 100%;
   }
   .footer__window {
-    flex: 1;
+    flex: 1 1 90px;
+    min-width: 54px;
     max-width: 150px;
     color: #fff;
     border-radius: 2px;
@@ -218,6 +261,15 @@ const Container = styled.footer`
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+  .footer__window.pinned:not(.focus):not(.running) {
+    background-color: rgba(24, 73, 160, 0.45);
+    box-shadow: inset 0 0 0 1px rgba(10, 47, 130, 0.35);
+  }
+  .footer__window.running {
+    background-color: #2865ce;
+    box-shadow: inset -1px 0px rgba(0, 0, 0, 0.3),
+      inset 1px 1px 1px rgba(255, 255, 255, 0.2);
   }
   .footer__window.cover:hover {
     background-color: #53a3ff;
