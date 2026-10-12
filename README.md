@@ -13,7 +13,7 @@
   <tr>
     <td>
       <a href="https://www.youtube.com/watch?v=ahHqFcrZuJI" target="_blank">
-        <img src="/images/vinyl.gif" width="350">
+        <img src="public/images/vinyl.gif" width="350">
       </a>
     </td>
   </tr>
