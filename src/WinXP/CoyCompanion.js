@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-const API_BASE = (process.env.REACT_APP_API_BASE || "https://backend.onrender.com").replace(/\/$/, "");
+const API_BASE = (process.env.REACT_APP_API_BASE || "https://backend-z081.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
