@@ -33,10 +33,14 @@ function target(pose, t, dir, tiltIn) {
 
 function poseQuaternion(cframe) {
   if (!Array.isArray(cframe) || cframe.length < 12) return null;
+  // Roblox CFrame rotation values are serialized row-by-row. Matrix4.set()
+  // expects row-major arguments too, but the rotation basis used by the
+  // exported keyframes is the inverse of the Three.js part-local basis.
+  // Transpose the 3x3 rotation when retargeting to our reconstructed R6 joints.
   const matrix = new THREE.Matrix4().set(
-    cframe[3], cframe[4], cframe[5], 0,
-    cframe[6], cframe[7], cframe[8], 0,
-    cframe[9], cframe[10], cframe[11], 0,
+    cframe[3], cframe[6], cframe[9], 0,
+    cframe[4], cframe[7], cframe[10], 0,
+    cframe[5], cframe[8], cframe[11], 0,
     0, 0, 0, 1
   );
   return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
@@ -102,32 +106,20 @@ function applyImportedAnimation(av, clip, elapsed) {
     const from = ca || cb, to = cb || ca;
     const qa = poseQuaternion(from), qb = poseQuaternion(to);
     if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
-    // Roblox Pose.CFrame is a joint-local transform. Preserve its translation
-    // relative to the joint pivot instead of discarding it or treating it as
-    // a world-space position. The avatar is normalized to five studs tall.
-    const pa = ca || cb, pb = cb || ca;
-    // Pose.CFrame translation is a joint-local animation offset, not a new
-    // absolute body-part position. Keep it bounded so a malformed keyframe
-    // can never fling a limb/head away from its joint pivot.
-    const tx = clamp(THREE.MathUtils.lerp(pa[0] || 0, pb[0] || 0, alpha), -0.35, 0.35);
-    const ty = clamp(THREE.MathUtils.lerp(pa[1] || 0, pb[1] || 0, alpha), -0.35, 0.35);
-    const tz = clamp(THREE.MathUtils.lerp(pa[2] || 0, pb[2] || 0, alpha), -0.35, 0.35);
-    part.position.set(basePosition[0] + tx, basePosition[1] + ty, basePosition[2] + tz);
-    // The head is a child of the torso pivot. Its neutral local anchor must
-    // stay one stud above that pivot; only the keyframe rotation animates it.
-    if (name === "Head") part.position.set(0, 1, 0);
+    // The avatar meshes were baked around fixed R6 pivots in r6Split.js.
+    // Roblox Pose.CFrame translations are offsets from Motor6D joint frames,
+    // not offsets from these reconstructed group origins. Applying them here
+    // slides parts away from shoulders/hips, so keep the baked pivot positions
+    // fixed until the exporter supplies Motor6D C0/C1-aware retargeting.
+    part.position.set(...basePosition);
+    if (name === "Head") {
+      // Head is a child of the torso pivot in our rebuilt hierarchy.
+      part.position.set(0, 1, 0);
+    }
   };
-  // Root translation moves the whole character; root rotation is handled by
-  // the companion controller's facing direction.
-  const rootA = a.poses?.HumanoidRootPart || b.poses?.HumanoidRootPart;
-  const rootB = b.poses?.HumanoidRootPart || rootA;
-  if (rootA && rootB) {
-    av.body.position.set(
-      THREE.MathUtils.lerp(rootA[0] || 0, rootB[0] || 0, alpha),
-      THREE.MathUtils.lerp(rootA[1] || 0, rootB[1] || 0, alpha),
-      THREE.MathUtils.lerp(rootA[2] || 0, rootB[2] || 0, alpha)
-    );
-  }
+  // Play imported clips in place. HumanoidRootPart CFrames are world/root
+  // motion from the source rig, while this companion's position is controlled
+  // by CoyCompanion; applying both would double-move the avatar.
   applyPose(av.torso || av.body, "Torso", [0, 3, 0]);
   applyPose(av.head, "Head", [0, 1, 0]);
   applyPose(av.rArm, "Right Arm", [1.5, 1, 0]);
@@ -329,7 +321,9 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
         const immediatePose = ["pat", "fall", "land"].includes(L.pose);
         for (const k in pose) {
-          pose[k] = immediatePose ? tg[k] : pose[k] + (tg[k] - pose[k]) * blend;
+          // Physical reactions start immediately, but keep squash/stretch
+          // eased so landing doesn't pop into a flattened shape in one frame.
+          pose[k] = immediatePose && k !== "sq" ? tg[k] : pose[k] + (tg[k] - pose[k]) * blend;
         }
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
