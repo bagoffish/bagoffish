@@ -202,6 +202,7 @@ function injectXpCursors() {
     '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
     '#root .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
+    '#root textarea::-webkit-resizer { cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important; }',
     // Only force the resize cursor across the desktop while the mouse is held.
     // Hovering a border changes the cursor only on that window's edge.
     'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root *::before, html body.xp-resizing #root *::after { cursor: var(--xp-resize-cursor, ew-resize) !important; }',
@@ -760,6 +761,9 @@ const Container = styled.div`
 
   input, textarea, [contenteditable='true'] {
     cursor: url("/images/Normal%20Select.cur") 3 3, text !important;
+  }
+  textarea::-webkit-resizer {
+    cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important;
   }
 
   .xp-cursor-horizontal, [data-resize="horizontal"] {
