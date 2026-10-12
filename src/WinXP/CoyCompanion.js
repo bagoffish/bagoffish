@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import CoyAvatar3D from "./CoyAvatar3D";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
-const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PAT_LINES = ["Hehe..", "Eek!", ":3c", "Again..!", "Thank you.."];
@@ -128,6 +128,15 @@ export default function CoyCompanion() {
   const clickTimer = useRef(null);
   const dragState = useRef(null);
   const suppressClickAfterDrag = useRef(false);
+  // 3D avatar state: pose drives the R6 animation, the refs feed it without re-rendering.
+  const [pose, setPose] = useState("wave");
+  const [dir, setDir] = useState(1);
+  const dirRef = useRef(1);
+  const velRef = useRef({ vx: 0 });
+  const lookRef = useRef({ x: 0, y: 0 });
+  const posRef = useRef({ left: 0, top: 0 });
+  const fallRaf = useRef(0);
+  const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(92);
 
@@ -136,6 +145,7 @@ export default function CoyCompanion() {
     top: Math.max(0, window.innerHeight - 30 - 40)
   }));
   const lastDesktopReaction = useRef(0);
+  posRef.current = position;
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
@@ -386,6 +396,89 @@ export default function CoyCompanion() {
     return () => document.removeEventListener('click', onDesktopClick, true);
   }, []);
 
+  // ---- 3D avatar behaviour: wave on load, wander the taskbar, pick-up and fall ----
+  function showPose(name, ms) {
+    window.clearTimeout(poseTimer.current);
+    setPose(name);
+    poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
+  }
+  function playEmote(name) { showPose(name, name === "wave" ? 2600 : 5000); }
+
+  useEffect(() => {
+    showPose("wave", 2600);                                    // greets the visitor
+    const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
+    window.addEventListener("pointermove", onMove);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.clearTimeout(poseTimer.current);
+      window.cancelAnimationFrame(fallRaf.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (chatOpen || showBubble || busy || underAppWindows) return;
+    if (pose !== "idle" && pose !== "walk") return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0, last = performance.now(), walking = pose === "walk";
+    let until = last + (walking ? 2000 + Math.random() * 4000 : 1500 + Math.random() * 3500);
+    const step = now => {
+      raf = window.requestAnimationFrame(step);
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      if (now > until) {
+        if (walking) { setPose("idle"); return; }
+        dirRef.current = Math.random() < 0.5 ? -1 : 1;
+        setDir(dirRef.current);
+        setPose("walk");
+        return;
+      }
+      if (walking && wasTaskbarAligned.current) {
+        const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+        let left = posRef.current.left + dirRef.current * 55 * dt;
+        if (left < 0 || left > maxLeft) {
+          left = Math.min(Math.max(left, 0), maxLeft);
+          dirRef.current *= -1;
+          setDir(dirRef.current);
+        }
+        setPosition(p => ({ left, top: p.top }));
+      }
+    };
+    raf = window.requestAnimationFrame(step);
+    return () => window.cancelAnimationFrame(raf);
+  }, [pose, chatOpen, showBubble, busy, underAppWindows, spriteSize]);
+
+  function startFall() {
+    window.cancelAnimationFrame(fallRaf.current);
+    const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
+    let top = posRef.current.top;
+    if (maxTop - top < 3) { wasTaskbarAligned.current = true; setPose("idle"); return; }
+    // Throw: keep the sideways speed from just before release (zero if the pointer paused).
+    const fresh = performance.now() - (velRef.current.t || 0) < 80;
+    let vx = fresh ? Math.max(-1500, Math.min(1500, velRef.current.vx)) : 0;
+    velRef.current.vx = 0;
+    let left = posRef.current.left;
+    const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+    let vy = 0, last = performance.now();
+    setPose("fall");
+    const step = now => {
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      vy += 1800 * dt;
+      top += vy * dt;
+      left += vx * dt;
+      if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
+      if (top >= maxTop) {
+        wasTaskbarAligned.current = true;
+        setPosition({ left, top: maxTop });
+        if (vy > 700) showPose("land", 350); else setPose("idle");
+        return;
+      }
+      setPosition({ left, top });
+      fallRaf.current = window.requestAnimationFrame(step);
+    };
+    fallRaf.current = window.requestAnimationFrame(step);
+  }
+
   function onCoyPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
     event.preventDefault();
@@ -399,6 +492,7 @@ export default function CoyCompanion() {
       moved: false
     };
     suppressClickAfterDrag.current = false;
+    window.cancelAnimationFrame(fallRaf.current);
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
   }
 
@@ -408,7 +502,10 @@ export default function CoyCompanion() {
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    if (!drag.moved) { window.clearTimeout(poseTimer.current); setPose("held"); }
     drag.moved = true;
+    velRef.current.vx = (event.movementX || 0) * 24 + velRef.current.vx * 0.6;
+    velRef.current.t = performance.now();
     suppressClickAfterDrag.current = true;
     wasTaskbarAligned.current = false;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
@@ -427,6 +524,7 @@ export default function CoyCompanion() {
       suppressClickAfterDrag.current = true;
       // Keep the click suppression through the browser's synthesized click.
       window.setTimeout(() => { suppressClickAfterDrag.current = false; }, 0);
+      startFall();
     }
     dragState.current = null;
     try {
@@ -447,6 +545,7 @@ export default function CoyCompanion() {
       clickTimer.current = null;
       setLine(formatCoyText(randomLine(PAT_LINES)));
       setShowBubble(true);
+      showPose("pat", 1200);
     } else {
       clickTimer.current = window.setTimeout(() => {
         clickTimer.current = null;
@@ -463,6 +562,12 @@ export default function CoyCompanion() {
     if (event && event.preventDefault) event.preventDefault();
     const message = (overrideMessage || draft).trim();
     if (!message || busy) return;
+    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|dance)\s?([123])?$/);
+    if (emote) {                                   // /e wave, /e dance, /e dance2, /e dance 3
+      setDraft("");
+      playEmote(emote[1] === "dance" && emote[2] && emote[2] !== "1" ? "dance" + emote[2] : emote[1]);
+      return;
+    }
     setDraft("");
     setBusy(true);
     const nextHistory = [...history, { role: "user", content: message }];
@@ -596,7 +701,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <img src={COY_SPRITE} alt="Coy" style={{ ...styles.sprite, cursor: "grab", touchAction: "none" }} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} look={lookRef.current} getPos={() => posRef.current} />
       </button>
 
       {showBubble && (
