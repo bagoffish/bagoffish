@@ -811,6 +811,7 @@ function extractProviderAnswer(provider, data) {
 }
 
 router.get("/health", async (req, res) => {
+  await loadApprovedMemoryFresh();
   const loadedCorpus = await loadGithubMemory();
   studyArchives(loadedCorpus);
   res.json({
@@ -976,6 +977,7 @@ router.post("/chat", rateLimit, async (req, res) => {
 
   const memoryQuery = [message, ...history.filter(item => item.role === "user").slice(-8).map(item => item.content)].filter(Boolean).join("\n");
   const githubMemoryContext = await getGithubMemoryContext(memoryQuery);
+  await loadApprovedMemoryFresh();
   const approvedMemoryText = approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim()
     ? approvedMemoryLastFetch.text
     : [
