@@ -162,13 +162,32 @@ export default function CoyCompanion() {
 
   const getCoyHeight = () => {
     const root = rootRef.current;
-    const sprite = root?.querySelector('img[alt="Coy"]');
+    const sprite = root?.querySelector('canvas[aria-label="Coy"], img[alt="Coy"]');
     const rootHeight = root?.getBoundingClientRect().height || 0;
     const spriteHeight = sprite?.getBoundingClientRect().height ||
       (sprite?.naturalWidth && sprite?.naturalHeight
         ? spriteSize * sprite.naturalHeight / sprite.naturalWidth
         : 0);
-    return rootHeight || spriteHeight || spriteSize;
+    return rootHeight || spriteHeight || Math.round(spriteSize / 0.9);
+  };
+
+  // Visible app title bars act like little platforms. Coy can land on one
+  // when released above it, rather than always dropping straight to the taskbar.
+  const findLandingSurface = (left, top) => {
+    const height = getCoyHeight();
+    const taskbarLandingTop = Math.max(0, getTaskbarTop() - height);
+    const surfaces = Array.from(document.querySelectorAll('.app__header, .window-titlebar, .window-header'));
+    const candidates = surfaces.flatMap(element => {
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      if (!rect.width || !rect.height || style.display === 'none' || style.visibility === 'hidden') return [];
+      if (left + spriteSize <= rect.left || left >= rect.right) return [];
+      const landingTop = rect.top - height;
+      if (landingTop < top - 8 || landingTop >= taskbarLandingTop) return [];
+      return [{ top: Math.max(0, landingTop), left: rect.left, right: rect.right }];
+    });
+    candidates.sort((a, b) => a.top - b.top);
+    return candidates[0] || null;
   };
 
   // Align Coy's wrapper bottom to the measured top edge of the real taskbar.
@@ -463,12 +482,19 @@ export default function CoyCompanion() {
     window.cancelAnimationFrame(fallRaf.current);
     const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
     let top = posRef.current.top;
-    if (maxTop - top < 3) { wasTaskbarAligned.current = true; setPose("idle"); return; }
+    let left = posRef.current.left;
+    let surface = findLandingSurface(left, top);
+    let landingTop = surface?.top ?? maxTop;
+    if (landingTop - top < 3) {
+      wasTaskbarAligned.current = true;
+      setPosition({ left, top: landingTop });
+      setPose("idle");
+      return;
+    }
     // Throw: keep the sideways speed from just before release (zero if the pointer paused).
     const fresh = performance.now() - (velRef.current.t || 0) < 80;
     let vx = fresh ? Math.max(-1500, Math.min(1500, velRef.current.vx)) : 0;
     velRef.current.vx = 0;
-    let left = posRef.current.left;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     let vy = 0, last = performance.now();
     setPose("fall");
@@ -478,10 +504,14 @@ export default function CoyCompanion() {
       vy += 1800 * dt;
       top += vy * dt;
       left += vx * dt;
-      if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
-      if (top >= maxTop) {
+      if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }
+      if (surface && (left + spriteSize <= surface.left || left >= surface.right)) {
+        surface = null;
+        landingTop = maxTop;
+      }
+      if (top >= landingTop) {
         wasTaskbarAligned.current = true;
-        setPosition({ left, top: maxTop });
+        setPosition({ left, top: landingTop });
         if (vy > 700) showPose("land", 350); else setPose("idle");
         return;
       }
