@@ -1,0 +1,230 @@
+name: Build full thumbnail user shards
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/build-thumbnail-user-shards.yml
+
+permissions:
+  contents: write
+
+jobs:
+  build-shards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Install GitHub CLI
+        run: sudo apt-get update && sudo apt-get install -y gh
+
+      - name: Download and process extracted index parts
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p work/shards
+          cat > work/build_shards.py <<'PY'
+          import gzip, hashlib, json, os, re, subprocess, sys
+          from pathlib import Path
+          from urllib.parse import urlparse, parse_qs, unquote
+
+          ROOT = Path("work")
+          SHARDS = ROOT / "shards"
+          SHARDS.mkdir(parents=True, exist_ok=True)
+          COUNT = 256
+          USER_KEY = re.compile(r"(?:^|[_-])(?:user_?id|userids|target_?id|creator_?id|owner_?id)(?:$|[_-])", re.I)
+          TIME_KEY = re.compile(r"(?:timestamp|capture_?time|archived_?at|crawl_?time|datetime|date)", re.I)
+          AVATAR_URL = re.compile(r"(?:avatar|headshot|user-thumbnail|avatarimage)", re.I)
+          NON_AVATAR = re.compile(r"(?:game|asset|audio|place|universe|group|badge|catalog|item|bundle|decal|mesh|texture|animation|plugin|shirt|pants|tshirt)", re.I)
+          USER_ID_RE = re.compile(r"/users/(\d+)(?:/|$)", re.I)
+          WAYBACK_RE = re.compile(r"^https?://web\.archive\.org/web/(\d{8,14})(?:[a-z_]+)?/(https?://.*)$", re.I)
+          ID_QUERY_KEYS = {"userid", "userids", "user_id", "user_ids", "targetid", "target_id", "creatorid", "ownerid", "id"}
+
+          handles = [gzip.open(SHARDS / f"full-s{i}.txt.gz", "wt", encoding="utf-8", newline="\n", compresslevel=6) for i in range(COUNT)]
+          counts = [0] * COUNT
+          total = malformed = matched = 0
+          total_bytes = 0
+          samples = []
+          diagnostics = {"url_strings": 0, "avatar_keyword_urls": 0, "records_with_explicit_user_ids": 0, "records_with_avatar_urls": 0, "top_level_key_samples": []}
+          digest = hashlib.sha256()
+
+          def walk(obj, path=""):
+              if isinstance(obj, dict):
+                  for k, v in obj.items():
+                      p = f"{path}.{k}" if path else str(k)
+                      yield p, v
+                      yield from walk(v, p)
+              elif isinstance(obj, list):
+                  for i, v in enumerate(obj):
+                      yield from walk(v, f"{path}[{i}]")
+
+          def numeric_ids(record, entries):
+              ids = set()
+              for p, v in entries:
+                  key = p.rsplit(".", 1)[-1].split("[", 1)[0].lower().replace("-", "_")
+                  if isinstance(v, (str, int)) and not isinstance(v, bool) and USER_KEY.search(key):
+                      raw = str(v).strip()
+                      for part in re.split(r"[,; ]+", raw):
+                          if part.isdigit() and 0 < len(part) <= 20:
+                              ids.add(part)
+              return ids
+
+          def timestamp_for(entries, urls):
+              for p, v in entries:
+                  key = p.rsplit(".", 1)[-1].split("[", 1)[0]
+                  if TIME_KEY.search(key) and isinstance(v, (str, int)):
+                      raw = str(v).strip()
+                      m = re.search(r"(?<!\d)(\d{8,14})(?!\d)", raw)
+                      if m:
+                          return m.group(1)
+              for u in urls:
+                  m = WAYBACK_RE.match(u)
+                  if m:
+                      return m.group(1)
+              return ""
+
+          def normalize_url(value):
+              value = value.strip()
+              if value.startswith("//"):
+                  value = "https:" + value
+              if not value.startswith(("http://", "https://")):
+                  return ""
+              m = WAYBACK_RE.match(value)
+              if m:
+                  return m.group(2)
+              return value
+
+          def ids_from_url(url):
+              ids = set()
+              try:
+                  parsed = urlparse(url)
+                  m = USER_ID_RE.search(parsed.path)
+                  if m:
+                      ids.add(m.group(1))
+                  for key, vals in parse_qs(parsed.query).items():
+                      if key.lower() in ID_QUERY_KEYS:
+                          for val in vals:
+                              for part in re.split(r"[,; ]+", val):
+                                  if part.isdigit():
+                                      ids.add(part)
+              except Exception:
+                  pass
+              return ids
+
+          manifest_name = "thumbnail-index-manifest.json"
+          subprocess.run([
+              "gh", "release", "download", "thumbnail-index-full-v1",
+              "--repo", os.environ["GITHUB_REPOSITORY"],
+              "--pattern", manifest_name, "--dir", str(ROOT)
+          ], check=True)
+          source_manifest = json.loads((ROOT / manifest_name).read_text(encoding="utf-8"))
+          parts = [item["file"] for item in source_manifest.get("chunks", []) if item.get("file", "").startswith("thumbnail_index.jsonl.part")]
+          if not parts:
+              raise SystemExit("The extracted-index manifest contains no chunks.")
+          print(f"Manifest lists {len(parts)} source chunks; expected {source_manifest.get('total_bytes')} bytes.", flush=True)
+
+          for part_name in parts:
+              subprocess.run([
+                  "gh", "release", "download", "thumbnail-index-full-v1",
+                  "--repo", os.environ["GITHUB_REPOSITORY"],
+                  "--pattern", part_name, "--dir", str(ROOT)
+              ], check=True)
+              part_path = ROOT / part_name
+              with part_path.open("rb") as src:
+                  for raw in src:
+                      total += 1
+                      total_bytes += len(raw)
+                      digest.update(raw)
+                      try:
+                          record = json.loads(raw)
+                      except Exception:
+                          malformed += 1
+                          continue
+                      entries = list(walk(record))
+                      strings = [v for _, v in entries if isinstance(v, str)]
+                      diagnostics["url_strings"] += sum(1 for value in strings if value.startswith(("http://", "https://", "//")))
+                      if len(diagnostics["top_level_key_samples"]) < 5 and isinstance(record, dict):
+                          diagnostics["top_level_key_samples"].append({
+                              "keys": sorted(str(key) for key in record.keys())[:80],
+                              "string_url_fields": [p for p, value in entries if isinstance(value, str) and value.startswith(("http://", "https://", "//"))][:12]
+                          })
+                      urls = []
+                      for value in strings:
+                          candidate = normalize_url(value)
+                          if candidate and AVATAR_URL.search(candidate):
+                              urls.append(candidate)
+                      diagnostics["avatar_keyword_urls"] += len(urls)
+                      if not urls:
+                          continue
+                      # Keep only unmistakable user-avatar URLs; avoid non-avatar asset categories.
+                      urls = [u for u in urls if not NON_AVATAR.search(urlparse(u).path)]
+                      if not urls:
+                          continue
+                      diagnostics["records_with_avatar_urls"] += 1
+                      base_ids = numeric_ids(record, entries)
+                      if base_ids:
+                          diagnostics["records_with_explicit_user_ids"] += 1
+                      stamp = timestamp_for(entries, strings)
+                      if not stamp:
+                          continue
+                      record_matched = False
+                      for u in urls:
+                          ids = set(base_ids)
+                          ids.update(ids_from_url(u))
+                          if not ids:
+                              continue
+                          record_matched = True
+                          for uid in ids:
+                              shard = int(uid) % COUNT
+                              handles[shard].write(f"{uid}\t{stamp}\t{u}\n")
+                              counts[shard] += 1
+                          if len(samples) < 10:
+                              samples.append({"userIds": sorted(ids)[:10], "timestamp": stamp, "url": u})
+                      if record_matched:
+                          matched += 1
+              part_path.unlink()
+              print(f"Processed {part_name}; total lines={total:,}, matched records={matched:,}", flush=True)
+
+          for handle in handles:
+              handle.close()
+
+          actual_sha256 = digest.hexdigest()
+          print("INDEX SCHEMA / FILTER DIAGNOSTICS:", json.dumps(diagnostics, ensure_ascii=False), flush=True)
+          print(f"INDEX FILTER OUTPUT: records_written={sum(counts):,}; matched_records={matched:,}; nonempty_shards={sum(1 for n in counts if n)}", flush=True)
+          # Fail closed rather than overwriting known-good shards with an almost-empty index.
+          if sum(counts) < 100_000 or sum(1 for n in counts if n) < 200:
+              raise SystemExit("Avatar filter matched too few records. Existing release shards were not uploaded; use the diagnostics to correct the source schema/filter.")
+          expected_sha256 = source_manifest.get("sha256")
+          expected_bytes = source_manifest.get("total_bytes")
+          if expected_bytes is not None and total_bytes != int(expected_bytes):
+              raise SystemExit(f"Extracted chunks incomplete: read {total_bytes} bytes; manifest says {expected_bytes}.")
+          if expected_sha256 and actual_sha256.lower() != str(expected_sha256).lower():
+              raise SystemExit(f"Extracted chunk SHA-256 mismatch: {actual_sha256} != {expected_sha256}.")
+
+          output_manifest = {
+              "source_release": "thumbnail-index-full-v1",
+              "source_manifest": manifest_name,
+              "source_parts": len(parts),
+              "source_manifest_bytes": source_manifest.get("total_bytes"),
+              "format": "gzip TSV: userId<TAB>timestamp<TAB>original avatar image URL",
+              "shard_count": COUNT,
+              "records_written": sum(counts),
+              "matched_records": matched,
+              "total_lines": total,
+              "malformed_lines": malformed,
+              "source_bytes_read": total_bytes,
+              "source_sha256_verified": actual_sha256,
+              "nonempty_shards": sum(1 for n in counts if n),
+              "sample_records": samples,
+              "note": "Generated from avatar/headshot URL records; inspect samples before switching production backend.",
+              "shards": [{"file": f"full-s{i}.txt.gz", "records": counts[i], "bytes": (SHARDS / f"full-s{i}.txt.gz").stat().st_size} for i in range(COUNT)]
+          }
+          (ROOT / "full-thumbnail-index-manifest.json").write_text(json.dumps(output_manifest, indent=2), encoding="utf-8")
+          print(json.dumps({k: output_manifest[k] for k in ("source_parts", "total_lines", "matched_records", "records_written", "malformed_lines", "nonempty_shards", "sample_records")}, indent=2))
+          PY
+          python3 work/build_shards.py
+
+      - name: Upload sharded index and manifest
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload thumbnail-index-full-v1 work/shards/full-s*.txt.gz work/full-thumbnail-index-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber

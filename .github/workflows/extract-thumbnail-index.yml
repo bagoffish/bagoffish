@@ -1,0 +1,217 @@
+name: Extract full thumbnail index
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - .github/workflows/extract-thumbnail-index.yml
+
+permissions:
+  contents: write
+
+jobs:
+  extract-and-upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Install Zstandard
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y zstd
+
+      - name: Download compressed index from release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p data
+          gh release download thumbnail-index-full-v1 \
+            --repo "${GITHUB_REPOSITORY}" \
+            --pattern "thumbnail_index.jsonl.zst" \
+            --dir data
+          test -s data/thumbnail_index.jsonl.zst
+
+      - name: Extract index
+        run: |
+          zstd -t data/thumbnail_index.jsonl.zst
+          zstd -d -f data/thumbnail_index.jsonl.zst -o data/thumbnail_index.jsonl
+          test -s data/thumbnail_index.jsonl
+          ls -lh data/thumbnail_index.jsonl
+
+      - name: Build complete avatar-only user shards
+        run: |
+          python3 - <<'PY'
+          import gzip, json, re
+          from datetime import datetime, timezone
+          from pathlib import Path
+          from urllib.parse import parse_qs, unquote, urlparse
+
+          source = Path("data/thumbnail_index.jsonl")
+          outdir = Path("data/full-avatar-shards")
+          outdir.mkdir(parents=True, exist_ok=True)
+          shard_count = 256
+          files = [gzip.open(outdir / f"full-s{i}.txt.gz", "wt", encoding="utf-8", newline="\n", compresslevel=6) for i in range(shard_count)]
+          counts = [0] * shard_count
+          records_read = 0
+          user_records = 0
+          avatar_candidates = 0
+          accepted = 0
+
+          def stamp(value):
+              if value is None:
+                  return ""
+              raw = str(value).strip()
+              digits = re.sub(r"\D", "", raw)
+              if len(digits) in (10, 13) and digits.startswith(("1", "2")):
+                  try:
+                      epoch = int(digits) / (1000 if len(digits) == 13 else 1)
+                      return datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y%m%d%H%M%S")
+                  except (ValueError, OverflowError, OSError):
+                      return ""
+              if len(digits) < 8:
+                  return ""
+              return (digits + "00000000000000")[:14]
+
+          def matches_user(url, user_id):
+              if not isinstance(url, str):
+                  return False
+              raw = unquote(url)
+              if re.search(r"/users?/" + re.escape(user_id) + r"(?:/|$)", raw, re.I):
+                  return True
+              try:
+                  query = parse_qs(urlparse(raw).query)
+                  return any(k.lower() in {"id", "userid", "user_id"} and user_id in vals for k, vals in query.items())
+              except Exception:
+                  return False
+
+          try:
+              with source.open("r", encoding="utf-8-sig", errors="replace") as src:
+                  for line in src:
+                      if not line.strip():
+                          continue
+                      records_read += 1
+                      try:
+                          obj = json.loads(line)
+                      except Exception:
+                          continue
+                      if not isinstance(obj, dict) or str(obj.get("type", "")).lower() != "user":
+                          continue
+                      raw_id = obj.get("id")
+                      if raw_id is None or not str(raw_id).isdigit():
+                          continue
+                      user_id = str(int(raw_id))
+                      images = obj.get("images")
+                      if not isinstance(images, list):
+                          continue
+                      user_records += 1
+                      for item in images:
+                          if not isinstance(item, dict):
+                              continue
+                          url = str(item.get("url") or "").strip()
+                          if not url.startswith(("http://", "https://")) or any(c in url for c in "\t\r\n"):
+                              continue
+                          # Keep only Roblox avatar/headshot thumbnail URLs, not arbitrary user-linked assets.
+                          if not re.search(r"(?:avatar|headshot)", url, re.I):
+                              continue
+                          avatar_candidates += 1
+                          backlinks = item.get("backlinks") if isinstance(item.get("backlinks"), list) else []
+                          matching = [b for b in backlinks if isinstance(b, dict) and matches_user(b.get("url"), user_id)]
+                          # Every matching backlink can represent a different archived capture.
+                          # Keep every distinct capture timestamp; taking min(stamps) here
+                          # collapses a user's entire history to one render per image URL.
+                          stamps = sorted({
+                              normalized
+                              for b in matching
+                              for normalized in [stamp(b.get("timestamp"))]
+                              if normalized
+                          })
+                          if not stamps:
+                              fallback = stamp(item.get("first_seen") or item.get("last_seen"))
+                              if fallback:
+                                  stamps = [fallback]
+                          if not stamps:
+                              continue
+                          shard = int(user_id) % shard_count
+                          for timestamp in stamps:
+                              files[shard].write(f"{user_id}\t{timestamp}\t{url}\n")
+                              counts[shard] += 1
+                              accepted += 1
+                      if records_read % 500000 == 0:
+                          print(f"Scanned {records_read:,} lines; wrote {accepted:,} avatar records")
+          finally:
+              for handle in files:
+                  handle.close()
+
+          manifest = {
+              "format": "user_id<TAB>14-digit-timestamp<TAB>original-avatar-thumbnail-url",
+              "source": "thumbnail_index.jsonl.zst",
+              "records_read": records_read,
+              "user_records_with_images": user_records,
+              "avatar_url_candidates": avatar_candidates,
+              "unique_avatar_records_written": accepted,
+              "shards": shard_count,
+              "shard_counts": counts,
+              "shard_naming": "full-s{user_id modulo 256}.txt.gz",
+          }
+          (outdir / "avatar-history-full-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - name: Upload complete avatar shards to the index release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload thumbnail-index-full-v1 data/full-avatar-shards/full-s*.txt.gz data/full-avatar-shards/avatar-history-full-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
+
+      - name: Split into line-aligned release assets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+
+          source = Path("data/thumbnail_index.jsonl")
+          outdir = Path("data/chunks")
+          outdir.mkdir(parents=True, exist_ok=True)
+          limit = 1_500_000_000
+          chunks = []
+          part = 1
+          current = None
+          current_size = 0
+          digest = hashlib.sha256()
+
+          with source.open("rb") as src:
+              for line in src:
+                  if current is None or (current_size and current_size + len(line) > limit):
+                      if current:
+                          current.close()
+                      path = outdir / f"thumbnail_index.jsonl.part{part:03d}"
+                      current = path.open("wb")
+                      chunks.append({"file": path.name, "bytes": 0})
+                      part += 1
+                      current_size = 0
+                  current.write(line)
+                  current_size += len(line)
+                  chunks[-1]["bytes"] += len(line)
+                  digest.update(line)
+              if current:
+                  current.close()
+
+          manifest = {
+              "source": "thumbnail_index.jsonl",
+              "format": "JSONL; each chunk ends at a newline",
+              "sha256": digest.hexdigest(),
+              "total_bytes": source.stat().st_size,
+              "chunks": chunks,
+          }
+          (outdir / "thumbnail-index-manifest.json").write_text(
+              json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(manifest, indent=2))
+          PY
+
+      - name: Upload extracted chunks to the staging release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload thumbnail-index-full-v1 data/chunks/thumbnail_index.jsonl.part* \
+            data/chunks/thumbnail-index-manifest.json \
+            --repo "${GITHUB_REPOSITORY}" --clobber
