@@ -53,7 +53,6 @@ import solitaire from 'assets/windowsIcons/solitaire.png';
 import narrator from 'assets/windowsIcons/narrator.ico';
 import pinball from 'assets/windowsIcons/pinball.png';
 import restore from 'assets/windowsIcons/restore.ico';
-import mine from 'assets/minesweeper/mine-icon.png';
 
 export const MyRecentDocuments = [
   {
@@ -336,11 +335,6 @@ export const AllPrograms = [
         type: 'item',
         icon: spade,
         text: 'Internet Spades',
-      },
-      {
-        type: 'item',
-        icon: mine,
-        text: 'Minesweeper',
       },
       {
         type: 'item',
