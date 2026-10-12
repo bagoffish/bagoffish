@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v20";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v21";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -329,7 +329,6 @@
               if (archivedSrc && archivedSrc.indexOf("/proxy-roblox-avatar") === -1) {
                 archivedSrc = API_BASE + "/proxy-roblox-avatar?url=" + encodeURIComponent(item.url);
               }
-              img.src = archivedSrc;
               img.alt = "Archived avatar from " + (item.timestamp || "an unknown date");
               // Use identical square viewports and prioritize the first visible rows.
               img.loading = index < 16 ? "eager" : "lazy";
@@ -460,6 +459,10 @@
 
     return true;
   }
+
+  // The Renderer window can be closed and reopened without reloading the site.
+  // Expose a safe reinitializer so each newly mounted window gets fresh handlers.
+  window.initLegacyRenderer = initRenderer;
 
   var tries = 0;
   var timer = setInterval(function () {
