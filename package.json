@@ -18,7 +18,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "prebuild": "node scripts/copy-music-models.js",
+    "prebuild": "node scripts/copy-music-models.js && node scripts/fetch-roblox-dialog-textures.js",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
