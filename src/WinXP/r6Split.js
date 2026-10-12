@@ -1,4 +1,4 @@
-import * as THREE from "three";
+﻿import * as THREE from "three";
 
 // Roblox's avatar-3d OBJ is already divided into named groups (Rig1..Rig6 and
 // Handle1..HandleN). Keep those real part boundaries: splitting triangles by
@@ -12,13 +12,16 @@ const RIG_TO_PART = {
   Rig5: "torso",
   Rig6: "head",
 };
+// World-space joints in studs (feet at y = 0), matching the real R6 Motor6D positions:
+// neck at the top of the torso, shoulders at the torso's top corners, hips at its bottom corners.
+// rArm/rLeg are the groups on the +X side of the scene (the avatar's own left, since it faces +Z).
 const PIVOTS = {
   head: [0, 4, 0],
-  torso: [0, 0, 0],
-  rArm: [1.5, 4, 0],
-  lArm: [-1.5, 4, 0],
-  rLeg: [0.5, 2, 0],
-  lLeg: [-0.5, 2, 0],
+  torso: [0, 3, 0],
+  rArm: [1, 3.5, 0],
+  lArm: [-1, 3.5, 0],
+  rLeg: [1, 2, 0],
+  lLeg: [-1, 2, 0],
 };
 
 function sourcePartName(object) {
@@ -60,7 +63,9 @@ export function splitIntoR6Parts(root) {
 
   const size = bodyBounds.getSize(new THREE.Vector3());
   if (!(size.y > 0)) throw new Error("Roblox R6 body has zero height");
-  const scale = 5 / size.y;
+  // Roblox OBJ units are studs. Keep 1:1 when the body is a normal R6 height so the joint
+  // pivots line up exactly; otherwise normalize to five studs tall.
+  const scale = size.y > 4.5 && size.y < 6.5 ? 1 : 5 / size.y;
   const centerX = (bodyBounds.min.x + bodyBounds.max.x) / 2;
   const centerZ = (bodyBounds.min.z + bodyBounds.max.z) / 2;
   const baseY = bodyBounds.min.y;
@@ -110,6 +115,15 @@ export function splitIntoR6Parts(root) {
       throw new Error("Roblox R6 part is missing: " + name);
     }
   }
+
+  // In R6 the head, arms and legs are all joined to the torso, so torso motion carries them along.
+  // Mesh vertices are already expressed relative to their own pivots.
+  parts.torso.add(parts.head, parts.rArm, parts.lArm, parts.rLeg, parts.lLeg);
+  parts.head.position.set(0, 1, 0);
+  parts.rArm.position.set(1, 0.5, 0);
+  parts.lArm.position.set(-1, 0.5, 0);
+  parts.rLeg.position.set(1, -1, 0);
+  parts.lLeg.position.set(-1, -1, 0);
 
   return { body, ...parts, counts };
 }

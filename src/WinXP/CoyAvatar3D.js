@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
+import { REST, resetAvatarPose, applyImportedAnimation } from "./r6Retarget";
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
@@ -31,57 +32,8 @@ function target(pose, t, dir, tiltIn) {
   }
 }
 
-function poseQuaternion(cframe) {
-  if (!Array.isArray(cframe) || cframe.length < 12) return null;
-  const matrix = new THREE.Matrix4().set(
-    cframe[3], cframe[4], cframe[5], 0,
-    cframe[6], cframe[7], cframe[8], 0,
-    cframe[9], cframe[10], cframe[11], 0,
-    0, 0, 0, 1
-  );
-  return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
-}
-
-function applyImportedAnimation(av, clip, elapsed) {
-  if (!clip?.frames?.length) return false;
-  const frames = clip.frames;
-  const duration = Math.max(0, Number(clip.duration) || frames[frames.length - 1]?.time || 0);
-  const time = duration > 0 && clip.loop !== false ? elapsed % duration : Math.min(elapsed, duration);
-  let a = frames[0], b = frames[frames.length - 1];
-  for (let i = 0; i < frames.length - 1; i++) {
-    if (time >= frames[i].time && time <= frames[i + 1].time) { a = frames[i]; b = frames[i + 1]; break; }
-  }
-  const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
-  const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
-  let applied = 0;
-  const applyPose = (part, name, basePosition) => {
-    const ca = a.poses?.[name], cb = b.poses?.[name];
-    if (!part || (!ca && !cb)) return;
-    applied += 1;
-    const from = ca || cb, to = cb || ca;
-    const qa = poseQuaternion(from), qb = poseQuaternion(to);
-    if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
-    // Roblox Pose CFrames include both rotation and joint translation. Apply
-    // translation relative to each R6 joint pivot instead of discarding it.
-    const pa = new THREE.Vector3(Number(from[0]) || 0, Number(from[1]) || 0, Number(from[2]) || 0);
-    const pb = new THREE.Vector3(Number(to[0]) || 0, Number(to[1]) || 0, Number(to[2]) || 0);
-    part.position.copy(new THREE.Vector3(...basePosition).add(pa.lerp(pb, alpha)));
-  };
-  applyPose(av.torso || av.body, "Torso", [0, 0, 0]);
-  applyPose(av.head, "Head", [0, 4, 0]);
-  applyPose(av.rArm, "Right Arm", [1.5, 4, 0]);
-  applyPose(av.lArm, "Left Arm", [-1.5, 4, 0]);
-  applyPose(av.rLeg, "Right Leg", [0.5, 2, 0]);
-  applyPose(av.lLeg, "Left Leg", [-0.5, 2, 0]);
-  return applied > 0;
-}
-
 function buildAvatar(colors) {
   const mat = c => new THREE.MeshLambertMaterial({ color: c });
-  const limb = (c, px, py) => {
-    const g = new THREE.Group(); g.position.set(px, py, 0);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(c)); m.position.y = -1; g.add(m); return g;
-  };
   const fc = document.createElement("canvas"); fc.width = fc.height = 128;
   const x = fc.getContext("2d");
   x.fillStyle = colors.head; x.fillRect(0, 0, 128, 128); x.fillStyle = "#111";
@@ -91,14 +43,21 @@ function buildAvatar(colors) {
   const faceMat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(fc) });
 
   const body = new THREE.Group();                         // origin = feet
-  const torso = new THREE.Group();                         // torso joint pivot
-  const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 3; torso.add(torsoMesh); body.add(torso);
-  const head = new THREE.Group(); head.position.set(0, 4, 0); body.add(head);
+  const torso = new THREE.Group();                         // torso joint (root joint)
+  torso.position.set(...REST.torso);
+  torso.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)));
+  body.add(torso);
+  const head = new THREE.Group(); head.position.set(...REST.head); torso.add(head);
   const hm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), [mat(colors.head), mat(colors.head), mat(colors.head), mat(colors.head), faceMat, mat(colors.head)]);
   hm.position.y = .65; head.add(hm);
-  const rArm = limb(colors.rightArm, 1.5, 4), lArm = limb(colors.leftArm, -1.5, 4);
-  const rLeg = limb(colors.rightLeg, .5, 2), lLeg = limb(colors.leftLeg, -.5, 2);
-  body.add(rArm, lArm, rLeg, lLeg);
+  // Each limb pivots on its real R6 joint; the box hangs from it. Everything joins the torso.
+  const joint = (name, color, offset) => {
+    const g = new THREE.Group(); g.position.set(...REST[name]);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(color)); m.position.set(offset[0], offset[1], 0);
+    g.add(m); torso.add(g); return g;
+  };
+  const rArm = joint("rArm", colors.rightArm, [0.5, -0.5]), lArm = joint("lArm", colors.leftArm, [-0.5, -0.5]);
+  const rLeg = joint("rLeg", colors.rightLeg, [-0.5, -1]), lLeg = joint("lLeg", colors.leftLeg, [0.5, -1]);
   return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
@@ -169,6 +128,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let activeAnimation = "";
     let animationStart = 0;
     const pose = P({});
+    const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
     fetch(BASE + "animations.json?v=1", { cache: "no-store" })
       .then(response => {
@@ -212,9 +172,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const frame = () => {
       raf = requestAnimationFrame(frame);
       if (!av || document.hidden) return;
-      clock.getDelta();
+      const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
+      // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       const clip = animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
@@ -223,8 +184,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         animationStart = t;
         console.debug("Coy: playing imported animation", clipName);
       }
-      const usingImported = applyImportedAnimation(av, clip, t - animationStart);
+      const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
+        resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
         for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
@@ -232,20 +194,31 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
-      } else {
-        av.body.position.y = 0;
-        av.body.scale.set(1, 1, 1);
       }
+      // Face the way it is walking: front-facing at rest, a quarter turn while walking.
+      if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
+      // Held or falling: lean with the sideways speed.
+      if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
 
-      let wy = 0, wx = 0;                                   // head follows the cursor when calm
-      if (!usingImported && ["idle", "wave", "pat"].includes(L.pose) && L.look && L.getPos) {
-        const p = L.getPos();
-        wy = clamp((L.look.x - (p.x + W / 2)) / window.innerWidth * 2, -.9, .9);
-        wx = clamp((L.look.y - (p.y + H / 2)) / window.innerHeight, -.5, .5);
+      // Head follows the cursor when calm, layered on top of whatever clip is playing.
+      let wy = 0, wx = 0;
+      if (["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
+        const p = L.getPos() || {};
+        const px = Number.isFinite(p.x) ? p.x : p.left;          // accept {x, y} or {left, top}
+        const py = Number.isFinite(p.y) ? p.y : p.top;
+        if (Number.isFinite(px) && Number.isFinite(py)) {
+          wy = clamp((L.look.x - (px + W / 2)) / window.innerWidth * 2, -.9, .9);
+          wx = clamp((L.look.y - (py + H / 2)) / window.innerHeight, -.5, .5);
+        }
       }
-      if (!usingImported) {
-        av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
-        av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      if (!Number.isFinite(wy)) wy = 0;                          // NaN would make the head vanish for good
+      if (!Number.isFinite(wx)) wx = 0;
+      const lookBlend = 1 - Math.exp(-8 * delta);
+      look.y += ((wy - (usingImported ? 0 : pose.spin * .5)) - look.y) * lookBlend;
+      look.x += (wx - look.x) * lookBlend;
+      if (av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
+        lookEuler.set(look.x, look.y, 0);
+        av.head.quaternion.multiply(lookQuat.setFromEuler(lookEuler));
       }
       renderer.render(scene, camera);
     };
