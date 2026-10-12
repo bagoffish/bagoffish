@@ -184,7 +184,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v16:" + id;
+            var storageKey = "avatar-history-index-v17:" + id;
             var cachedItems = [];
             try {
               var cached = window.localStorage.getItem(storageKey);
@@ -357,9 +357,21 @@
               }
               addProxyCandidate(item.url);
 
-              // The backend tries replay modifiers and nearby Wayback captures itself.
-              // Keep a single browser request per capture so missing archives don't trigger
-              // a cascade of duplicate 404s or direct insecure CDN requests.
+              // Wayback replay pages can reject the backend's server-side fetch even
+              // when the browser can display the archived image directly. Add the HTTPS
+              // archive URL as a fallback, but never request old Roblox CDN URLs directly.
+              try {
+                var archiveUrl = new URL(item.url);
+                if (archiveUrl.protocol === "https:" &&
+                    (archiveUrl.hostname === "web.archive.org" ||
+                     archiveUrl.hostname === "wayback.archive-it.org") &&
+                    imageCandidates.indexOf(item.url) === -1) {
+                  imageCandidates.push(item.url);
+                }
+              } catch (_) {}
+
+              // Keep a small fallback chain so one proxy miss does not instantly mark
+              // an otherwise browser-loadable archived capture unavailable.
               var imageCandidateIndex = 0;
               var imageResolved = false;
               img.addEventListener("load", function () {
