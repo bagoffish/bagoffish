@@ -292,7 +292,8 @@ function AboutMe({ onClose }) {
                   Music Project - Bandcamp
                 </a>
                 <a href="mailto:fossils@gmail.com">Email - fossils@gmail.com</a>
-              </div>           </section>
+              </div>
+            </section>
           </div>
         </div>
         )}
