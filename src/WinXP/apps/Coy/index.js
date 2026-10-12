@@ -491,7 +491,7 @@ export default function CoyChat({ initialImage, initialText }) {
       });
       setError('');
     } catch (err) {
-      setError(err.message || 'Couldn’t read that file.');
+      setError('Busy rn.. Hold on');
     }
   }
   async function chooseFiles(event) {
@@ -694,7 +694,7 @@ export default function CoyChat({ initialImage, initialText }) {
           <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb', width: 0, height: 0, pointerEvents: 'none' }} />
           Typing...
         </div>}
-        {error && <div role="alert" style={{ ...styles.bubble, borderColor: '#a00000', color: '#8b0000' }}>{error}</div>}
+        {error && <div style={{ ...styles.bubble, ...styles.coy }}>{error}</div>}
         <div ref={bottomRef} />
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
