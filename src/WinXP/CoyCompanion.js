@@ -107,20 +107,14 @@ function parseCoyRequestedAction(message) {
       return { action: ["launch", "start"].includes(word) ? "open" : ["show", "switch to"].includes(word) ? "focus" : word === "hide" ? "minimize" : word, name };
     }
   }
-  // A plain, explicit "look up X" request means a web search unless the
-  // user named an app above. Keep ordinary questions conversational.
-  match = text.match(/^(?:look\s+up|lookup|search\s+the\s+web\s+for|google)\s+(.+?)[.!?]*$/i);
-  if (match) return { action: "web-search", query: clean(match[1]) };
+  // Generic lookups happen inside this site's Renderer app, never in a new browser tab.
+  match = text.match(/^(?:look\s+up|lookup|search\s+for|find|search)\s+(.+?)[.!?]*$/i);
+  if (match) return { action: "search", name: "Renderer", target: "search", value: clean(match[1]) };
   return null;
 }
 
 function executeCoyRequestedAction(action) {
   if (!action) return;
-  if (action.action === "web-search") {
-    const url = "https://www.google.com/search?q=" + encodeURIComponent(action.query);
-    window.open(url, "_blank", "noopener,noreferrer");
-    return;
-  }
   const eventName = ["click", "fill", "search", "press"].includes(action.action)
     ? "coy:app-action" : "coy:desktop-action";
   window.dispatchEvent(new CustomEvent(eventName, { detail: action }));
@@ -131,7 +125,6 @@ export default function CoyCompanion() {
   const [chatOpen, setChatOpen] = useState(false);
   const [underAppWindows, setUnderAppWindows] = useState(false);
   const [line, setLine] = useState(randomGreeting);
-  const [idleMood, setIdleMood] = useState("normal");
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState(() => readCompanionChatCookie());
@@ -152,7 +145,6 @@ export default function CoyCompanion() {
     top: Math.max(0, window.innerHeight - 30 - 40)
   }));
   const [isDragging, setIsDragging] = useState(false);
-  const dizzyTimer = useRef(null);
   const lastDesktopReaction = useRef(0);
 
   const rootRef = useRef(null);
@@ -446,11 +438,6 @@ export default function CoyCompanion() {
       left: rootRect.left, top: rootRect.top,
       width: rootRect.width, height: rootRect.height,
       movedCharacter: false,
-      lastDirectionX: 0,
-      lastDirectionY: 0,
-      lastX: event.clientX,
-      lastY: event.clientY,
-      shakeChanges: 0,
       pointerId: event.pointerId
     };
     dragged.current = false;
@@ -465,14 +452,6 @@ export default function CoyCompanion() {
     const deltaX = event.clientX - state.x;
     const deltaY = event.clientY - state.y;
     const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
-    const directionX = Math.sign(event.clientX - state.lastX);
-    const directionY = Math.sign(event.clientY - state.lastY);
-    if ((directionX && state.lastDirectionX && directionX !== state.lastDirectionX) ||
-        (directionY && state.lastDirectionY && directionY !== state.lastDirectionY)) state.shakeChanges += 1;
-    if (directionX) state.lastDirectionX = directionX;
-    if (directionY) state.lastDirectionY = directionY;
-    state.lastX = event.clientX;
-    state.lastY = event.clientY;
     // Headpats are double-click only. Any actual pointer movement is reserved
     // for dragging so tiny strokes never get mistaken for a pat.
     if (distance >= 5) {
@@ -501,16 +480,9 @@ export default function CoyCompanion() {
     event.currentTarget.releasePointerCapture?.(dragState.current.pointerId);
     const finishedDrag = dragState.current;
     const wasDrag = finishedDrag.movedCharacter;
-    const wasShaken = wasDrag && finishedDrag.shakeChanges >= 3;
     dragState.current = null;
     setIsDragging(false);
-    if (wasShaken) {
-      if (dizzyTimer.current) window.clearTimeout(dizzyTimer.current);
-      setIdleMood("dizzy");
-      setLine(formatCoyText(randomLine(["woah... everything's spinning", "wait wait... dizzy", "ugh... stop spinning me", "where'd everything go", "i need a second..."])));
-      setShowBubble(true);
-      dizzyTimer.current = window.setTimeout(() => setIdleMood("normal"), 3200);
-    } else if (wasDrag) {
+    if (wasDrag) {
       setLine(formatCoyText(randomLine(["hey, easy", "where are we going", "hm?", "you picked me up"])));
       setShowBubble(true);
     }
@@ -521,8 +493,6 @@ export default function CoyCompanion() {
         clickTimer.current = null;
         setLine(formatCoyText(randomLine(PAT_LINES)));
         setShowBubble(true);
-        setIdleMood("happy");
-        window.setTimeout(() => setIdleMood("normal"), 1800);
       } else {
         clickTimer.current = window.setTimeout(() => {
           clickTimer.current = null;
