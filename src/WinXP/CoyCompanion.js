@@ -89,10 +89,11 @@ function parseCoyRequestedAction(message) {
     const name = appName(match[2]);
     if (name) return { action: "search", name, target: "search", value: clean(match[1]).replace(/^for\s+/i, "") };
   }
-  match = text.match(/^(?:click|press)\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  match = text.match(/^(click|press)\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (match) {
-    const name = appName(match[2]);
-    if (name && /^click$/i.test(text)) return { action: "click", name, target: clean(match[1]).replace(/\s+button$/i, "") };
+    const name = appName(match[3]);
+    if (name && match[1].toLowerCase() === "click") return { action: "click", name, target: clean(match[2]).replace(/\s+button$/i, "") };
+    if (name && match[1].toLowerCase() === "press") return { action: "press", name, key: clean(match[2]) };
   }
   match = text.match(/^(?:type|enter)\s+(.+?)\s+into\s+(?:the\s+)?(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (match) {
