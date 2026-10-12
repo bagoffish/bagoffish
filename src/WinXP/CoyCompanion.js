@@ -139,7 +139,7 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(150);
+  const [spriteSize, setSpriteSize] = useState(180);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -682,10 +682,10 @@ export default function CoyCompanion() {
     bubbleWrap: {
       position: "absolute",
       // Align the bubble just above the head; the tail reaches down to the face.
-      top: -50,
-      left: "calc(50% - 50px)",
-      width: 100,
-      height: 70,
+      top: -56,
+      left: "calc(50% - 39px)",
+      width: 78,
+      height: 62,
       overflow: "visible",
       pointerEvents: "none",
       zIndex: 3
@@ -693,8 +693,8 @@ export default function CoyCompanion() {
     dialogBody: {
       position: "absolute",
       inset: 0,
-      width: 100,
-      height: 70,
+      width: 78,
+      height: 62,
       overflow: "hidden",
       zIndex: 1
     },
@@ -711,10 +711,10 @@ export default function CoyCompanion() {
     // down and inward at Coy's head, not away from him.
     dialogTail: {
       position: "absolute",
-      left: "18%",
-      bottom: -17,
-      width: 38,
-      height: 29,
+      right: "16%",
+      bottom: -14,
+      width: 29,
+      height: 23,
       objectFit: "fill",
       display: "block",
       pointerEvents: "none",
@@ -722,7 +722,7 @@ export default function CoyCompanion() {
     },
     dialogText: {
       position: "absolute",
-      inset: "7px 8px 6px",
+      inset: "6px 6px 5px",
       boxSizing: "border-box",
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
@@ -730,9 +730,9 @@ export default function CoyCompanion() {
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 10,
+      fontSize: 9,
       fontWeight: 600,
-      lineHeight: "12px",
+      lineHeight: "10px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
