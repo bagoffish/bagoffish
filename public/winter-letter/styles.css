@@ -331,3 +331,213 @@ html, body {
     transition-duration: 0.01ms !important;
   }
 }
+
+
+/* ================= WINTER LETTER — grounded psychological-thriller VN pass =================
+   Keep the original story, sprites, backgrounds, music, and progression untouched.
+   Art direction: muted winter photography, old paper, ink, and restrained visual-novel UI.
+*/
+:root {
+  --ink: #eee9df;
+  --ink-soft: #c9c1b5;
+  --paper: #eee4d0;
+  --paper-dark: #d8cbb3;
+  --panel: rgba(25, 25, 24, 0.88);
+  --panel-border: rgba(218, 204, 178, 0.42);
+  --name: #f0e3cb;
+  --accent: #a68a75;
+  --shadow: rgba(0, 0, 0, 0.42);
+}
+
+html, body {
+  background: #171716;
+  font-family: Georgia, "Times New Roman", serif;
+}
+
+#title-screen {
+  background:
+    linear-gradient(90deg, rgba(15, 15, 14, .26), rgba(15, 15, 14, .04) 50%, rgba(15, 15, 14, .3)),
+    radial-gradient(ellipse at 50% 48%, rgba(92, 84, 73, .2), transparent 58%),
+    #191918;
+}
+
+#title-screen::before {
+  inset: 22px;
+  border: 1px solid rgba(224, 210, 187, .18);
+}
+
+.top-menu {
+  top: 7%;
+  gap: clamp(24px, 4vw, 58px);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: .84rem;
+  letter-spacing: .16em;
+}
+
+.top-menu a {
+  color: #cfc5b6;
+  transition: color .18s ease;
+}
+.top-menu a:hover, .top-menu a:focus-visible { color: #f5eee2; }
+.top-menu a::after { background: #b79b83; }
+
+#title-art {
+  width: min(76vw, 760px);
+  max-height: 68vh;
+}
+#title-art img {
+  max-height: 66vh;
+  filter: drop-shadow(0 9px 20px rgba(0, 0, 0, .34));
+}
+
+.footer {
+  bottom: 6%;
+  color: #a69b8d;
+  font-size: .72rem;
+  letter-spacing: .28em;
+}
+
+#background {
+  background-color: #242321;
+  filter: saturate(.58) contrast(.98) brightness(.82);
+}
+#background::after {
+  background:
+    linear-gradient(180deg, rgba(17, 17, 16, .08) 0%, rgba(17, 17, 16, .02) 35%, rgba(17, 17, 16, .34) 100%),
+    radial-gradient(ellipse at center, transparent 46%, rgba(12, 12, 11, .28) 100%);
+}
+#overlay {
+  background: linear-gradient(180deg, rgba(18, 18, 17, .04), transparent 42%, rgba(18, 18, 17, .12));
+}
+
+#character {
+  max-height: 88vh;
+  max-width: min(58vw, 780px);
+  filter: drop-shadow(0 8px 17px rgba(0, 0, 0, .34));
+}
+
+#textbox {
+  left: clamp(16px, 4.2vw, 64px);
+  right: clamp(16px, 4.2vw, 64px);
+  bottom: clamp(14px, 2.6vh, 28px);
+  min-height: 156px;
+  padding: 30px clamp(22px, 4vw, 54px) 32px;
+  background: linear-gradient(110deg, rgba(27, 27, 25, .93), rgba(34, 32, 29, .89));
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, .32), inset 0 0 0 3px rgba(235, 222, 199, .035);
+  backdrop-filter: blur(2px);
+}
+#textbox::before {
+  top: 12px;
+  left: 13px;
+  width: 22px;
+  height: 1px;
+  background: #b99a7e;
+}
+#textbox::after {
+  content: "▼";
+  position: absolute;
+  right: 22px;
+  bottom: 15px;
+  color: #c0a58a;
+  font-size: .62rem;
+  animation: vn-prompt 1.25s ease-in-out infinite;
+}
+#namebox {
+  margin: 0 0 12px;
+  padding: 0 0 5px;
+  border-bottom: 1px solid rgba(199, 170, 140, .38);
+  color: #d9bda1;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: .94rem;
+  font-weight: 600;
+  letter-spacing: .035em;
+  text-transform: none;
+}
+#text {
+  max-width: 1100px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.08rem, 1.55vw, 1.38rem);
+  line-height: 1.62;
+  letter-spacing: 0;
+  color: #eee9df;
+}
+#text::after { content: none; }
+.narration #text { color: #d8d0c4; }
+
+@keyframes vn-prompt {
+  0%, 100% { transform: translateY(0); opacity: .55; }
+  50% { transform: translateY(3px); opacity: 1; }
+}
+
+#letter-box {
+  width: min(680px, 88vw);
+  padding: clamp(28px, 4vw, 48px);
+  background:
+    linear-gradient(90deg, rgba(130, 102, 74, .06) 1px, transparent 1px) 0 0 / 28px 100%,
+    repeating-linear-gradient(180deg, transparent 0 2.05em, rgba(101, 82, 61, .12) 2.05em calc(2.05em + 1px)),
+    #e9dec8;
+  border: 1px solid rgba(86, 67, 48, .42);
+  box-shadow: 0 18px 55px rgba(0, 0, 0, .5), inset 0 0 32px rgba(130, 102, 74, .08);
+}
+#letter-box::before {
+  color: #7c6250;
+  font-size: .72rem;
+  letter-spacing: .2em;
+}
+#letter-text {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1.04rem, 1.45vw, 1.22rem);
+  line-height: 2.05;
+  color: #302820;
+}
+
+#credits-screen {
+  background:
+    radial-gradient(ellipse at 50% 35%, rgba(90, 79, 65, .22), transparent 58%),
+    #171716 !important;
+}
+#credits-screen h1 {
+  color: #e7dece !important;
+  letter-spacing: .12em !important;
+  font-weight: 400 !important;
+}
+#credits-screen p { color: #c8bfb1 !important; }
+#credits-screen a { color: #c7a98e !important; }
+#credits-screen button {
+  border-color: #9f826a !important;
+  color: #e7dece !important;
+  letter-spacing: .1em !important;
+}
+#credits-screen button:hover {
+  background: #e7dece !important;
+  color: #24211d !important;
+}
+
+@media (max-width: 700px) {
+  #title-screen::before { inset: 12px; }
+  .top-menu { top: 5%; gap: 24px; font-size: .76rem; }
+  #title-art { width: 90vw; }
+  #title-art img { max-height: 58vh; }
+  .footer { bottom: 5%; letter-spacing: .2em; }
+  #character { max-width: 90vw; max-height: 70vh; }
+  #textbox {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    min-height: 142px;
+    padding: 22px 20px 28px;
+    border-radius: 4px;
+  }
+  #textbox::after { right: 14px; bottom: 10px; }
+  #namebox { font-size: .86rem; margin-bottom: 9px; }
+  #text { font-size: clamp(1rem, 4vw, 1.15rem); line-height: 1.55; }
+  #letter-box { width: calc(100vw - 28px); padding: 28px 22px; }
+}
+
+@media (max-height: 520px) and (min-width: 701px) {
+  #textbox { min-height: 118px; padding-top: 18px; padding-bottom: 20px; }
+  #namebox { margin-bottom: 6px; }
+  #text { font-size: 1rem; line-height: 1.42; }
+}
