@@ -73,7 +73,7 @@ function AboutMe({ onClose }) {
 
     // Keep the displayed number fresh from the shared backend, and register
     // this browser as a visitor. Both endpoints bypass caches.
-    const apiBase = "https://backend.onrender.com";
+    const apiBase = "https://backend-z081.onrender.com";
     const saveCount = data => {
       if (cancelled || !Number.isFinite(Number(data?.count))) return;
       const count = Math.max(0, Math.floor(Number(data.count)));
