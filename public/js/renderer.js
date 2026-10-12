@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v17";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v18";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -184,27 +184,47 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v13:" + id;
+            var storageKey = "avatar-history-index-v14:" + id;
+            var cachedItems = [];
             try {
               var cached = window.localStorage.getItem(storageKey);
               if (cached) {
-                var cachedItems = JSON.parse(cached);
-                if (Array.isArray(cachedItems) && cachedItems.length) return Promise.resolve(cachedItems);
+                var parsedCache = JSON.parse(cached);
+                if (Array.isArray(parsedCache)) cachedItems = parsedCache;
               }
             } catch (_) {}
+            // Always refresh from the persistent release index; merge with the
+            // local copy so transient shard failures never erase previously saved entries.
             return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
               headers: { Accept: "application/json" },
               cache: "no-store"
             }).then(function (response) {
-              if (!response.ok) return { images: [] };
+              if (!response.ok) throw new Error("History index HTTP " + response.status);
               return response.json();
             }).then(function (payload) {
-              var images = Array.isArray(payload && payload.images) ? payload.images : [];
-              if (images.length) {
-                try { window.localStorage.setItem(storageKey, JSON.stringify(images)); } catch (_) {}
-              }
-              return images;
-            }).catch(function () { return []; });
+              var freshItems = Array.isArray(payload && payload.images) ? payload.images : [];
+              var mergedItems = [];
+              var seenItems = Object.create(null);
+              cachedItems.concat(freshItems).forEach(function (item) {
+                if (!item || typeof item !== "object") return;
+                var url = text(item.url || item.wayback).trim();
+                var timestamp = text(item.timestamp || "").trim();
+                if (!/^https?:\/\//i.test(url)) return;
+                if (timestamp && !/^\d{8,14}$/.test(timestamp)) return;
+                var key = timestamp + "|" + url;
+                if (seenItems[key]) return;
+                seenItems[key] = true;
+                mergedItems.push({ url: url, timestamp: timestamp, source: text(item.source || "cached-index") });
+              });
+              mergedItems.sort(function (a, b) {
+                return text(a.timestamp).localeCompare(text(b.timestamp));
+              });
+              try { window.localStorage.setItem(storageKey, JSON.stringify(mergedItems)); } catch (_) {}
+              return mergedItems;
+            }).catch(function () {
+              // Keep the last persisted copy available when the backend is temporarily down.
+              return cachedItems;
+            });
           }
 
           function normalizeArchivedItem(item) {
@@ -276,6 +296,18 @@
             label.style.marginBottom = "4px";
             label.textContent = "Archived renders";
             oldContainer.appendChild(label);
+            var status = document.createElement("div");
+            status.style.gridColumn = "1 / -1";
+            status.style.marginBottom = "4px";
+            status.setAttribute("role", "status");
+            oldContainer.appendChild(status);
+            var loadedCount = 0;
+            var failedCount = 0;
+            function updateArchiveStatus() {
+              status.textContent = merged.length + " indexed · " + loadedCount + " loaded · " +
+                failedCount + " unavailable (entries retained)";
+            }
+            updateArchiveStatus();
             merged.forEach(function (item, index) {
               var card = document.createElement("div");
               card.className = "old-avatar-card";
@@ -328,14 +360,31 @@
               // Keep a single browser request per capture so missing archives don't trigger
               // a cascade of duplicate 404s or direct insecure CDN requests.
               var imageCandidateIndex = 0;
+              var imageResolved = false;
+              img.addEventListener("load", function () {
+                if (imageResolved) return;
+                imageResolved = true;
+                loadedCount += 1;
+                updateArchiveStatus();
+              });
               img.addEventListener("error", function () {
                 imageCandidateIndex += 1;
                 if (imageCandidateIndex < imageCandidates.length) {
                   img.src = imageCandidates[imageCandidateIndex];
                   return;
                 }
-                // Do not show a blank tile for a deleted or unreachable capture.
-                card.remove();
+                // Keep the indexed entry visible and count it as unavailable;
+                // it may become recoverable if Wayback is temporarily failing.
+                if (!imageResolved) {
+                  imageResolved = true;
+                  failedCount += 1;
+                  updateArchiveStatus();
+                }
+                img.alt = "Archived render unavailable — index entry retained";
+                img.title = "This archived URL and timestamp are retained, but the image could not be loaded.";
+                img.style.minHeight = "70px";
+                img.style.background = "#f4d7d7";
+                img.style.objectFit = "contain";
               });
 
               // Assign only after the fallback error handler is attached.
