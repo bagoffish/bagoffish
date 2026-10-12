@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v18";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v19";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -184,7 +184,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v14:" + id;
+            var storageKey = "avatar-history-index-v15:" + id;
             var cachedItems = [];
             try {
               var cached = window.localStorage.getItem(storageKey);
@@ -247,10 +247,9 @@
           if (oldContainer) oldContainer.textContent = "Loading archived renders…";
           fetchSavedArchivedAvatars(roblox.id).then(function (saved) {
             if (sequence !== lookupSequence) return [];
-            // Prefer the prebuilt index and skip live Wayback discovery entirely
-            // when it already has renders for this user.
-            if (sequence !== lookupSequence) return [];
-            if (Array.isArray(saved) && saved.length) return saved;
+            // Always supplement the prebuilt index with Wayback discovery.
+            // A partial index (even one with a single render) must not suppress
+            // other archived profile captures that can still be discovered.
             return fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
               headers: { Accept: "application/json" },
               cache: "no-store"
@@ -258,8 +257,11 @@
               return response.ok ? response.json() : { images: [] };
             }).then(function (payload) {
               if (sequence !== lookupSequence) return [];
-              return Array.isArray(payload && payload.images) ? payload.images : [];
-            }).catch(function () { return []; });
+              var waybackItems = Array.isArray(payload && payload.images) ? payload.images : [];
+              return (Array.isArray(saved) ? saved : []).concat(waybackItems);
+            }).catch(function () {
+              return Array.isArray(saved) ? saved : [];
+            });
           }).then(function (rawItems) {
             if (sequence !== lookupSequence) return;
             if (!oldContainer || !document.body.contains(oldContainer)) return;
