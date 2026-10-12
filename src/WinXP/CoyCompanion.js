@@ -647,37 +647,59 @@ export default function CoyCompanion() {
       pointerEvents: "auto",
       zIndex: 1
     },
-    bubble: {
+    // Real Roblox "Money Dialog" thumbnail sprite: green face and lightning-bolt tail.
+    bubbleSprite: {
       position: "relative",
+      width: "min(168px, 44vw)",
+      aspectRatio: "1 / 1",
+      flex: "0 0 auto",
+      pointerEvents: "none"
+    },
+    bubbleSpriteImage: {
+      position: "absolute",
+      inset: 0,
+      width: "100%",
+      height: "100%",
+      objectFit: "contain",
+      userSelect: "none",
+      pointerEvents: "none"
+    },
+    // Cover only the $ emblem inside the real sprite so Coy's message fits in it.
+    bubbleSpritePanel: {
+      position: "absolute",
+      left: "10.5%",
+      top: "6.5%",
+      width: "79%",
+      height: "59%",
       boxSizing: "border-box",
+      padding: "2px 7px",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#073d0b",
+      clipPath: bubblePlacement.side === "left"
+        ? "polygon(0 0, 100% 0, 90% 92%, 4% 92%)"
+        : "polygon(0 0, 100% 0, 96% 92%, 10% 92%)",
+      overflow: "hidden"
+    },
+    bubbleSpriteText: {
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 6,
-      width: "max-content",
-      minWidth: 90,
-      maxWidth: "min(88vw, 260px)",
-      maxHeight: 110,
-      padding: "9px 13px",
-      background: "#003b08",
-      border: "5px solid #00ff24",
-      borderRadius: 12,
+      width: "100%",
+      maxHeight: "100%",
+      overflow: "hidden",
       color: "#fff",
-      fontSize: 13,
-      fontWeight: 500,
-      lineHeight: "18px",
-      overflow: "visible",
-      overflowWrap: "break-word",
-      wordBreak: "normal",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      fontSize: 12,
+      fontWeight: 600,
+      lineHeight: "14px",
+      textAlign: "center",
       whiteSpace: "pre-wrap",
-      textShadow: "0 1px 1px rgba(0,0,0,.45)",
-      boxShadow: "0 0 2px 1px rgba(0,255,36,.45)",
-      fontFamily: "Arial, Helvetica, sans-serif"
+      overflowWrap: "anywhere",
+      wordBreak: "normal",
+      textShadow: "0 1px 1px rgba(0,0,0,.45)"
     },
-    // Classic Roblox-style angular lightning tail, aimed toward Coy.
-    tail: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -25, top: "56%", width: 34, height: 54, overflow: "visible", pointerEvents: "none", zIndex: 1 }
-      : { position: "absolute", right: -25, top: "56%", width: 34, height: 54, overflow: "visible", pointerEvents: "none", zIndex: 1 },
-    tailInner: { display: "none" },
     chatBox: {
       position: "absolute",
       bottom: "100%",
@@ -721,15 +743,18 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <div style={styles.bubble}>
-            {renderCoyLine(line)}
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 34 54"
-              style={{ ...styles.tail, ...(bubblePlacement.side === "left" ? { transform: "scaleX(-1)" } : {}) }}
-            >
-              <polygon points="2,0 29,0 19,16 30,16 5,52 10,25 0,25"
-                fill="#003b08" stroke="#00ff24" strokeWidth="5" strokeLinejoin="round" />
-            </svg>
+            <div style={styles.bubbleSprite}>
+              <img
+                src="https://tr.rbxcdn.com/180DAY-923eb202c4ff35c2c7a9924db081ec94/420/420/Hat/Webp/noFilter"
+                alt=""
+                aria-hidden="true"
+                draggable={false}
+                style={{ ...styles.bubbleSpriteImage, ...(bubblePlacement.side === "left" ? { transform: "scaleX(-1)" } : {}) }}
+              />
+              <div style={styles.bubbleSpritePanel}>
+                <div style={styles.bubbleSpriteText}>{renderCoyLine(line)}</div>
+              </div>
+            </div>
           </div>
         </div>
       )}
