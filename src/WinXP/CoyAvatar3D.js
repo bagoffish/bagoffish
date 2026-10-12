@@ -72,9 +72,12 @@ function captureAvatarPose(av) {
 function blendAvatarPose(snapshot, amount) {
   snapshot.forEach(from => {
     const part = from.part;
-    part.position.lerpVectors(from.position, part.position.clone(), amount);
-    part.quaternion.copy(from.quaternion).slerp(part.quaternion.clone(), amount).normalize();
-    part.scale.lerpVectors(from.scale, part.scale.clone(), amount);
+    const targetPosition = part.position.clone();
+    const targetQuaternion = part.quaternion.clone();
+    const targetScale = part.scale.clone();
+    part.position.lerpVectors(from.position, targetPosition, amount);
+    part.quaternion.copy(from.quaternion).slerp(targetQuaternion, amount).normalize();
+    part.scale.lerpVectors(from.scale, targetScale, amount);
   });
 }
 
@@ -288,6 +291,12 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
+        // If the animation data arrived after the initial pose transition,
+        // capture the current pose now so loading a clip never causes a snap.
+        if (activeAnimation === "" && t - transitionStart >= TRANSITION_SECONDS) {
+          transitionFrom = captureAvatarPose(av);
+          transitionStart = t;
+        }
         activeAnimation = clipName;
         animationStart = t;
       }
