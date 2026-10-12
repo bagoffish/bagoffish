@@ -160,7 +160,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload thumbnail-index-full-v1 data/full-avatar-shards/full-s*.txt.gz data/full-avatar-shards/avatar-history-full-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
+          gh release upload thumbnail-index-full-v2 data/full-avatar-shards/full-s*.txt.gz data/full-avatar-shards/avatar-history-full-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
 
       - name: Split into line-aligned release assets
         run: |
