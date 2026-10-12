@@ -3,7 +3,29 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-import { REST, resetAvatarPose } from "./r6Retarget";
+// All companion motion below is authored as local R6 joint angles and spring curves.
+ // No Roblox CFrame/keyframe animation data is loaded or played.
+const REST = {
+  torso: [0, 3, 0],
+  head: [0, 1, 0],
+  rArm: [1, 0.5, 0],
+  lArm: [-1, 0.5, 0],
+  rLeg: [1, -1, 0],
+  lLeg: [-1, -1, 0],
+};
+function resetAvatarPose(av) {
+  if (!av) return;
+  av.body.position.set(0, 0, 0);
+  av.body.rotation.set(0, 0, 0);
+  av.body.scale.set(1, 1, 1);
+  for (const [partName, position] of Object.entries(REST)) {
+    const part = av[partName];
+    if (!part) continue;
+    part.position.set(...position);
+    part.quaternion.identity();
+    part.scale.set(1, 1, 1);
+  }
+}
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
@@ -14,104 +36,134 @@ const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
 
 const P = o => Object.assign({
-  // Angles are labelled by the character's anatomy, not the side of the screen.
   rArmZ: 0, lArmZ: 0, rArmX: 0, lArmX: 0,
-  rLegX: 0, lLegX: 0, bob: 0, spin: 0, tilt: 0, sq: 0,
+  rLegX: 0, lLegX: 0, bob: 0, tilt: 0, sq: 0,
   headX: 0, headY: 0
 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-// Procedural classic-R6 motion. Roblox's R6 has one shoulder and one hip joint
-// per side (no elbows/knees), so every pose is made from restrained joint angles
-// and a root bob/turn. This intentionally avoids applying exported Pose.CFrames
-// directly as world transforms, which was causing limbs to slide and cross over.
+// R6 has one shoulder and one hip joint per side. These motions are explicit
+// local joint angles (plus a small root lean/bob), not imported CFrame clips.
 function target(name, t, dir, tiltIn) {
-  const cycle = (speed, phase = 0) => Math.sin(t * speed + phase);
+  const wave = (speed, phase = 0) => Math.sin(t * speed + phase);
   switch (name) {
     case "wave":
-      // Raise the character's anatomical RIGHT arm (screen-left while facing us)
-      // and wave it from the shoulder without swapping to the other arm.
+      // Anatomical RIGHT maps to av.lArm in our front-facing scene (screen-left).
+      // Keep the elbow-free R6 arm raised and make the wave a small shoulder roll.
       return P({
-        // On this baked R6 mesh, a negative Z shoulder angle lifts
-        // the anatomical right arm outward/up on screen-left.
-        rArmZ: -2.32 - (0.5 + 0.5 * cycle(10.5)) * 0.22,
-        rArmX: 0.10 + cycle(8.8) * 0.20,
-        lArmZ: 0.08,
-        bob: cycle(5.8) * 0.012,
-        headY: -0.04 + cycle(2.2) * 0.035
+        rArmZ: -2.22 - wave(7.5) * 0.20,
+        rArmX: 0.08 + wave(8.5) * 0.16,
+        lArmZ: 0.035,
+        bob: wave(3.8) * 0.008,
+        headX: -0.025,
+        headY: -0.045 + wave(2.4) * 0.025
       });
     case "walk": {
-      const s = cycle(9.5);
+      const step = wave(7.4);
       return P({
-        rArmZ: -0.08, lArmZ: 0.08,
-        rArmX: -s * 0.38, lArmX: s * 0.38,
-        rLegX: s * 0.68, lLegX: -s * 0.68,
-        bob: 0.025 + Math.abs(s) * 0.025,
-        headX: Math.abs(s) * 0.015
+        rArmZ: -0.04, lArmZ: 0.04,
+        // Opposite arm/leg swing makes a clear, simple walking gait.
+        rArmX: -step * 0.28, lArmX: step * 0.28,
+        rLegX: step * 0.46, lLegX: -step * 0.46,
+        bob: 0.018 + Math.abs(step) * 0.025,
+        tilt: wave(7.4) * 0.018,
+        headX: Math.abs(step) * 0.012,
+        headY: dir * 0.045
       });
     }
     case "dance":
     case "dance1": {
-      const s = cycle(7.2);
-      const opposite = cycle(7.2, Math.PI);
+      const beat = wave(5.5);
+      const sway = wave(2.75);
       return P({
-        rArmZ: -1.42 - s * 0.3, lArmZ: 1.42 + s * 0.3,
-        rArmX: 0.18 + s * 0.3, lArmX: -0.18 - s * 0.3,
-        rLegX: opposite * 0.52, lLegX: s * 0.52,
-        bob: 0.065 + Math.abs(s) * 0.055,
-        spin: cycle(3.6) * 0.08,
-        headY: cycle(3.6, 0.7) * 0.12
+        rArmZ: -1.05 - beat * 0.16,
+        lArmZ: 1.05 + beat * 0.16,
+        rArmX: 0.12 + wave(5.5, Math.PI / 2) * 0.12,
+        lArmX: -0.12 - wave(5.5, Math.PI / 2) * 0.12,
+        rLegX: -beat * 0.32,
+        lLegX: beat * 0.32,
+        bob: 0.025 + (0.5 + 0.5 * Math.cos(t * 5.5)) * 0.045,
+        tilt: sway * 0.045,
+        headY: sway * 0.07
       });
     }
     case "dance2": {
-      const s = cycle(9.2);
+      const beat = wave(6.3);
+      const sway = wave(3.15);
       return P({
-        rArmZ: -2.08 - s * 0.24, lArmZ: 2.08 + s * 0.24,
-        rArmX: s * 0.32, lArmX: -s * 0.32,
-        rLegX: cycle(9.2, Math.PI) * 0.65,
-        lLegX: s * 0.65,
-        bob: 0.055 + Math.abs(s) * 0.06,
-        spin: cycle(4.6) * 0.06,
-        headY: cycle(4.6, 0.8) * 0.1
+        // A deliberately asymmetric step instead of spinning the whole avatar.
+        rArmZ: -1.7 - beat * 0.13,
+        lArmZ: 0.62 + beat * 0.18,
+        rArmX: wave(6.3, 0.5) * 0.16,
+        lArmX: -wave(6.3, 0.5) * 0.16,
+        rLegX: -wave(6.3, 0.7) * 0.34,
+        lLegX: wave(6.3, 0.7) * 0.34,
+        bob: 0.022 + Math.max(0, beat) * 0.045,
+        tilt: sway * 0.05,
+        headY: -sway * 0.075
       });
     }
     case "dance3": {
-      const s = cycle(6.4);
+      const beat = wave(4.8);
+      const sway = wave(2.4);
       return P({
-        rArmZ: -1.25 - s * 0.6, lArmZ: 1.25 + s * 0.6,
-        rArmX: cycle(6.4, 1.1) * 0.26,
-        lArmX: cycle(6.4, Math.PI + 1.1) * 0.26,
-        rLegX: cycle(6.4, Math.PI) * 0.58,
-        lLegX: s * 0.58,
-        bob: 0.045 + Math.abs(s) * 0.035,
-        spin: cycle(3.2) * 0.12,
-        headY: -cycle(3.2) * 0.1
+        rArmZ: -0.72 - beat * 0.34,
+        lArmZ: 0.72 + beat * 0.34,
+        rArmX: 0.16 + wave(4.8, 1.1) * 0.1,
+        lArmX: -0.16 - wave(4.8, 1.1) * 0.1,
+        rLegX: -beat * 0.29,
+        lLegX: beat * 0.29,
+        bob: 0.018 + Math.abs(beat) * 0.026,
+        tilt: sway * 0.043,
+        headY: -sway * 0.06
       });
     }
     case "held": {
-      const s = cycle(13.5);
+      const wiggle = wave(6.8);
       return P({
-        rArmZ: -2.18 - s * 0.2, lArmZ: 2.18 + s * 0.2,
-        rArmX: s * 0.25, lArmX: -s * 0.25,
-        rLegX: cycle(8.5) * 0.35, lLegX: -cycle(8.5) * 0.35,
-        tilt: tiltIn, bob: cycle(6) * 0.018
+        rArmZ: -2.02 - wiggle * 0.12,
+        lArmZ: 2.02 + wiggle * 0.12,
+        rArmX: wave(7.0) * 0.12,
+        lArmX: -wave(7.0) * 0.12,
+        rLegX: wave(4.0) * 0.18,
+        lLegX: -wave(4.0) * 0.18,
+        tilt: tiltIn,
+        bob: wave(5.0) * 0.012
       });
     }
     case "fall":
       return P({
-        rArmZ: -2.42, lArmZ: 2.42,
-        rArmX: -0.22, lArmX: 0.22,
-        rLegX: 0.46, lLegX: -0.34,
+        rArmZ: -2.3, lArmZ: 2.3,
+        rArmX: -0.16, lArmX: 0.16,
+        rLegX: 0.32, lLegX: -0.26,
         tilt: tiltIn
       });
-    case "land":
-      return P({ rArmZ: -0.24, lArmZ: 0.24, sq: 0.13 * Math.exp(-t * 9) });
-    case "pat": {
-      const s = cycle(15);
+    case "land": {
+      // Impact squash, one elastic rebound, then settle to neutral.
+      const impact = Math.exp(-t * 8) * Math.cos(t * 20);
       return P({
-        rArmZ: -0.16, lArmZ: 0.16,
-        sq: Math.abs(s) * 0.055,
-        headX: -0.06 + Math.abs(s) * 0.04
+        rArmZ: -0.18 - impact * 0.30,
+        lArmZ: 0.18 + impact * 0.30,
+        rArmX: -Math.exp(-t * 7) * 0.10,
+        lArmX: Math.exp(-t * 7) * 0.10,
+        rLegX: -Math.exp(-t * 8) * 0.10,
+        lLegX: Math.exp(-t * 8) * 0.10,
+        sq: 0.27 * impact,
+        bob: Math.max(0, wave(20)) * 0.018 * Math.exp(-t * 8)
+      });
+    }
+    case "pat": {
+      // A quick, obvious pat squish with a small spring-back instead of a tiny idle pulse.
+      const impact = Math.exp(-t * 7) * Math.cos(t * 20);
+      return P({
+        rArmZ: -0.12 - impact * 0.08,
+        lArmZ: 0.12 + impact * 0.08,
+        rArmX: -Math.exp(-t * 8) * 0.07,
+        lArmX: Math.exp(-t * 8) * 0.07,
+        sq: 0.17 * impact,
+        bob: Math.max(0, wave(16)) * 0.015 * Math.exp(-t * 7),
+        headX: -0.12 * Math.exp(-t * 7),
+        headY: wave(10) * 0.035 * Math.exp(-t * 5)
       });
     }
     case "idle":
@@ -119,10 +171,10 @@ function target(name, t, dir, tiltIn) {
     case "idle2":
     default:
       return P({
-        rArmZ: -0.045, lArmZ: 0.045,
-        bob: cycle(2.1) * 0.022,
-        headX: cycle(1.4) * 0.025,
-        headY: cycle(1.1) * 0.045
+        rArmZ: -0.035, lArmZ: 0.035,
+        bob: wave(1.8) * 0.012,
+        headX: wave(1.35) * 0.018,
+        headY: wave(1.05) * 0.035
       });
   }
 }
@@ -264,7 +316,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const localTime = t - poseStart;
       const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
       const nextPose = target(L.pose, localTime, L.dir, tiltIn);
-      const blend = 1 - Math.exp(-delta * 12);
+      const impactPose = L.pose === "pat" || L.pose === "land";
+      const blend = 1 - Math.exp(-delta * (impactPose ? 30 : 15));
 
       // Rebuild a clean base pose every frame; only our explicitly authored
       // joint targets are then applied. No imported CFrames are layered over it.
@@ -278,7 +331,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       av.rLeg.rotation.x = pose.lLegX;
 
       av.body.position.y = pose.bob;
-      av.body.rotation.y = L.pose === "walk" ? L.dir * Math.PI / 2 : pose.spin;
+      // Keep Coy facing the visitor; directional movement is handled by the gait,
+      // not by rotating the whole rig into a stiff side-on pose.
+      av.body.rotation.y = 0;
       av.body.rotation.z = pose.tilt;
       av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
 
