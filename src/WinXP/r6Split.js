@@ -103,6 +103,13 @@ export function splitIntoR6Parts(root) {
       : geometry.attributes.position.count / 3;
   });
 
+  // Rebuild the R6 joint hierarchy: head and arms follow the torso.
+  // Mesh vertices are already expressed relative to their own pivots.
+  parts.torso.add(parts.head, parts.rArm, parts.lArm);
+  parts.head.position.set(0, 1, 0);
+  parts.rArm.position.set(1.5, 1, 0);
+  parts.lArm.position.set(-1.5, 1, 0);
+
   // An OBJ Handle is an accessory mesh. Keep it attached to the head instead
   // of classifying its triangles as random pieces of an arm or torso.
   for (const name of Object.keys(parts)) {
