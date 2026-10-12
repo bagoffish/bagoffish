@@ -68,19 +68,22 @@ jobs:
                               ids.add(part)
               return ids
 
-          def timestamp_for(entries, urls):
+          def timestamps_for(entries, urls):
+              # Preserve every timestamp associated with the record. Returning the
+              # first match silently collapsed multi-capture image histories.
+              stamps = set()
               for p, v in entries:
                   key = p.rsplit(".", 1)[-1].split("[", 1)[0]
                   if TIME_KEY.search(key) and isinstance(v, (str, int)):
                       raw = str(v).strip()
                       m = re.search(r"(?<!\d)(\d{8,14})(?!\d)", raw)
                       if m:
-                          return m.group(1)
+                          stamps.add(m.group(1))
               for u in urls:
                   m = WAYBACK_RE.match(u)
                   if m:
-                      return m.group(1)
-              return ""
+                      stamps.add(m.group(1))
+              return sorted(stamps)
 
           def normalize_url(value):
               value = value.strip()
@@ -163,8 +166,8 @@ jobs:
                       base_ids = numeric_ids(record, entries)
                       if base_ids:
                           diagnostics["records_with_explicit_user_ids"] += 1
-                      stamp = timestamp_for(entries, strings)
-                      if not stamp:
+                      stamps = timestamps_for(entries, strings)
+                      if not stamps:
                           continue
                       record_matched = False
                       for u in urls:
@@ -175,10 +178,11 @@ jobs:
                           record_matched = True
                           for uid in ids:
                               shard = int(uid) % COUNT
-                              handles[shard].write(f"{uid}\t{stamp}\t{u}\n")
-                              counts[shard] += 1
-                          if len(samples) < 10:
-                              samples.append({"userIds": sorted(ids)[:10], "timestamp": stamp, "url": u})
+                              for stamp in stamps:
+                                  handles[shard].write(f"{uid}\t{stamp}\t{u}\n")
+                                  counts[shard] += 1
+                                  if len(samples) < 10:
+                                      samples.append({"userIds": sorted(ids)[:10], "timestamp": stamp, "url": u})
                       if record_matched:
                           matched += 1
               part_path.unlink()
@@ -227,4 +231,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release upload thumbnail-index-full-v1 work/shards/full-s*.txt.gz work/full-thumbnail-index-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
+          gh release upload thumbnail-index-full-v2 work/shards/full-s*.txt.gz work/full-thumbnail-index-manifest.json --repo "${GITHUB_REPOSITORY}" --clobber
