@@ -656,7 +656,7 @@ app.post(["/bloxify", "/robloxify"], async (req, res) => {
 
 
 /* ---------- Roblox renderer (saved lookups) ---------- */
-const RENDERER_PUBLIC_BASE = process.env.RENDERER_PUBLIC_URL || "https://bloxify-backend-sg.onrender.com";
+const RENDERER_PUBLIC_BASE = process.env.RENDERER_PUBLIC_URL || "https://backend.onrender.com";
 const RENDERER_CACHE_REPO = process.env.RENDERER_CACHE_REPO || "";
 const RENDERER_CACHE_TOKEN = process.env.RENDERER_CACHE_GITHUB_TOKEN || "";
 const RENDERER_CACHE_BRANCH = process.env.RENDERER_CACHE_BRANCH || "main";
