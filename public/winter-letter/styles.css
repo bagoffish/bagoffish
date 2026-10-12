@@ -1,16 +1,16 @@
-/* WINTER LETTER
-   A quiet, uneasy visual novel. Let the original backgrounds and character art lead. */
+/* WINTER LETTER — early-2000s PC visual novel styling.
+   Chunky blue-gray UI, beveled borders, classic dialogue box, no modern glass panels. */
 :root {
   color-scheme: dark;
-  --night: #101719;
-  --snow: #e8e7df;
-  --soft: #b8c0bd;
-  --warm: #d7c8b6;
-  --rust: #a45e52;
+  --ink: #f5f4ed;
+  --blue-deep: #101c36;
+  --blue-mid: #243f6b;
+  --blue-light: #6485b5;
+  --silver: #c5d0df;
+  --cream: #f4f0df;
+  --wine: #7d2839;
 }
 * { box-sizing: border-box; }
-
-/* This game runs in an iframe, so shell-level cursor rules cannot reach it. */
 html, body, body * {
   cursor: url("/images/Normal%20Select.cur") 3 3, default;
 }
@@ -22,192 +22,211 @@ input, textarea, [contenteditable="true"] {
 }
 html, body {
   width: 100%; height: 100%; margin: 0; overflow: hidden;
-  background: var(--night); color: var(--snow);
-  font-family: Georgia, "Times New Roman", serif;
-  -webkit-font-smoothing: antialiased;
+  background: #101522; color: var(--ink);
+  font-family: "MS PGothic", "ＭＳ Ｐゴシック", "MS Gothic", Tahoma, sans-serif;
   user-select: none;
+  -webkit-font-smoothing: auto;
 }
 a, button { -webkit-tap-highlight-color: transparent; }
 
-/* Title screen: image first, quiet type, deliberate negative space. */
+/* Classic title screen: illustrated title card, simple menu, subtle pixel texture. */
 #title-screen {
   position: fixed; inset: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center;
   overflow: hidden; isolation: isolate;
   background:
-    radial-gradient(ellipse at 50% 43%, rgba(93,111,111,.19), transparent 48%),
-    linear-gradient(115deg, #0e1416 0%, #1b2425 52%, #111719 100%);
-  transition: opacity 900ms ease;
+    repeating-linear-gradient(0deg, rgba(190,208,235,.025) 0, rgba(190,208,235,.025) 1px, transparent 1px, transparent 3px),
+    radial-gradient(ellipse at 50% 34%, #435878 0%, #26364f 35%, #111827 78%, #090e18 100%);
+  transition: opacity 350ms linear;
 }
 #title-screen::before {
-  content: ""; position: absolute; z-index: -1; inset: 0;
-  background: linear-gradient(90deg, rgba(5,9,10,.24), transparent 35%, transparent 70%, rgba(5,9,10,.28));
+  content: ""; position: absolute; z-index: -1; inset: 12px;
+  border: 1px solid rgba(183,204,233,.28);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,.45), 0 0 0 1px rgba(0,0,0,.55);
   pointer-events: none;
 }
 #title-screen::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 20%;
-  background: linear-gradient(0deg, rgba(5,9,10,.35), transparent);
+  content: ""; position: absolute; z-index: -1; inset: 0; opacity: .35;
+  background-image: radial-gradient(#d9e4f6 0.7px, transparent 0.7px);
+  background-size: 23px 23px;
+  mask-image: linear-gradient(to bottom, black, transparent 75%);
   pointer-events: none;
 }
 .top-menu {
-  position: absolute; z-index: 3; left: clamp(24px, 5vw, 72px); bottom: clamp(27px, 6vh, 58px);
-  display: flex; align-items: center; gap: 27px;
+  position: absolute; z-index: 3; left: 50%; bottom: clamp(26px, 6vh, 62px);
+  transform: translateX(-50%);
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 8px;
+  background: linear-gradient(#3e5880, #1b2e4e 48%, #14233c);
+  border: 1px solid #8298b9;
+  box-shadow: inset 1px 1px 0 #b6c5da, inset -1px -1px 0 #080e1b, 2px 3px 0 rgba(0,0,0,.55);
 }
 .top-menu a {
-  position: relative; color: rgba(235,235,226,.72); cursor: pointer;
-  text-decoration: none; padding: 9px 0;
-  font: 11px/1.4 Arial, Helvetica, sans-serif;
-  letter-spacing: .16em; transition: color 180ms ease;
+  position: relative; display: block; min-width: 112px; padding: 10px 17px;
+  color: #f5f5ef; text-align: center; text-decoration: none;
+  font: bold 12px/1.2 Tahoma, "MS PGothic", sans-serif;
+  letter-spacing: .08em;
+  background: linear-gradient(#607da6, #304d77 50%, #213a60);
+  border: 1px solid #9aacc7;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.35), inset -1px -1px 0 rgba(0,0,0,.5);
 }
-.top-menu a:first-child { color: #f0eee5; }
-.top-menu a:first-child::after {
-  content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px;
-  background: var(--rust); transform-origin: left; transition: transform 180ms ease;
+.top-menu a:first-child { color: #fff; }
+.top-menu a:hover, .top-menu a:focus-visible {
+  background: linear-gradient(#8ca5c7, #4d6f9e 50%, #304d77);
+  color: #fff;
+  outline: 1px dotted #fff;
+  outline-offset: -4px;
 }
-.top-menu a:hover { color: #fff; }
-.top-menu a:hover::after { transform: scaleX(.55); }
 #title-art {
   position: relative; display: flex; align-items: center; justify-content: center;
-  width: min(79vw, 980px); height: 77vh; margin: -2vh 0 0 5vw;
+  width: min(82vw, 960px); height: 76vh; margin: -3vh 0 0;
 }
 #title-art img {
   display: block; max-width: 100%; max-height: 100%; object-fit: contain;
-  filter: saturate(.84) contrast(1.025);
-  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
-  mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  filter: none;
+  image-rendering: auto;
 }
 .footer {
-  position: absolute; z-index: 2; right: clamp(24px, 5vw, 72px); bottom: clamp(36px, 6vh, 66px);
-  color: rgba(222,226,216,.42);
-  font: 10px/1.4 Arial, Helvetica, sans-serif; letter-spacing: .18em;
+  position: absolute; z-index: 2; right: 24px; top: 22px;
+  color: #c1cde0;
+  font: 10px/1.4 Tahoma, sans-serif; letter-spacing: .14em;
+  text-shadow: 1px 1px #101827;
 }
 
-/* Scene: preserve the artwork's colour and let the atmosphere come from the art. */
+/* Background and character art stay bright and illustrated, like a classic VN. */
 #game-screen {
-  position: fixed; inset: 0; display: none; overflow: hidden; background: #111719;
+  position: fixed; inset: 0; display: none; overflow: hidden; background: #111827;
 }
 #background {
   position: absolute; inset: 0; z-index: 1;
-  background-color: #202729; background-size: cover; background-position: center center;
-  filter: saturate(.86) brightness(.83) contrast(1.025);
-  transform: scale(1.015);
+  background-color: #29384b; background-size: cover; background-position: center center;
+  filter: none;
+  transform: none;
 }
 #background::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(0deg, rgba(8,12,13,.7) 0%, rgba(8,12,13,.12) 37%, transparent 67%);
+  background: linear-gradient(0deg, rgba(7,13,28,.18), transparent 48%);
 }
 #overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 #character {
   position: absolute; z-index: 4; bottom: 0; left: 50%; transform: translateX(-50%);
-  max-width: min(58vw, 760px); max-height: 89vh; object-fit: contain; object-position: bottom;
-  filter: drop-shadow(0 6px 18px rgba(0,0,0,.23));
-  transition: opacity 220ms ease; pointer-events: none;
+  max-width: min(66vw, 820px); max-height: 96vh; object-fit: contain; object-position: bottom;
+  filter: drop-shadow(2px 2px 0 rgba(0,0,0,.28));
+  transition: opacity 120ms linear; pointer-events: none;
 }
 
-/* The dialogue is a restrained VN text window, not a mock interface or paper prop. */
+/* Classic bottom dialogue window: opaque blue panel with double bevel and name tab. */
 #textbox {
-  position: absolute; z-index: 10; left: 0; right: 0; bottom: 0;
-  min-height: 176px; padding: 28px clamp(28px, 8vw, 116px) 38px;
-  color: var(--snow); cursor: pointer;
-  background: linear-gradient(180deg, rgba(12,17,18,.84), rgba(12,17,18,.97));
-  border-top: 1px solid rgba(229,230,218,.18);
-  box-shadow: 0 -16px 48px rgba(0,0,0,.13);
+  position: absolute; z-index: 10; left: 2.2%; right: 2.2%; bottom: 2.2%;
+  min-height: 158px; padding: 31px 28px 27px;
+  color: #f8f7f1; cursor: pointer;
+  background: linear-gradient(180deg, rgba(35,57,91,.96), rgba(17,30,54,.98));
+  border: 2px solid #9bacc8;
+  outline: 1px solid #111a2b;
+  box-shadow: inset 1px 1px 0 #d0d9e7, inset -1px -1px 0 #536b8d, 2px 3px 0 rgba(0,0,0,.5);
 }
 #textbox::before {
-  content: ""; position: absolute; top: -1px; left: clamp(28px, 8vw, 116px);
-  width: 42px; height: 1px; background: var(--rust);
+  content: ""; position: absolute; top: -14px; left: 17px;
+  width: auto; min-width: 94px; height: 23px; padding: 0 12px;
+  background: linear-gradient(#7994ba, #3a5783 50%, #263f66);
+  border: 1px solid #c2cee0;
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.4), inset -1px -1px 0 rgba(0,0,0,.45);
 }
 #textbox::after {
-  content: "›"; position: absolute; right: clamp(25px, 5vw, 70px); bottom: 27px;
-  color: rgba(232,231,223,.56); font: 24px/1 Georgia, serif;
-  animation: prompt 2.3s ease-in-out infinite;
+  content: "▼"; position: absolute; right: 15px; bottom: 10px;
+  color: #d9e4f5; font: 11px/1 Tahoma, sans-serif;
+  animation: prompt 1.3s steps(2, end) infinite;
 }
 #namebox {
-  min-height: 1.2em; margin: 0 0 12px;
-  color: #d5a89c; font: 11px/1.4 Arial, Helvetica, sans-serif;
-  letter-spacing: .11em;
+  min-height: 1.2em; margin: -8px 0 12px;
+  color: #f3dca8; font: bold 13px/1.4 "MS PGothic", Tahoma, sans-serif;
+  letter-spacing: .02em;
+  text-shadow: 1px 1px #101a2b;
 }
 #text {
-  max-width: 1080px; color: #eeede6;
-  font: normal clamp(17px, 1.45vw, 21px)/1.65 Georgia, "Times New Roman", serif;
-  letter-spacing: .005em;
+  max-width: 1100px; color: #fffdf6;
+  font: normal clamp(16px, 1.35vw, 19px)/1.65 "MS PGothic", "MS Gothic", Tahoma, sans-serif;
+  letter-spacing: 0;
+  text-shadow: 1px 1px rgba(0,0,0,.22);
 }
 #text::after { content: none; }
 .narration #namebox { display: none; }
-.narration #text { color: #d9ddd6; }
-.narration::before { background: rgba(194,207,200,.4) !important; }
+.narration #text { color: #e4eaf4; }
+.narration::before { background: linear-gradient(#6b7d99, #3b4e6b) !important; }
 
-/* The letter is the one moment the player gets close to the page. */
+/* The letter becomes a parchment insert, framed like a story CG/event window. */
 #letter-box {
   position: absolute; z-index: 20; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: min(620px, 88vw); max-height: 80vh; overflow: auto;
-  padding: clamp(30px, 5vw, 54px) clamp(25px, 5.5vw, 62px);
-  color: #292b27; cursor: pointer;
-  background:
-    linear-gradient(105deg, rgba(255,255,255,.22), transparent 48%),
-    #e6e0d2;
-  border: 0;
-  box-shadow: 0 24px 85px rgba(0,0,0,.48);
+  padding: clamp(28px, 4vw, 48px) clamp(25px, 5vw, 56px);
+  color: #282b34; cursor: pointer;
+  background: linear-gradient(135deg, #fffdf1, #e7dfc9);
+  border: 2px solid #d2d8e2;
+  outline: 2px solid #233a5d;
+  box-shadow: inset 1px 1px 0 #fff, inset -2px -2px 0 #c0b79f, 5px 6px 0 rgba(0,0,0,.48);
 }
 #letter-box::before {
-  content: ""; display: block; width: 32px; height: 2px;
-  margin: 0 0 27px; background: var(--rust);
+  content: "WINTER LETTER"; display: block; width: 100%;
+  margin: 0 0 22px; padding-bottom: 10px;
+  color: #455979; border-bottom: 1px solid #b8b19e;
+  font: bold 10px/1.3 Tahoma, sans-serif; letter-spacing: .16em;
 }
 #letter-paper { min-height: 90px; }
 #letter-text {
-  color: #292b27; font: clamp(17px, 1.5vw, 20px)/1.9 Georgia, "Times New Roman", serif;
+  color: #292a2b; font: clamp(16px, 1.45vw, 19px)/1.9 Georgia, "Times New Roman", serif;
   white-space: pre-wrap;
 }
 #letter-box::after {
-  content: ""; display: block; width: 100%; height: 1px;
-  margin-top: 32px; background: rgba(53,52,44,.2);
+  content: "Click to continue"; display: block; margin-top: 25px; padding-top: 9px;
+  color: #69758a; border-top: 1px dotted #aaa38f;
+  font: 10px/1.4 Tahoma, sans-serif; text-align: right;
 }
 
-/* Credits: a quiet ending, not another themed screen. */
+/* Old-school ending screen with a simple centered title and plain credits. */
 #credits-screen {
   position: fixed; inset: 0; z-index: 200; display: none;
   flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; opacity: 0; color: var(--snow);
-  background: #131a1b;
-  transition: opacity 1.5s ease;
+  text-align: center; opacity: 0; color: var(--ink);
+  background: radial-gradient(ellipse at center, #354b6b, #121b2c 76%);
+  transition: opacity 500ms linear;
 }
 #credits-screen::before {
-  content: ""; width: 34px; height: 1px; margin-bottom: 28px; background: var(--rust);
+  content: ""; width: 180px; height: 2px; margin-bottom: 25px;
+  background: linear-gradient(90deg, transparent, #9bacc8, transparent);
 }
 #credits-screen h1 {
   margin: 0 0 20px; font: normal clamp(28px, 4.5vw, 42px)/1.2 Georgia, "Times New Roman", serif;
-  letter-spacing: .035em;
+  letter-spacing: .08em; text-shadow: 2px 2px #111a2b;
 }
-#credits-screen p { color: #aeb8b3; font: 13px/1.8 Arial, Helvetica, sans-serif; }
-#credits-screen a { color: #d4a398; text-underline-offset: 3px; }
+#credits-screen p { color: #c6d0df; font: 12px/1.8 Tahoma, sans-serif; }
+#credits-screen a { color: #e8d6a9; text-underline-offset: 3px; }
 #credits-screen button {
-  margin-top: 28px; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(212,163,152,.65);
-  background: transparent; color: #dedfd7; font: 10px Arial, Helvetica, sans-serif;
-  letter-spacing: .14em; cursor: pointer; transition: color 180ms ease;
+  margin-top: 28px; padding: 10px 20px;
+  border: 1px solid #a7b7d0; background: linear-gradient(#4b6893, #243e66);
+  box-shadow: inset 1px 1px 0 rgba(255,255,255,.4), inset -1px -1px 0 rgba(0,0,0,.45);
+  color: #fff; font: bold 11px Tahoma, sans-serif; letter-spacing: .06em;
 }
-#credits-screen button:hover { color: #d4a398; }
+#credits-screen button:hover { background: linear-gradient(#7894bb, #3a5985); }
 
-@keyframes prompt { 0%,100% { opacity: .4; transform: translateY(0); } 50% { opacity: .9; transform: translateY(2px); } }
-
+@keyframes prompt { 0%,49% { opacity: 1; } 50%,100% { opacity: .3; } }
 @media (max-width: 700px) {
-  #title-art { width: 100vw; height: 68vh; margin: -5vh 0 0; }
-  #title-art img { max-width: 100%; max-height: 100%; }
-  .top-menu { left: 22px; bottom: 24px; gap: 23px; }
-  .top-menu a { font-size: 10px; }
-  .footer { right: 20px; bottom: 34px; font-size: 8px; letter-spacing: .12em; }
-  #character { max-width: 94vw; max-height: 69vh; }
-  #textbox { min-height: 150px; padding: 22px 25px 32px; }
-  #textbox::before { left: 25px; width: 30px; }
-  #textbox::after { right: 17px; bottom: 15px; font-size: 22px; }
-  #namebox { margin-bottom: 8px; font-size: 10px; }
-  #text { font-size: clamp(16px, 4.2vw, 19px); line-height: 1.55; }
-  #letter-box { width: calc(100vw - 28px); max-height: 82vh; padding: 30px 25px; }
+  #title-art { width: 100vw; height: 68vh; margin: -4vh 0 0; }
+  .top-menu { bottom: 23px; gap: 6px; padding: 6px; }
+  .top-menu a { min-width: 96px; padding: 9px 11px; font-size: 10px; }
+  .footer { right: 17px; top: 15px; font-size: 8px; }
+  #character { max-width: 98vw; max-height: 77vh; }
+  #textbox { left: 2%; right: 2%; bottom: 2%; min-height: 142px; padding: 26px 16px 24px; }
+  #textbox::before { left: 12px; }
+  #textbox::after { right: 10px; bottom: 8px; }
+  #namebox { margin-bottom: 8px; font-size: 12px; }
+  #text { font-size: clamp(15px, 4vw, 18px); line-height: 1.5; }
+  #letter-box { width: calc(100vw - 28px); max-height: 82vh; padding: 28px 23px; }
 }
 @media (max-height: 520px) and (min-width: 701px) {
-  #title-art { height: 69vh; }
-  #textbox { min-height: 120px; padding-top: 16px; padding-bottom: 21px; }
-  #text { font-size: 16px; line-height: 1.4; }
+  #title-art { height: 67vh; }
+  #textbox { min-height: 112px; padding-top: 24px; padding-bottom: 18px; }
+  #text { font-size: 15px; line-height: 1.4; }
 }
 @media (prefers-reduced-motion: reduce) {
   #textbox::after { animation: none; }
