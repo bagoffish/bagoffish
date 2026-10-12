@@ -945,6 +945,9 @@ router.post("/chat", rateLimit, async (req, res) => {
 
   const memoryQuery = [message, ...history.filter(item => item.role === "user").slice(-8).map(item => item.content)].filter(Boolean).join("\n");
   const githubMemoryContext = await getGithubMemoryContext(memoryQuery);
+  if (!approvedMemoryLastFetch.ok || !approvedMemoryLastFetch.text.trim()) {
+    return res.status(503).json({ error: "Coy couldn't check the approved memory right now. Try again in a moment." });
+  }
   const conversation = [
     "Follow these instructions carefully:",
     "MEDIA AND LINKS: When sharing a web page, output its full https:// URL as plain text so the website can make it clickable. Never embed, attach, or relay as an image any current or archived Roblox avatar/headshot render from Renderer, Roblox thumbnail endpoints, rbxcdn avatar/headshot URLs, or Wayback avatar captures; those images are Renderer-only. If one is relevant, describe it in words or direct the user to Renderer. For other image sharing, use Markdown image syntax ![short description](https://direct-image-url) only when you have a real direct image URL; otherwise share a normal link and never invent a URL. When the current user message includes attached images, inspect the image pixels and react to what is actually visible even if the user sends no caption or text. Do not merely acknowledge the filename or say you cannot see it when image data was supplied. If multiple images are attached, address each one. If the image data genuinely failed to reach the model, say that plainly. For audio attachments, analyze the audio only when the provider actually receives and supports it. For link or attached image/audio inspection, use the supplied fetched content or media inputs and be honest if it could not be accessed.",
