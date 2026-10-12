@@ -78,7 +78,12 @@ function loadModel(model) {
           if (!o.isMesh) return;
           [].concat(o.material).forEach(m => {
             m.side = THREE.DoubleSide;                 // thin hair/hat meshes need both sides
+            m.transparent = false;                     // prevent unintended see-through materials
+            m.opacity = 1;
+            m.depthWrite = true;
+            if ("transmission" in m) m.transmission = 0;
             if (m.map) m.color.set(0xffffff);          // let the texture show at full brightness
+            m.needsUpdate = true;
           });
         });
         try { resolve(splitIntoR6Parts(root)); } catch (e) { reject(e); }
