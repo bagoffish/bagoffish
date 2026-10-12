@@ -110,41 +110,75 @@ let approvedMemoryLastFetch = { text: "", fetchedAt: 0, ok: false };
 async function loadApprovedMemoryFresh() {
   const token = process.env.COY_MEMORY_GITHUB_TOKEN;
   if (!token) {
+    if (approvedMemoryLastFetch.text.trim()) {
+      approvedMemoryLastFetch = { ...approvedMemoryLastFetch, ok: true };
+      console.warn("Coy approved memory: GitHub token missing; using last successful in-process copy.");
+      return approvedMemoryLastFetch.text;
+    }
     approvedMemoryLastFetch = { text: "", fetchedAt: Date.now(), ok: false };
+    console.error("Coy approved memory unavailable: COY_MEMORY_GITHUB_TOKEN is missing.");
     return "";
   }
   const repo = (process.env.COY_MEMORY_GITHUB_REPO || "bagoffish/coy-private-memory")
-    .trim().replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "").replace(/\/+$/, "");
+    .trim().replace(/^https?:\\/\\/github\\.com\\//i, "").replace(/\\.git$/i, "").replace(/\\/+$/, "");
   const branch = (process.env.COY_MEMORY_GITHUB_BRANCH || "main").trim() || "main";
-  const filePath = process.env.COY_MEMORY_GITHUB_FACTS_PATH || "coy-approved-memory.md";
-  const encodedRepo = repo.split("/").map(encodeURIComponent).join("/");
-  const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
-  const rawUrl = "https://raw.githubusercontent.com/" + repo + "/" + encodeURIComponent(branch) + "/" + encodedPath;
-  const apiUrl = "https://api.github.com/repos/" + encodedRepo + "/contents/" + encodedPath + "?ref=" + encodeURIComponent(branch);
-  const headers = { Authorization: "Bearer " + token, Accept: "application/vnd.github.raw", "X-GitHub-Api-Version": "2022-11-28", "User-Agent": "Coy-Approved-Memory" };
-  for (const [url, requestHeaders] of [
-    [rawUrl, { Authorization: "Bearer " + token, Accept: "application/vnd.github.raw", "User-Agent": "Coy-Approved-Memory" }],
-    [apiUrl, headers],
-  ]) {
-    try {
-      const response = await fetch(url, { headers: requestHeaders, signal: AbortSignal.timeout(12000) });
-      if (!response.ok) continue;
-      let content = await response.text();
-      if (url === apiUrl && /^\s*\{\s*"(?:name|path|sha|size|content)"\s*:/.test(content)) {
-        try {
-          const envelope = JSON.parse(content);
-          if (typeof envelope.content === "string" && envelope.encoding === "base64") content = Buffer.from(envelope.content, "base64").toString("utf8");
-          else continue;
-        } catch (_) { continue; }
+  const configuredPath = (process.env.COY_MEMORY_GITHUB_FACTS_PATH || "coy-approved-memory.md").trim();
+  // If a stale/mistyped Render override exists, also try the known default facts path.
+  const filePaths = [...new Set([configuredPath, "coy-approved-memory.md"].filter(Boolean))];
+  const headers = {
+    Authorization: "Bearer " + token,
+    Accept: "application/vnd.github.raw",
+    "X-GitHub-Api-Version": "2022-11-28",
+    "User-Agent": "Coy-Approved-Memory",
+  };
+  let lastFailure = "no response";
+  for (const filePath of filePaths) {
+    const encodedRepo = repo.split("/").map(encodeURIComponent).join("/");
+    const encodedPath = filePath.split("/").map(encodeURIComponent).join("/");
+    const rawUrl = "https://raw.githubusercontent.com/" + repo + "/" + encodeURIComponent(branch) + "/" + encodedPath;
+    const apiUrl = "https://api.github.com/repos/" + encodedRepo + "/contents/" + encodedPath + "?ref=" + encodeURIComponent(branch);
+    for (const [url, requestHeaders] of [
+      [rawUrl, { Authorization: "Bearer " + token, Accept: "application/vnd.github.raw", "User-Agent": "Coy-Approved-Memory" }],
+      [apiUrl, headers],
+    ]) {
+      try {
+        const response = await fetch(url, { headers: requestHeaders, signal: AbortSignal.timeout(12000) });
+        lastFailure = filePath + " returned HTTP " + response.status;
+        if (!response.ok) continue;
+        let text = await response.text();
+        if (url === apiUrl && /^\\s*\\{\\s*"(?:name|path|sha|size|content)"\\s*:/.test(text)) {
+          try {
+            const envelope = JSON.parse(text);
+            if (typeof envelope.content === "string" && envelope.encoding === "base64") {
+              text = Buffer.from(envelope.content, "base64").toString("utf8");
+            } else {
+              lastFailure = filePath + " returned an unexpected GitHub API response";
+              continue;
+            }
+          } catch (_) {
+            lastFailure = filePath + " returned an unreadable GitHub API response";
+            continue;
+          }
+        }
+        if (!text.trim()) {
+          lastFailure = filePath + " returned an empty file";
+          continue;
+        }
+        approvedMemoryLastFetch = { text, fetchedAt: Date.now(), ok: true };
+        console.info("Coy approved memory loaded from " + filePath);
+        return text;
+      } catch (error) {
+        lastFailure = filePath + " request failed (" + (error?.name || "network error") + ")";
       }
-      if (!content.trim()) continue;
-      approvedMemoryLastFetch = { text: content, fetchedAt: Date.now(), ok: true };
-      return content;
-    } catch (_) {
-      // Try the other GitHub endpoint; do not substitute stale approved memory.
     }
   }
+  if (approvedMemoryLastFetch.text.trim()) {
+    approvedMemoryLastFetch = { ...approvedMemoryLastFetch, ok: true };
+    console.warn("Coy approved memory refresh failed (" + lastFailure + "); using last successful in-process copy.");
+    return approvedMemoryLastFetch.text;
+  }
   approvedMemoryLastFetch = { text: "", fetchedAt: Date.now(), ok: false };
+  console.error("Coy approved memory unavailable: " + lastFailure);
   return "";
 }
 let githubMemoryStatus = { loadedFiles: [], failedFiles: [], lastAttemptAt: null };
