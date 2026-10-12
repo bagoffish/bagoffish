@@ -1,7 +1,7 @@
 (function () {
   "use strict";
 
-  var API_BASE = window.RENDERER_API_BASE || "https://backend-z081.onrender.com";
+  var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
   var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v21";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
