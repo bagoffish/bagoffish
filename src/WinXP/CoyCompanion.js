@@ -244,42 +244,22 @@ export default function CoyCompanion() {
     };
   }, [spriteSize]);
 
-  // Place the balloon on the side opposite Coy so it never clips off-screen.
-  // Coy on the left half → balloon to the right of Coy.
-  // Coy on the right half → balloon to the left of Coy.
-  // Tail points back toward Coy from whichever side the balloon sits.
+  // Keep the classic NPC balloon centered above Coy's head. Clamp it to the
+  // viewport so the bubble stays readable even when Coy is near either edge.
   useEffect(() => {
     const placeBubble = () => {
-      const root = rootRef.current;
       const bubble = bubbleWrapRef.current;
-      if (!root || !bubble) return;
+      if (!bubble) return;
       const bubbleWidth = bubble.getBoundingClientRect().width;
       if (!bubbleWidth) return;
       const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
       const margin = 8;
-      const coyCenter = position.left + spriteSize / 2;
-      const coyOnLeft = coyCenter < viewportWidth / 2;
-
-      let bubbleLeft;
-      if (coyOnLeft) {
-        // Balloon to the right of Coy
-        bubbleLeft = position.left + spriteSize + 12;
-        if (bubbleLeft + bubbleWidth > viewportWidth - margin) {
-          bubbleLeft = Math.max(margin, viewportWidth - bubbleWidth - margin);
-        }
-      } else {
-        // Balloon to the left of Coy
-        bubbleLeft = position.left - bubbleWidth - 12;
-        if (bubbleLeft < margin) {
-          bubbleLeft = margin;
-        }
-      }
-
-      // side: "right" means balloon is to the right of Coy (tail on left edge)
-      // side: "left" means balloon is to the left of Coy (tail on right edge)
+      const desiredLeft = position.left + spriteSize / 2 - bubbleWidth / 2;
+      const bubbleLeft = Math.max(margin, Math.min(viewportWidth - bubbleWidth - margin, desiredLeft));
+      const tailCenter = Math.max(14, Math.min(bubbleWidth - 14, position.left + spriteSize / 2 - bubbleLeft));
       setBubblePlacement({
         left: bubbleLeft - position.left,
-        side: coyOnLeft ? "right" : "left",
+        tailCenter,
         transform: "none"
       });
     };
@@ -673,11 +653,12 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      top: "12%",
+      // The balloon sits above the avatar, like classic Roblox NPC chat.
+      top: -48,
       marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
-      pointerEvents: "auto",
+      pointerEvents: "none",
       zIndex: 1
     },
     bubble: {
@@ -690,28 +671,34 @@ export default function CoyCompanion() {
       minWidth: 90,
       maxWidth: "min(88vw, 260px)",
       maxHeight: 110,
-      padding: "8px 12px",
-      background: "#0a0a0a",
-      border: "2px solid #00ff41",
-      borderRadius: 0,
-      color: "#00ff41",
+      padding: "7px 12px",
+      background: "#00ff41",
+      border: "2px solid #101810",
+      borderRadius: 7,
+      color: "#071207",
       fontSize: 13,
-      fontWeight: 400,
+      fontWeight: 600,
       lineHeight: "18px",
       overflow: "visible",
       overflowWrap: "break-word",
       wordBreak: "normal",
       whiteSpace: "pre-wrap",
-      textShadow: "0 0 2px #00ff41",
-      fontFamily: "Consolas, 'Courier New', monospace"
+      textShadow: "none",
+      fontFamily: "Arial, Helvetica, sans-serif",
+      boxShadow: "1px 2px 0 rgba(0,0,0,.22)"
     },
-    // Outer green triangle = border; inner black triangle = fill. Points at Coy.
-    tail: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -12, top: 22, transform: "none", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderRight: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 }
-      : { position: "absolute", right: -12, top: 22, transform: "none", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderLeft: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 },
-    tailInner: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -8, top: 24, transform: "none", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 }
-      : { position: "absolute", right: -8, top: 24, transform: "none", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 },
+    // The old NPC-chat tail is a jagged lightning bolt, not a modern triangle.
+    tail: {
+      position: "absolute",
+      top: "100%",
+      left: bubblePlacement.tailCenter ?? "50%",
+      transform: "translateX(-50%)",
+      width: 26,
+      height: 25,
+      overflow: "visible",
+      pointerEvents: "none",
+      zIndex: 2
+    },
     chatBox: {
       position: "absolute",
       bottom: "100%",
@@ -756,8 +743,10 @@ export default function CoyCompanion() {
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <div style={styles.bubble}>
             {renderCoyLine(line)}
-            <div style={styles.tail} />
-            <div style={styles.tailInner} />
+            <svg style={styles.tail} viewBox="0 0 26 25" aria-hidden="true">
+              <path d="M2 0 H24 L16 9 L23 12 L4 24 L10 12 L2 9 Z"
+                fill="#00ff41" stroke="#101810" strokeWidth="2" strokeLinejoin="round" />
+            </svg>
           </div>
         </div>
       )}
