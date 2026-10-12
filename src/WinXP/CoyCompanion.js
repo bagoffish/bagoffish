@@ -539,17 +539,21 @@ export default function CoyCompanion() {
       suppressClickAfterDrag.current = false;
       return;
     }
-    // A single click opens chat; a double click is a simple headpat reaction.
+    // Single-click dances; double-click opens the chat. Delay the dance just
+    // long enough to distinguish a double-click, and cancel it if the second click arrives.
     if (clickTimer.current) {
       window.clearTimeout(clickTimer.current);
       clickTimer.current = null;
-      setLine(formatCoyText(randomLine(PAT_LINES)));
-      setShowBubble(true);
-      showPose("pat", 1200);
+      openChat();
     } else {
       clickTimer.current = window.setTimeout(() => {
         clickTimer.current = null;
-        openChat();
+        // A single click makes Coy dance and react as if he's being patted.
+        // Keep the speech bubble and emote paired so the reaction feels intentional.
+        playEmote(["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)]);
+        setLine(formatCoyText(randomLine(PAT_LINES)));
+        setShowBubble(true);
+        lastActivity.current = Date.now();
       }, 280);
     }
   }
