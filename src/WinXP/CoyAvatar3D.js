@@ -33,14 +33,14 @@ function target(pose, t, dir, tiltIn) {
 
 function poseQuaternion(cframe) {
   if (!Array.isArray(cframe) || cframe.length < 12) return null;
-  // Roblox CFrame rotation values are serialized row-by-row. Matrix4.set()
-  // expects row-major arguments too, but the rotation basis used by the
-  // exported keyframes is the inverse of the Three.js part-local basis.
-  // Transpose the 3x3 rotation when retargeting to our reconstructed R6 joints.
+  // The exporter stores Roblox CFrame components as the 3x3 rotation
+  // in row-major order: R00,R01,R02,R10,R11,R12,R20,R21,R22.
+  // THREE.Matrix4.set() also accepts row-major arguments, so preserve that
+  // order here. Transposing the matrix reverses the authored joint rotations.
   const matrix = new THREE.Matrix4().set(
-    cframe[3], cframe[6], cframe[9], 0,
-    cframe[4], cframe[7], cframe[10], 0,
-    cframe[5], cframe[8], cframe[11], 0,
+    cframe[3], cframe[4], cframe[5], 0,
+    cframe[6], cframe[7], cframe[8], 0,
+    cframe[9], cframe[10], cframe[11], 0,
     0, 0, 0, 1
   );
   return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
