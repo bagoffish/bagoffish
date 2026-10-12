@@ -46,11 +46,14 @@ function resetAvatarPose(av) {
   // Clear transforms from the previous animation system before another clip
   // is applied. Otherwise procedural Euler rotations and imported keyframes
   // can accumulate and make Coy look like two animations are playing at once.
+  av.body.position.set(0, 0, 0);
+  av.body.rotation.set(0, 0, 0);
+  av.body.scale.set(1, 1, 1);
   const joints = [
     [av.torso || av.body, [0, 3, 0]],
-    [av.head, [0, 4, 0]],
-    [av.rArm, [1.5, 4, 0]],
-    [av.lArm, [-1.5, 4, 0]],
+    [av.head, [0, 1, 0]],
+    [av.rArm, [1.5, 1, 0]],
+    [av.lArm, [-1.5, 1, 0]],
     [av.rLeg, [0.5, 2, 0]],
     [av.lLeg, [-0.5, 2, 0]]
   ];
@@ -81,15 +84,30 @@ function applyImportedAnimation(av, clip, elapsed) {
     const from = ca || cb, to = cb || ca;
     const qa = poseQuaternion(from), qb = poseQuaternion(to);
     if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
-    // Keep the R6 joint anchored to its pivot. These exported Roblox CFrame
-    // translations are animation-space offsets, not absolute offsets from the
-    // pivot; adding them directly makes limbs slide away from their joints.
-    part.position.set(...basePosition);
+    // Roblox Pose.CFrame is a joint-local transform. Preserve its translation
+    // relative to the joint pivot instead of discarding it or treating it as
+    // a world-space position. The avatar is normalized to five studs tall.
+    const pa = ca || cb, pb = cb || ca;
+    const tx = THREE.MathUtils.lerp(pa[0] || 0, pb[0] || 0, alpha);
+    const ty = THREE.MathUtils.lerp(pa[1] || 0, pb[1] || 0, alpha);
+    const tz = THREE.MathUtils.lerp(pa[2] || 0, pb[2] || 0, alpha);
+    part.position.set(basePosition[0] + tx, basePosition[1] + ty, basePosition[2] + tz);
   };
+  // Root translation moves the whole character; root rotation is handled by
+  // the companion controller's facing direction.
+  const rootA = a.poses?.HumanoidRootPart || b.poses?.HumanoidRootPart;
+  const rootB = b.poses?.HumanoidRootPart || rootA;
+  if (rootA && rootB) {
+    av.body.position.set(
+      THREE.MathUtils.lerp(rootA[0] || 0, rootB[0] || 0, alpha),
+      THREE.MathUtils.lerp(rootA[1] || 0, rootB[1] || 0, alpha),
+      THREE.MathUtils.lerp(rootA[2] || 0, rootB[2] || 0, alpha)
+    );
+  }
   applyPose(av.torso || av.body, "Torso", [0, 3, 0]);
-  applyPose(av.head, "Head", [0, 4, 0]);
-  applyPose(av.rArm, "Right Arm", [1.5, 4, 0]);
-  applyPose(av.lArm, "Left Arm", [-1.5, 4, 0]);
+  applyPose(av.head, "Head", [0, 1, 0]);
+  applyPose(av.rArm, "Right Arm", [1.5, 1, 0]);
+  applyPose(av.lArm, "Left Arm", [-1.5, 1, 0]);
   applyPose(av.rLeg, "Right Leg", [0.5, 2, 0]);
   applyPose(av.lLeg, "Left Leg", [-0.5, 2, 0]);
   return applied > 0;
@@ -113,12 +131,12 @@ function buildAvatar(colors) {
   const torso = new THREE.Group();                         // torso joint pivot
   torso.position.set(0, 3, 0);
   const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 0; torso.add(torsoMesh); body.add(torso);
-  const head = new THREE.Group(); head.position.set(0, 4, 0); body.add(head);
+  const head = new THREE.Group(); head.position.set(0, 1, 0); torso.add(head);
   const hm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), [mat(colors.head), mat(colors.head), mat(colors.head), mat(colors.head), faceMat, mat(colors.head)]);
   hm.position.y = .65; head.add(hm);
-  const rArm = limb(colors.rightArm, 1.5, 4), lArm = limb(colors.leftArm, -1.5, 4);
+  const rArm = limb(colors.rightArm, 1.5, 1), lArm = limb(colors.leftArm, -1.5, 1);
   const rLeg = limb(colors.rightLeg, .5, 2), lLeg = limb(colors.leftLeg, -.5, 2);
-  body.add(rArm, lArm, rLeg, lLeg);
+  torso.add(rArm, lArm); body.add(rLeg, lLeg);
   return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
@@ -231,8 +249,9 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
     const frame = () => {
       raf = requestAnimationFrame(frame);
       if (!av || document.hidden) return;
-      clock.getDelta();
+      const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
+      const blend = 1 - Math.exp(-12 * delta);
       // Treat each requested pose as a fresh animation state. This prevents a
       // previous one-shot clip or smoothed procedural pose from leaking into the next.
       if (L.pose !== previousPose) {
@@ -253,15 +272,12 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         activeAnimation = clipName;
         animationStart = t;
       }
-      // The imported pat clip has malformed head transforms on this rig; use the safe procedural pat pose instead.
-      // Imported Roblox keyframes are not correctly retargeted to this reconstructed rig yet.
-      // Applying their local CFrames directly causes twisted limbs and disappearing parts;
-      // use the consistent procedural poses until the clips are retargeted to these pivots.
-      const usingImported = false;
+      // Use imported clips when present; pat/held/land remain procedural.
+      const usingImported = Boolean(clip && clipName !== "pat" && applyImportedAnimation(av, clip, t - animationStart));
       if (!usingImported) {
         resetAvatarPose(av);
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-        for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
+        for (const k in pose) pose[k] += (tg[k] - pose[k]) * blend;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
@@ -280,7 +296,7 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       av.body.rotation.y = L.pose === "walk" ? L.dir * Math.PI / 2 : (usingImported ? 0 : av.body.rotation.y);
 
       let wy = 0, wx = 0;                                   // head follows the cursor when calm
-      if (!usingImported && ["idle", "wave", "pat"].includes(L.pose) && L.look && L.getPos) {
+      if (!usingImported && ["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos();
         wy = clamp((L.look.x - (p.x + W / 2)) / window.innerWidth * 2, -.9, .9);
         wx = clamp((L.look.y - (p.y + H / 2)) / window.innerHeight, -.5, .5);
