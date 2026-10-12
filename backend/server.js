@@ -998,26 +998,34 @@ app.get("/proxy-roblox", async (req, res) => {
       return null;
     });
     if (stored) {
-      // Re-query Roblox on every lookup so avatar changes appear immediately.
-      // Stored data is metadata/history only, never the current thumbnail.
-      const live = await fetchRobloxProfile(username);
-      if (!live) return res.status(404).json({ error: "Not found" });
+      // Cached profile details are enough to render immediately. Refresh Roblox,
+      // username history, Rolimons, and GitHub persistence off the request path.
+      // This avoids making every repeat lookup wait on several APIs and GitHub writes.
+      res.setHeader("Cache-Control", "private, max-age=30, stale-while-revalidate=120");
+      res.json(rendererPayload(stored, ""));
+      if (!stored._refreshing) {
+        stored._refreshing = true;
+        Promise.all([
+          fetchRobloxProfile(username).catch(() => null),
+          fetchRobloxDetails(stored.id).catch(() => null),
+        ]).then(async ([live, details]) => {
+          if (live) {
             stored.username = live.username || stored.username;
-      stored.displayName = live.displayName || stored.displayName;
-      stored.joinDate = live.joinDate || stored.joinDate;
-      const details = await fetchRobloxDetails(stored.id).catch(() => null);
-      if (details) {
-        if (details.pastUsernames.length) stored.pastUsernames = details.pastUsernames;
-        if (Object.keys(details.rolimons).length) stored.rolimons = details.rolimons;
+            stored.displayName = live.displayName || stored.displayName;
+            stored.joinDate = live.joinDate || stored.joinDate;
+          }
+          if (details) {
+            if (details.pastUsernames.length) stored.pastUsernames = details.pastUsernames;
+            if (Object.keys(details.rolimons).length) stored.rolimons = details.rolimons;
+          }
+          stored.refreshedAt = Date.now();
+          await enqueueRendererWrite(() => saveRendererRecord(stored, null)).catch((err) => {
+            console.warn("renderer background refresh save failed:", err.message);
+          });
+        }).catch((err) => {
+          console.warn("renderer background refresh failed:", err.message);
+        }).finally(() => { stored._refreshing = false; });
       }
-      stored.refreshedAt = Date.now();
-      try {
-        await enqueueRendererWrite(() => saveRendererRecord(stored, null));
-      } catch (err) {
-        console.warn("renderer live-avatar history save failed:", err.message);
-      }
-      res.setHeader("Cache-Control", "no-store");
-      res.json(rendererPayload(stored, live.liveAvatarUrl));
       return;
     }
 
@@ -1136,29 +1144,9 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
     }
   }
 
-  if (archiveOriginalUrl && archiveTimestamp) {
-    try {
-      const availabilityUrl = 'https://archive.org/wayback/available?url=' +
-        encodeURIComponent(archiveOriginalUrl) + '&timestamp=' + encodeURIComponent(archiveTimestamp);
-      const availability = await fetchWithTimeout(availabilityUrl, {
-        headers: { 'User-Agent': 'WinXP Renderer/1.0', 'Accept': 'application/json' },
-      }, 8000);
-      if (availability.ok) {
-        const data = await availability.json();
-        const closest = data && data.archived_snapshots && data.archived_snapshots.closest;
-        if (closest && closest.available && typeof closest.url === 'string') {
-          const closestUrl = new URL(closest.url);
-          if (closestUrl.hostname.toLowerCase() === 'web.archive.org' && closestUrl.pathname.startsWith('/web/')) {
-            const replayUrl = closestUrl.origin + closestUrl.pathname.replace(/^\/web\/(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\//i, '/web/$1im_/') + closestUrl.search;
-            if (!candidates.includes(replayUrl)) candidates.push(replayUrl);
-            if (!candidates.includes(closest.url)) candidates.push(closest.url);
-          }
-        }
-      }
-    } catch (_) {
-      // Continue with the candidates already collected.
-    }
-  }
+  // Avoid a Wayback availability API round-trip before every image. Exact replay
+  // variants are tried directly below; the slower availability lookup is reserved
+  // for thumbnail-API JSON responses where the actual CDN image must be resolved.
 
   // Thumbnail-index rows can point to Roblox's avatar thumbnail API itself.
   // If Wayback has no usable replay of that API response, try the live API as
@@ -1208,24 +1196,42 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
           // saved copy of the actual CDN asset. The thumbnail API capture date
           // and the CDN asset capture date often differ.
           imageCandidates.push(`https://web.archive.org/web/${archiveTimestamp}im_/${imageUrl}`);
+          // Try the exact archived CDN URL first. Only pay for Wayback's
+          // availability lookup if that exact replay misses.
+          let exactReplayWorked = false;
           try {
-            const imageAvailabilityUrl = "https://archive.org/wayback/available?url=" +
-              encodeURIComponent(imageUrl) + "&timestamp=" + encodeURIComponent(archiveTimestamp);
-            const imageAvailability = await fetchWithTimeout(imageAvailabilityUrl, {
-              headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "application/json" },
-            }, 8000);
-            if (imageAvailability.ok) {
-              const availabilityData = await imageAvailability.json();
-              const closestImage = availabilityData && availabilityData.archived_snapshots && availabilityData.archived_snapshots.closest;
-              if (closestImage && closestImage.available && typeof closestImage.url === "string") {
-                const closestParsed = new URL(closestImage.url);
-                if (closestParsed.hostname.toLowerCase() === "web.archive.org" && closestParsed.pathname.startsWith("/web/")) {
-                  const closestReplay = closestParsed.origin + closestParsed.pathname.replace(/^\/web\/(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\//i, "/web/$1im_/") + closestParsed.search;
-                  imageCandidates.push(closestReplay, closestImage.url);
-                }
-              }
+            const exact = await fetchWithTimeout(imageCandidates[0], {
+              headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/*,*/*;q=0.8" },
+              redirect: "follow",
+            }, 5000);
+            const exactType = (exact.headers.get("content-type") || "").toLowerCase();
+            if (exact.ok && exact.body && exactType.startsWith("image/")) {
+              upstream = exact;
+              type = exactType;
+              resolvedImage = true;
+              exactReplayWorked = true;
             }
           } catch (_) {}
+          if (!exactReplayWorked) {
+            try {
+              const imageAvailabilityUrl = "https://archive.org/wayback/available?url=" +
+                encodeURIComponent(imageUrl) + "&timestamp=" + encodeURIComponent(archiveTimestamp);
+              const imageAvailability = await fetchWithTimeout(imageAvailabilityUrl, {
+                headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "application/json" },
+              }, 3000);
+              if (imageAvailability.ok) {
+                const availabilityData = await imageAvailability.json();
+                const closestImage = availabilityData && availabilityData.archived_snapshots && availabilityData.archived_snapshots.closest;
+                if (closestImage && closestImage.available && typeof closestImage.url === "string") {
+                  const closestParsed = new URL(closestImage.url);
+                  if (closestParsed.hostname.toLowerCase() === "web.archive.org" && closestParsed.pathname.startsWith("/web/")) {
+                    const closestReplay = closestParsed.origin + closestParsed.pathname.replace(/^\/web\/(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\//i, "/web/$1im_/") + closestParsed.search;
+                    imageCandidates.push(closestReplay, closestImage.url);
+                  }
+                }
+              }
+            } catch (_) {}
+          }
         }
         imageCandidates.push(imageUrl);
         let resolvedImage = false;
@@ -1346,26 +1352,27 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
     let oldContents = null;
     let oldError = null;
 
-    try {
-      fullContents = await loadAvatarHistoryShard(FULL_THUMBNAIL_INDEX_RELEASE_BASE, fullShardName);
-    } catch (error) {
-      fullError = error;
-      console.warn("Full thumbnail index shard unavailable:", error && error.message ? error.message : error);
+    const oldShardName = `s${shardNumber}.txt.gz`;
+    // Fetch the two immutable compressed shards concurrently; serial downloads
+    // made a cold history lookup pay both network latencies one after another.
+    const shardResults = await Promise.allSettled([
+      loadAvatarHistoryShard(FULL_THUMBNAIL_INDEX_RELEASE_BASE, fullShardName),
+      loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName),
+    ]);
+    if (shardResults[0].status === "fulfilled") fullContents = shardResults[0].value;
+    else {
+      fullError = shardResults[0].reason;
+      console.warn("Full thumbnail index shard unavailable:", fullError && fullError.message ? fullError.message : fullError);
+    }
+    if (shardResults[1].status === "fulfilled") oldContents = shardResults[1].value;
+    else {
+      oldError = shardResults[1].reason;
+      if (fullError) console.warn("Legacy avatar history shard also failed:", oldError && oldError.message ? oldError.message : oldError);
     }
 
-    // The full-index shards currently published are suspiciously small and have
-    // not been validated against the source dataset. Never let them replace
-    // records from the older archive: merge both sources until a rebuilt index
-    // has passed record-count and real-user checks.
+    // Keep both sources merged until the full index passes validation.
     let images = parseAvatarHistoryShard(fullContents, userId, "full-thumbnail-index");
-    const oldShardName = `s${shardNumber}.txt.gz`;
-    try {
-      oldContents = await loadAvatarHistoryShard(AVATAR_HISTORY_RELEASE_BASE, oldShardName);
-      images.push(...parseAvatarHistoryShard(oldContents, userId, "avatar-history-index"));
-    } catch (error) {
-      oldError = error;
-      if (fullError) console.warn("Legacy avatar history shard also failed:", error && error.message ? error.message : error);
-    }
+    images.push(...parseAvatarHistoryShard(oldContents, userId, "avatar-history-index"));
 
     const parsedEntryCount = images.length;
     const seen = new Set();
