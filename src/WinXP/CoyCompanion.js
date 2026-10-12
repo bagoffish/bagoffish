@@ -4,17 +4,8 @@ import { createPortal } from "react-dom";
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://bloxify-backend-sg.onrender.com").replace(/\/$/, "");
 const COY_SPRITE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/coy.png";
 const GREETINGS = ["Sup", "Hru", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii"];
-const IDLE_LINES = ["Hm", "Sup", "Yah", "Mm", "oh", "im here", "hmm"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const PAT_LINES = ["Hehe", "Again?", "Heyy", "Hm", "eep", "Yahh"];
-const APP_QUIPS = {
-  Winamp: ["What are we listening to", "put something on", "oh music"],
-  Renderer: ["Roblox stuff again", "classic avatars", "hm"],
-  Bloxify: ["what are we making", "making something again", "lemme hear it"],
-  Winter_Letter: ["Back to Winter Letter", "the story is still here", "Winter Letter"],
-  Paint: ["What are you making", "painting again", "lemme see"],
-  Minesweeper: ["good luck", "do not click the wrong one", "that board looks evil"]
-};
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
@@ -122,10 +113,10 @@ function executeCoyRequestedAction(action) {
 }
 
 export default function CoyCompanion() {
-  const [showBubble, setShowBubble] = useState(true);
+  const [showBubble, setShowBubble] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [underAppWindows, setUnderAppWindows] = useState(false);
-  const [line, setLine] = useState(randomGreeting);
+  const [line, setLine] = useState("");
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState(() => readCompanionChatCookie());
@@ -271,27 +262,6 @@ export default function CoyCompanion() {
     };
   }, [position.left, spriteSize, line, showBubble, busy, chatOpen]);
 
-  // Desktop pet: always there, talks on his own, doesn't disappear.
-  useEffect(() => {
-    const say = fallback => {
-      setLine(formatCoyText(fallback));
-      setShowBubble(true);
-      lastActivity.current = Date.now();
-    };
-    const timer = window.setInterval(() => {
-      if (document.hidden) return;
-      if (Date.now() - lastActivity.current < 12000) return;
-      const apps = openAppsRef.current || [];
-      if (apps.length && Math.random() < 0.4) {
-        const app = apps[Math.floor(Math.random() * apps.length)];
-        const fallback = randomLine(APP_QUIPS[app] || ["oh", "what are you doing", "hm"]);
-        say(fallback, "Coy is a desktop pet who lives here. He comments on the open app " + app + " in one short in-character line.");
-      } else {
-        say(randomLine(IDLE_LINES), "Coy is a desktop pet sitting on the desktop. He says one short random in-character line on his own, like Bonzi or an ukagaka.");
-      }
-    }, 18000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   useEffect(() => {
     if (!showBubble || busy) return undefined;
@@ -354,35 +324,22 @@ export default function CoyCompanion() {
     };
     const onActivity = event => {
       const detail = event.detail || {};
-      if (detail.type === "app-state") {
-        openAppsRef.current = Array.isArray(detail.openApps) ? detail.openApps : [];
-        fullTabActiveRef.current = Boolean(detail.fullTabActive);
-        syncMobileAppVisibility();
-        return;
-      }
-      // Block Coy, Coy Chat, Coy tab, and other launcher labels for Coy itself.
-      const activityName = String(detail.name || "").trim();
-      if (detail.type === "app-open" && /\bcoy\b/i.test(activityName)) return;
-      const now = Date.now();
-      if (now - lastActivity.current < 8000) return;
-      lastActivity.current = now;
-      if (detail.type === "app-open") {
-        const name = detail.name || "an app";
-        const fallback = randomLine(APP_QUIPS[name] || ["Oh " + name]);
-        announce(fallback);
-      } else if (detail.type === "music") {
-        announce("oh music");
-      } else if (detail.type === "error") {
-        announce("oh, something broke");
-      } else if (detail.type === "app-event") {
-        // Apps can provide a short, concrete result so Coy reacts to what
-        // actually happened instead of always using a canned generic quip.
-        announce(typeof detail.message === "string" && detail.message.trim()
-          ? detail.message.trim()
-          : randomLine(APP_QUIPS[detail.name] || ["oh", "hm", "what happened"]));
-      }
+      if (detail.type !== "app-state") return;
+      openAppsRef.current = Array.isArray(detail.openApps) ? detail.openApps : [];
+      fullTabActiveRef.current = Boolean(detail.fullTabActive);
+      syncMobileAppVisibility();
+    };
+    const onCoyAppAction = event => {
+      const detail = event.detail || {};
+      if (String(detail.action || "").toLowerCase() !== "search") return;
+      const target = String(detail.value || "").trim();
+      if (!/^(?:https?:\/\/www\.roblox\.com\/users\/)?37753591(?:\/profile)?\/?$/i.test(target)) return;
+      setLine("Searching me up?");
+      setShowBubble(true);
+      lastActivity.current = Date.now();
     };
     window.addEventListener("coy:activity", onActivity);
+    window.addEventListener("coy:app-action", onCoyAppAction);
     // Keep the companion state correct if the viewport rotates/resizes, and
     // catch the initial app-state event even if it fired before this listener.
     const onResize = syncMobileAppVisibility;
@@ -395,6 +352,7 @@ export default function CoyCompanion() {
 
     return () => {
       window.removeEventListener("coy:activity", onActivity);
+      window.removeEventListener("coy:app-action", onCoyAppAction);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("fullscreenchange", onResize);
       window.removeEventListener("coy:close-chat", onCloseChat);
