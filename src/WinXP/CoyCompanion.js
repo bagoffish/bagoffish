@@ -60,6 +60,69 @@ const formatCoyText = value => {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 };
 
+const COY_APP_ALIASES = {
+  "about": "About Me", "about me": "About Me", "profile": "About Me",
+  "letters": "Winter_Letter", "winter letter": "Winter_Letter", "winterletter": "Winter_Letter",
+  "poem": "Poems", "poems": "Poems",
+  "renderer": "Renderer", "roblox renderer": "Renderer", "avatar renderer": "Renderer",
+  "bloxify": "Bloxify", "music ai": "Bloxify", "music generator": "Bloxify",
+  "paint": "Paint", "ms paint": "Paint", "minesweeper": "Minesweeper",
+  "mine sweeper": "Minesweeper", "winamp": "Winamp", "music player": "Winamp",
+  "coy": "Coy", "coy chat": "Coy"
+};
+
+function parseCoyRequestedAction(message) {
+  let text = String(message || "").trim()
+    .replace(/^(?:hey\s+coy[,! ]*|coy[,! ]*)/i, "")
+    .replace(/^(?:(?:please|kindly)\s+|(?:can|could|would|will)\s+you\s+(?:(?:please)\s+)?|i\s+(?:want|need)\s+you\s+to\s+)/i, "")
+    .trim();
+  const clean = value => String(value || "").trim().replace(/^["']|["']$/g, "")
+    .replace(/[.!?]+$/, "").replace(/\s+(?:for me|please|thanks|thank you)$/i, "").trim();
+  const appName = value => COY_APP_ALIASES[clean(value).toLowerCase()
+    .replace(/[_-]+/g, " ").replace(/\s+(?:app|window)$/i, "").replace(/\s+/g, " ")] || null;
+
+  let match = text.match(/^(?:look\s+up|lookup|find|search(?:\s+for)?)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name) return { action: "search", name, target: "search", value: clean(match[1]).replace(/^for\s+/i, "") };
+  }
+  match = text.match(/^(?:click|press)\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[2]);
+    if (name && /^click$/i.test(text)) return { action: "click", name, target: clean(match[1]).replace(/\s+button$/i, "") };
+  }
+  match = text.match(/^(?:type|enter)\s+(.+?)\s+into\s+(?:the\s+)?(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(match[3]);
+    if (name) return { action: "fill", name, value: clean(match[1]), target: clean(match[2]) };
+  }
+  match = text.match(/^(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)(?:\s+up)?\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  if (match) {
+    const name = appName(clean(match[2]));
+    if (name) {
+      const word = match[1].toLowerCase();
+      return { action: ["launch", "start"].includes(word) ? "open" : ["show", "switch to"].includes(word) ? "focus" : word === "hide" ? "minimize" : word, name };
+    }
+  }
+  // A plain, explicit "look up X" request means a web search unless the
+  // user named an app above. Keep ordinary questions conversational.
+  match = text.match(/^(?:look\s+up|lookup|search\s+the\s+web\s+for|google)\s+(.+?)[.!?]*$/i);
+  if (match) return { action: "web-search", query: clean(match[1]) };
+  return null;
+}
+
+function executeCoyRequestedAction(action) {
+  if (!action) return;
+  if (action.action === "web-search") {
+    const url = "https://www.google.com/search?q=" + encodeURIComponent(action.query);
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  const eventName = ["click", "fill", "search", "press"].includes(action.action)
+    ? "coy:app-action" : "coy:desktop-action";
+  window.dispatchEvent(new CustomEvent(eventName, { detail: action }));
+}
+
 export default function CoyCompanion() {
   const [showBubble, setShowBubble] = useState(true);
   const [chatOpen, setChatOpen] = useState(false);
@@ -479,6 +542,9 @@ export default function CoyCompanion() {
     setError("");
     const nextHistory = [...history, { role: "user", content: message }];
     setHistory(nextHistory);
+    // Execute clear desktop/app requests from the floating Coy chat too. The
+    // in-window Coy app and companion should share the same practical behavior.
+    try { executeCoyRequestedAction(parseCoyRequestedAction(message)); } catch (_) {}
     try {
       const response = await fetch(API_BASE + "/personal-ai/chat", {
         method: "POST",
