@@ -65,7 +65,8 @@ export default function PersonalAI({ standalone = false }) {
       if (!response.ok) throw new Error(data.error || "couldn't send that just now.");
       setMessages(previous => [...previous, { role: "assistant", content: data.answer }]);
     } catch (err) {
-      setError(err.message || "couldn't reach coy just now. try again in a bit.");
+      setError("");
+      setMessages(previous => [...previous, { role: "assistant", content: "Busy rn.. Hold on" }]);
     } finally {
       setBusy(false);
       setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 0);
@@ -86,7 +87,6 @@ export default function PersonalAI({ standalone = false }) {
         {busy && <div style={{ ...styles.bubble, ...styles.bot }}>Thinking…</div>}
         <div ref={bottomRef} />
       </div>
-      {error && <div role="alert" style={{ padding: "8px 12px", color: "#a00000", background: "#fff0f0" }}>{error}</div>}
       <form style={styles.form} onSubmit={send}>
         <textarea
           aria-label="Message"
