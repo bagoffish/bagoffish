@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
@@ -32,8 +32,8 @@ function target(name, t, dir, tiltIn) {
       // Raise the character's anatomical RIGHT arm (screen-left while facing us)
       // and wave it from the shoulder without swapping to the other arm.
       return P({
-        rArmZ: -2.32 - (0.5 + 0.5 * cycle(10.5)) * 0.26,
-        rArmX: 0.12 + cycle(8.8) * 0.25,
+        rArmZ: 2.22 + (0.5 + 0.5 * cycle(10.5)) * 0.24,
+        rArmX: 0.08 + cycle(8.8) * 0.12,
         lArmZ: 0.08,
         bob: cycle(5.8) * 0.012,
         headY: -0.04 + cycle(2.2) * 0.035
@@ -57,7 +57,7 @@ function target(name, t, dir, tiltIn) {
         rArmX: 0.18 + s * 0.3, lArmX: -0.18 - s * 0.3,
         rLegX: opposite * 0.52, lLegX: s * 0.52,
         bob: 0.065 + Math.abs(s) * 0.055,
-        spin: cycle(3.6) * 0.22,
+        spin: cycle(3.6) * 0.08,
         headY: cycle(3.6, 0.7) * 0.12
       });
     }
@@ -69,7 +69,7 @@ function target(name, t, dir, tiltIn) {
         rLegX: cycle(9.2, Math.PI) * 0.65,
         lLegX: s * 0.65,
         bob: 0.055 + Math.abs(s) * 0.06,
-        spin: cycle(4.6) * 0.16,
+        spin: cycle(4.6) * 0.06,
         headY: cycle(4.6, 0.8) * 0.1
       });
     }
@@ -82,7 +82,7 @@ function target(name, t, dir, tiltIn) {
         rLegX: cycle(6.4, Math.PI) * 0.58,
         lLegX: s * 0.58,
         bob: 0.045 + Math.abs(s) * 0.035,
-        spin: cycle(3.2) * 0.48,
+        spin: cycle(3.2) * 0.12,
         headY: -cycle(3.2) * 0.1
       });
     }
