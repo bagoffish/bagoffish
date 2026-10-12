@@ -313,44 +313,20 @@
               img.style.background = "#dce6f1";
               img.style.cursor = "pointer";
               img.title = "Open archived avatar";
-              // Try multiple replay forms before marking an image unavailable.
-              // The index can have valid dates even when Wayback rejects the first image URL.
+              // Never request legacy Roblox CDN hosts directly from the HTTPS page.
+              // Old t0-t7.roblox.com certificates are invalid, and direct HTTP fallbacks
+              // cause mixed-content warnings. Keep every attempt behind the HTTPS proxy.
               var imageCandidates = [];
-              function addImageCandidate(url) {
-                if (url && imageCandidates.indexOf(url) === -1) imageCandidates.push(url);
+              function addProxyCandidate(url) {
+                if (!url) return;
+                var proxyUrl = API_BASE + "/proxy-roblox-avatar?url=" + encodeURIComponent(url);
+                if (imageCandidates.indexOf(proxyUrl) === -1) imageCandidates.push(proxyUrl);
               }
-              addImageCandidate(archivedSrc);
-              addImageCandidate(item.url);
-              // Parse Wayback replay URLs with string operations instead of regex literals.
-              // This avoids parser issues from malformed or stale copies of this script.
-              var itemUrl = String(item.url || "");
-              var lowerItemUrl = itemUrl.toLowerCase();
-              var archivePrefix = lowerItemUrl.indexOf("https://web.archive.org/web/") === 0
-                ? "https://web.archive.org/web/"
-                : (lowerItemUrl.indexOf("http://web.archive.org/web/") === 0
-                  ? "http://web.archive.org/web/"
-                  : "");
-              if (archivePrefix) {
-                var replayTail = itemUrl.slice(archivePrefix.length);
-                var replaySlash = replayTail.indexOf("/");
-                var replayStamp = replaySlash >= 0 ? replayTail.slice(0, replaySlash) : "";
-                var isImageReplay = replayStamp.slice(-3).toLowerCase() === "im_";
-                var stampDigits = isImageReplay ? replayStamp.slice(0, -3) : replayStamp;
-                var validStamp = stampDigits.length >= 8 && stampDigits.length <= 14;
-                for (var stampIndex = 0; validStamp && stampIndex < stampDigits.length; stampIndex += 1) {
-                  if (stampDigits.charAt(stampIndex) < "0" || stampDigits.charAt(stampIndex) > "9") validStamp = false;
-                }
-                if (isImageReplay && validStamp && replaySlash >= 0) {
-                  addImageCandidate(archivePrefix + stampDigits + "/" + replayTail.slice(replaySlash + 1));
-                }
-                if (validStamp && replaySlash >= 0) {
-                  var replayOriginal = replayTail.slice(replaySlash + 1);
-                  var replayOriginalLower = replayOriginal.toLowerCase();
-                  if (replayOriginalLower.indexOf("https://") === 0 || replayOriginalLower.indexOf("http://") === 0) {
-                    addImageCandidate(replayOriginal);
-                  }
-                }
-              }
+              addProxyCandidate(item.url);
+
+              // The backend tries replay modifiers and nearby Wayback captures itself.
+              // Keep a single browser request per capture so missing archives don't trigger
+              // a cascade of duplicate 404s or direct insecure CDN requests.
               var imageCandidateIndex = 0;
               img.addEventListener("error", function () {
                 imageCandidateIndex += 1;
