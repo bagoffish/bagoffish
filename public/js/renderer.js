@@ -193,11 +193,13 @@
                 if (Array.isArray(parsedCache)) cachedItems = parsedCache;
               }
             } catch (_) {}
-            // Always refresh from the persistent release index; merge with the
-            // local copy so transient shard failures never erase previously saved entries.
+            // The release index is immutable for this version. Paint a known user's
+            // archive immediately from local storage instead of waiting for the backend
+            // and its compressed release shards on every repeat lookup.
+            if (cachedItems.length) return Promise.resolve(cachedItems);
             return fetch(API_BASE + "/proxy-roblox-history-index?userId=" + encodeURIComponent(id), {
               headers: { Accept: "application/json" },
-              cache: "no-store"
+              cache: "force-cache"
             }).then(function (response) {
               if (!response.ok) throw new Error("History index HTTP " + response.status);
               return response.json();
