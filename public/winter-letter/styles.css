@@ -1,363 +1,204 @@
-/* WINTER LETTER — a confession printed on old paper.
-   Art direction: archival typesetting, cold ink, letter paper, one restrained rust-red mark. */
+/* WINTER LETTER
+   A quiet, uneasy visual novel. Let the original backgrounds and character art lead. */
 :root {
-  --ink: #111517;
-  --paper: #e4ddcc;
-  --paper-shadow: #bdb29d;
-  --type: #e8e1d3;
-  --muted: #aaa99f;
-  --red: #8d3935;
-  --rule: rgba(224, 216, 199, .25);
+  color-scheme: dark;
+  --night: #101719;
+  --snow: #e8e7df;
+  --soft: #b8c0bd;
+  --warm: #d7c8b6;
+  --rust: #a45e52;
 }
 * { box-sizing: border-box; }
 html, body {
   width: 100%; height: 100%; margin: 0; overflow: hidden;
-  background: #101416; color: var(--type);
+  background: var(--night); color: var(--snow);
   font-family: Georgia, "Times New Roman", serif;
+  -webkit-font-smoothing: antialiased;
   user-select: none;
 }
-body::selection { background: var(--red); color: #fff; }
+a, button { -webkit-tap-highlight-color: transparent; }
 
-/* Title card: the title artwork is treated like a printed cover, not a dashboard. */
+/* Title screen: image first, quiet type, deliberate negative space. */
 #title-screen {
   position: fixed; inset: 0; z-index: 100;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden; isolation: isolate;
   background:
-    radial-gradient(ellipse at 50% 45%, rgba(70,77,76,.28), transparent 55%),
-    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
-    #171b1c;
-  transition: opacity 1.2s ease;
+    radial-gradient(ellipse at 50% 43%, rgba(93,111,111,.19), transparent 48%),
+    linear-gradient(115deg, #0e1416 0%, #1b2425 52%, #111719 100%);
+  transition: opacity 900ms ease;
 }
 #title-screen::before {
-  content: "A CONFESSION IN WINTER";
-  position: absolute; top: 28px; left: 34px;
-  color: #aaa69b; font: 10px/1.4 "Courier New", monospace;
-  letter-spacing: .19em; text-transform: uppercase;
-}
-#title-screen::after {
-  content: "IN THE MATTER OF THE DEAD";
-  position: absolute; right: 30px; bottom: 29px;
-  color: #777b77; font: 9px/1.4 "Courier New", monospace;
-  letter-spacing: .16em; writing-mode: vertical-rl;
-}
-.top-menu {
-  position: absolute; z-index: 2; top: 29px; left: 50%;
-  transform: translateX(-50%);
-  display: flex; align-items: center; gap: 24px;
-  white-space: nowrap;
-}
-.top-menu a {
-  color: #d6d0c3; cursor: pointer; text-decoration: none;
-  font: 11px/1.5 "Courier New", monospace; letter-spacing: .16em;
-  padding: 7px 0; border-bottom: 1px solid transparent;
-  transition: color .2s, border-color .2s;
-}
-.top-menu a:first-child { color: #f0e8d9; border-color: var(--red); }
-.top-menu a:hover { color: #fff; border-color: #b65b50; }
-#title-art {
-  position: relative; width: min(76vw, 820px); max-height: 72vh;
-  display: flex; align-items: center; justify-content: center;
-  padding: clamp(12px, 2.4vw, 30px);
-}
-#title-art::before {
-  content: ""; position: absolute; inset: 0;
-  border: 1px solid rgba(208,199,180,.23);
-  outline: 1px solid rgba(208,199,180,.08); outline-offset: 7px;
+  content: ""; position: absolute; z-index: -1; inset: 0;
+  background: linear-gradient(90deg, rgba(5,9,10,.24), transparent 35%, transparent 70%, rgba(5,9,10,.28));
   pointer-events: none;
 }
-#title-art::after {
-  content: "WINTER / LETTER / RECORD 01";
-  position: absolute; left: 16px; bottom: -23px;
-  color: #8f918a; font: 9px "Courier New", monospace; letter-spacing: .14em;
+#title-screen::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 20%;
+  background: linear-gradient(0deg, rgba(5,9,10,.35), transparent);
+  pointer-events: none;
+}
+.top-menu {
+  position: absolute; z-index: 3; left: clamp(24px, 5vw, 72px); bottom: clamp(27px, 6vh, 58px);
+  display: flex; align-items: center; gap: 27px;
+}
+.top-menu a {
+  position: relative; color: rgba(235,235,226,.72); cursor: pointer;
+  text-decoration: none; padding: 9px 0;
+  font: 11px/1.4 Arial, Helvetica, sans-serif;
+  letter-spacing: .16em; transition: color 180ms ease;
+}
+.top-menu a:first-child { color: #f0eee5; }
+.top-menu a:first-child::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: 2px; height: 1px;
+  background: var(--rust); transform-origin: left; transition: transform 180ms ease;
+}
+.top-menu a:hover { color: #fff; }
+.top-menu a:hover::after { transform: scaleX(.55); }
+#title-art {
+  position: relative; display: flex; align-items: center; justify-content: center;
+  width: min(79vw, 980px); height: 77vh; margin: -2vh 0 0 5vw;
 }
 #title-art img {
-  display: block; max-width: 100%; max-height: 65vh;
-  object-fit: contain; filter: saturate(.78) contrast(1.04);
+  display: block; max-width: 100%; max-height: 100%; object-fit: contain;
+  filter: saturate(.84) contrast(1.025);
+  -webkit-mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 82%, transparent 100%);
 }
 .footer {
-  position: absolute; left: 34px; bottom: 28px;
-  color: #8e918a; font: 10px "Courier New", monospace;
-  letter-spacing: .14em; text-transform: uppercase;
+  position: absolute; z-index: 2; right: clamp(24px, 5vw, 72px); bottom: clamp(36px, 6vh, 66px);
+  color: rgba(222,226,216,.42);
+  font: 10px/1.4 Arial, Helvetica, sans-serif; letter-spacing: .18em;
 }
 
-/* Keep the original scenes prominent. The frame and dialogue are the designed elements. */
+/* Scene: preserve the artwork's colour and let the atmosphere come from the art. */
 #game-screen {
-  position: fixed; inset: 0; display: none; overflow: hidden;
-  background: #101416;
+  position: fixed; inset: 0; display: none; overflow: hidden; background: #111719;
 }
 #background {
   position: absolute; inset: 0; z-index: 1;
-  background-color: #202729; background-size: cover; background-position: center 42%;
-  filter: saturate(.76) brightness(.78) contrast(1.04);
-  transform: scale(1.012);
+  background-color: #202729; background-size: cover; background-position: center center;
+  filter: saturate(.86) brightness(.83) contrast(1.025);
+  transform: scale(1.015);
 }
 #background::after {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background:
-    linear-gradient(90deg, rgba(9,13,15,.3), transparent 22%, transparent 75%, rgba(9,13,15,.3)),
-    linear-gradient(0deg, rgba(7,10,11,.58), transparent 48%, rgba(7,10,11,.12));
+  background: linear-gradient(0deg, rgba(8,12,13,.7) 0%, rgba(8,12,13,.12) 37%, transparent 67%);
 }
-#overlay {
-  position: absolute; inset: 0; z-index: 2; pointer-events: none;
-}
+#overlay { position: absolute; inset: 0; z-index: 2; pointer-events: none; }
 #character {
-  position: absolute; z-index: 4; bottom: 0; left: 50%;
-  transform: translateX(-50%);
-  max-width: min(58vw, 760px); max-height: 88vh;
-  object-fit: contain; object-position: bottom;
-  filter: drop-shadow(0 5px 13px rgba(0,0,0,.32));
-  transition: opacity .2s linear; pointer-events: none;
+  position: absolute; z-index: 4; bottom: 0; left: 50%; transform: translateX(-50%);
+  max-width: min(58vw, 760px); max-height: 89vh; object-fit: contain; object-position: bottom;
+  filter: drop-shadow(0 6px 18px rgba(0,0,0,.23));
+  transition: opacity 220ms ease; pointer-events: none;
 }
 
-/* Dialogue panel: an ink-dark typeset strip with a single red editorial mark. */
+/* The dialogue is a restrained VN text window, not a mock interface or paper prop. */
 #textbox {
-  position: absolute; z-index: 10; left: 5.2%; right: 5.2%; bottom: 24px;
-  min-height: 150px; padding: 25px 38px 30px 42px;
-  color: var(--type); cursor: pointer;
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 5px),
-    rgba(13,17,18,.94);
-  border: 1px solid rgba(211,202,184,.3);
-  box-shadow: 0 15px 45px rgba(0,0,0,.24);
+  position: absolute; z-index: 10; left: 0; right: 0; bottom: 0;
+  min-height: 176px; padding: 28px clamp(28px, 8vw, 116px) 38px;
+  color: var(--snow); cursor: pointer;
+  background: linear-gradient(180deg, rgba(12,17,18,.84), rgba(12,17,18,.97));
+  border-top: 1px solid rgba(229,230,218,.18);
+  box-shadow: 0 -16px 48px rgba(0,0,0,.13);
 }
 #textbox::before {
-  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px;
-  background: var(--red);
+  content: ""; position: absolute; top: -1px; left: clamp(28px, 8vw, 116px);
+  width: 42px; height: 1px; background: var(--rust);
 }
 #textbox::after {
-  content: "▼"; position: absolute; right: 19px; bottom: 13px;
-  color: #a99e8b; font: 9px "Courier New", monospace;
-  animation: page-prompt 2.4s ease-in-out infinite;
+  content: "›"; position: absolute; right: clamp(25px, 5vw, 70px); bottom: 27px;
+  color: rgba(232,231,223,.56); font: 24px/1 Georgia, serif;
+  animation: prompt 2.3s ease-in-out infinite;
 }
 #namebox {
-  min-height: 1.2em; margin: 0 0 11px;
-  color: #c7a89a; font: bold 11px/1.3 "Courier New", monospace;
-  letter-spacing: .17em; text-transform: uppercase;
+  min-height: 1.2em; margin: 0 0 12px;
+  color: #d5a89c; font: 11px/1.4 Arial, Helvetica, sans-serif;
+  letter-spacing: .11em;
 }
 #text {
-  max-width: 1120px; color: #e8e1d3;
-  font-size: clamp(17px, 1.5vw, 21px); line-height: 1.58;
-  font-weight: normal; letter-spacing: .005em;
+  max-width: 1080px; color: #eeede6;
+  font: normal clamp(17px, 1.45vw, 21px)/1.65 Georgia, "Times New Roman", serif;
+  letter-spacing: .005em;
 }
 #text::after { content: none; }
 .narration #namebox { display: none; }
-.narration #text { color: #d8d2c6; }
-.narration { border-color: rgba(211,202,184,.22); }
-.narration::before { background: #6c7776 !important; }
+.narration #text { color: #d9ddd6; }
+.narration::before { background: rgba(194,207,200,.4) !important; }
 
-/* The letter itself changes medium: warm, uneven paper against the cold scene. */
+/* The letter is the one moment the player gets close to the page. */
 #letter-box {
   position: absolute; z-index: 20; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: min(650px, 88vw); max-height: 80vh; overflow: auto;
-  padding: 43px clamp(25px, 5vw, 55px) 48px;
-  color: #28251f; cursor: pointer;
+  width: min(620px, 88vw); max-height: 80vh; overflow: auto;
+  padding: clamp(30px, 5vw, 54px) clamp(25px, 5.5vw, 62px);
+  color: #292b27; cursor: pointer;
   background:
-    radial-gradient(ellipse at 8% 10%, rgba(121,93,55,.09), transparent 35%),
-    repeating-linear-gradient(0deg, rgba(75,57,35,.025) 0 1px, transparent 1px 4px),
-    var(--paper);
-  border: 1px solid #a99c84;
-  box-shadow: 0 22px 70px rgba(0,0,0,.52), 0 0 0 7px rgba(12,15,15,.24);
+    linear-gradient(105deg, rgba(255,255,255,.22), transparent 48%),
+    #e6e0d2;
+  border: 0;
+  box-shadow: 0 24px 85px rgba(0,0,0,.48);
 }
 #letter-box::before {
-  content: "PRIVATE CORRESPONDENCE  ·  UNDATED";
-  display: block; margin: 0 0 27px; padding: 0 0 12px;
-  color: #756a59; border-bottom: 1px solid rgba(73,61,46,.38);
-  font: 9px/1.5 "Courier New", monospace; letter-spacing: .14em;
+  content: ""; display: block; width: 32px; height: 2px;
+  margin: 0 0 27px; background: var(--rust);
 }
 #letter-paper { min-height: 90px; }
 #letter-text {
-  color: #292720; font: clamp(17px, 1.5vw, 20px)/1.9 Georgia, "Times New Roman", serif;
+  color: #292b27; font: clamp(17px, 1.5vw, 20px)/1.9 Georgia, "Times New Roman", serif;
   white-space: pre-wrap;
 }
 #letter-box::after {
-  content: ""; display: block; width: 38px; height: 2px;
-  margin-top: 28px; background: var(--red); opacity: .8;
+  content: ""; display: block; width: 100%; height: 1px;
+  margin-top: 32px; background: rgba(53,52,44,.2);
 }
 
-/* Credits resemble the final page of the same record. */
+/* Credits: a quiet ending, not another themed screen. */
 #credits-screen {
   position: fixed; inset: 0; z-index: 200; display: none;
   flex-direction: column; align-items: center; justify-content: center;
-  text-align: center; opacity: 0; color: #ded6c7;
-  background:
-    repeating-linear-gradient(0deg, rgba(255,255,255,.012) 0 1px, transparent 1px 4px),
-    #171b1c;
-  transition: opacity 2s ease;
+  text-align: center; opacity: 0; color: var(--snow);
+  background: #131a1b;
+  transition: opacity 1.5s ease;
 }
 #credits-screen::before {
-  content: "END OF STATEMENT";
-  position: absolute; top: 28px; color: #898d86;
-  font: 10px "Courier New", monospace; letter-spacing: .2em;
+  content: ""; width: 34px; height: 1px; margin-bottom: 28px; background: var(--rust);
 }
 #credits-screen h1 {
-  margin: 0 0 26px; padding: 0 0 20px;
-  border-bottom: 1px solid rgba(215,203,181,.3);
-  font: normal clamp(30px, 5vw, 48px) Georgia, "Times New Roman", serif;
-  letter-spacing: .1em;
+  margin: 0 0 20px; font: normal clamp(28px, 4.5vw, 42px)/1.2 Georgia, "Times New Roman", serif;
+  letter-spacing: .035em;
 }
-#credits-screen p { color: #bdb5a7; font: 13px/1.8 "Courier New", monospace; }
-#credits-screen a { color: #c7a89a; text-decoration-color: var(--red); text-underline-offset: 3px; }
+#credits-screen p { color: #aeb8b3; font: 13px/1.8 Arial, Helvetica, sans-serif; }
+#credits-screen a { color: #d4a398; text-underline-offset: 3px; }
 #credits-screen button {
-  margin-top: 30px; padding: 10px 0;
-  border: 0; border-bottom: 1px solid var(--red);
-  background: transparent; color: #e0d8ca;
-  font: 10px "Courier New", monospace; letter-spacing: .16em;
-  cursor: pointer; transition: color .2s;
+  margin-top: 28px; padding: 9px 0; border: 0; border-bottom: 1px solid rgba(212,163,152,.65);
+  background: transparent; color: #dedfd7; font: 10px Arial, Helvetica, sans-serif;
+  letter-spacing: .14em; cursor: pointer; transition: color 180ms ease;
 }
-#credits-screen button:hover { color: #fff; }
+#credits-screen button:hover { color: #d4a398; }
 
-@keyframes page-prompt { 0%,100% { opacity: .45; transform: translateY(0); } 50% { opacity: 1; transform: translateY(2px); } }
+@keyframes prompt { 0%,100% { opacity: .4; transform: translateY(0); } 50% { opacity: .9; transform: translateY(2px); } }
 
 @media (max-width: 700px) {
-  #title-screen::before { top: 18px; left: 16px; font-size: 8px; letter-spacing: .12em; }
-  #title-screen::after { right: 11px; bottom: 20px; font-size: 8px; }
-  .top-menu { top: 17px; gap: 17px; }
+  #title-art { width: 100vw; height: 68vh; margin: -5vh 0 0; }
+  #title-art img { max-width: 100%; max-height: 100%; }
+  .top-menu { left: 22px; bottom: 24px; gap: 23px; }
   .top-menu a { font-size: 10px; }
-  #title-art { width: 86vw; max-height: 65vh; padding: 12px; }
-  #title-art img { max-height: 59vh; }
-  #title-art::after { left: 12px; bottom: -20px; font-size: 7px; }
-  .footer { left: 16px; bottom: 20px; font-size: 8px; }
-  #character { max-width: 92vw; max-height: 70vh; }
-  #textbox { left: 10px; right: 10px; bottom: 10px; min-height: 140px; padding: 21px 23px 27px 25px; }
+  .footer { right: 20px; bottom: 34px; font-size: 8px; letter-spacing: .12em; }
+  #character { max-width: 94vw; max-height: 69vh; }
+  #textbox { min-height: 150px; padding: 22px 25px 32px; }
+  #textbox::before { left: 25px; width: 30px; }
+  #textbox::after { right: 17px; bottom: 15px; font-size: 22px; }
   #namebox { margin-bottom: 8px; font-size: 10px; }
-  #text { font-size: clamp(16px, 4.1vw, 19px); line-height: 1.5; }
-  #textbox::after { right: 12px; bottom: 10px; }
-  #letter-box { width: calc(100vw - 28px); padding: 29px 24px 34px; }
-  #letter-box::before { font-size: 8px; letter-spacing: .09em; }
+  #text { font-size: clamp(16px, 4.2vw, 19px); line-height: 1.55; }
+  #letter-box { width: calc(100vw - 28px); max-height: 82vh; padding: 30px 25px; }
 }
 @media (max-height: 520px) and (min-width: 701px) {
-  #textbox { min-height: 110px; padding-top: 15px; padding-bottom: 18px; }
+  #title-art { height: 69vh; }
+  #textbox { min-height: 120px; padding-top: 16px; padding-bottom: 21px; }
   #text { font-size: 16px; line-height: 1.4; }
-  #title-art img { max-height: 58vh; }
 }
 @media (prefers-reduced-motion: reduce) {
   #textbox::after { animation: none; }
   *, *::before, *::after { transition-duration: .01ms !important; }
-}
-
-
-/* WINTER LETTER: Korean winter-noir, filed as evidence rather than a generic VN. */
-#title-screen {
-  background:
-    radial-gradient(ellipse at 63% 46%, rgba(65,82,83,.25), transparent 48%),
-    repeating-linear-gradient(2deg, transparent 0 5px, rgba(255,255,255,.018) 6px, transparent 7px),
-    #151a1b;
-}
-#title-screen::before {
-  content: "INCHEON  /  WINTER CASE FILE";
-  top: 23px; left: 26px; color: #9fa39b;
-  font: 9px/1.6 "Courier New", monospace; letter-spacing: .17em;
-}
-#title-screen::after {
-  content: "UNSOLVED  •  UNDATED  •  UNFORGOTTEN";
-  right: 24px; bottom: 24px; color: #777f7a;
-  font: 8px "Courier New", monospace; letter-spacing: .16em;
-}
-.top-menu { top: 20px; right: 25px; left: auto; transform: none; gap: 18px; }
-.top-menu a { color: #bfc1b7; font: 10px "Courier New", monospace; letter-spacing: .14em; }
-#title-art {
-  width: min(73vw, 790px); max-height: 73vh; margin: 0 0 4vh;
-  padding: clamp(12px, 2vw, 25px); background: #d8d0bf;
-  transform: rotate(-1.1deg);
-  box-shadow: 0 3px 0 #a69d8d, 0 22px 48px rgba(0,0,0,.55);
-}
-#title-art::before {
-  content: "EXHIBIT 01"; inset: auto auto auto 13px; top: -18px;
-  padding: 5px 8px; color: #dfd5c3; background: #873a32;
-  font: 8px "Courier New", monospace; letter-spacing: .14em;
-  transform: rotate(-2deg);
-}
-#title-art::after {
-  content: "DO NOT DISCARD"; left: auto; right: -21px; bottom: 23px;
-  padding: 7px 11px; color: #5d2723; border: 2px solid #873a32;
-  font: bold 9px "Courier New", monospace; letter-spacing: .14em;
-  transform: rotate(-8deg);
-}
-#title-art img { filter: saturate(.58) sepia(.12) contrast(1.08); }
-.footer { left: 26px; bottom: 24px; color: #7e8983; letter-spacing: .18em; }
-
-/* Frame the original scenes like a found photograph. */
-#game-screen::before {
-  content: ""; position: absolute; z-index: 8; inset: 13px; pointer-events: none;
-  border: 1px solid rgba(229,220,199,.18);
-}
-#game-screen::after {
-  content: "INCHEON  ·  WINTER  ·  STATEMENT";
-  position: absolute; z-index: 9; top: 27px; left: 30px; pointer-events: none;
-  color: rgba(238,230,211,.62); font: 8px "Courier New", monospace;
-  letter-spacing: .2em; text-shadow: 0 1px 5px #000;
-}
-#background { filter: saturate(.62) brightness(.7) contrast(1.09); }
-#background::after {
-  background:
-    repeating-linear-gradient(0deg, rgba(238,234,219,.025) 0 1px, transparent 1px 3px),
-    linear-gradient(90deg, rgba(5,9,10,.35), transparent 26%, transparent 75%, rgba(5,9,10,.3)),
-    linear-gradient(0deg, rgba(4,7,8,.62), transparent 58%, rgba(4,7,8,.2));
-}
-#character { filter: drop-shadow(0 7px 17px rgba(0,0,0,.45)); }
-
-/* Dialogue is ruled letter paper laid over the scene, not a HUD. */
-#textbox {
-  left: 6.5%; right: 6.5%; bottom: 28px;
-  padding: 25px 42px 30px 52px; color: #252823;
-  background:
-    repeating-linear-gradient(180deg, transparent 0 31px, rgba(66,75,69,.10) 32px),
-    linear-gradient(100deg, rgba(255,255,255,.28), transparent 45%),
-    rgba(232,224,207,.97);
-  border: 1px solid #b8ad98;
-  box-shadow: 0 15px 36px rgba(0,0,0,.38), 0 2px 0 rgba(255,255,255,.16);
-}
-#textbox::before {
-  content: "STATEMENT / 01"; top: 0; bottom: 0; left: 0; width: 34px;
-  display: flex; align-items: center; justify-content: center;
-  color: #e7d9c6; background: #873a32;
-  font: 8px "Courier New", monospace; letter-spacing: .12em;
-  writing-mode: vertical-rl; transform: rotate(180deg);
-}
-#textbox::after {
-  content: "NEXT  ›"; right: 19px; bottom: 12px; color: #756c5d;
-  font: 8px "Courier New", monospace; letter-spacing: .12em;
-}
-#namebox { color: #7c332c; font: bold 10px/1.3 "Courier New", monospace; letter-spacing: .16em; }
-#text { color: #252823; }
-.narration #text { color: #34362f; }
-.narration::before { content: "PERSONAL / NOTE"; background: #333e3e !important; }
-
-/* Make the letter feel handled; credits become the back of the same folder. */
-#letter-box {
-  transform: translate(-50%, -50%) rotate(-.7deg);
-  background:
-    radial-gradient(ellipse at 8% 10%, rgba(121,93,55,.11), transparent 35%),
-    repeating-linear-gradient(0deg, rgba(75,57,35,.035) 0 1px, transparent 1px 4px),
-    #e9e1cf;
-  border-color: #b6a991;
-  box-shadow: 0 22px 70px rgba(0,0,0,.58), 0 0 0 8px rgba(12,15,15,.26);
-}
-#credits-screen {
-  color: #252823;
-  background: repeating-linear-gradient(0deg, rgba(62,55,43,.025) 0 1px, transparent 1px 4px), #e9e1cf;
-}
-#credits-screen::before { content: "END OF STATEMENT  /  FILE CLOSED?"; color: #766d5d; }
-#credits-screen h1 { border-color: #b9ad98; }
-#credits-screen p { color: #615e54; }
-#credits-screen a { color: #873a32; }
-#credits-screen button { color: #3a3932; border-color: #873a32; }
-#credits-screen button:hover { color: #873a32; }
-
-@media (max-width: 700px) {
-  #title-screen::before { top: 13px; left: 13px; font-size: 7px; letter-spacing: .1em; }
-  #title-screen::after { right: 10px; bottom: 16px; font-size: 7px; }
-  .top-menu { top: 14px; right: 13px; gap: 12px; }
-  .top-menu a { font-size: 9px; }
-  #title-art { width: 84vw; max-height: 64vh; padding: 11px; margin-bottom: 2vh; }
-  #title-art img { max-height: 59vh; }
-  #title-art::after { right: -10px; bottom: 18px; font-size: 7px; }
-  .footer { left: 13px; bottom: 16px; font-size: 7px; }
-  #game-screen::before { inset: 6px; }
-  #game-screen::after { top: 16px; left: 15px; font-size: 6px; letter-spacing: .12em; }
-  #textbox { left: 10px; right: 10px; bottom: 10px; padding: 20px 22px 28px 42px; }
-  #textbox::before { width: 27px; font-size: 7px; }
-  #namebox { font-size: 9px; }
 }
