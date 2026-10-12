@@ -1,8 +1,9 @@
-import React, { useEffect, useRef } from "react";
+﻿import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
+import { REST, resetAvatarPose, applyImportedAnimation } from "./r6Retarget";
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
@@ -31,110 +32,8 @@ function target(pose, t, dir, tiltIn) {
   }
 }
 
-function poseQuaternion(cframe) {
-  if (!Array.isArray(cframe) || cframe.length < 12) return null;
-  // The exporter stores Roblox CFrame components as the 3x3 rotation
-  // in row-major order: R00,R01,R02,R10,R11,R12,R20,R21,R22.
-  // THREE.Matrix4.set() also accepts row-major arguments, so preserve that
-  // order here. Transposing the matrix reverses the authored joint rotations.
-  const matrix = new THREE.Matrix4().set(
-    cframe[3], cframe[4], cframe[5], 0,
-    cframe[6], cframe[7], cframe[8], 0,
-    cframe[9], cframe[10], cframe[11], 0,
-    0, 0, 0, 1
-  );
-  return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
-}
-
-function resetAvatarPose(av) {
-  // Clear transforms from the previous animation system before another clip
-  // is applied. Otherwise procedural Euler rotations and imported keyframes
-  // can accumulate and make Coy look like two animations are playing at once.
-  av.body.position.set(0, 0, 0);
-  av.body.rotation.set(0, 0, 0);
-  av.body.scale.set(1, 1, 1);
-  const joints = [
-    [av.torso || av.body, [0, 3, 0]],
-    [av.head, [0, 1, 0]],
-    [av.rArm, [1.5, 1, 0]],
-    [av.lArm, [-1.5, 1, 0]],
-    [av.rLeg, [0.5, 2, 0]],
-    [av.lLeg, [-0.5, 2, 0]]
-  ];
-  joints.forEach(([part, position]) => {
-    if (!part) return;
-    part.quaternion.identity();
-    part.position.set(...position);
-    part.scale.set(1, 1, 1);
-  });
-}
-
-function captureAvatarPose(av) {
-  const parts = [av.body, av.torso, av.head, av.rArm, av.lArm, av.rLeg, av.lLeg].filter(Boolean);
-  return parts.map(part => ({ part, position: part.position.clone(), quaternion: part.quaternion.clone(), scale: part.scale.clone() }));
-}
-
-function blendAvatarPose(snapshot, amount) {
-  snapshot.forEach(from => {
-    const part = from.part;
-    const targetPosition = part.position.clone();
-    const targetQuaternion = part.quaternion.clone();
-    const targetScale = part.scale.clone();
-    part.position.lerpVectors(from.position, targetPosition, amount);
-    part.quaternion.copy(from.quaternion).slerp(targetQuaternion, amount).normalize();
-    part.scale.lerpVectors(from.scale, targetScale, amount);
-  });
-}
-
-function applyImportedAnimation(av, clip, elapsed) {
-  if (!clip?.frames?.length) return false;
-  resetAvatarPose(av);
-  const frames = clip.frames;
-  const duration = Math.max(0, Number(clip.duration) || frames[frames.length - 1]?.time || 0);
-  const time = duration > 0 && clip.loop !== false ? elapsed % duration : Math.min(elapsed, duration);
-  let a = frames[0], b = frames[frames.length - 1];
-  for (let i = 0; i < frames.length - 1; i++) {
-    if (time >= frames[i].time && time <= frames[i + 1].time) { a = frames[i]; b = frames[i + 1]; break; }
-  }
-  const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
-  const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
-  let applied = 0;
-  const applyPose = (part, name, basePosition) => {
-    const ca = a.poses?.[name], cb = b.poses?.[name];
-    if (!part || (!ca && !cb)) return;
-    applied += 1;
-    const from = ca || cb, to = cb || ca;
-    const qa = poseQuaternion(from), qb = poseQuaternion(to);
-    if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
-    // The avatar meshes were baked around fixed R6 pivots in r6Split.js.
-    // Roblox Pose.CFrame translations are offsets from Motor6D joint frames,
-    // not offsets from these reconstructed group origins. Applying them here
-    // slides parts away from shoulders/hips, so keep the baked pivot positions
-    // fixed until the exporter supplies Motor6D C0/C1-aware retargeting.
-    part.position.set(...basePosition);
-    if (name === "Head") {
-      // Head is a child of the torso pivot in our rebuilt hierarchy.
-      part.position.set(0, 1, 0);
-    }
-  };
-  // Play imported clips in place. HumanoidRootPart CFrames are world/root
-  // motion from the source rig, while this companion's position is controlled
-  // by CoyCompanion; applying both would double-move the avatar.
-  applyPose(av.torso || av.body, "Torso", [0, 3, 0]);
-  applyPose(av.head, "Head", [0, 1, 0]);
-  applyPose(av.rArm, "Right Arm", [1.5, 1, 0]);
-  applyPose(av.lArm, "Left Arm", [-1.5, 1, 0]);
-  applyPose(av.rLeg, "Right Leg", [0.5, 2, 0]);
-  applyPose(av.lLeg, "Left Leg", [-0.5, 2, 0]);
-  return applied > 0;
-}
-
 function buildAvatar(colors) {
   const mat = c => new THREE.MeshLambertMaterial({ color: c });
-  const limb = (c, px, py) => {
-    const g = new THREE.Group(); g.position.set(px, py, 0);
-    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(c)); m.position.y = -1; g.add(m); return g;
-  };
   const fc = document.createElement("canvas"); fc.width = fc.height = 128;
   const x = fc.getContext("2d");
   x.fillStyle = colors.head; x.fillRect(0, 0, 128, 128); x.fillStyle = "#111";
@@ -144,15 +43,21 @@ function buildAvatar(colors) {
   const faceMat = new THREE.MeshLambertMaterial({ map: new THREE.CanvasTexture(fc) });
 
   const body = new THREE.Group();                         // origin = feet
-  const torso = new THREE.Group();                         // torso joint pivot
-  torso.position.set(0, 3, 0);
-  const torsoMesh = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)); torsoMesh.position.y = 0; torso.add(torsoMesh); body.add(torso);
-  const head = new THREE.Group(); head.position.set(0, 1, 0); torso.add(head);
+  const torso = new THREE.Group();                         // torso joint (root joint)
+  torso.position.set(...REST.torso);
+  torso.add(new THREE.Mesh(new THREE.BoxGeometry(2, 2, 1), mat(colors.torso)));
+  body.add(torso);
+  const head = new THREE.Group(); head.position.set(...REST.head); torso.add(head);
   const hm = new THREE.Mesh(new THREE.BoxGeometry(1.3, 1.3, 1.3), [mat(colors.head), mat(colors.head), mat(colors.head), mat(colors.head), faceMat, mat(colors.head)]);
   hm.position.y = .65; head.add(hm);
-  const rArm = limb(colors.rightArm, 1.5, 1), lArm = limb(colors.leftArm, -1.5, 1);
-  const rLeg = limb(colors.rightLeg, .5, 2), lLeg = limb(colors.leftLeg, -.5, 2);
-  torso.add(rArm, lArm); body.add(rLeg, lLeg);
+  // Each limb pivots on its real R6 joint; the box hangs from it. Everything joins the torso.
+  const joint = (name, color, offset) => {
+    const g = new THREE.Group(); g.position.set(...REST[name]);
+    const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(color)); m.position.set(offset[0], offset[1], 0);
+    g.add(m); torso.add(g); return g;
+  };
+  const rArm = joint("rArm", colors.rightArm, [0.5, -0.5]), lArm = joint("lArm", colors.leftArm, [-0.5, -0.5]);
+  const rLeg = joint("rLeg", colors.rightLeg, [-0.5, -1]), lLeg = joint("lLeg", colors.leftLeg, [0.5, -1]);
   return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
@@ -201,7 +106,7 @@ function loadModel(model) {
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
  */
-export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, look, getPos }) {
   const canvasRef = useRef(null);
   const live = useRef({});
   live.current = { pose, dir, vx, look, getPos };
@@ -222,11 +127,8 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
-    let previousPose = "";
-    let transitionFrom = null;
-    let transitionStart = 0;
-    const TRANSITION_SECONDS = 0.32;
     const pose = P({});
+    const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
     fetch(BASE + "animations.json?v=1", { cache: "no-store" })
       .then(response => {
@@ -236,6 +138,8 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       .then(data => {
         animations = data?.animations || {};
         const names = Object.keys(animations);
+        console.info("Coy: imported Roblox animations loaded", names);
+        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
       })
       .catch(error => {
         animations = {};
@@ -270,143 +174,51 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
-      const blend = 1 - Math.exp(-12 * delta);
-      // Treat each requested pose as a fresh animation state. This prevents a
-      // previous one-shot clip or smoothed procedural pose from leaking into the next.
-      if (L.pose !== previousPose) {
-        // Patting, falling and landing are physical reactions: start them on
-        // the very first frame instead of cross-fading from the old pose.
-        const immediatePose = ["pat", "fall", "land"].includes(L.pose);
-        transitionFrom = immediatePose ? null : captureAvatarPose(av);
-        transitionStart = t;
-        previousPose = L.pose;
-        activeAnimation = "";
-        animationStart = t;
-        Object.assign(pose, P({}));
-        resetAvatarPose(av);
-        av.body.position.set(0, 0, 0);
-        av.body.rotation.set(0, 0, 0);
-        av.body.scale.set(1, 1, 1);
-        if (L.pose === "pat" && av.head) {
-          // Imported clips can leave a zero-scaled pivot or hidden head mesh.
-          av.head.visible = true;
-          av.head.position.set(0, 1, 0);
-          av.head.quaternion.identity();
-          av.head.scale.set(1, 1, 1);
-          av.head.traverse(part => {
-            part.visible = true;
-            if (part.isMesh) part.frustumCulled = false;
-            if (part !== av.head) part.scale.set(1, 1, 1);
-          });
-        }
-      }
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
+      // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       const clip = animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
-        // If the animation data arrived after the initial pose transition,
-        // capture the current pose now so loading a clip never causes a snap.
-        if (activeAnimation === "" && t - transitionStart >= TRANSITION_SECONDS) {
-          transitionFrom = captureAvatarPose(av);
-          transitionStart = t;
-        }
         activeAnimation = clipName;
         animationStart = t;
+        console.debug("Coy: playing imported animation", clipName);
       }
-      // Use imported clips when present; pat/held/land remain procedural.
-      const usingImported = Boolean(clip && clipName !== "pat" && applyImportedAnimation(av, clip, t - animationStart));
+      const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
-        resetAvatarPose(av);
+        resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-        const immediatePose = ["pat", "fall", "land"].includes(L.pose);
-        for (const k in pose) {
-          // Physical reactions start immediately, but keep squash/stretch
-          // eased so landing doesn't pop into a flattened shape in one frame.
-          pose[k] = immediatePose && k !== "sq" ? tg[k] : pose[k] + (tg[k] - pose[k]) * blend;
-        }
+        for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
-        // Patting squashes Coy's body, but counter-scale the head so the
-        // global squash never flattens it into the torso or makes it vanish.
-        if (L.pose === "pat" && av.head) {
-          av.head.scale.set(
-            1 / Math.max(0.5, 1 + pose.sq),
-            1 / Math.max(0.5, 1 - pose.sq),
-            1 / Math.max(0.5, 1 + pose.sq)
-          );
-        }
-      } else {
-        // Imported clips own the whole pose for this frame; clear root transforms
-        // left by procedural dance/fall/held poses before applying the clip.
-        av.body.position.set(0, 0, 0);
-        av.body.rotation.set(0, 0, 0);
-        av.body.scale.set(1, 1, 1);
       }
+      // Face the way it is walking: front-facing at rest, a quarter turn while walking.
+      if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
+      // Held or falling: lean with the sideways speed.
+      if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
 
-      // Cross-fade body-part position, rotation and scale so animation changes
-      // connect naturally, including squash/stretch and landing recovery.
-      if (transitionFrom) {
-        const raw = clamp((t - transitionStart) / TRANSITION_SECONDS, 0, 1);
-        const eased = raw * raw * (3 - 2 * raw);
-        blendAvatarPose(transitionFrom, eased);
-        if (raw >= 1) transitionFrom = null;
-      }
-
-      // Keep the head renderable even if an imported clip contains a bad joint
-      // offset. The head's mesh stays attached to its pivot while keyframes
-      // continue to drive its rotation.
-      if (av.head) {
-        // The head is a child of the torso in the reconstructed R6 rig. Keep
-        // the pivot anchored and prevent bad source keyframes/culling bounds
-        // from making the entire head vanish during a pat or pose transition.
-        av.head.visible = true;
-        if (L.pose === "pat") {
-          av.head.position.set(0, 1, 0);
-          av.head.quaternion.identity();
-          // Invert the body's current squash scale on the head only, keeping
-          // its world-space size stable while the torso compresses.
-          av.head.scale.set(
-            1 / Math.max(0.5, av.body.scale.x),
-            1 / Math.max(0.5, av.body.scale.y),
-            1 / Math.max(0.5, av.body.scale.z)
-          );
+      // Head follows the cursor when calm, layered on top of whatever clip is playing.
+      let wy = 0, wx = 0;
+      if (["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
+        const p = L.getPos() || {};
+        const px = Number.isFinite(p.x) ? p.x : p.left;          // accept {x, y} or {left, top}
+        const py = Number.isFinite(p.y) ? p.y : p.top;
+        if (Number.isFinite(px) && Number.isFinite(py)) {
+          wy = clamp((L.look.x - (px + W / 2)) / window.innerWidth * 2, -.9, .9);
+          wx = clamp((L.look.y - (py + H / 2)) / window.innerHeight, -.5, .5);
         }
-        if (![av.head.position.x, av.head.position.y, av.head.position.z].every(Number.isFinite) ||
-            Math.abs(av.head.position.x) > 0.4 || av.head.position.y < 0.5 ||
-            av.head.position.y > 1.5 || Math.abs(av.head.position.z) > 0.4) {
-          av.head.position.set(0, 1, 0);
-        }
-        if (![av.head.quaternion.x, av.head.quaternion.y, av.head.quaternion.z, av.head.quaternion.w].every(Number.isFinite)) {
-          av.head.quaternion.identity();
-        }
-        // Apply this to every descendant, not just the group. Imported OBJ
-        // meshes can carry hidden flags and stale bounding volumes of their own.
-        av.head.traverse(part => {
-          part.visible = true;
-          if (part.isMesh) {
-            part.frustumCulled = false;
-            if (L.pose === "pat") part.updateMatrix();
-          }
-        });
       }
-
-      // Face the actual direction of travel: front-facing at rest, a full 90° turn while walking.
-      // Apply this after either imported or procedural animation so clips cannot override it.
-      av.body.rotation.y = L.pose === "walk" ? L.dir * Math.PI / 2 : (usingImported ? 0 : av.body.rotation.y);
-
-      let wy = 0, wx = 0;                                   // head follows the cursor when calm
-      if (!usingImported && ["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
-        const p = L.getPos();
-        wy = clamp((L.look.x - (p.x + W / 2)) / window.innerWidth * 2, -.9, .9);
-        wx = clamp((L.look.y - (p.y + H / 2)) / window.innerHeight, -.5, .5);
-      }
-      if (!usingImported) {
-        av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
-        av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      if (!Number.isFinite(wy)) wy = 0;                          // NaN would make the head vanish for good
+      if (!Number.isFinite(wx)) wx = 0;
+      const lookBlend = 1 - Math.exp(-8 * delta);
+      look.y += ((wy - (usingImported ? 0 : pose.spin * .5)) - look.y) * lookBlend;
+      look.x += (wx - look.x) * lookBlend;
+      if (av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
+        lookEuler.set(look.x, look.y, 0);
+        av.head.quaternion.multiply(lookQuat.setFromEuler(lookEuler));
       }
       renderer.render(scene, camera);
     };
