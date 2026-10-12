@@ -62,7 +62,7 @@ function applyImportedAnimation(av, clip, elapsed) {
   const torso = q("Torso"), head = q("Head");
   const rightArm = q("Right Arm"), leftArm = q("Left Arm");
   const rightLeg = q("Right Leg"), leftLeg = q("Left Leg");
-  if (torso) av.body.quaternion.copy(torso);
+  if (torso) av.torso.quaternion.copy(torso);
   if (head) av.head.quaternion.copy(head);
   if (rightArm) av.rArm.quaternion.copy(rightArm);
   if (leftArm) av.lArm.quaternion.copy(leftArm);
