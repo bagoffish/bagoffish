@@ -188,6 +188,7 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
+    let previousPose = "";
     const pose = P({});
     const clock = new THREE.Clock();
     fetch(BASE + "animations.json?v=1", { cache: "no-store" })
@@ -232,6 +233,18 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
       if (!av || document.hidden) return;
       clock.getDelta();
       const t = clock.elapsedTime, L = live.current;
+      // Treat each requested pose as a fresh animation state. This prevents a
+      // previous one-shot clip or smoothed procedural pose from leaking into the next.
+      if (L.pose !== previousPose) {
+        previousPose = L.pose;
+        activeAnimation = "";
+        animationStart = t;
+        Object.assign(pose, P({}));
+        resetAvatarPose(av);
+        av.body.position.set(0, 0, 0);
+        av.body.rotation.set(0, 0, 0);
+        av.body.scale.set(1, 1, 1);
+      }
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
       const clip = animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
@@ -251,7 +264,10 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       } else {
-        av.body.position.y = 0;
+        // Imported clips own the whole pose for this frame; clear root transforms
+        // left by procedural dance/fall/held poses before applying the clip.
+        av.body.position.set(0, 0, 0);
+        av.body.rotation.set(0, 0, 0);
         av.body.scale.set(1, 1, 1);
       }
 
