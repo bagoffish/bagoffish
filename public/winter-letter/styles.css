@@ -236,3 +236,128 @@ body::selection { background: var(--red); color: #fff; }
   #textbox::after { animation: none; }
   *, *::before, *::after { transition-duration: .01ms !important; }
 }
+
+
+/* WINTER LETTER: Korean winter-noir, filed as evidence rather than a generic VN. */
+#title-screen {
+  background:
+    radial-gradient(ellipse at 63% 46%, rgba(65,82,83,.25), transparent 48%),
+    repeating-linear-gradient(2deg, transparent 0 5px, rgba(255,255,255,.018) 6px, transparent 7px),
+    #151a1b;
+}
+#title-screen::before {
+  content: "INCHEON  /  WINTER CASE FILE";
+  top: 23px; left: 26px; color: #9fa39b;
+  font: 9px/1.6 "Courier New", monospace; letter-spacing: .17em;
+}
+#title-screen::after {
+  content: "UNSOLVED  •  UNDATED  •  UNFORGOTTEN";
+  right: 24px; bottom: 24px; color: #777f7a;
+  font: 8px "Courier New", monospace; letter-spacing: .16em;
+}
+.top-menu { top: 20px; right: 25px; left: auto; transform: none; gap: 18px; }
+.top-menu a { color: #bfc1b7; font: 10px "Courier New", monospace; letter-spacing: .14em; }
+#title-art {
+  width: min(73vw, 790px); max-height: 73vh; margin: 0 0 4vh;
+  padding: clamp(12px, 2vw, 25px); background: #d8d0bf;
+  transform: rotate(-1.1deg);
+  box-shadow: 0 3px 0 #a69d8d, 0 22px 48px rgba(0,0,0,.55);
+}
+#title-art::before {
+  content: "EXHIBIT 01"; inset: auto auto auto 13px; top: -18px;
+  padding: 5px 8px; color: #dfd5c3; background: #873a32;
+  font: 8px "Courier New", monospace; letter-spacing: .14em;
+  transform: rotate(-2deg);
+}
+#title-art::after {
+  content: "DO NOT DISCARD"; left: auto; right: -21px; bottom: 23px;
+  padding: 7px 11px; color: #5d2723; border: 2px solid #873a32;
+  font: bold 9px "Courier New", monospace; letter-spacing: .14em;
+  transform: rotate(-8deg);
+}
+#title-art img { filter: saturate(.58) sepia(.12) contrast(1.08); }
+.footer { left: 26px; bottom: 24px; color: #7e8983; letter-spacing: .18em; }
+
+/* Frame the original scenes like a found photograph. */
+#game-screen::before {
+  content: ""; position: absolute; z-index: 8; inset: 13px; pointer-events: none;
+  border: 1px solid rgba(229,220,199,.18);
+}
+#game-screen::after {
+  content: "INCHEON  ·  WINTER  ·  STATEMENT";
+  position: absolute; z-index: 9; top: 27px; left: 30px; pointer-events: none;
+  color: rgba(238,230,211,.62); font: 8px "Courier New", monospace;
+  letter-spacing: .2em; text-shadow: 0 1px 5px #000;
+}
+#background { filter: saturate(.62) brightness(.7) contrast(1.09); }
+#background::after {
+  background:
+    repeating-linear-gradient(0deg, rgba(238,234,219,.025) 0 1px, transparent 1px 3px),
+    linear-gradient(90deg, rgba(5,9,10,.35), transparent 26%, transparent 75%, rgba(5,9,10,.3)),
+    linear-gradient(0deg, rgba(4,7,8,.62), transparent 58%, rgba(4,7,8,.2));
+}
+#character { filter: drop-shadow(0 7px 17px rgba(0,0,0,.45)); }
+
+/* Dialogue is ruled letter paper laid over the scene, not a HUD. */
+#textbox {
+  left: 6.5%; right: 6.5%; bottom: 28px;
+  padding: 25px 42px 30px 52px; color: #252823;
+  background:
+    repeating-linear-gradient(180deg, transparent 0 31px, rgba(66,75,69,.10) 32px),
+    linear-gradient(100deg, rgba(255,255,255,.28), transparent 45%),
+    rgba(232,224,207,.97);
+  border: 1px solid #b8ad98;
+  box-shadow: 0 15px 36px rgba(0,0,0,.38), 0 2px 0 rgba(255,255,255,.16);
+}
+#textbox::before {
+  content: "STATEMENT / 01"; top: 0; bottom: 0; left: 0; width: 34px;
+  display: flex; align-items: center; justify-content: center;
+  color: #e7d9c6; background: #873a32;
+  font: 8px "Courier New", monospace; letter-spacing: .12em;
+  writing-mode: vertical-rl; transform: rotate(180deg);
+}
+#textbox::after {
+  content: "NEXT  ›"; right: 19px; bottom: 12px; color: #756c5d;
+  font: 8px "Courier New", monospace; letter-spacing: .12em;
+}
+#namebox { color: #7c332c; font: bold 10px/1.3 "Courier New", monospace; letter-spacing: .16em; }
+#text { color: #252823; }
+.narration #text { color: #34362f; }
+.narration::before { content: "PERSONAL / NOTE"; background: #333e3e !important; }
+
+/* Make the letter feel handled; credits become the back of the same folder. */
+#letter-box {
+  transform: translate(-50%, -50%) rotate(-.7deg);
+  background:
+    radial-gradient(ellipse at 8% 10%, rgba(121,93,55,.11), transparent 35%),
+    repeating-linear-gradient(0deg, rgba(75,57,35,.035) 0 1px, transparent 1px 4px),
+    #e9e1cf;
+  border-color: #b6a991;
+  box-shadow: 0 22px 70px rgba(0,0,0,.58), 0 0 0 8px rgba(12,15,15,.26);
+}
+#credits-screen {
+  color: #252823;
+  background: repeating-linear-gradient(0deg, rgba(62,55,43,.025) 0 1px, transparent 1px 4px), #e9e1cf;
+}
+#credits-screen::before { content: "END OF STATEMENT  /  FILE CLOSED?"; color: #766d5d; }
+#credits-screen h1 { border-color: #b9ad98; }
+#credits-screen p { color: #615e54; }
+#credits-screen a { color: #873a32; }
+#credits-screen button { color: #3a3932; border-color: #873a32; }
+#credits-screen button:hover { color: #873a32; }
+
+@media (max-width: 700px) {
+  #title-screen::before { top: 13px; left: 13px; font-size: 7px; letter-spacing: .1em; }
+  #title-screen::after { right: 10px; bottom: 16px; font-size: 7px; }
+  .top-menu { top: 14px; right: 13px; gap: 12px; }
+  .top-menu a { font-size: 9px; }
+  #title-art { width: 84vw; max-height: 64vh; padding: 11px; margin-bottom: 2vh; }
+  #title-art img { max-height: 59vh; }
+  #title-art::after { right: -10px; bottom: 18px; font-size: 7px; }
+  .footer { left: 13px; bottom: 16px; font-size: 7px; }
+  #game-screen::before { inset: 6px; }
+  #game-screen::after { top: 16px; left: 15px; font-size: 6px; letter-spacing: .12em; }
+  #textbox { left: 10px; right: 10px; bottom: 10px; padding: 20px 22px 28px 42px; }
+  #textbox::before { width: 27px; font-size: 7px; }
+  #namebox { font-size: 9px; }
+}
