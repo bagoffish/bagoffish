@@ -201,7 +201,7 @@ jobs:
                       os.remove(path)
                       removed.append(path)
           print(f"Removed {len(removed)} root/build copies duplicated in public/.")
-            PY
+          PY
             printf '%s\\n' "$SOURCE_SHA" > site-source-commit.txt
             test -s index.html || { echo "::error::Published site is missing index.html"; exit 1; }
             test -s asset-manifest.json || { echo "::error::Published site is missing asset-manifest.json"; exit 1; }
