@@ -134,8 +134,6 @@ export default function CoyCompanion() {
   const lastActivity = useRef(0);
   const openAppsRef = useRef([]);
   const fullTabActiveRef = useRef(false);
-  const dragState = useRef(null);
-  const dragged = useRef(false);
   const clickTimer = useRef(null);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(92);
@@ -144,7 +142,6 @@ export default function CoyCompanion() {
     left: Math.max(0, window.innerWidth - 40),
     top: Math.max(0, window.innerHeight - 30 - 40)
   }));
-  const [isDragging, setIsDragging] = useState(false);
   const lastDesktopReaction = useRef(0);
 
   const rootRef = useRef(null);
@@ -429,76 +426,19 @@ export default function CoyCompanion() {
     return () => document.removeEventListener('click', onDesktopClick, true);
   }, []);
 
-  function startDrag(event) {
-    if (event.button !== 0) return;
-    const spriteRect = event.currentTarget.getBoundingClientRect();
-    const rootRect = event.currentTarget.parentElement?.getBoundingClientRect() || spriteRect;
-    dragState.current = {
-      x: event.clientX, y: event.clientY,
-      left: rootRect.left, top: rootRect.top,
-      width: rootRect.width, height: rootRect.height,
-      movedCharacter: false,
-      pointerId: event.pointerId
-    };
-    dragged.current = false;
-    setIsDragging(false);
-    event.currentTarget.setPointerCapture?.(event.pointerId);
-    event.preventDefault();
-  }
-
-  function moveDrag(event) {
-    if (!dragState.current) return;
-    const state = dragState.current;
-    const deltaX = event.clientX - state.x;
-    const deltaY = event.clientY - state.y;
-    const distance = Math.max(Math.abs(deltaX), Math.abs(deltaY));
-    // Headpats are double-click only. Any actual pointer movement is reserved
-    // for dragging so tiny strokes never get mistaken for a pat.
-    if (distance >= 5) {
-      const justPickedUp = !state.movedCharacter;
-      state.movedCharacter = true;
-      dragged.current = true;
-      setIsDragging(true);
-      if (justPickedUp) {
-        // Keep pickup visually neutral for the upcoming expression/pose system.
-        // No pickup wobble and no floating speech bubble.
-        setShowBubble(false);
-      }
-      const maxLeft = Math.max(0, window.innerWidth - state.width);
-      const taskbarTop = getTaskbarTop();
-      const maxTop = Math.max(0, taskbarTop - state.height);
-      setPosition({
-        left: Math.max(0, Math.min(maxLeft, state.left + deltaX)),
-        top: Math.max(0, Math.min(maxTop, state.top + deltaY))
-      });
-      wasTaskbarAligned.current = false;
-    }
-  }
-
-  function endDrag(event) {
-    if (!dragState.current) return;
-    event.currentTarget.releasePointerCapture?.(dragState.current.pointerId);
-    const finishedDrag = dragState.current;
-    const wasDrag = finishedDrag.movedCharacter;
-    dragState.current = null;
-    setIsDragging(false);
-    if (wasDrag) {
-      setLine(formatCoyText(randomLine(["hey, easy", "where are we going", "hm?", "you picked me up"])));
+  function onCoyClick() {
+    // Coy stays fixed in place until custom movement/expression sprites are added.
+    // A single click opens chat; a double click is a simple headpat reaction.
+    if (clickTimer.current) {
+      window.clearTimeout(clickTimer.current);
+      clickTimer.current = null;
+      setLine(formatCoyText(randomLine(PAT_LINES)));
       setShowBubble(true);
-    }
-    if (!wasDrag) {
-      // Double-click = headpat. Single click = open chat.
-      if (clickTimer.current) {
-        window.clearTimeout(clickTimer.current);
+    } else {
+      clickTimer.current = window.setTimeout(() => {
         clickTimer.current = null;
-        setLine(formatCoyText(randomLine(PAT_LINES)));
-        setShowBubble(true);
-      } else {
-        clickTimer.current = window.setTimeout(() => {
-          clickTimer.current = null;
-          openChat();
-        }, 280);
-      }
+        openChat();
+      }, 280);
     }
   }
 
@@ -558,10 +498,9 @@ export default function CoyCompanion() {
       width: spriteSize,
       height: "auto",
       display: "block",
-      cursor: isDragging ? "grabbing" : "grab",
+      cursor: "pointer",
       pointerEvents: "auto",
-      // Keep the current static sprite visually unchanged during pickup,
-      // shaking, and mood changes. Sprite-based expressions can be added later.
+      // Keep Coy completely still until custom expression sprites are added.
       filter: "none",
       animation: "none",
       transform: "none"
@@ -637,10 +576,7 @@ export default function CoyCompanion() {
       <button
         type="button"
         aria-label="Coy companion"
-        onPointerDown={startDrag}
-        onPointerMove={moveDrag}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onClick={onCoyClick}
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "inherit" }}
       >
         <img src={COY_SPRITE} alt="Coy" style={styles.sprite} />
