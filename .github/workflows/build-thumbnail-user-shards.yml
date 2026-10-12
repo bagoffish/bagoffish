@@ -2,9 +2,6 @@ name: Build full thumbnail user shards
 
 on:
   workflow_dispatch:
-  push:
-    paths:
-      - .github/workflows/build-thumbnail-user-shards.yml
 
 permissions:
   contents: write
