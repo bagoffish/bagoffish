@@ -322,6 +322,7 @@ export default function CoyCompanion() {
         announce(typeof detail.message === "string" && detail.message.trim()
           ? detail.message.trim()
           : randomLine(APP_QUIPS[detail.name] || ["oh", "hm", "what happened"]));
+      }
     };
     window.addEventListener("coy:activity", onActivity);
     // Keep the companion state correct if the viewport rotates/resizes, and
