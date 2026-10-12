@@ -1168,7 +1168,7 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
     try {
       const original = new URL(archiveOriginalUrl);
       if (original.hostname.toLowerCase() === "thumbnails.roblox.com" &&
-          (original.pathname === "/v1/users/avatar" || original.pathname === "/v1/users/avatar/") &&
+          /^\/v1\/users\/avatar(?:[-/]|$)/i.test(original.pathname) &&
           !candidates.includes(archiveOriginalUrl)) {
         candidates.push(archiveOriginalUrl);
       }
