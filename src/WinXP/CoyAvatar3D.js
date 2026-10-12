@@ -32,8 +32,10 @@ function target(name, t, dir, tiltIn) {
       // Raise the character's anatomical RIGHT arm (screen-left while facing us)
       // and wave it from the shoulder without swapping to the other arm.
       return P({
-        rArmZ: 2.22 + (0.5 + 0.5 * cycle(10.5)) * 0.24,
-        rArmX: 0.08 + cycle(8.8) * 0.12,
+        // On this baked R6 mesh, a negative Z shoulder angle lifts
+        // the anatomical right arm outward/up on screen-left.
+        rArmZ: -2.32 - (0.5 + 0.5 * cycle(10.5)) * 0.22,
+        rArmX: 0.10 + cycle(8.8) * 0.20,
         lArmZ: 0.08,
         bob: cycle(5.8) * 0.012,
         headY: -0.04 + cycle(2.2) * 0.035
