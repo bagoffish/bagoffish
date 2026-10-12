@@ -522,7 +522,9 @@ export default function CoyCompanion() {
     wasTaskbarAligned.current = false;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     const taskbarTop = getTaskbarTop();
-    const maxTop = Math.max(0, taskbarTop - getCoyHeight());
+    // Let dragging reach the viewport top/title bars. The taskbar is a
+    // landing surface after release, not a ceiling while the user drags.
+    const maxTop = Math.max(0, window.innerHeight - getCoyHeight());
     setPosition({
       left: Math.max(0, Math.min(maxLeft, drag.originLeft + dx)),
       top: Math.max(0, Math.min(maxTop, drag.originTop + dy))
@@ -621,7 +623,8 @@ export default function CoyCompanion() {
       position: "fixed",
       left: position.left,
       top: position.top,
-      zIndex: chatOpen ? 10001 : 10000,
+      // Keep Coy above site windows and their title bars.
+      zIndex: 2147483647,
       visibility: "visible",
       pointerEvents: "none",
       userSelect: "none",
