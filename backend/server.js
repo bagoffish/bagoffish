@@ -1222,7 +1222,11 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
   }
 
   // Do not cache failures; a later request may succeed when the archive recovers.
-  return res.status(404).end();
+  // 204 keeps expected missing historical captures from flooding the browser console
+  // with 404s. Image elements still fire their error event, so the renderer removes
+  // the unavailable capture card instead of displaying a broken-image tile.
+  res.setHeader("Cache-Control", "no-store");
+  return res.status(204).end();
 });
 
 
