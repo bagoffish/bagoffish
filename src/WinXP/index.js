@@ -234,7 +234,7 @@ function WinXP() {
         'about': 'About Me', 'about me': 'About Me', 'profile': 'About Me',
         'letters': 'Winter_Letter', 'winter letter': 'Winter_Letter',
         'winterletter': 'Winter_Letter', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
-        'paint': 'Paint', 'ms paint': 'Paint', 'minesweeper': 'Minesweeper',
+        'paint': 'Paint', 'ms paint': 'Paint',
         'mine sweeper': 'Minesweeper', 'music player': 'Winamp', 'winamp': 'Winamp',
         'poem': 'Poems', 'poems': 'Poems', 'roblox renderer': 'Renderer',
         'avatar renderer': 'Renderer', 'renderer': 'Renderer', 'coy chat': 'Coy', 'coy': 'Coy',
@@ -576,9 +576,7 @@ function WinXP() {
   }
 
   function onClickMenuItem(o) {
-    if (o === 'Minesweeper')
-      dispatch({ type: ADD_APP, payload: appSettings.Minesweeper });
-    else if (o === 'Paint')
+    if (o === 'Paint')
       dispatch({ type: ADD_APP, payload: appSettings.Paint });
     else if (o === 'Log Off')
       dispatch({ type: POWER_OFF, payload: POWER_STATE.LOG_OFF });
