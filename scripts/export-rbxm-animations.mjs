@@ -71,7 +71,7 @@ function readSequence(sequence) {
   }).sort((a, b) => a.time - b.time);
   return {
     duration: frames.reduce((max, f) => Math.max(max, f.time), 0),
-    loop: Boolean(valueOf(sequence, "Loop")),
+    loop: true,
     priority: valueOf(sequence, "Priority") ?? null,
     frames
   };
