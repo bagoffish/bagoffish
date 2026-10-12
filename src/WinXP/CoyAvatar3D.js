@@ -64,6 +64,20 @@ function resetAvatarPose(av) {
   });
 }
 
+function captureAvatarPose(av) {
+  const parts = [av.body, av.torso, av.head, av.rArm, av.lArm, av.rLeg, av.lLeg].filter(Boolean);
+  return parts.map(part => ({ part, position: part.position.clone(), quaternion: part.quaternion.clone(), scale: part.scale.clone() }));
+}
+
+function blendAvatarPose(snapshot, amount) {
+  snapshot.forEach(from => {
+    const part = from.part;
+    part.position.lerpVectors(from.position, part.position.clone(), amount);
+    part.quaternion.copy(from.quaternion).slerp(part.quaternion.clone(), amount).normalize();
+    part.scale.lerpVectors(from.scale, part.scale.clone(), amount);
+  });
+}
+
 function applyImportedAnimation(av, clip, elapsed) {
   if (!clip?.frames?.length) return false;
   resetAvatarPose(av);
@@ -207,6 +221,9 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
     let activeAnimation = "";
     let animationStart = 0;
     let previousPose = "";
+    let transitionFrom = null;
+    let transitionStart = 0;
+    const TRANSITION_SECONDS = 0.32;
     const pose = P({});
     const clock = new THREE.Clock();
     fetch(BASE + "animations.json?v=1", { cache: "no-store" })
@@ -255,6 +272,8 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       // Treat each requested pose as a fresh animation state. This prevents a
       // previous one-shot clip or smoothed procedural pose from leaking into the next.
       if (L.pose !== previousPose) {
+        transitionFrom = captureAvatarPose(av);
+        transitionStart = t;
         previousPose = L.pose;
         activeAnimation = "";
         animationStart = t;
@@ -289,6 +308,15 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         av.body.position.set(0, 0, 0);
         av.body.rotation.set(0, 0, 0);
         av.body.scale.set(1, 1, 1);
+      }
+
+      // Cross-fade body-part position, rotation and scale so animation changes
+      // connect naturally, including squash/stretch and landing recovery.
+      if (transitionFrom) {
+        const raw = clamp((t - transitionStart) / TRANSITION_SECONDS, 0, 1);
+        const eased = raw * raw * (3 - 2 * raw);
+        blendAvatarPose(transitionFrom, eased);
+        if (raw >= 1) transitionFrom = null;
       }
 
       // Face the actual direction of travel: front-facing at rest, a full 90° turn while walking.
