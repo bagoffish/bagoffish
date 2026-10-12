@@ -7,26 +7,14 @@
     <link rel="stylesheet" href="/winter-letter/styles.css">
 </head>
 <body>
-
     <!-- TITLE SCREEN -->
     <div id="title-screen">
-        <div class="letter-stage" aria-label="Winter Letter title">
-            <div class="letter-sheet">
-                <div class="letter-date">A WINTER ACCOUNT</div>
-                <div class="letter-rule"></div>
-                <div id="title-art">
-                    <div class="title-kicker">A PSYCHOLOGICAL THRILLER</div>
-                    <h1 class="letter-title">Winter<br><em>Letter</em></h1>
-                    <p class="letter-subtitle">Some things are written long before they happen.</p>
-                </div>
-                <div class="letter-signoff">— an unfinished confession</div>
-                <div class="letter-stamp" aria-hidden="true">W</div>
-            </div>
-            <div class="top-menu">
-                <a onclick="startGame()">Open the letter</a>
-                <span class="menu-divider">·</span>
-                <a onclick="toggleLanguage()">한국어 / English</a>
-            </div>
+        <div class="top-menu">
+            <a onclick="startGame()">START</a>
+            <a onclick="toggleLanguage()">KOREAN</a>
+        </div>
+        <div id="title-art">
+            <img src="/winter-letter/images/title.png" alt="WINTER LETTER">
         </div>
         <div class="footer">winter_letter</div>
     </div>
@@ -35,14 +23,11 @@
     <div id="game-screen">
         <div id="background"></div>
         <div id="overlay"></div>
-
         <img id="character" src="" alt="">
-
         <div id="textbox">
             <div id="namebox"></div>
             <div id="text"></div>
         </div>
-
         <div id="letter-box" style="display: none;">
             <div id="letter-paper">
                 <div id="letter-text"></div>
@@ -51,19 +36,15 @@
     </div>
 
     <!-- CREDITS -->
-    <div id="credits-screen" style="display: none; position: fixed; inset: 0; background: #000; color: #e8e4d9; flex-direction: column; align-items: center; justify-content: center; z-index: 200; text-align: center; opacity: 0; transition: opacity 2s ease;">
-        <div class="credits-paper">
-            <p class="credits-small">THE END</p>
-            <h1>Winter Letter</h1>
-            <p class="credits-byline">A story by <a href="https://github.com/bagoffish" target="_blank">Coy</a></p>
-            <button onclick="returnToTitle()">Return to the first page</button>
-        </div>
+    <div id="credits-screen">
+        <h1>WINTER LETTER</h1>
+        <p>Story by <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">Coy</a></p>
+        <button onclick="returnToTitle()">RETURN TO TITLE</button>
     </div>
 
     <audio id="bgMusic" loop></audio>
     <audio id="titleMusic" loop></audio>
     <audio id="sfx"></audio>
-
     <script src="/winter-letter/script.js"></script>
 </body>
 </html>
