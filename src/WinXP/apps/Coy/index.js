@@ -337,6 +337,7 @@ export default function CoyChat({ initialImage, initialText }) {
   const sendLockRef = useRef(false);
   const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
+  const errorCountRef = useRef(0);
   const errorTimerRef = useRef(null);
   const showError = (msg) => {
     if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
@@ -634,6 +635,7 @@ export default function CoyChat({ initialImage, initialText }) {
       }
       const data = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(data.error || 'I’m tryna sleep dude.');
+      errorCountRef.current = 0;
       const rawAnswer = typeof data.answer === 'string' && data.answer.trim() ? data.answer.trim() : '…';
       const answer = removeUnwantedCoyEmojis(rawAnswer);
       if (voiceInputTurn) voiceReply = answer;
@@ -658,11 +660,13 @@ export default function CoyChat({ initialImage, initialText }) {
     } catch (err) {
       if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
-      setError(err.name === 'AbortError'
-        ? 'I’m tryna sleep dude.'
-        : (/^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim())
-          ? 'I’m tryna sleep dude.'
-          : (err.message || 'I’m tryna sleep dude.')));
+      const networkFailure = err.name === 'AbortError' ||
+        /^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim());
+      const nextFailure = (errorCountRef.current || 0) > 0;
+      errorCountRef.current = (errorCountRef.current || 0) + 1;
+      setError(networkFailure || !err.message
+        ? (nextFailure ? 'Still doing something…' : 'Gimme a sec, doing something')
+        : err.message);
     } finally {
       sendLockRef.current = false;
       setBusy(false);
