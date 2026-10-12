@@ -752,3 +752,248 @@ html, body {
   #text { font-size: clamp(1rem, 4vw, 1.14rem) !important; line-height: 1.55 !important; }
   #letter-box { width: calc(100vw - 28px) !important; padding: 28px 22px !important; }
 }
+
+
+/* WINTER LETTER — stationery-led visual novel layout.
+   The interface should feel printed, handled, and personal—not like a product dashboard. */
+:root {
+  --wl-paper: #e8ddc4;
+  --wl-paper-light: #f0e7d5;
+  --wl-ink: #292720;
+  --wl-muted-ink: #756957;
+  --wl-rule: rgba(95, 79, 58, .17);
+}
+#title-screen {
+  display: flex !important;
+  background: #292b29 !important;
+  background-image:
+    linear-gradient(90deg, rgba(0,0,0,.14), transparent 20%, transparent 80%, rgba(0,0,0,.14)),
+    repeating-linear-gradient(0deg, #292b29 0px, #292b29 3px, #2b2d2b 4px) !important;
+  color: var(--wl-ink) !important;
+}
+#title-screen::before { display: none !important; }
+.letter-stage {
+  width: min(760px, 92vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  transform: rotate(-.35deg);
+  margin-top: -1vh;
+}
+.letter-sheet {
+  position: relative;
+  width: 100%;
+  min-height: 430px;
+  padding: 34px clamp(25px, 7vw, 78px) 38px;
+  color: var(--wl-ink);
+  background:
+    radial-gradient(ellipse at 12% 8%, rgba(145,119,75,.09), transparent 32%),
+    radial-gradient(ellipse at 87% 91%, rgba(145,119,75,.08), transparent 30%),
+    repeating-linear-gradient(0deg, transparent 0 31px, var(--wl-rule) 32px, transparent 33px),
+    var(--wl-paper-light);
+  border: 1px solid #b7a98f;
+  box-shadow: 2px 3px 0 rgba(13,13,11,.15), 7px 10px 0 rgba(13,13,11,.12), 0 24px 38px rgba(0,0,0,.22);
+}
+.letter-date {
+  color: #786c59;
+  font: italic 14px/1.3 Georgia, serif;
+  letter-spacing: .04em;
+}
+.letter-rule {
+  height: 1px;
+  margin: 15px 0 31px;
+  background: #b9aa91;
+}
+#title-art {
+  display: block !important;
+  width: 100% !important;
+  max-height: none !important;
+  min-height: 235px;
+  text-align: center;
+}
+#title-art img { display: none !important; }
+.title-kicker {
+  margin-bottom: 18px;
+  color: #766a58;
+  font: 12px/1.4 Georgia, serif;
+  letter-spacing: .16em;
+}
+.letter-title {
+  margin: 0;
+  color: #27251f;
+  font: 400 clamp(58px, 10vw, 96px)/.78 Georgia, "Times New Roman", serif;
+  letter-spacing: -.065em;
+  text-align: center;
+}
+.letter-title em {
+  display: inline-block;
+  margin-top: 13px;
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: -.075em;
+}
+.letter-subtitle {
+  max-width: 370px;
+  margin: 29px auto 0;
+  color: #615747;
+  font: italic 16px/1.6 Georgia, serif;
+}
+.letter-signoff {
+  margin-top: 19px;
+  color: #776b58;
+  font: italic 14px/1.5 Georgia, serif;
+  text-align: right;
+}
+.letter-stamp {
+  position: absolute;
+  right: 25px;
+  bottom: 22px;
+  width: 47px;
+  height: 47px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(115,49,42,.65);
+  border-radius: 50%;
+  color: rgba(115,49,42,.78);
+  font: italic 25px Georgia, serif;
+  transform: rotate(11deg);
+}
+.top-menu {
+  position: static !important;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+  gap: 15px !important;
+  margin-top: 27px;
+  color: #e5dcc9;
+  font: 15px/1.4 Georgia, serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+.top-menu a {
+  padding: 5px 2px !important;
+  color: #e5dcc9 !important;
+  text-decoration: underline !important;
+  text-decoration-color: rgba(229,220,201,.48) !important;
+  text-underline-offset: 4px;
+}
+.top-menu a::after { display: none !important; }
+.top-menu a:hover { color: #fff8e8 !important; }
+.menu-divider { color: #8c887b; }
+.footer {
+  bottom: 13px !important;
+  color: #9b998e !important;
+  font: 11px Georgia, serif !important;
+  letter-spacing: .12em !important;
+  text-transform: lowercase !important;
+}
+
+/* The spoken narration sits on a quiet, printed-paper panel at the foot of the scene. */
+#textbox {
+  left: 7% !important;
+  right: 7% !important;
+  bottom: 24px !important;
+  min-height: 154px !important;
+  padding: 25px 34px 29px !important;
+  color: #292720 !important;
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(95,79,58,.09) 32px, transparent 33px),
+    rgba(239, 230, 211, .97) !important;
+  border: 1px solid #b8a88c !important;
+  border-radius: 0 !important;
+  box-shadow: 2px 3px 0 rgba(0,0,0,.16), 0 7px 22px rgba(0,0,0,.2) !important;
+  backdrop-filter: none !important;
+}
+#textbox::before {
+  content: "WINTER LETTER";
+  position: absolute;
+  right: 17px;
+  top: 10px;
+  color: #9a8c75;
+  font: 9px Georgia, serif;
+  letter-spacing: .12em;
+}
+#namebox {
+  display: inline-block !important;
+  margin: -1px 0 10px !important;
+  padding: 0 0 3px !important;
+  color: #6e3d35 !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 1px solid #b9aa91 !important;
+  border-radius: 0 !important;
+  font: italic 17px Georgia, serif !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+}
+#text {
+  color: #292720 !important;
+  font: 400 clamp(17px, 1.55vw, 21px)/1.58 Georgia, "Times New Roman", serif !important;
+  letter-spacing: 0 !important;
+  text-shadow: none !important;
+}
+.narration #text { color: #292720 !important; }
+#text::after { display: none !important; }
+#letter-box {
+  background:
+    repeating-linear-gradient(0deg, transparent 0 31px, rgba(95,79,58,.15) 32px, transparent 33px),
+    #eee3ce !important;
+  border: 1px solid #b7a589 !important;
+  box-shadow: 3px 5px 0 rgba(0,0,0,.16) !important;
+}
+#letter-text { color: #30291f !important; }
+#credits-screen {
+  background: #292b29 !important;
+  background-image: none !important;
+  padding: 22px !important;
+}
+.credits-paper {
+  position: relative;
+  width: min(560px, 92vw);
+  padding: 48px 28px 42px;
+  background: var(--wl-paper-light);
+  color: var(--wl-ink);
+  border: 1px solid #b7a589;
+  box-shadow: 5px 7px 0 rgba(0,0,0,.18);
+}
+.credits-small { color: #786c59; font: 12px Georgia,serif; letter-spacing: .16em; }
+#credits-screen h1 {
+  margin: 18px 0 25px !important;
+  color: var(--wl-ink) !important;
+  font: italic 44px Georgia,serif !important;
+  letter-spacing: -.04em !important;
+}
+#credits-screen p, #credits-screen .credits-byline {
+  color: #615747 !important;
+  font: 16px/1.8 Georgia,serif !important;
+}
+#credits-screen a { color: #6e3d35 !important; }
+#credits-screen button {
+  margin-top: 34px !important;
+  padding: 8px 0 !important;
+  color: #6e3d35 !important;
+  border: 0 !important;
+  border-bottom: 1px solid #9e8b70 !important;
+  font: italic 16px Georgia,serif !important;
+  text-decoration: none;
+}
+#credits-screen button:hover { background: transparent !important; color: #292720 !important; }
+
+@media (max-width: 650px) {
+  .letter-stage { width: 90vw; margin-top: -2vh; }
+  .letter-sheet { min-height: 0; padding: 25px 22px 32px; }
+  .letter-rule { margin: 12px 0 24px; }
+  #title-art { min-height: 0; }
+  .title-kicker { font-size: 10px; }
+  .letter-title { font-size: clamp(54px, 16vw, 76px); }
+  .letter-subtitle { margin-top: 22px; font-size: 14px; }
+  .letter-signoff { padding-right: 20px; font-size: 12px; }
+  .letter-stamp { width: 36px; height: 36px; right: 13px; bottom: 12px; font-size: 20px; }
+  .top-menu { margin-top: 23px; font-size: 14px !important; }
+  .footer { bottom: 7px !important; }
+  #textbox { left: 10px !important; right: 10px !important; bottom: 10px !important; padding: 26px 18px 24px !important; min-height: 145px !important; }
+  #textbox::before { font-size: 8px; right: 10px; top: 8px; }
+  #namebox { font-size: 15px !important; }
+  #text { font-size: clamp(16px, 4.2vw, 19px) !important; }
+}
