@@ -601,7 +601,12 @@ export default function CoyCompanion() {
     const dx = event.clientX - drag.startX;
     const dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-    if (!drag.moved) { window.clearTimeout(poseTimer.current); setPose("held"); }
+    if (!drag.moved) {
+      window.clearTimeout(poseTimer.current);
+      // Once Coy is actually picked up, keep him in his falling pose while
+      // he's being carried; release starts the physical fall simulation.
+      setPose("fall");
+    }
     drag.moved = true;
     velRef.current.vx = (event.movementX || 0) * 24 + velRef.current.vx * 0.6;
     velRef.current.t = performance.now();
