@@ -121,7 +121,6 @@ export default function CoyCompanion() {
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState(() => readCompanionChatCookie());
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
   const inputRef = useRef(null);
   const lastActivity = useRef(0);
   const openAppsRef = useRef([]);
@@ -466,7 +465,6 @@ export default function CoyCompanion() {
     if (!message || busy) return;
     setDraft("");
     setBusy(true);
-    setError("");
     const nextHistory = [...history, { role: "user", content: message }];
     setHistory(nextHistory);
     // Execute clear desktop/app requests from the floating Coy chat too. The
@@ -491,7 +489,8 @@ export default function CoyCompanion() {
         setShowBubble(true);
       }
     } catch (err) {
-      setError(err.message || "Couldn't reach Coy");
+      setLine("Busy rn.. Hold on");
+      setShowBubble(true);
     } finally {
       setBusy(false);
     }
