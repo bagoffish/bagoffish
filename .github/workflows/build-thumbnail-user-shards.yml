@@ -47,83 +47,36 @@ jobs:
           diagnostics = {"url_strings": 0, "avatar_keyword_urls": 0, "records_with_explicit_user_ids": 0, "records_with_avatar_urls": 0, "top_level_key_samples": []}
           digest = hashlib.sha256()
 
-          def walk(obj, path=""):
-              if isinstance(obj, dict):
-                  for k, v in obj.items():
-                      p = f"{path}.{k}" if path else str(k)
-                      yield p, v
-                      yield from walk(v, p)
-              elif isinstance(obj, list):
-                  for i, v in enumerate(obj):
-                      yield from walk(v, f"{path}[{i}]")
-
-          def numeric_ids(record, entries):
-              ids = set()
-              for p, v in entries:
-                  key = p.rsplit(".", 1)[-1].split("[", 1)[0].lower().replace("-", "_")
-                  if isinstance(v, (str, int)) and not isinstance(v, bool) and USER_KEY.search(key):
-                      raw = str(v).strip()
-                      for part in re.split(r"[,; ]+", raw):
-                          if part.isdigit() and 0 < len(part) <= 20:
-                              ids.add(part)
-              return ids
-
-          def timestamps_for(entries, urls):
-              # Preserve every timestamp associated with the record. Returning the
-              # first match silently collapsed multi-capture image histories.
-              stamps = set()
-              for p, v in entries:
-                  key = p.rsplit(".", 1)[-1].split("[", 1)[0]
-                  if TIME_KEY.search(key) and isinstance(v, (str, int)):
-                      raw = str(v).strip()
-                      m = re.search(r"(?<!\d)(\d{8,14})(?!\d)", raw)
-                      if m:
-                          stamps.add(m.group(1))
-              for u in urls:
-                  m = WAYBACK_RE.match(u)
-                  if m:
-                      stamps.add(m.group(1))
-              return sorted(stamps)
-
-          def normalize_url(value):
-              value = value.strip()
-              if value.startswith("//"):
-                  value = "https:" + value
-              if not value.startswith(("http://", "https://")):
+          def normalize_stamp(value):
+              if value is None:
                   return ""
-              m = WAYBACK_RE.match(value)
-              if m:
-                  return m.group(2)
-              return value
+              raw = str(value).strip()
+              digits = re.sub(r"\\D", "", raw)
+              if len(digits) in (10, 13) and digits.startswith(("1", "2")):
+                  try:
+                      from datetime import datetime, timezone
+                      epoch = int(digits) / (1000 if len(digits) == 13 else 1)
+                      return datetime.fromtimestamp(epoch, timezone.utc).strftime("%Y%m%d%H%M%S")
+                  except (ValueError, OverflowError, OSError):
+                      return ""
+              if len(digits) < 8:
+                  return ""
+              return (digits + "00000000000000")[:14]
 
-          def ids_from_url(url):
-              ids = set()
+          def matches_user(url, user_id):
+              if not isinstance(url, str):
+                  return False
+              raw = unquote(url)
+              if re.search(r"/users?/" + re.escape(user_id) + r"(?:/|$)", raw, re.I):
+                  return True
               try:
-                  parsed = urlparse(url)
-                  m = USER_ID_RE.search(parsed.path)
-                  if m:
-                      ids.add(m.group(1))
-                  for key, vals in parse_qs(parsed.query).items():
-                      if key.lower() in ID_QUERY_KEYS:
-                          for val in vals:
-                              for part in re.split(r"[,; ]+", val):
-                                  if part.isdigit():
-                                      ids.add(part)
+                  query = parse_qs(urlparse(raw).query)
+                  return any(
+                      key.lower() in {"id", "userid", "user_id"} and user_id in values
+                      for key, values in query.items()
+                  )
               except Exception:
-                  pass
-              return ids
-
-          manifest_name = "thumbnail-index-manifest.json"
-          subprocess.run([
-              "gh", "release", "download", "thumbnail-index-full-v1",
-              "--repo", os.environ["GITHUB_REPOSITORY"],
-              "--pattern", manifest_name, "--dir", str(ROOT)
-          ], check=True)
-          source_manifest = json.loads((ROOT / manifest_name).read_text(encoding="utf-8"))
-          parts = [item["file"] for item in source_manifest.get("chunks", []) if item.get("file", "").startswith("thumbnail_index.jsonl.part")]
-          if not parts:
-              raise SystemExit("The extracted-index manifest contains no chunks.")
-          print(f"Manifest lists {len(parts)} source chunks; expected {source_manifest.get('total_bytes')} bytes.", flush=True)
+                  return False
 
           for part_name in parts:
               subprocess.run([
@@ -142,51 +95,53 @@ jobs:
                       except Exception:
                           malformed += 1
                           continue
-                      entries = list(walk(record))
-                      strings = [v for _, v in entries if isinstance(v, str)]
-                      diagnostics["url_strings"] += sum(1 for value in strings if value.startswith(("http://", "https://", "//")))
-                      if len(diagnostics["top_level_key_samples"]) < 5 and isinstance(record, dict):
-                          diagnostics["top_level_key_samples"].append({
-                              "keys": sorted(str(key) for key in record.keys())[:80],
-                              "string_url_fields": [p for p, value in entries if isinstance(value, str) and value.startswith(("http://", "https://", "//"))][:12]
-                          })
-                      urls = []
-                      for value in strings:
-                          candidate = normalize_url(value)
-                          if candidate and AVATAR_URL.search(candidate):
-                              urls.append(candidate)
-                      diagnostics["avatar_keyword_urls"] += len(urls)
-                      if not urls:
+                      if not isinstance(record, dict) or str(record.get("type", "")).lower() != "user":
                           continue
-                      # Keep only unmistakable user-avatar URLs; avoid non-avatar asset categories.
-                      urls = [u for u in urls if not NON_AVATAR.search(urlparse(u).path)]
-                      if not urls:
+                      raw_id = record.get("id")
+                      if raw_id is None or not str(raw_id).isdigit() or int(raw_id) <= 0:
                           continue
-                      diagnostics["records_with_avatar_urls"] += 1
-                      base_ids = numeric_ids(record, entries)
-                      if base_ids:
-                          diagnostics["records_with_explicit_user_ids"] += 1
-                      stamps = timestamps_for(entries, strings)
-                      if not stamps:
+                      user_id = str(int(raw_id))
+                      images = record.get("images")
+                      if not isinstance(images, list):
                           continue
+                      diagnostics["records_with_explicit_user_ids"] += 1
                       record_matched = False
-                      for u in urls:
-                          ids = set(base_ids)
-                          ids.update(ids_from_url(u))
-                          if not ids:
+                      for item in images:
+                          if not isinstance(item, dict):
                               continue
-                          record_matched = True
-                          for uid in ids:
-                              shard = int(uid) % COUNT
-                              for stamp in stamps:
-                                  handles[shard].write(f"{uid}\t{stamp}\t{u}\n")
-                                  counts[shard] += 1
-                                  if len(samples) < 10:
-                                      samples.append({"userIds": sorted(ids)[:10], "timestamp": stamp, "url": u})
+                          raw_url = str(item.get("url") or "").strip()
+                          url = normalize_url(raw_url)
+                          if not url or not AVATAR_URL.search(url):
+                              continue
+                          if NON_AVATAR.search(urlparse(url).path):
+                              continue
+                          diagnostics["avatar_keyword_urls"] += 1
+                          backlinks = item.get("backlinks") if isinstance(item.get("backlinks"), list) else []
+                          stamps = sorted({
+                              normalized
+                              for backlink in backlinks
+                              if isinstance(backlink, dict) and matches_user(backlink.get("url"), user_id)
+                              for normalized in [normalize_stamp(backlink.get("timestamp"))]
+                              if normalized
+                          })
+                          if not stamps:
+                              fallback = normalize_stamp(item.get("first_seen") or item.get("last_seen"))
+                              if fallback:
+                                  stamps = [fallback]
+                          if not stamps:
+                              continue
+                          shard = int(user_id) % COUNT
+                          for stamp in stamps:
+                              handles[shard].write(f"{user_id}\\t{stamp}\\t{url}\\n")
+                              counts[shard] += 1
+                              matched += 1
+                              record_matched = True
+                              if len(samples) < 10:
+                                  samples.append({"userId": user_id, "timestamp": stamp, "url": url})
                       if record_matched:
-                          matched += 1
+                          diagnostics["records_with_avatar_urls"] += 1
               part_path.unlink()
-              print(f"Processed {part_name}; total lines={total:,}, matched records={matched:,}", flush=True)
+              print(f"Processed {part_name}; total lines={total:,}, accepted avatar captures={matched:,}", flush=True)
 
           for handle in handles:
               handle.close()
