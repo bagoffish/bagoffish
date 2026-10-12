@@ -28,13 +28,27 @@ function Renderer({ onClose }) {
   const addressText = useMemo(() => "https://bagof.fish/renderer", []);
 
   useEffect(() => {
-    // inject legacy script once
-    if (document.getElementById("legacy-renderer-script")) return;
+    // The app window can be closed and reopened while the page remains mounted.
+    // Reuse the existing script, but rebind handlers to the newly created controls.
+    const existing = document.getElementById("legacy-renderer-script");
+    if (existing) {
+      if (window.initLegacyRenderer) {
+        window.initLegacyRenderer();
+      } else {
+        existing.addEventListener("load", function reinitializeRenderer() {
+          if (window.initLegacyRenderer) window.initLegacyRenderer();
+        }, { once: true });
+      }
+      return;
+    }
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261012-headshot-grid-v20"; // themed square archive cards, capture dates, contextual Coy reactions
+    s.src = "/js/renderer.js?v=20261012-headshot-grid-v21";
     s.async = true;
+    s.onload = function () {
+      if (window.initLegacyRenderer) window.initLegacyRenderer();
+    };
     document.body.appendChild(s);
   }, []);
 
