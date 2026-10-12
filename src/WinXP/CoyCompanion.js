@@ -415,6 +415,18 @@ export default function CoyCompanion() {
     };
   }, []);
 
+  // Occasionally dance on his own when the desktop is quiet.
+  // Cancel the timer whenever Coy becomes busy, so he won't interrupt chat or reactions.
+  useEffect(() => {
+    if (chatOpen || showBubble || busy || underAppWindows || pose !== "idle") return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const timer = window.setTimeout(() => {
+      const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
+      showPose(dance, 4000 + Math.random() * 2500);
+    }, 12000 + Math.random() * 18000);
+    return () => window.clearTimeout(timer);
+  }, [pose, chatOpen, showBubble, busy, underAppWindows]);
+
   useEffect(() => {
     if (chatOpen || showBubble || busy || underAppWindows) return;
     if (pose !== "idle" && pose !== "walk") return;
@@ -539,7 +551,7 @@ export default function CoyCompanion() {
       suppressClickAfterDrag.current = false;
       return;
     }
-    // Single-click dances; double-click opens the chat. Delay the dance just
+    // Single-click pats; double-click opens the chat. Delay the pat just
     // long enough to distinguish a double-click, and cancel it if the second click arrives.
     if (clickTimer.current) {
       window.clearTimeout(clickTimer.current);
@@ -548,9 +560,8 @@ export default function CoyCompanion() {
     } else {
       clickTimer.current = window.setTimeout(() => {
         clickTimer.current = null;
-        // A single click makes Coy dance and react as if he's being patted.
-        // Keep the speech bubble and emote paired so the reaction feels intentional.
-        playEmote(["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)]);
+        // A single click pats Coy; the pat pose restores his little squish.
+        showPose("pat", 650);
         setLine(formatCoyText(randomLine(PAT_LINES)));
         setShowBubble(true);
         lastActivity.current = Date.now();
