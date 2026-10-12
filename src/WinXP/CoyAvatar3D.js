@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-import { REST, resetAvatarPose, applyImportedAnimation } from "./r6Retarget";
+import { REST, resetAvatarPose } from "./r6Retarget";
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
@@ -13,22 +13,115 @@ const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
 
-const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, tilt: 0, sq: 0 }, o);
+const P = o => Object.assign({
+  // Angles are labelled by the character's anatomy, not the side of the screen.
+  rArmZ: 0, lArmZ: 0, rArmX: 0, lArmX: 0,
+  rLegX: 0, lLegX: 0, bob: 0, spin: 0, tilt: 0, sq: 0,
+  headX: 0, headY: 0
+}, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-function target(pose, t, dir, tiltIn) {
-  let s;
-  switch (pose) {
-    case "wave":   return P({ rZ: 2.6 + Math.sin(t * 12) * .35 });
-    case "dance":  s = Math.sin(t * 8);  return P({ rZ: 2.2 + s * .5, lZ: -(2.2 - s * .5), rL: s * .6, lL: -s * .6, bob: Math.abs(s) * .35, spin: Math.sin(t * 4) * .6 });
-    case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
-    case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
-    case "walk":   s = Math.sin(t * 10); return P({ rX: s * .8, lX: -s * .8, rL: -s * .7, lL: s * .7, bob: Math.abs(s) * .08, spin: dir * 1.1 });
-    case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
-    case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
-    case "land":   return P({ sq: .25 });
-    case "pat":    return P({ sq: Math.sin(t * 14) * .06, rZ: .3, lZ: -.3 });
-    default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
+// Procedural classic-R6 motion. Roblox's R6 has one shoulder and one hip joint
+// per side (no elbows/knees), so every pose is made from restrained joint angles
+// and a root bob/turn. This intentionally avoids applying exported Pose.CFrames
+// directly as world transforms, which was causing limbs to slide and cross over.
+function target(name, t, dir, tiltIn) {
+  const cycle = (speed, phase = 0) => Math.sin(t * speed + phase);
+  switch (name) {
+    case "wave":
+      // Raise the character's anatomical RIGHT arm (screen-left while facing us)
+      // and wave it from the shoulder without swapping to the other arm.
+      return P({
+        rArmZ: -2.32 - (0.5 + 0.5 * cycle(10.5)) * 0.26,
+        rArmX: 0.12 + cycle(8.8) * 0.25,
+        lArmZ: 0.08,
+        bob: cycle(5.8) * 0.012,
+        headY: -0.04 + cycle(2.2) * 0.035
+      });
+    case "walk": {
+      const s = cycle(9.5);
+      return P({
+        rArmZ: -0.08, lArmZ: 0.08,
+        rArmX: -s * 0.38, lArmX: s * 0.38,
+        rLegX: s * 0.68, lLegX: -s * 0.68,
+        bob: 0.025 + Math.abs(s) * 0.025,
+        headX: Math.abs(s) * 0.015
+      });
+    }
+    case "dance":
+    case "dance1": {
+      const s = cycle(7.2);
+      const opposite = cycle(7.2, Math.PI);
+      return P({
+        rArmZ: -1.42 - s * 0.3, lArmZ: 1.42 + s * 0.3,
+        rArmX: 0.18 + s * 0.3, lArmX: -0.18 - s * 0.3,
+        rLegX: opposite * 0.52, lLegX: s * 0.52,
+        bob: 0.065 + Math.abs(s) * 0.055,
+        spin: cycle(3.6) * 0.22,
+        headY: cycle(3.6, 0.7) * 0.12
+      });
+    }
+    case "dance2": {
+      const s = cycle(9.2);
+      return P({
+        rArmZ: -2.08 - s * 0.24, lArmZ: 2.08 + s * 0.24,
+        rArmX: s * 0.32, lArmX: -s * 0.32,
+        rLegX: cycle(9.2, Math.PI) * 0.65,
+        lLegX: s * 0.65,
+        bob: 0.055 + Math.abs(s) * 0.06,
+        spin: cycle(4.6) * 0.16,
+        headY: cycle(4.6, 0.8) * 0.1
+      });
+    }
+    case "dance3": {
+      const s = cycle(6.4);
+      return P({
+        rArmZ: -1.25 - s * 0.6, lArmZ: 1.25 + s * 0.6,
+        rArmX: cycle(6.4, 1.1) * 0.26,
+        lArmX: cycle(6.4, Math.PI + 1.1) * 0.26,
+        rLegX: cycle(6.4, Math.PI) * 0.58,
+        lLegX: s * 0.58,
+        bob: 0.045 + Math.abs(s) * 0.035,
+        spin: cycle(3.2) * 0.48,
+        headY: -cycle(3.2) * 0.1
+      });
+    }
+    case "held": {
+      const s = cycle(13.5);
+      return P({
+        rArmZ: -2.18 - s * 0.2, lArmZ: 2.18 + s * 0.2,
+        rArmX: s * 0.25, lArmX: -s * 0.25,
+        rLegX: cycle(8.5) * 0.35, lLegX: -cycle(8.5) * 0.35,
+        tilt: tiltIn, bob: cycle(6) * 0.018
+      });
+    }
+    case "fall":
+      return P({
+        rArmZ: -2.42, lArmZ: 2.42,
+        rArmX: -0.22, lArmX: 0.22,
+        rLegX: 0.46, lLegX: -0.34,
+        tilt: tiltIn
+      });
+    case "land":
+      return P({ rArmZ: -0.24, lArmZ: 0.24, sq: 0.13 * Math.exp(-t * 9) });
+    case "pat": {
+      const s = cycle(15);
+      return P({
+        rArmZ: -0.16, lArmZ: 0.16,
+        sq: Math.abs(s) * 0.055,
+        headX: -0.06 + Math.abs(s) * 0.04
+      });
+    }
+    case "idle":
+    case "idle1":
+    case "idle2":
+    default:
+      return P({
+        rArmZ: -0.045, lArmZ: 0.045,
+        bob: cycle(2.1) * 0.022,
+        headX: cycle(1.4) * 0.025,
+        headY: cycle(1.1) * 0.045
+      });
   }
 }
 
@@ -124,27 +217,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
-    let animations = {};
-    let activeAnimation = "";
-    let animationStart = 0;
+    let previousPose = "";
+    let poseStart = 0;
     const pose = P({});
-    const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
+    const look = { x: 0, y: 0 };
     const clock = new THREE.Clock();
-    fetch(BASE + "animations.json?v=1", { cache: "no-store" })
-      .then(response => {
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        return response.json();
-      })
-      .then(data => {
-        animations = data?.animations || {};
-        const names = Object.keys(animations);
-        console.info("Coy: imported Roblox animations loaded", names);
-        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
-      })
-      .catch(error => {
-        animations = {};
-        console.error("Coy: imported Roblox animations failed to load; using procedural fallback", error);
-      });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -173,55 +250,56 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       raf = requestAnimationFrame(frame);
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
-      const t = clock.elapsedTime, L = live.current;
-      // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
-      const clip = animations[clipName];
-      // Don't start the animation clock until its imported clip is actually available.
-      // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
-      if (clip && clipName !== activeAnimation) {
-        activeAnimation = clipName;
-        animationStart = t;
-        console.debug("Coy: playing imported animation", clipName);
-      }
-      const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
-      if (!usingImported) {
-        resetAvatarPose(av);                                  // never mix leftovers from the last clip
-        const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-        for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
-        // Scene +X is Coy's anatomical left when he faces the camera (+Z).
-        // Swap names so the procedural fallback matches the Roblox joint tracks.
-        av.lArm.rotation.z = pose.rZ; av.rArm.rotation.z = pose.lZ;
-        av.lArm.rotation.x = pose.rX; av.rArm.rotation.x = pose.lX;
-        av.lLeg.rotation.x = pose.rL; av.rLeg.rotation.x = pose.lL;
-        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
-        av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
-      }
-      // Face the way it is walking: front-facing at rest, a quarter turn while walking.
-      if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
-      // Held or falling: lean with the sideways speed.
-      if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
+      const t = clock.elapsedTime;
+      const L = live.current;
 
-      // Head follows the cursor when calm, layered on top of whatever clip is playing.
+      // Restart each animation's phase when the companion switches poses.
+      if (L.pose !== previousPose) {
+        previousPose = L.pose;
+        poseStart = t;
+        Object.assign(pose, P({}));
+      }
+      const localTime = t - poseStart;
+      const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
+      const nextPose = target(L.pose, localTime, L.dir, tiltIn);
+      const blend = 1 - Math.exp(-delta * 12);
+
+      // Rebuild a clean base pose every frame; only our explicitly authored
+      // joint targets are then applied. No imported CFrames are layered over it.
+      resetAvatarPose(av);
+      for (const key in pose) pose[key] += (nextPose[key] - pose[key]) * blend;
+
+      // Coy faces +Z. His anatomical RIGHT is therefore on screen-left (lArm/lLeg).
+      av.lArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
+      av.rArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
+      av.lLeg.rotation.x = pose.rLegX;
+      av.rLeg.rotation.x = pose.lLegX;
+
+      av.body.position.y = pose.bob;
+      av.body.rotation.y = L.pose === "walk" ? L.dir * Math.PI / 2 : pose.spin;
+      av.body.rotation.z = pose.tilt;
+      av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
+
+      // Look toward the cursor when calm, using absolute head angles so rotation
+      // never accumulates frame after frame or inherits a previous dance pose.
       let wy = 0, wx = 0;
       if (["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos() || {};
-        const px = Number.isFinite(p.x) ? p.x : p.left;          // accept {x, y} or {left, top}
+        const px = Number.isFinite(p.x) ? p.x : p.left;
         const py = Number.isFinite(p.y) ? p.y : p.top;
         if (Number.isFinite(px) && Number.isFinite(py)) {
-          wy = clamp((L.look.x - (px + W / 2)) / window.innerWidth * 2, -.9, .9);
-          wx = clamp((L.look.y - (py + H / 2)) / window.innerHeight, -.5, .5);
+          wy = clamp((L.look.x - (px + W / 2)) / window.innerWidth * 2, -0.9, 0.9);
+          wx = clamp((L.look.y - (py + H / 2)) / window.innerHeight, -0.5, 0.5);
         }
       }
-      if (!Number.isFinite(wy)) wy = 0;                          // NaN would make the head vanish for good
-      if (!Number.isFinite(wx)) wx = 0;
       const lookBlend = 1 - Math.exp(-8 * delta);
-      look.y += ((wy - (usingImported ? 0 : pose.spin * .5)) - look.y) * lookBlend;
+      look.y += (wy - look.y) * lookBlend;
       look.x += (wx - look.x) * lookBlend;
-      if (av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
-        lookEuler.set(look.x, look.y, 0);
-        av.head.quaternion.multiply(lookQuat.setFromEuler(lookEuler));
-      }
+      av.head.rotation.set(
+        clamp(pose.headX + look.x * 0.32, -0.45, 0.45),
+        clamp(pose.headY + look.y * 0.58, -0.65, 0.65),
+        0
+      );
       renderer.render(scene, camera);
     };
     frame();
