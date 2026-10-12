@@ -32,9 +32,9 @@ function sourcePartName(object) {
       current.userData?.groupName,
     ].filter(value => typeof value === "string");
     for (const candidate of candidates) {
-      const rig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|\\s)/);
+      const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
       if (rig && RIG_TO_PART[rig[1]]) return rig[1];
-      const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:$|\\s)/);
+      const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:$|\s)/);
       if (handle) return handle[1];
     }
   }
