@@ -640,7 +640,7 @@ export default function CoyCompanion() {
     },
     bubbleWrap: {
       position: "absolute",
-      top: "2%",
+      top: "12%",
       marginBottom: 0,
       left: bubblePlacement.left,
       transform: bubblePlacement.transform,
@@ -674,11 +674,11 @@ export default function CoyCompanion() {
     },
     // Outer green triangle = border; inner black triangle = fill. Points at Coy.
     tail: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderRight: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 }
-      : { position: "absolute", right: -12, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderLeft: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 },
+      ? { position: "absolute", left: -12, top: 22, transform: "none", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderRight: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 }
+      : { position: "absolute", right: -12, top: 22, transform: "none", width: 0, height: 0, borderTop: "10px solid transparent", borderBottom: "10px solid transparent", borderLeft: "12px solid #00ff41", pointerEvents: "none", zIndex: 1 },
     tailInner: bubblePlacement.side === "right"
-      ? { position: "absolute", left: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 }
-      : { position: "absolute", right: -8, top: "50%", transform: "translateY(-50%)", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 },
+      ? { position: "absolute", left: -8, top: 24, transform: "none", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderRight: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 }
+      : { position: "absolute", right: -8, top: 24, transform: "none", width: 0, height: 0, borderTop: "7px solid transparent", borderBottom: "7px solid transparent", borderLeft: "9px solid #0a0a0a", pointerEvents: "none", zIndex: 2 },
     chatBox: {
       position: "absolute",
       bottom: "100%",
