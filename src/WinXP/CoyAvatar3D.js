@@ -31,6 +31,46 @@ function target(pose, t, dir, tiltIn) {
   }
 }
 
+function poseQuaternion(cframe) {
+  if (!Array.isArray(cframe) || cframe.length < 12) return null;
+  const matrix = new THREE.Matrix4().set(
+    cframe[3], cframe[4], cframe[5], 0,
+    cframe[6], cframe[7], cframe[8], 0,
+    cframe[9], cframe[10], cframe[11], 0,
+    0, 0, 0, 1
+  );
+  return new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
+}
+
+function applyImportedAnimation(av, clip, elapsed) {
+  if (!clip?.frames?.length) return false;
+  const frames = clip.frames;
+  const duration = Math.max(0, Number(clip.duration) || frames[frames.length - 1]?.time || 0);
+  const time = duration > 0 && clip.loop !== false ? elapsed % duration : Math.min(elapsed, duration);
+  let a = frames[0], b = frames[frames.length - 1];
+  for (let i = 0; i < frames.length - 1; i++) {
+    if (time >= frames[i].time && time <= frames[i + 1].time) { a = frames[i]; b = frames[i + 1]; break; }
+  }
+  const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
+  const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
+  const q = name => {
+    const qa = poseQuaternion(a.poses?.[name]);
+    const qb = poseQuaternion(b.poses?.[name]);
+    if (!qa && !qb) return null;
+    return (qa || qb).clone().slerp(qb || qa, alpha);
+  };
+  const torso = q("Torso"), head = q("Head");
+  const rightArm = q("Right Arm"), leftArm = q("Left Arm");
+  const rightLeg = q("Right Leg"), leftLeg = q("Left Leg");
+  if (torso) av.body.quaternion.copy(torso);
+  if (head) av.head.quaternion.copy(head);
+  if (rightArm) av.rArm.quaternion.copy(rightArm);
+  if (leftArm) av.lArm.quaternion.copy(leftArm);
+  if (rightLeg) av.rLeg.quaternion.copy(rightLeg);
+  if (leftLeg) av.lLeg.quaternion.copy(leftLeg);
+  return true;
+}
+
 function buildAvatar(colors) {
   const mat = c => new THREE.MeshLambertMaterial({ color: c });
   const limb = (c, px, py) => {
@@ -119,8 +159,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
+    let animations = {};
+    let activeAnimation = "";
+    let animationStart = 0;
     const pose = P({});
     const clock = new THREE.Clock();
+    fetch(BASE + "animations.json")
+      .then(response => response.ok ? response.json() : null)
+      .then(data => { animations = data?.animations || {}; })
+      .catch(() => { /* keep the hand-authored fallback if no exported clips exist */ });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -150,22 +197,33 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       clock.getDelta();
       const t = clock.elapsedTime, L = live.current;
-      const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-      for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
-      av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
-      av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
-      av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
-      av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
-      av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
+      const clipName = ({ idle: "idle1", idle1: "idle1", idle2: "idle2", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
+      const clip = animations[clipName];
+      if (clipName !== activeAnimation) { activeAnimation = clipName; animationStart = t; }
+      const usingImported = applyImportedAnimation(av, clip, t - animationStart);
+      if (!usingImported) {
+        const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
+        for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
+        av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
+        av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
+        av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
+        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
+        av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
+      } else {
+        av.body.position.y = 0;
+        av.body.scale.set(1, 1, 1);
+      }
 
       let wy = 0, wx = 0;                                   // head follows the cursor when calm
-      if (["idle", "wave", "pat"].includes(L.pose) && L.look && L.getPos) {
+      if (!usingImported && ["idle", "wave", "pat"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos();
         wy = clamp((L.look.x - (p.x + W / 2)) / window.innerWidth * 2, -.9, .9);
         wx = clamp((L.look.y - (p.y + H / 2)) / window.innerHeight, -.5, .5);
       }
-      av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
-      av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      if (!usingImported) {
+        av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
+        av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      }
       renderer.render(scene, camera);
     };
     frame();
