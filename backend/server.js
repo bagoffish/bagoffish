@@ -1,6 +1,5 @@
 import express from "express";
 import fetch from "node-fetch";
-import cors from "cors";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -49,19 +48,8 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(cors({
-  origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-    // Reflect bagof.fish / github.io even if the exact string differs slightly.
-    if (/^https:\/\/(www\.)?bagof\.fish$/i.test(origin) || /github\.io$/i.test(origin)) {
-      return callback(null, origin);
-    }
-    return callback(null, false);
-  },
-  methods: ["GET", "POST", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Accept", "Content-Type", "X-Requested-With"],
-  optionsSuccessStatus: 204,
-}));
+// CORS headers and OPTIONS preflight are handled by the middleware above.
+
 
 app.use((err, req, res, next) => {
   setCors(req, res);
