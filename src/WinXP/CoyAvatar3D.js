@@ -220,8 +220,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         wy = clamp((L.look.x - (p.x + W / 2)) / window.innerWidth * 2, -.9, .9);
         wx = clamp((L.look.y - (p.y + H / 2)) / window.innerHeight, -.5, .5);
       }
-      av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
-      av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      if (!usingImported) {
+        av.head.rotation.y += (wy - pose.spin * .5 - av.head.rotation.y) * .12;
+        av.head.rotation.x += (wx - av.head.rotation.x) * .12;
+      }
       renderer.render(scene, camera);
     };
     frame();
