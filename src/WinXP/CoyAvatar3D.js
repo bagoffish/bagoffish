@@ -258,6 +258,10 @@ export default function CoyAvatar3D({ size = 112, pose = "idle", dir = 1, vx = 0
         av.body.scale.set(1, 1, 1);
       }
 
+      // Face the actual direction of travel: front-facing at rest, a full 90° turn while walking.
+      // Apply this after either imported or procedural animation so clips cannot override it.
+      av.body.rotation.y = L.pose === "walk" ? L.dir * Math.PI / 2 : (usingImported ? 0 : av.body.rotation.y);
+
       let wy = 0, wx = 0;                                   // head follows the cursor when calm
       if (!usingImported && ["idle", "wave", "pat"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos();
