@@ -2,7 +2,6 @@ import React, { lazy, Suspense } from "react";
 import AboutMe from "./AboutMe";
 const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
-import Minesweeper from "./Minesweeper";
 const Paint = lazyApp(() => import("./Paint"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
@@ -10,7 +9,6 @@ const Bloxify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
-import mine from "assets/minesweeper/mine-icon.png";
 import winamp from "assets/windowsIcons/winamp.png";
 import musicIcon from "assets/windowsIcons/550(32x32).png";
 import error from "assets/windowsIcons/897(16x16).png";
@@ -68,17 +66,6 @@ export const defaultAppState = [
     id: genId(),
     zIndex: genIndex(),
   },
-  {
-    component: Minesweeper,
-    header: { title: "Minesweeper", icon: mine },
-    defaultSize: { width: 0, height: 0 },
-    defaultOffset: { x: 180, y: 170 },
-    resizable: false,
-    minimized: false,
-    maximized: false,
-    id: genId(),
-    zIndex: genIndex(),
-  },
 ];
 
 /* desktop icons */
@@ -88,7 +75,6 @@ export const defaultIconState = [
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
-  { id: 4, icon: mine, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
   { id: 6, icon: winamp, title: "Winamp", component: Winamp, isFocus: false },
 ];
@@ -161,17 +147,6 @@ export const appSettings = {
     multiInstance: false,
   },
 
-  Minesweeper: {
-    header: { icon: mine, title: "Minesweeper" },
-    component: Minesweeper,
-    defaultSize: { width: 0, height: 0 },
-    defaultOffset: { x: 190, y: 180 },
-    resizable: false,
-    minimized: false,
-    maximized: false,
-    multiInstance: false,
-  },
-
   Error: {
     header: { icon: error, title: "C:\\", buttons: ["close"], noFooterWindow: true },
     component: ErrorBox,
@@ -210,7 +185,6 @@ export {
   AboutMe,
   Poems,
   Renderer,
-  Minesweeper,
   ErrorBox,
   Paint,
   Winamp,
