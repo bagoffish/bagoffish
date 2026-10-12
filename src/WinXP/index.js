@@ -279,11 +279,30 @@ function WinXP() {
         }
         return;
       }
-      const notifyInteraction = (message, eventName = action) => window.dispatchEvent(new CustomEvent('coy:activity', {
-        detail: { type: 'app-event', name: detail.name || 'Desktop', event: eventName, message },
-      }));
-      const labelOf = node => String(node.getAttribute('aria-label') || node.getAttribute('title') || node.value || node.innerText || node.textContent || '').trim();
-      const norm = value => String(value || '').trim().toLowerCase().replace(/\\s+/g, ' ');
+      const notifyInteraction = (message, eventName = action, success = true) => {
+        window.dispatchEvent(new CustomEvent('coy:activity', {
+          detail: { type: 'app-event', name: detail.name || 'Desktop', event: eventName, message },
+        }));
+        window.dispatchEvent(new CustomEvent('coy:app-action-result', {
+          detail: { ...detail, success, message },
+        }));
+      };
+      const labelOf = node => String(
+        node.getAttribute('aria-label') ||
+        node.getAttribute('data-testid') ||
+        node.getAttribute('title') ||
+        node.value ||
+        node.innerText ||
+        node.textContent ||
+        ''
+      ).replace(/\\s+/g, ' ').trim();
+      const norm = value => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\\s+/g, ' ');
+      const fail = message => notifyInteraction(message, action, false);
+      const isUsable = node => {
+        if (!node || node.disabled || node.getAttribute('aria-disabled') === 'true') return false;
+        const style = window.getComputedStyle(node);
+        return style.display !== 'none' && style.visibility !== 'hidden' && node.getClientRects().length > 0;
+      };
       const setInputValue = (node, value) => {
         if (node.isContentEditable) {
           node.textContent = String(value ?? '');
@@ -297,16 +316,26 @@ function WinXP() {
       };
       if (action === 'click') {
         const wanted = norm(detail.target);
-        if (!wanted) return;
-        const controls = Array.from(root.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"], a, summary, [onclick], [data-clickable]'));
+        if (!wanted) return fail('Tell me which button to click in ' + (detail.name || 'that app') + '.');
+        const controls = Array.from(root.querySelectorAll('button, [role="button"], input[type="button"], input[type="submit"], input[type="reset"], a, summary, [onclick], [data-clickable]')).filter(isUsable);
         const exact = controls.filter(node => norm(labelOf(node)) === wanted);
-        const matches = exact.length ? exact : controls.filter(node => norm(labelOf(node)).includes(wanted));
-        if (matches.length !== 1) return;
-        const control = matches[0];
-        if (/\\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off)\\b/i.test(labelOf(control)) &&
-            !window.confirm('Coy is about to click "' + labelOf(control) + '". Continue?')) return;
+        const pool = exact.length ? exact : controls.filter(node => {
+          const label = norm(labelOf(node));
+          return label && (label.includes(wanted) || wanted.includes(label));
+        });
+        const ranked = pool
+          .map(node => ({ node, label: norm(labelOf(node)), score: norm(labelOf(node)) === wanted ? 3 : norm(labelOf(node)).startsWith(wanted) ? 2 : 1 }))
+          .sort((a, b) => b.score - a.score);
+        if (!ranked.length) return fail('I couldn’t find a "' + detail.target + '" control in ' + (detail.name || 'that app') + '.');
+        if (ranked.length > 1 && ranked[0].score === ranked[1].score) {
+          const choices = ranked.slice(0, 3).map(item => labelOf(item.node)).filter(Boolean);
+          return fail('I found more than one matching control in ' + (detail.name || 'that app') + (choices.length ? ': ' + choices.join(', ') : '') + '. Be a little more specific.');
+        }
+        const control = ranked[0].node;
+        if (/\\b(delete|clear|reset|remove|erase|overwrite|quit|sign out|turn off|new game)\\b/i.test(labelOf(control)) &&
+            !window.confirm('Coy is about to click "' + labelOf(control) + '". Continue?')) return fail('Okay, I didn’t click it.');
         control.click();
-        notifyInteraction('Clicked ' + labelOf(control) + ' in ' + (detail.name || 'that app') + '.');
+        notifyInteraction('Clicked ' + (labelOf(control) || detail.target) + ' in ' + (detail.name || 'that app') + '.');
         return;
       }
       if (action === 'fill' || action === 'search') {
@@ -324,8 +353,8 @@ function WinXP() {
         };
         const ranked = fields.map(node => ({ node, score: score(node) })).filter(item => item.score > 0).sort((a,b) => b.score - a.score);
         const field = ranked[0]?.node || (action === 'search' ? fields.find(node => /^(text|search|)$/i.test(node.type || '')) : null);
-        if (!field) return;
-        const value = action === 'search' ? detail.value : detail.value;
+        if (!field) return fail('I couldn’t find a suitable ' + (action === 'search' ? 'search box' : 'text field') + ' in ' + (detail.name || 'that app') + '.');
+        const value = detail.value;
         setInputValue(field, value);
         field.focus?.();
         if (action === 'search') {
@@ -339,16 +368,18 @@ function WinXP() {
           else {
             field.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', bubbles: true }));
             field.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+            field.dispatchEvent(new KeyboardEvent('keypress', { key: 'Enter', code: 'Enter', bubbles: true }));
           }
         }
         return;
       }
       if (action === 'press') {
         const key = String(detail.key || 'Enter');
-        const field = root.querySelector(':focus') || root.querySelector('input, textarea, [contenteditable="true"]') || root;
+        const field = root.querySelector(':focus') || root.querySelector('input:not([type="hidden"]), textarea, select, [contenteditable="true"]') || root;
         field.focus?.();
-        field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-        field.dispatchEvent(new KeyboardEvent('keyup', { key, bubbles: true }));
+        field.dispatchEvent(new KeyboardEvent('keydown', { key, code: key === 'Enter' ? 'Enter' : undefined, bubbles: true }));
+        field.dispatchEvent(new KeyboardEvent('keypress', { key, code: key === 'Enter' ? 'Enter' : undefined, bubbles: true }));
+        field.dispatchEvent(new KeyboardEvent('keyup', { key, code: key === 'Enter' ? 'Enter' : undefined, bubbles: true }));
         notifyInteraction('Pressed ' + key + ' in ' + (detail.name || 'that app') + '.');
       }
     };
