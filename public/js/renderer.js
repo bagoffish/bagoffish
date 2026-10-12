@@ -247,9 +247,10 @@
           if (oldContainer) oldContainer.textContent = "Loading archived renders…";
           fetchSavedArchivedAvatars(roblox.id).then(function (saved) {
             if (sequence !== lookupSequence) return [];
-            // Always supplement the prebuilt index with Wayback discovery.
-            // A partial index (even one with a single render) must not suppress
-            // other archived profile captures that can still be discovered.
+            // The prebuilt index is the fast path. Render it immediately instead
+            // of blocking every image on a separate Wayback discovery request.
+            // Only use discovery when the index has no saved entries at all.
+            if (Array.isArray(saved) && saved.length) return saved;
             return fetch(API_BASE + "/proxy-roblox-archived?userId=" + encodeURIComponent(text(roblox.id)), {
               headers: { Accept: "application/json" },
               cache: "no-store"
