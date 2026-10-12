@@ -681,7 +681,8 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      top: -78,
+      // Align the bubble just above the head; the tail reaches down to the face.
+      top: -50,
       left: "calc(50% - 50px)",
       width: 100,
       height: 70,
@@ -710,7 +711,7 @@ export default function CoyCompanion() {
     // down and inward at Coy's head, not away from him.
     dialogTail: {
       position: "absolute",
-      left: "39%",
+      left: "18%",
       bottom: -17,
       width: 38,
       height: 29,
