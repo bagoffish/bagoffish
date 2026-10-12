@@ -1,6 +1,5 @@
-# Canonical architecture: private winXP is the source; this public repository contains only
-# the compiled GitHub Pages output plus public site data/history. Keep the private source and
-# coy-private-memory out of this repository. Render continues to host the backend separately.
+# Canonical architecture: this public repository contains the site source and compiled
+# GitHub Pages output. Render continues to host the backend separately.
 # 2026-10-12: retrigger publishing so GitHub Pages catches up to the latest private source commit.
 # 2026-10-12: publish the secure archived-avatar proxy fix from winXP source e1b05fc5f3622cd6a7e19bf2e219bd726df1bd68.
 # 2026-10-10: rebuild after fixing Coy speech bubble width and two-line height (source 1ec48273e7dfed5282d3bbf4aed283b7be22c544).
@@ -86,33 +85,16 @@ jobs:
           ref: main
           submodules: false
 
-      - name: Check for the private source token
-        id: token-check
-        shell: bash
-        env:
-          SOURCE_TOKEN: ${{ secrets.WINXP_SOURCE_TOKEN }}
-        run: |
-          if [ -n "$SOURCE_TOKEN" ]; then
-            echo "available=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "available=false" >> "$GITHUB_OUTPUT"
-            echo "::error::Missing WINXP_SOURCE_TOKEN. Add a repository Actions secret with read access to bagoffish/winXP."
-            exit 1
-          fi
-
-      - name: Check out private source repository
-        if: steps.token-check.outputs.available == 'true'
+      - name: Check out source repository
         uses: actions/checkout@v4
         with:
-          repository: bagoffish/winXP
+          repository: bagoffish/bagoffish
           ref: main
           path: source
-          token: ${{ secrets.WINXP_SOURCE_TOKEN }}
           submodules: false
 
       - name: Skip when source has not changed
         id: source-check
-        if: steps.token-check.outputs.available == 'true'
         shell: bash
         run: |
           SOURCE_SHA="$(git -C source rev-parse HEAD)"
