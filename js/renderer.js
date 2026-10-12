@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://bloxify-backend-sg.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v19";
+  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v20";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -184,7 +184,7 @@
           function fetchSavedArchivedAvatars(userId) {
             var id = text(userId).trim();
             if (!/^\d+$/.test(id)) return Promise.resolve([]);
-            var storageKey = "avatar-history-index-v15:" + id;
+            var storageKey = "avatar-history-index-v16:" + id;
             var cachedItems = [];
             try {
               var cached = window.localStorage.getItem(storageKey);
@@ -307,7 +307,7 @@
             var failedCount = 0;
             function updateArchiveStatus() {
               status.textContent = merged.length + " indexed · " + loadedCount + " loaded · " +
-                failedCount + " unavailable (entries retained)";
+                failedCount + " unavailable";
             }
             updateArchiveStatus();
             merged.forEach(function (item, index) {
@@ -375,18 +375,13 @@
                   img.src = imageCandidates[imageCandidateIndex];
                   return;
                 }
-                // Keep the indexed entry visible and count it as unavailable;
-                // it may become recoverable if Wayback is temporarily failing.
+                // Remove failed images from the render grid and report them only in the status.
                 if (!imageResolved) {
                   imageResolved = true;
                   failedCount += 1;
                   updateArchiveStatus();
                 }
-                img.alt = "Archived render unavailable — index entry retained";
-                img.title = "This archived URL and timestamp are retained, but the image could not be loaded.";
-                img.style.minHeight = "70px";
-                img.style.background = "#f4d7d7";
-                img.style.objectFit = "contain";
+                card.remove();
               });
 
               // Assign only after the fallback error handler is attached.
