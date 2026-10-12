@@ -29,24 +29,32 @@ if (!files.length) {
 
 function valueOf(instance, key) {
   try {
-    if (typeof instance.get_property === "function") return instance.get_property(key);
-    if (typeof instance.GetProperty === "function") return instance.GetProperty(key);
-    return instance.properties?.[key] ?? instance[key];
+    if (typeof instance?.getProperty === "function") return instance.getProperty(key);
+    if (typeof instance?.get_property === "function") return instance.get_property(key);
+    if (typeof instance?.GetProperty === "function") return instance.GetProperty(key);
+    return instance?.Properties?.[key]?.value ?? instance?.properties?.[key] ?? instance?.[key];
   } catch { return undefined; }
 }
 function childrenOf(instance) {
-  if (Array.isArray(instance?.children)) return instance.children;
   if (Array.isArray(instance?.Children)) return instance.Children;
-  try { if (typeof instance?.GetChildren === "function") return instance.GetChildren(); } catch {}
+  if (Array.isArray(instance?.children)) return instance.children;
+  if (Array.isArray(instance?.tree)) return instance.tree;
+  try {
+    if (typeof instance?.getChildren === "function") return instance.getChildren();
+    if (typeof instance?.GetChildren === "function") return instance.GetChildren();
+  } catch {}
   return [];
 }
 function short(value, depth = 0) {
   if (value == null || ["string", "number", "boolean"].includes(typeof value)) return value;
-  if (depth > 2) return Object.prototype.toString.call(value);
-  if (Array.isArray(value)) return value.slice(0, 12).map(v => short(v, depth + 1));
+  if (depth > 3) return Object.prototype.toString.call(value);
+  if (Array.isArray(value)) return value.slice(0, 16).map(v => short(v, depth + 1));
   if (typeof value === "object") {
+    if (value.position && value.orientation) {
+      return { position: short(value.position, depth + 1), orientation: short(value.orientation, depth + 1) };
+    }
     const out = {};
-    for (const key of Object.keys(value).slice(0, 20)) {
+    for (const key of Object.keys(value).slice(0, 24)) {
       if (typeof value[key] !== "function") out[key] = short(value[key], depth + 1);
     }
     return Object.keys(out).length ? out : Object.prototype.toString.call(value);
@@ -54,9 +62,9 @@ function short(value, depth = 0) {
   return String(value);
 }
 function walk(instance, rows, depth = 0) {
-  const cls = instance?.class_name || instance?.ClassName || instance?.className || "(unknown class)";
-  const name = valueOf(instance, "Name") ?? instance?.name ?? instance?.Name ?? "(unnamed)";
-  const row = { depth, className: cls, name: String(name) };
+  const cls = instance?.ClassName || instance?.class_name || instance?.className || "(unknown class)";
+  const name = valueOf(instance, "Name") ?? instance?.Name ?? instance?.name ?? "(unnamed)";
+  const row = { depth, className: String(cls), name: String(name) };
   if (cls === "KeyframeSequence") {
     row.priority = short(valueOf(instance, "Priority"));
     row.loop = short(valueOf(instance, "Loop"));
@@ -75,7 +83,9 @@ for (const filename of files) {
   try {
     const parsed = reader.parseBuffer(fs.readFileSync(path.join(folder, filename)));
     if (!parsed) throw new Error("Parser returned no model; the file may be unsupported.");
+    // rbx-reader returns { result: InstanceRoot, instances, groups, ... }.
     const roots = Array.isArray(parsed) ? parsed
+      : Array.isArray(parsed.result) ? parsed.result
       : Array.isArray(parsed.tree) ? parsed.tree
       : Array.isArray(parsed.children) ? parsed.children
       : [parsed];
@@ -88,11 +98,11 @@ for (const filename of files) {
       poses: rows.filter(r => r.className === "Pose").length,
       hierarchy: rows
     };
-    console.log("\\n=== " + filename + " ===");
+    console.log("\n=== " + filename + " ===");
     console.log(JSON.stringify(report, null, 2));
   } catch (error) {
     failed++;
-    console.error("\\nFAILED " + filename + ": " + (error?.stack || error));
+    console.error("\nFAILED " + filename + ": " + (error?.stack || error));
   }
 }
 if (failed) process.exitCode = 1;
