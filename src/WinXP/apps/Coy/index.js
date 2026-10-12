@@ -56,7 +56,7 @@ function parseCoyDesktopAction(message) {
   // Handle compound requests such as "open Renderer and look up Builderman".
   let match = text.match(/^(?:open|launch|start|show)\s+(?:the\s+)?(?:roblox\s+|avatar\s+)?renderer(?:\s+app|\s+window)?\s+(?:and|then)\s+(?:look\s+up|lookup|search(?:\s+for)?|find)\s+(.+?)[.!?]*$/i);
   if (match) return { action: 'search', name: 'Renderer', target: 'search', value: clean(match[1]) };
-  let match = text.match(/^(?:please\s+)?(?:look\s+up|lookup|find)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
+  match = text.match(/^(?:please\s+)?(?:look\s+up|lookup|find)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (match) {
     const name = appName(match[2]);
     if (name) return { action: 'search', name, target: 'search', value: clean(match[1]).replace(/^for\s+/i, '') };
