@@ -1347,7 +1347,12 @@ app.get("/proxy-roblox-history-index", async (req, res) => {
         returnedEntryCount: images.length,
         duplicateEntriesRemoved: parsedEntryCount - images.length,
         indexCompleteForUser: fullContents !== null && oldContents !== null,
-        note: "A loaded shard does not prove every source record exists; completeness requires comparison with the original dataset."
+        missingShardCount: Number(fullContents === null) + Number(oldContents === null),
+        missingShards: [
+          ...(fullContents === null ? [fullShardName] : []),
+          ...(oldContents === null ? [oldShardName] : [])
+        ],
+        note: "Missing shards are reported explicitly. Exact missing source records can only be counted by comparing this user's rows with the original source dataset."
       },
     });
   } catch (error) {
