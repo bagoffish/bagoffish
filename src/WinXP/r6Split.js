@@ -14,7 +14,7 @@ const RIG_TO_PART = {
 };
 const PIVOTS = {
   head: [0, 4, 0],
-  torso: [0, 0, 0],
+  torso: [0, 3, 0],
   rArm: [1.5, 4, 0],
   lArm: [-1.5, 4, 0],
   rLeg: [0.5, 2, 0],
