@@ -547,6 +547,22 @@ function WinXP() {
     }
   }
 
+  function onClickPinnedApp(icon) {
+    if (!icon || icon.title === 'Coy') return;
+    const setting = Object.values(appSettings).find(
+      item => item.component === icon.component,
+    );
+    if (!setting) return;
+    const runningApp = state.apps.find(app => app.component === icon.component);
+    if (!runningApp) {
+      dispatch({ type: ADD_APP, payload: setting });
+    } else if (focusedAppId === runningApp.id) {
+      dispatch({ type: MINIMIZE_APP, payload: runningApp.id });
+    } else {
+      dispatch({ type: FOCUS_APP, payload: runningApp.id });
+    }
+  }
+
   function onMouseDownIcon(id) {
     dispatch({ type: FOCUS_ICON, payload: id });
   }
@@ -656,6 +672,8 @@ function WinXP() {
       />
       <Footer
         apps={state.apps}
+        icons={defaultIconState}
+        onClickPinnedApp={onClickPinnedApp}
         onMouseDownApp={onMouseDownFooterApp}
         onMouseDown={onMouseDownFooter}
         focusedAppId={focusedAppId}
