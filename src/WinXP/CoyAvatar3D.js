@@ -253,7 +253,8 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         activeAnimation = clipName;
         animationStart = t;
       }
-      const usingImported = applyImportedAnimation(av, clip, t - animationStart);
+      // The imported pat clip has malformed head transforms on this rig; use the safe procedural pat pose instead.
+      const usingImported = L.pose !== "pat" && applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
         resetAvatarPose(av);
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
