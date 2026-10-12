@@ -53,9 +53,11 @@ function applyImportedAnimation(av, clip, elapsed) {
   }
   const span = Math.max(0.000001, (b.time || 0) - (a.time || 0));
   const alpha = clamp((time - (a.time || 0)) / span, 0, 1);
+  let applied = 0;
   const applyPose = (part, name, basePosition) => {
     const ca = a.poses?.[name], cb = b.poses?.[name];
     if (!part || (!ca && !cb)) return;
+    applied += 1;
     const from = ca || cb, to = cb || ca;
     const qa = poseQuaternion(from), qb = poseQuaternion(to);
     if (qa && qb) part.quaternion.copy(qa.slerp(qb, alpha));
@@ -71,7 +73,7 @@ function applyImportedAnimation(av, clip, elapsed) {
   applyPose(av.lArm, "Left Arm", [-1.5, 4, 0]);
   applyPose(av.rLeg, "Right Leg", [0.5, 2, 0]);
   applyPose(av.lLeg, "Left Leg", [-0.5, 2, 0]);
-  return true;
+  return applied > 0;
 }
 
 function buildAvatar(colors) {
@@ -168,10 +170,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let animationStart = 0;
     const pose = P({});
     const clock = new THREE.Clock();
-    fetch(BASE + "animations.json")
-      .then(response => response.ok ? response.json() : null)
-      .then(data => { animations = data?.animations || {}; })
-      .catch(() => { /* keep the hand-authored fallback if no exported clips exist */ });
+    fetch(BASE + "animations.json?v=1", { cache: "no-store" })
+      .then(response => {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(data => {
+        animations = data?.animations || {};
+        const names = Object.keys(animations);
+        console.info("Coy: imported Roblox animations loaded", names);
+        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
+      })
+      .catch(error => {
+        animations = {};
+        console.error("Coy: imported Roblox animations failed to load; using procedural fallback", error);
+      });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -208,6 +221,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (clip && clipName !== activeAnimation) {
         activeAnimation = clipName;
         animationStart = t;
+        console.debug("Coy: playing imported animation", clipName);
       }
       const usingImported = applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
