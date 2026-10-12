@@ -1122,10 +1122,14 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
     const match = rest.match(/^(\d{8,14})(?:id_|im_|if_|js_|cs_|oe_|mp_)?\/(https?:\/.*)$/i);
     if (match) {
       archiveTimestamp = match[1];
-      archiveOriginalUrl = match[2];
-      const withoutModifier = parsed.origin + '/web/' + archiveTimestamp + '/' + archiveOriginalUrl + parsed.search;
-      const withImageModifier = parsed.origin + '/web/' + archiveTimestamp + 'im_/' + archiveOriginalUrl + parsed.search;
-      const withIdModifier = parsed.origin + '/web/' + archiveTimestamp + 'id_/' + archiveOriginalUrl + parsed.search;
+      // URL parsing moves the original Roblox API query (userIds, size, format,
+      // etc.) into parsed.search. Keep it attached to the original URL; dropping
+      // it makes archived thumbnail API requests return errors and every card
+      // becomes "unavailable".
+      archiveOriginalUrl = match[2] + parsed.search;
+      const withoutModifier = parsed.origin + '/web/' + archiveTimestamp + '/' + archiveOriginalUrl;
+      const withImageModifier = parsed.origin + '/web/' + archiveTimestamp + 'im_/' + archiveOriginalUrl;
+      const withIdModifier = parsed.origin + '/web/' + archiveTimestamp + 'id_/' + archiveOriginalUrl;
       for (const candidate of [withImageModifier, withoutModifier, withIdModifier]) {
         if (!candidates.includes(candidate)) candidates.push(candidate);
       }
