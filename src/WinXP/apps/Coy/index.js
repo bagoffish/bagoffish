@@ -562,10 +562,10 @@ export default function CoyChat({ initialImage, initialText }) {
       const appControlAction = ['click', 'fill', 'search', 'press'].includes(desktopAction.action);
       window.dispatchEvent(new CustomEvent(appControlAction ? 'coy:app-action' : 'coy:desktop-action', { detail: desktopAction }));
 
-      // Window-manager actions are local and immediate. Don't wait for the AI
-      // backend to narrate an action that has already happened (or leave the
-      // chat stuck showing "Typing..." if the backend is slow).
-      if (!appControlAction) {
+      // Desktop and in-app actions are local and immediate. When no files need
+      // AI analysis, don't wait for a chatbot reply just to open, click, fill,
+      // search, or press a control; that can leave the chat stuck on "Typing...".
+      if (!attachmentsRef.current.length) {
         updateAttachments([]);
         setMessages(previous => [...previous, {
           role: 'user',
