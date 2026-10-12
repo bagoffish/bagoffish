@@ -139,7 +139,7 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(180);
+  const [spriteSize, setSpriteSize] = useState(160);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -520,7 +520,7 @@ export default function CoyCompanion() {
           zIndex: -1
         };
         setPosition({ left, top: maxTop });
-        if (vy > 700) showPose("land", 350); else setPose("idle");
+        showPose("land", 520);
         return;
       }
       setPosition({ left, top });
@@ -681,58 +681,67 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      // Small square legacy dialog, centered above Coy; the tail reaches back to his head.
-      top: -70,
-      left: "calc(50% - 39px)",
-      width: 78,
-      height: 78,
+      // Keep the bubble centered; its bottom edge sits just above the hair,
+      // while the tail overlaps the frame so there can be no visible seam.
+      left: "50%",
+      bottom: "calc(100% - 4px)",
+      transform: "translateX(-50%)",
+      width: "max-content",
+      minWidth: 64,
+      maxWidth: "min(236px, calc(100vw - 20px))",
+      height: "auto",
       overflow: "visible",
       pointerEvents: "none",
       zIndex: 3
     },
     dialogBody: {
-      position: "absolute",
-      inset: 0,
-      width: 78,
-      height: 78,
-      overflow: "hidden",
+      position: "relative",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxSizing: "border-box",
+      width: "max-content",
+      minWidth: 64,
+      maxWidth: "min(236px, calc(100vw - 20px))",
+      minHeight: 44,
+      border: "7px solid transparent",
+      // Roblox's original 2013 texture has a 7px frame. Nine-slice its center
+      // rather than stretching the square artwork and distorting its corners.
+      borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
+      borderImageSlice: "7 fill",
+      borderImageWidth: "7px",
+      borderImageRepeat: "stretch",
       zIndex: 1
     },
-    dialogBackground: {
-      position: "absolute",
-      inset: 0,
-      width: "100%",
-      height: "100%",
-      objectFit: "fill",
-      display: "block",
-      pointerEvents: "none"
-    },
-    // Use Roblox's opposite-facing original sprite so the lightning tail aims
-    // down and inward at Coy's head, not away from him.
     dialogTail: {
       position: "absolute",
-      right: "16%",
-      bottom: -14,
-      width: 29,
-      height: 23,
+      // tailRight's tip points down-left. Its tip starts at the bubble center,
+      // toward Coy's head; its upper edge sits underneath the frame by 6px.
+      left: "50%",
+      top: "calc(100% - 6px)",
+      width: 30,
+      height: 15,
       objectFit: "fill",
       display: "block",
       pointerEvents: "none",
       zIndex: 0
     },
     dialogText: {
-      position: "absolute",
-      inset: "7px 7px 6px",
-      boxSizing: "border-box",
+      position: "relative",
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 4,
+      width: "max-content",
+      minWidth: 32,
+      maxWidth: 208,
+      boxSizing: "border-box",
+      padding: "3px 4px 2px",
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 10,
+      fontSize: 13,
       fontWeight: 600,
-      lineHeight: "11px",
+      lineHeight: "15px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
@@ -790,13 +799,6 @@ export default function CoyCompanion() {
             style={styles.dialogTail}
           />
           <div style={styles.dialogBody}>
-            <img
-              src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_bkg.png"}
-              alt=""
-              aria-hidden="true"
-              draggable={false}
-              style={styles.dialogBackground}
-            />
             <div style={styles.dialogText}>{renderCoyLine(line)}</div>
           </div>
         </div>
