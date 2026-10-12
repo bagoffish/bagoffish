@@ -351,12 +351,14 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       // offset. The head's mesh stays attached to its pivot while keyframes
       // continue to drive its rotation.
       if (av.head) {
+        // The head is a child of the torso in the reconstructed R6 rig. Keep
+        // the pivot anchored and prevent bad source keyframes/culling bounds
+        // from making the entire head vanish during a pat or pose transition.
         av.head.visible = true;
         if (L.pose === "pat") {
           av.head.position.set(0, 1, 0);
           av.head.quaternion.identity();
           av.head.scale.set(1, 1, 1);
-          av.head.traverse(part => { part.visible = true; if (part.isMesh) part.frustumCulled = false; });
         }
         if (![av.head.position.x, av.head.position.y, av.head.position.z].every(Number.isFinite) ||
             Math.abs(av.head.position.x) > 0.4 || av.head.position.y < 0.5 ||
@@ -366,6 +368,18 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         if (![av.head.quaternion.x, av.head.quaternion.y, av.head.quaternion.z, av.head.quaternion.w].every(Number.isFinite)) {
           av.head.quaternion.identity();
         }
+        // Apply this to every descendant, not just the group. Imported OBJ
+        // meshes can carry hidden flags and stale bounding volumes of their own.
+        av.head.traverse(part => {
+          part.visible = true;
+          if (part.isMesh) {
+            part.frustumCulled = false;
+            if (L.pose === "pat") {
+              part.scale.set(1, 1, 1);
+              part.updateMatrix();
+            }
+          }
+        });
       }
 
       // Face the actual direction of travel: front-facing at rest, a full 90° turn while walking.
