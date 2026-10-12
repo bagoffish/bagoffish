@@ -258,20 +258,26 @@ function AboutMe({ onClose }) {
             <section className="about__section about__links-section" id="links">
               <div className="about__section-title"><span>04</span> LINKS / ELSEWHERE</div>
               <div className="links">
+                <a href="https://steamcommunity.com/id/snakecel/" target="_blank" rel="noopener noreferrer">
+                  Steam
+                </a>
                 <a href="https://github.com/bagoffish" target="_blank" rel="noopener noreferrer">
                   GitHub
                 </a>
                 <a href="https://www.roblox.com/users/37753591/profile" target="_blank" rel="noopener noreferrer">
                   Roblox
                 </a>
-                <a href="https://steamcommunity.com/id/snakecel/" target="_blank" rel="noopener noreferrer">
-                  Steam
-                </a>
                 <a href="https://open.spotify.com/user/fossils-mx" target="_blank" rel="noopener noreferrer">
                   Spotify
                 </a>
                 <a href="https://www.last.fm/user/drum" target="_blank" rel="noopener noreferrer">
                   Last.fm
+                </a>
+                <a href="https://x.com/Bag0fFish" target="_blank" rel="noopener noreferrer">
+                  Twitter
+                </a>
+                <a href="https://discord.com/users/286071200592035841" target="_blank" rel="noopener noreferrer">
+                  Discord
                 </a>
                 <a href="https://soundcloud.com/coral" target="_blank" rel="noopener noreferrer">
                   SoundCloud
@@ -286,8 +292,7 @@ function AboutMe({ onClose }) {
                   Music Project - Bandcamp
                 </a>
                 <a href="mailto:fossils@gmail.com">Email - fossils@gmail.com</a>
-              </div>
-            </section>
+              </div>           </section>
           </div>
         </div>
         )}
