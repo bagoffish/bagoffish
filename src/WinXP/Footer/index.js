@@ -80,8 +80,7 @@ function Footer({
         {[...apps]
           .filter(app =>
             !app.header.noFooterWindow &&
-            app.header.title !== 'Coy' &&
-            !icons.some(icon => icon.title !== 'Coy' && icon.component === app.component)
+            app.header.title !== 'Coy'
           )
           .map(app => (
             <FooterWindow
