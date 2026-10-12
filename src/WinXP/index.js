@@ -235,7 +235,7 @@ function WinXP() {
         'letters': 'Winter_Letter', 'winter letter': 'Winter_Letter',
         'winterletter': 'Winter_Letter', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
         'paint': 'Paint', 'ms paint': 'Paint',
-        'mine sweeper': 'Minesweeper', 'music player': 'Winamp', 'winamp': 'Winamp',
+        'music player': 'Winamp', 'winamp': 'Winamp',
         'poem': 'Poems', 'poems': 'Poems', 'roblox renderer': 'Renderer',
         'avatar renderer': 'Renderer', 'renderer': 'Renderer', 'coy chat': 'Coy', 'coy': 'Coy',
       };
