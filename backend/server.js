@@ -722,9 +722,9 @@ function rendererJson(record) {
 
 function rendererPayload(record, liveAvatarUrl) {
   // Always show the live Roblox thumbnail. Saved PNGs are history only.
-  const avatarUrl = liveAvatarUrl
-    ? `${RENDERER_PUBLIC_BASE}/proxy-roblox-avatar?url=${encodeURIComponent(liveAvatarUrl)}`
-    : "";
+  const thumbnailSource = liveAvatarUrl ||
+    `https://thumbnails.roblox.com/v1/users/avatar-headshot?userIds=${encodeURIComponent(String(record.id))}&size=180x180&format=Png`;
+  const avatarUrl = `${RENDERER_PUBLIC_BASE}/proxy-roblox-avatar?url=${encodeURIComponent(thumbnailSource)}`;
   return {
     roblox: {
       id: record.id,
@@ -1198,6 +1198,7 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
           imageCandidates.push(`https://web.archive.org/web/${archiveTimestamp}im_/${imageUrl}`);
           // Try the exact archived CDN URL first. Only pay for Wayback's
           // availability lookup if that exact replay misses.
+          let resolvedImage = false;
           let exactReplayWorked = false;
           try {
             const exact = await fetchWithTimeout(imageCandidates[0], {
@@ -1234,8 +1235,7 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
           }
         }
         imageCandidates.push(imageUrl);
-        let resolvedImage = false;
-        for (const imageCandidate of [...new Set(imageCandidates)]) {
+        for (const imageCandidate of (resolvedImage ? [] : [...new Set(imageCandidates)])) {
           try {
             const imageResponse = await fetchWithTimeout(imageCandidate, {
               headers: { "User-Agent": "WinXP Renderer/1.0", "Accept": "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8" },
