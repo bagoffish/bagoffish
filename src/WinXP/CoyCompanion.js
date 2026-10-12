@@ -57,8 +57,8 @@ const COY_APP_ALIASES = {
   "poem": "Poems", "poems": "Poems",
   "renderer": "Renderer", "roblox renderer": "Renderer", "avatar renderer": "Renderer",
   "bloxify": "Bloxify", "music ai": "Bloxify", "music generator": "Bloxify",
-  "paint": "Paint", "ms paint": "Paint", "minesweeper": "Minesweeper",
-  "mine sweeper": "Minesweeper", "winamp": "Winamp", "music player": "Winamp",
+  "paint": "Paint", "ms paint": "Paint",
+  "winamp": "Winamp", "music player": "Winamp",
   "coy": "Coy", "coy chat": "Coy"
 };
 
