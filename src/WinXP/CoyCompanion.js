@@ -151,9 +151,11 @@ export default function CoyCompanion() {
   const bubbleWrapRef = useRef(null);
   const [bubblePlacement, setBubblePlacement] = useState({ left: "50%", arrowLeft: "50%", transform: "translateX(-50%)" });
   const hasInitialPlacement = useRef(false);
-  const wasTaskbarAligned = useRef(true);
+  const wasStandingAligned = useRef(true);
+  const standingSurfaceRef = useRef({ kind: "taskbar", minLeft: 0, maxLeft: 0, top: 0, zIndex: -1 });
 
-  // Select the actual XP shell taskbar, never an unrelated footer inside an app.
+  // Find the real surface Coy should perch on. Visible XP app title bars take
+  // priority over the taskbar; the nearest title bar keeps him on the windows again.
   const getTaskbarTop = () => {
     const taskbar = document.querySelector('[data-xp-taskbar="true"]');
     const rect = taskbar?.getBoundingClientRect();
@@ -162,17 +164,52 @@ export default function CoyCompanion() {
 
   const getCoyHeight = () => {
     const root = rootRef.current;
-    const sprite = root?.querySelector('img[alt="Coy"]');
+    const canvas = root?.querySelector('canvas[aria-label="Coy"]');
     const rootHeight = root?.getBoundingClientRect().height || 0;
-    const spriteHeight = sprite?.getBoundingClientRect().height ||
-      (sprite?.naturalWidth && sprite?.naturalHeight
-        ? spriteSize * sprite.naturalHeight / sprite.naturalWidth
-        : 0);
-    return rootHeight || spriteHeight || spriteSize;
+    const canvasHeight = canvas?.getBoundingClientRect().height || 0;
+    return rootHeight || canvasHeight || spriteSize;
   };
 
-  // Align Coy's wrapper bottom to the measured top edge of the real taskbar.
-  // There is no guessed gap and no generic footer selector.
+  const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
+
+  const getStandingSurface = left => {
+    const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+    const taskbarTop = getTaskbarTop();
+    const fallback = {
+      kind: "taskbar",
+      minLeft: 0,
+      maxLeft: viewportMaxLeft,
+      top: taskbarTop,
+      zIndex: -1,
+      distance: 0
+    };
+    const center = (Number.isFinite(left) ? left : 0) + spriteSize / 2;
+    const candidates = Array.from(document.querySelectorAll(".app__header"))
+      .map(header => {
+        const rect = header.getBoundingClientRect();
+        const headerStyle = window.getComputedStyle(header);
+        const windowNode = header.closest("[data-app-window-id][data-app-title]");
+        if (!windowNode) return null;
+        const windowStyle = window.getComputedStyle(windowNode);
+        if (headerStyle.display === "none" || headerStyle.visibility === "hidden" ||
+            windowStyle.display === "none" || windowStyle.visibility === "hidden" ||
+            Number(headerStyle.opacity) === 0 || Number(windowStyle.opacity) === 0 ||
+            rect.width < spriteSize * 0.65 || rect.height < 8 ||
+            rect.bottom <= 0 || rect.top >= window.innerHeight) return null;
+        const minLeft = clampValue(rect.left, 0, viewportMaxLeft);
+        const maxLeft = clampValue(rect.right - spriteSize, minLeft, viewportMaxLeft);
+        const distance = center < rect.left ? rect.left - center : center > rect.right ? center - rect.right : 0;
+        const zIndex = Number.parseInt(windowStyle.zIndex, 10) || 0;
+        return { kind: "appbar", minLeft, maxLeft, top: rect.top, zIndex, distance };
+      })
+      .filter(Boolean);
+    if (!candidates.length) return fallback;
+    candidates.sort((a, b) => a.distance - b.distance || b.zIndex - a.zIndex);
+    return candidates[0];
+  };
+
+  // Coy stands on the nearest visible XP title bar, with the taskbar as his
+  // home when no windows are open. Track window movement/minimizing/resizing.
   useEffect(() => {
     let frame = 0;
     const placeCoy = () => {
@@ -182,43 +219,61 @@ export default function CoyCompanion() {
         if (!rootRef.current) return;
         const taskbarTop = getTaskbarTop();
         const coyHeight = getCoyHeight();
-        const maxLeft = Math.max(0, window.innerWidth - spriteSize);
-        const exactTop = Math.max(0, taskbarTop - coyHeight);
+        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+        const surface = getStandingSurface(posRef.current.left);
+        const exactTop = Math.max(0, surface.top - coyHeight);
+        standingSurfaceRef.current = { ...surface, top: exactTop };
 
         setPosition(previous => {
           if (!hasInitialPlacement.current) {
             hasInitialPlacement.current = true;
-            wasTaskbarAligned.current = true;
-            return { left: maxLeft, top: exactTop };
+            wasStandingAligned.current = true;
+            return { left: clampValue(previous.left, surface.minLeft, surface.maxLeft), top: exactTop };
           }
-          const left = Math.max(0, Math.min(maxLeft, previous.left));
-          const stayedAtTaskbar = wasTaskbarAligned.current ||
+          const stayedAtSurface = wasStandingAligned.current ||
             Math.abs(previous.top - exactTop) <= 2;
-          const top = stayedAtTaskbar ? exactTop : Math.max(0, Math.min(exactTop, previous.top));
-          wasTaskbarAligned.current = Math.abs(top - exactTop) <= 1;
+          const left = stayedAtSurface
+            ? clampValue(previous.left, surface.minLeft, surface.maxLeft)
+            : clampValue(previous.left, 0, viewportMaxLeft);
+          const top = stayedAtSurface
+            ? exactTop
+            : clampValue(previous.top, 0, Math.max(0, taskbarTop - coyHeight));
+          wasStandingAligned.current = Math.abs(top - exactTop) <= 1;
           return left === previous.left && top === previous.top ? previous : { left, top };
         });
       });
     };
 
-    placeCoy();
     const taskbar = document.querySelector('[data-xp-taskbar="true"]');
     const root = rootRef.current;
-    const sprite = root?.querySelector('img[alt="Coy"]');
-    const observer = typeof ResizeObserver !== "undefined" ? new ResizeObserver(placeCoy) : null;
-    if (taskbar) observer?.observe(taskbar);
-    if (root) observer?.observe(root);
-    if (sprite) {
-      observer?.observe(sprite);
-      sprite.addEventListener("load", placeCoy);
-    }
+    const canvas = root?.querySelector('canvas[aria-label="Coy"]');
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(placeCoy) : null;
+    if (taskbar) resizeObserver?.observe(taskbar);
+    if (root) resizeObserver?.observe(root);
+    if (canvas) resizeObserver?.observe(canvas);
+
+    const layoutObserver = new MutationObserver(records => {
+      const relevant = records.some(record => {
+        const target = record.target?.nodeType === 1 ? record.target : record.target?.parentElement;
+        return !target?.closest?.('[data-coy-ui="true"]');
+      });
+      if (relevant) placeCoy();
+    });
+    layoutObserver.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["style", "class", "data-app-title", "data-app-window-id"]
+    });
+
+    placeCoy();
     window.addEventListener("resize", placeCoy);
     window.addEventListener("orientationchange", placeCoy);
     window.visualViewport?.addEventListener("resize", placeCoy);
     return () => {
       if (frame) window.cancelAnimationFrame(frame);
-      observer?.disconnect();
-      sprite?.removeEventListener("load", placeCoy);
+      resizeObserver?.disconnect();
+      layoutObserver.disconnect();
       window.removeEventListener("resize", placeCoy);
       window.removeEventListener("orientationchange", placeCoy);
       window.visualViewport?.removeEventListener("resize", placeCoy);
@@ -444,15 +499,26 @@ export default function CoyCompanion() {
         setPose("walk");
         return;
       }
-      if (walking && wasTaskbarAligned.current) {
-        const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+      if (walking && wasStandingAligned.current) {
+        const surface = standingSurfaceRef.current || {
+          minLeft: 0,
+          maxLeft: Math.max(0, window.innerWidth - spriteSize),
+          top: posRef.current.top
+        };
+        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+        const minLeft = clampValue(surface.minLeft || 0, 0, viewportMaxLeft);
+        const maxLeft = clampValue(
+          Number.isFinite(surface.maxLeft) ? surface.maxLeft : viewportMaxLeft,
+          minLeft,
+          viewportMaxLeft
+        );
         let left = posRef.current.left + dirRef.current * 55 * dt;
-        if (left < 0 || left > maxLeft) {
-          left = Math.min(Math.max(left, 0), maxLeft);
+        if (left < minLeft || left > maxLeft) {
+          left = clampValue(left, minLeft, maxLeft);
           dirRef.current *= -1;
           setDir(dirRef.current);
         }
-        setPosition(p => ({ left, top: p.top }));
+        setPosition(p => ({ left, top: Number.isFinite(surface.top) ? surface.top : p.top }));
       }
     };
     raf = window.requestAnimationFrame(step);
@@ -463,7 +529,18 @@ export default function CoyCompanion() {
     window.cancelAnimationFrame(fallRaf.current);
     const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
     let top = posRef.current.top;
-    if (maxTop - top < 3) { wasTaskbarAligned.current = true; setPose("idle"); return; }
+    if (maxTop - top < 3) {
+      wasStandingAligned.current = true;
+      standingSurfaceRef.current = {
+        kind: "taskbar",
+        minLeft: 0,
+        maxLeft: Math.max(0, window.innerWidth - spriteSize),
+        top: maxTop,
+        zIndex: -1
+      };
+      setPose("idle");
+      return;
+    }
     // Throw: keep the sideways speed from just before release (zero if the pointer paused).
     const fresh = performance.now() - (velRef.current.t || 0) < 80;
     let vx = fresh ? Math.max(-1500, Math.min(1500, velRef.current.vx)) : 0;
@@ -480,7 +557,14 @@ export default function CoyCompanion() {
       left += vx * dt;
       if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
       if (top >= maxTop) {
-        wasTaskbarAligned.current = true;
+        wasStandingAligned.current = true;
+        standingSurfaceRef.current = {
+          kind: "taskbar",
+          minLeft: 0,
+          maxLeft: Math.max(0, window.innerWidth - spriteSize),
+          top: maxTop,
+          zIndex: -1
+        };
         setPosition({ left, top: maxTop });
         if (vy > 700) showPose("land", 350); else setPose("idle");
         return;
@@ -519,7 +603,7 @@ export default function CoyCompanion() {
     velRef.current.vx = (event.movementX || 0) * 24 + velRef.current.vx * 0.6;
     velRef.current.t = performance.now();
     suppressClickAfterDrag.current = true;
-    wasTaskbarAligned.current = false;
+    wasStandingAligned.current = false;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     const taskbarTop = getTaskbarTop();
     const maxTop = Math.max(0, taskbarTop - getCoyHeight());
@@ -621,7 +705,7 @@ export default function CoyCompanion() {
       position: "fixed",
       left: position.left,
       top: position.top,
-      zIndex: chatOpen ? 10001 : underAppWindows ? 0 : 1,
+      zIndex: chatOpen ? 10001 : underAppWindows ? 0 : 9999,
       visibility: underAppWindows && !chatOpen ? "hidden" : "visible",
       pointerEvents: "none",
       userSelect: "none",
