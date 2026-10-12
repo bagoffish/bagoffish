@@ -521,10 +521,11 @@ export default function CoyCompanion() {
       display: "block",
       cursor: isDragging ? "grabbing" : "grab",
       pointerEvents: "auto",
-      filter: idleMood === "happy" ? "brightness(1.08)" : idleMood === "dizzy" ? "saturate(1.35)" : "none",
-      animation: idleMood === "dizzy" ? "coy-dizzy-spin 0.42s linear infinite" : isDragging ? "coy-being-carried 0.2s ease-in-out infinite" : "none",
-      transformOrigin: "50% 70%",
-      transition: "filter 0.2s"
+      // Keep the current static sprite visually unchanged during pickup,
+      // shaking, and mood changes. Sprite-based expressions can be added later.
+      filter: "none",
+      animation: "none",
+      transform: "none"
     },
     bubbleWrap: {
       position: "absolute",
@@ -594,7 +595,6 @@ export default function CoyCompanion() {
 
   return createPortal(
     <div ref={rootRef} style={styles.root} data-coy-ui="true">
-      <style>{'@keyframes coy-dizzy-spin { 0%, 100% { transform: rotate(-9deg); } 50% { transform: rotate(9deg) translateY(-2px); } } @keyframes coy-being-carried { 0%, 100% { transform: rotate(-4deg); } 50% { transform: rotate(4deg); } }'}</style>
       <button
         type="button"
         aria-label="Coy companion"
