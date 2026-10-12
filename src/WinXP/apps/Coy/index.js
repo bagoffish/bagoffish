@@ -88,8 +88,8 @@ function parseCoyDesktopAction(message) {
   }
   match = text.match(/^(?:please\s+)?(play|pause|stop|next|previous)\s+(?:track\s+)?in\s+(?:the\s+)?(winamp|music player)[.!?]*$/i);
   if (match) return { action: 'click', name: 'Winamp', target: match[1].toLowerCase() === 'previous' ? 'previous' : match[1] };
-  match = text.match(/^(?:please\s+)?(?:look\s+up|lookup|search\s+the\s+web\s+for|google)\s+(.+?)[.!?]*$/i);
-  if (match) return { action: 'web-search', query: clean(match[1]) };
+  match = text.match(/^(?:please\s+)?(?:look\s+up|lookup|find|search(?:\s+for)?)\s+(.+?)[.!?]*$/i);
+  if (match) return { action: 'search', name: 'Renderer', target: 'search', value: clean(match[1]) };
   match = text.match(/^(?:please\s+)?(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)(?:\s+up)?\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (!match) return null;
   const actionWord = match[1].toLowerCase();
@@ -549,12 +549,8 @@ export default function CoyChat({ initialImage, initialText }) {
     // Ordinary conversation is never interpreted as a command.
     const desktopAction = parseCoyDesktopAction(message);
     if (desktopAction) {
-      if (desktopAction.action === 'web-search') {
-        window.open('https://www.google.com/search?q=' + encodeURIComponent(desktopAction.query), '_blank', 'noopener,noreferrer');
-      } else {
-        const appControlAction = ['click', 'fill', 'search', 'press'].includes(desktopAction.action);
-        window.dispatchEvent(new CustomEvent(appControlAction ? 'coy:app-action' : 'coy:desktop-action', { detail: desktopAction }));
-      }
+      const appControlAction = ['click', 'fill', 'search', 'press'].includes(desktopAction.action);
+      window.dispatchEvent(new CustomEvent(appControlAction ? 'coy:app-action' : 'coy:desktop-action', { detail: desktopAction }));
     }
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
