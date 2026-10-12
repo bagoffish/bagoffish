@@ -895,21 +895,59 @@ async function fetchRobloxProfile(username) {
   };
 }
 
+const robloxUsernameHistoryCache = new Map();
+const ROBLOX_USERNAME_HISTORY_CACHE_MS = 60 * 60 * 1000;
+
+async function fetchRobloxUsernameHistory(id) {
+  const cacheKey = String(id);
+  const cached = robloxUsernameHistoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.fetchedAt < ROBLOX_USERNAME_HISTORY_CACHE_MS) {
+    return cached.names;
+  }
+
+  const baseUrl = `https://users.roblox.com/v1/users/${encodeURIComponent(cacheKey)}/username-history`;
+  let response = await fetchWithTimeout(
+    `${baseUrl}?limit=100&sortOrder=Asc`,
+    { headers: ROBLOX_UA },
+    10000
+  ).catch(() => null);
+
+  // Roblox has intermittently returned HTTP 429 for requests containing
+  // the limit parameter. Retry the official endpoint without query parameters.
+  if (!response || response.status === 429) {
+    response = await fetchWithTimeout(baseUrl, { headers: ROBLOX_UA }, 10000).catch(() => null);
+  }
+
+  if (!response || !response.ok) {
+    console.warn(
+      `Roblox username-history request failed for user ${cacheKey}: ${response ? response.status : "network error"}`
+    );
+    return cached?.names || [];
+  }
+
+  try {
+    const history = await response.json();
+    if (!Array.isArray(history.data)) {
+      console.warn(`Roblox username-history response had no data array for user ${cacheKey}`);
+      return cached?.names || [];
+    }
+    const names = [...new Set(history.data
+      .map(entry => String(entry?.name || "").trim())
+      .filter(Boolean))];
+    robloxUsernameHistoryCache.set(cacheKey, { names, fetchedAt: Date.now() });
+    return names;
+  } catch (err) {
+    console.warn(`Could not parse Roblox username-history for user ${cacheKey}:`, err.message);
+    return cached?.names || [];
+  }
+}
+
 async function fetchRobloxDetails(id) {
-  const [userRes, historyRes, roliRes] = await Promise.all([
+  const [userRes, pastUsernames, roliRes] = await Promise.all([
     fetchWithTimeout(`https://users.roblox.com/v1/users/${id}`, { headers: ROBLOX_UA }).catch(() => null),
-    fetchWithTimeout(`https://users.roblox.com/v1/users/${id}/username-history?limit=100&sortOrder=Asc`, { headers: ROBLOX_UA }).catch(() => null),
+    fetchRobloxUsernameHistory(id),
     fetchWithTimeout(`https://api.rolimons.com/players/v1/playerinfo/${id}`, { headers: ROBLOX_UA }, 6000).catch(() => null),
   ]);
-  let pastUsernames = [];
-  if (historyRes && historyRes.ok) {
-    try {
-      const history = await historyRes.json();
-      if (Array.isArray(history.data)) {
-        pastUsernames = history.data.map(entry => entry.name).filter(Boolean);
-      }
-    } catch {}
-  }
   let rolimons = {};
   if (roliRes && roliRes.ok) {
     try {
