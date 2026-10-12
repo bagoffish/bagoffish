@@ -77,21 +77,6 @@ function Footer({
           className="footer__start"
           onMouseDown={toggleMenu}
         />
-        {icons
-          .filter(icon => icon.title !== 'Coy')
-          .map(icon => {
-            const runningApp = apps.find(app => app.component === icon.component);
-            return (
-              <PinnedFooterWindow
-                key={icon.id}
-                icon={icon.icon}
-                title={icon.title}
-                onMouseDown={() => onClickPinnedApp(icon)}
-                isRunning={Boolean(runningApp)}
-                isFocus={Boolean(runningApp && focusedAppId === runningApp.id)}
-              />
-            );
-          })}
         {[...apps]
           .filter(app =>
             !app.header.noFooterWindow &&
