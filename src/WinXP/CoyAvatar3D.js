@@ -61,6 +61,7 @@ function resetAvatarPose(av) {
     if (!part) return;
     part.quaternion.identity();
     part.position.set(...position);
+    part.scale.set(1, 1, 1);
   });
 }
 
@@ -295,9 +296,16 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         av.body.rotation.set(0, 0, 0);
         av.body.scale.set(1, 1, 1);
         if (L.pose === "pat" && av.head) {
+          // Imported clips can leave a zero-scaled pivot or hidden head mesh.
           av.head.visible = true;
           av.head.position.set(0, 1, 0);
           av.head.quaternion.identity();
+          av.head.scale.set(1, 1, 1);
+          av.head.traverse(part => {
+            part.visible = true;
+            if (part.isMesh) part.frustumCulled = false;
+            if (part !== av.head) part.scale.set(1, 1, 1);
+          });
         }
       }
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1" })[L.pose] || L.pose;
@@ -350,6 +358,12 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
       // continue to drive its rotation.
       if (av.head) {
         av.head.visible = true;
+        if (L.pose === "pat") {
+          av.head.position.set(0, 1, 0);
+          av.head.quaternion.identity();
+          av.head.scale.set(1, 1, 1);
+          av.head.traverse(part => { part.visible = true; if (part.isMesh) part.frustumCulled = false; });
+        }
         if (![av.head.position.x, av.head.position.y, av.head.position.z].every(Number.isFinite) ||
             Math.abs(av.head.position.x) > 0.4 || av.head.position.y < 0.5 ||
             av.head.position.y > 1.5 || Math.abs(av.head.position.z) > 0.4) {
