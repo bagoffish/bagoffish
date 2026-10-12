@@ -641,12 +641,6 @@ export default function CoyChat({ initialImage, initialText }) {
 
   return (
     <div style={styles.root} data-coy-chat-window="true">
-      <div style={styles.intro}>
-        <img src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/coy.png'} alt="Coy" style={styles.portrait} />
-        <div>
-          <div style={styles.title}>Coy</div>
-        </div>
-      </div>
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
