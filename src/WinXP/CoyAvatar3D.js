@@ -105,10 +105,16 @@ function applyImportedAnimation(av, clip, elapsed) {
     // relative to the joint pivot instead of discarding it or treating it as
     // a world-space position. The avatar is normalized to five studs tall.
     const pa = ca || cb, pb = cb || ca;
-    const tx = THREE.MathUtils.lerp(pa[0] || 0, pb[0] || 0, alpha);
-    const ty = THREE.MathUtils.lerp(pa[1] || 0, pb[1] || 0, alpha);
-    const tz = THREE.MathUtils.lerp(pa[2] || 0, pb[2] || 0, alpha);
+    // Pose.CFrame translation is a joint-local animation offset, not a new
+    // absolute body-part position. Keep it bounded so a malformed keyframe
+    // can never fling a limb/head away from its joint pivot.
+    const tx = clamp(THREE.MathUtils.lerp(pa[0] || 0, pb[0] || 0, alpha), -0.35, 0.35);
+    const ty = clamp(THREE.MathUtils.lerp(pa[1] || 0, pb[1] || 0, alpha), -0.35, 0.35);
+    const tz = clamp(THREE.MathUtils.lerp(pa[2] || 0, pb[2] || 0, alpha), -0.35, 0.35);
     part.position.set(basePosition[0] + tx, basePosition[1] + ty, basePosition[2] + tz);
+    // The head is a child of the torso pivot. Its neutral local anchor must
+    // stay one stud above that pivot; only the keyframe rotation animates it.
+    if (name === "Head") part.position.set(0, 1, 0);
   };
   // Root translation moves the whole character; root rotation is handled by
   // the companion controller's facing direction.
@@ -326,6 +332,21 @@ export default function CoyAvatar3D({ size = 145, pose = "idle", dir = 1, vx = 0
         const eased = raw * raw * (3 - 2 * raw);
         blendAvatarPose(transitionFrom, eased);
         if (raw >= 1) transitionFrom = null;
+      }
+
+      // Keep the head renderable even if an imported clip contains a bad joint
+      // offset. The head's mesh stays attached to its pivot while keyframes
+      // continue to drive its rotation.
+      if (av.head) {
+        av.head.visible = true;
+        if (![av.head.position.x, av.head.position.y, av.head.position.z].every(Number.isFinite) ||
+            Math.abs(av.head.position.x) > 0.4 || av.head.position.y < 0.5 ||
+            av.head.position.y > 1.5 || Math.abs(av.head.position.z) > 0.4) {
+          av.head.position.set(0, 1, 0);
+        }
+        if (![av.head.quaternion.x, av.head.quaternion.y, av.head.quaternion.z, av.head.quaternion.w].every(Number.isFinite)) {
+          av.head.quaternion.identity();
+        }
       }
 
       // Face the actual direction of travel: front-facing at rest, a full 90° turn while walking.
