@@ -660,7 +660,7 @@ export default function CoyChat({ initialImage, initialText }) {
       if (message) setDraft(previous => previous || message);
       setError(err.name === 'AbortError'
         ? 'I’m tryna sleep dude.'
-        : (err.message === 'Failed to fetch'
+        : (/^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim())
           ? 'I’m tryna sleep dude.'
           : (err.message || 'I’m tryna sleep dude.')));
     } finally {
@@ -694,7 +694,11 @@ export default function CoyChat({ initialImage, initialText }) {
           <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb', width: 0, height: 0, pointerEvents: 'none' }} />
           Typing...
         </div>}
-        {error && <div style={{ ...styles.bubble, ...styles.coy }}>{error}</div>}
+        {error && <div style={{ ...styles.bubble, ...styles.coy }}>
+          <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #000', width: 0, height: 0, pointerEvents: 'none' }} />
+          <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb', width: 0, height: 0, pointerEvents: 'none' }} />
+          {error}
+        </div>}
         <div ref={bottomRef} />
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
