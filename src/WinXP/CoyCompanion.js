@@ -81,6 +81,9 @@ function parseCoyRequestedAction(message) {
   const appName = value => COY_APP_ALIASES[clean(value).toLowerCase()
     .replace(/[_-]+/g, " ").replace(/\s+(?:app|window)$/i, "").replace(/\s+/g, " ")] || null;
 
+  // One message can both open Renderer and run its search.
+  let match = text.match(/^(?:open|launch|start|show)\s+(?:the\s+)?(?:roblox\s+|avatar\s+)?renderer(?:\s+app|\s+window)?\s+(?:and|then)\s+(?:look\s+up|lookup|search(?:\s+for)?|find)\s+(.+?)[.!?]*$/i);
+  if (match) return { action: "search", name: "Renderer", target: "search", value: clean(match[1]) };
   let match = text.match(/^(?:look\s+up|lookup|find|search(?:\s+for)?)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
   if (match) {
     const name = appName(match[2]);
