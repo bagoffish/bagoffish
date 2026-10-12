@@ -137,6 +137,8 @@ export default function CoyCompanion() {
   const posRef = useRef({ left: 0, top: 0 });
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
+  // Remember the exact blue title-bar platform Coy is standing on.
+  const platformRef = useRef(null);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(145);
 
@@ -173,21 +175,29 @@ export default function CoyCompanion() {
 
   // Visible app title bars act like little platforms. Coy can land on one
   // when released above it, rather than always dropping straight to the taskbar.
-  const findLandingSurface = (left, top) => {
+  const findLandingSurface = (left, top, excludeElement = null) => {
     const height = getCoyHeight();
     const taskbarLandingTop = Math.max(0, getTaskbarTop() - height);
     const surfaces = Array.from(document.querySelectorAll('.app__header, .window-titlebar, .window-header'));
     const candidates = surfaces.flatMap(element => {
+      if (element === excludeElement) return [];
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
       if (!rect.width || !rect.height || style.display === 'none' || style.visibility === 'hidden') return [];
       if (left + spriteSize <= rect.left || left >= rect.right) return [];
       const landingTop = rect.top - height;
       if (landingTop < top - 8 || landingTop >= taskbarLandingTop) return [];
-      return [{ top: Math.max(0, landingTop), left: rect.left, right: rect.right }];
+      return [{ top: Math.max(0, landingTop), left: rect.left, right: rect.right, element }];
     });
     candidates.sort((a, b) => a.top - b.top);
     return candidates[0] || null;
+  };
+
+  const visiblePlatform = element => {
+    if (!element?.isConnected) return false;
+    const rect = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
   };
 
   // Align Coy's wrapper bottom to the measured top edge of the real taskbar.
@@ -444,12 +454,28 @@ export default function CoyCompanion() {
         return;
       }
       if (walking && wasTaskbarAligned.current) {
-        const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+        const platform = platformRef.current;
         let left = posRef.current.left + dirRef.current * 55 * dt;
-        if (left < 0 || left > maxLeft) {
-          left = Math.min(Math.max(left, 0), maxLeft);
-          dirRef.current *= -1;
-          setDir(dirRef.current);
+        if (platform && visiblePlatform(platform.element)) {
+          const rect = platform.element.getBoundingClientRect();
+          const minLeft = rect.left;
+          const maxPlatformLeft = rect.right - spriteSize;
+          if (left < minLeft || left > maxPlatformLeft) {
+            // Reach the blue border's edge, then drop instead of turning around.
+            left = dirRef.current < 0 ? minLeft - 1 : maxPlatformLeft + 1;
+            posRef.current = { left, top: posRef.current.top };
+            setPosition(p => ({ left, top: p.top }));
+            platformRef.current = null;
+            startFall(platform.element);
+            return;
+          }
+        } else {
+          const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+          if (left < 0 || left > maxLeft) {
+            left = Math.min(Math.max(left, 0), maxLeft);
+            dirRef.current *= -1;
+            setDir(dirRef.current);
+          }
         }
         setPosition(p => ({ left, top: p.top }));
       }
@@ -458,15 +484,17 @@ export default function CoyCompanion() {
     return () => window.cancelAnimationFrame(raf);
   }, [pose, chatOpen, showBubble, busy, underAppWindows, spriteSize]);
 
-  function startFall() {
+  function startFall(excludeSurface = null) {
     window.cancelAnimationFrame(fallRaf.current);
     const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
     let top = posRef.current.top;
     let left = posRef.current.left;
-    let surface = findLandingSurface(left, top);
+    let surface = findLandingSurface(left, top, excludeSurface);
     let landingTop = surface?.top ?? maxTop;
     if (landingTop - top < 3) {
       wasTaskbarAligned.current = true;
+      platformRef.current = surface?.element ? { element: surface.element, rect: surface.element.getBoundingClientRect() } : null;
+      posRef.current = { left, top: landingTop };
       setPosition({ left, top: landingTop });
       setPose("idle");
       return;
@@ -491,6 +519,8 @@ export default function CoyCompanion() {
       }
       if (top >= landingTop) {
         wasTaskbarAligned.current = true;
+        platformRef.current = surface?.element ? { element: surface.element, rect: surface.element.getBoundingClientRect() } : null;
+        posRef.current = { left, top: landingTop };
         setPosition({ left, top: landingTop });
         if (vy > 700) showPose("land", 350); else setPose("idle");
         return;
@@ -500,6 +530,48 @@ export default function CoyCompanion() {
     };
     fallRaf.current = window.requestAnimationFrame(step);
   }
+
+  // Monitor the title-bar platforms Coy can stand on. Geometry changes (resize
+  // or move), minimization, and closing all remove the support under his feet.
+  useEffect(() => {
+    const surfaceSelector = ".app__header, .window-titlebar, .window-header";
+    const isVisible = element => {
+      if (!element?.isConnected) return false;
+      const style = getComputedStyle(element);
+      const rect = element.getBoundingClientRect();
+      return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden" && style.opacity !== "0";
+    };
+    const checkPlatform = () => {
+      const platform = platformRef.current;
+      if (!platform) return;
+      const element = platform.element;
+      if (!isVisible(element)) {
+        platformRef.current = null;
+        startFall(element);
+        return;
+      }
+      const rect = element.getBoundingClientRect();
+      const old = platform.rect;
+      if (Math.abs(rect.left - old.left) > 1 || Math.abs(rect.top - old.top) > 1 ||
+          Math.abs(rect.width - old.width) > 1 || Math.abs(rect.height - old.height) > 1) {
+        platformRef.current = null;
+        startFall(element);
+      }
+    };
+    const resizeObserver = typeof ResizeObserver !== "undefined" ? new ResizeObserver(checkPlatform) : null;
+    const observeSurfaces = () => document.querySelectorAll(surfaceSelector).forEach(element => {
+      try { resizeObserver?.observe(element); } catch (_) {}
+    });
+    const mutations = new MutationObserver(() => { observeSurfaces(); checkPlatform(); });
+    mutations.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["style", "class", "hidden"] });
+    observeSurfaces();
+    window.addEventListener("resize", checkPlatform);
+    return () => {
+      mutations.disconnect();
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", checkPlatform);
+    };
+  }, []);
 
   function onCoyPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
