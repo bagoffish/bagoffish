@@ -561,6 +561,24 @@ export default function CoyChat({ initialImage, initialText }) {
     if (desktopAction) {
       const appControlAction = ['click', 'fill', 'search', 'press'].includes(desktopAction.action);
       window.dispatchEvent(new CustomEvent(appControlAction ? 'coy:app-action' : 'coy:desktop-action', { detail: desktopAction }));
+
+      // Window-manager actions are local and immediate. Don't wait for the AI
+      // backend to narrate an action that has already happened (or leave the
+      // chat stuck showing "Typing..." if the backend is slow).
+      if (!appControlAction) {
+        updateAttachments([]);
+        setMessages(previous => [...previous, {
+          role: 'user',
+          content: message,
+          attachments: [],
+        }].slice(-100));
+        setDraft('');
+        setError('');
+        sendLockRef.current = false;
+        setBusy(false);
+        if (voiceInputTurn) voiceTurnRef.current = false;
+        return;
+      }
     }
     const filesToSend = attachmentsRef.current;
     const priorHistory = messages.slice(-16).map(({ role, content }) => ({ role, content }));
