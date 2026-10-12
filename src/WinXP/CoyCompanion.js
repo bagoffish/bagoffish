@@ -456,7 +456,12 @@ export default function CoyCompanion() {
       if (walking && wasTaskbarAligned.current) {
         const platform = platformRef.current;
         let left = posRef.current.left + dirRef.current * 55 * dt;
-        if (platform && visiblePlatform(platform.element)) {
+        if (platform) {
+          if (!visiblePlatform(platform.element)) {
+            platformRef.current = null;
+            startFall(platform.element);
+            return;
+          }
           const rect = platform.element.getBoundingClientRect();
           const minLeft = rect.left;
           const maxPlatformLeft = rect.right - spriteSize;
