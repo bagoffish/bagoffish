@@ -1156,6 +1156,21 @@ app.get("/proxy-roblox-avatar", async (req, res) => {
     }
   }
 
+  // Thumbnail-index rows can point to Roblox's avatar thumbnail API itself.
+  // If Wayback has no usable replay of that API response, try the live API as
+  // a resolver; its imageUrl is still replayed through Wayback at the historical
+  // timestamp before the live CDN URL is considered.
+  if (archiveOriginalUrl && archiveTimestamp) {
+    try {
+      const original = new URL(archiveOriginalUrl);
+      if (original.hostname.toLowerCase() === "thumbnails.roblox.com" &&
+          /^\\/v1\\/users\\/avatar\\/?$/i.test(original.pathname) &&
+          !candidates.includes(archiveOriginalUrl)) {
+        candidates.push(archiveOriginalUrl);
+      }
+    } catch (_) {}
+  }
+
   for (const candidate of candidates) {
     try {
       let upstream = await fetchWithTimeout(candidate, {
