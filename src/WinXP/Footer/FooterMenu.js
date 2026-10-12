@@ -3,7 +3,6 @@ import styled from 'styled-components';
 
 import SubMenu from 'components/SubMenu';
 import ie from 'assets/windowsIcons/ie.png';
-import mine from 'assets/minesweeper/mine-icon.png';
 import setAccess from 'assets/windowsIcons/227(32x32).png';
 import outlook from 'assets/windowsIcons/887(32x32).png';
 import mediaPlayer from 'assets/windowsIcons/846(32x32).png';
@@ -53,7 +52,6 @@ function FooterMenu({ className, onClick }) {
               { icon: ie, text: 'About Me' },
               { icon: notepad, text: 'Poems' },
               { icon: rendererIcon, text: 'Renderer' },
-              { icon: mine, text: 'Minesweeper' },
               { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
               { icon: music, text: 'Bloxify' },
