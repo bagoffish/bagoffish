@@ -681,11 +681,11 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      // Align the bubble just above the head; the tail reaches down to the face.
-      top: -56,
+      // Small square legacy dialog, centered above Coy; the tail reaches back to his head.
+      top: -70,
       left: "calc(50% - 39px)",
       width: 78,
-      height: 62,
+      height: 78,
       overflow: "visible",
       pointerEvents: "none",
       zIndex: 3
@@ -694,7 +694,7 @@ export default function CoyCompanion() {
       position: "absolute",
       inset: 0,
       width: 78,
-      height: 62,
+      height: 78,
       overflow: "hidden",
       zIndex: 1
     },
@@ -722,17 +722,17 @@ export default function CoyCompanion() {
     },
     dialogText: {
       position: "absolute",
-      inset: "6px 6px 5px",
+      inset: "7px 7px 6px",
       boxSizing: "border-box",
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
-      WebkitLineClamp: 3,
+      WebkitLineClamp: 4,
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 9,
+      fontSize: 10,
       fontWeight: 600,
-      lineHeight: "10px",
+      lineHeight: "11px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
