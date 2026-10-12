@@ -31,21 +31,40 @@ function useElementResize(ref, options) {
     let originMouseY;
     let shouldCover = false;
 
+    function clampWindowOffset(nextOffset) {
+      const width = target.offsetWidth || size.width || 0;
+      const height = target.offsetHeight || size.height || 0;
+      const minX = boundary.left;
+      const minY = boundary.top;
+      const maxX = Math.max(minX, boundary.right - width);
+      const maxY = Math.max(minY, boundary.bottom - height);
+      return {
+        x: Math.min(maxX, Math.max(minX, nextOffset.x)),
+        y: Math.min(maxY, Math.max(minY, nextOffset.y)),
+      };
+    }
     function onDragging(e) {
       if (shouldCover && !document.body.contains(cover)) {
         document.body.appendChild(cover);
       }
       const { pageX, pageY } = getComputedPagePosition(e, _boundary);
-      const x = pageX - originMouseX + previousOffset.x;
-      const y = pageY - originMouseY + previousOffset.y;
-      setOffset({ x, y });
+      const next = clampWindowOffset({
+        x: pageX - originMouseX + previousOffset.x,
+        y: pageY - originMouseY + previousOffset.y,
+      });
+      setOffset(next);
     }
     function onDragEnd(e) {
       cover.remove();
       shouldCover = false;
       const { pageX, pageY } = getComputedPagePosition(e, _boundary);
-      previousOffset.x += pageX - originMouseX;
-      previousOffset.y += pageY - originMouseY;
+      const next = clampWindowOffset({
+        x: pageX - originMouseX + previousOffset.x,
+        y: pageY - originMouseY + previousOffset.y,
+      });
+      previousOffset.x = next.x;
+      previousOffset.y = next.y;
+      setOffset(next);
       window.removeEventListener('mousemove', onDragging);
       window.removeEventListener('mouseup', onDragEnd);
     }
@@ -303,6 +322,26 @@ function useElementResize(ref, options) {
     };
     // eslint-disable-next-line
   }, [boundary.top, boundary.right, boundary.bottom, boundary.left, cursorPos]);
+  // Keep already-open windows inside the usable desktop when the viewport
+  // changes, and after their dimensions change.
+  useEffect(() => {
+    const target = ref.current;
+    if (!target) return;
+    const width = target.offsetWidth || size.width || 0;
+    const height = target.offsetHeight || size.height || 0;
+    const minX = boundary.left;
+    const minY = boundary.top;
+    const maxX = Math.max(minX, boundary.right - width);
+    const maxY = Math.max(minY, boundary.bottom - height);
+    setOffset(current => {
+      const next = {
+        x: Math.min(maxX, Math.max(minX, current.x)),
+        y: Math.min(maxY, Math.max(minY, current.y)),
+      };
+      return next.x === current.x && next.y === current.y ? current : next;
+    });
+  }, [boundary.top, boundary.right, boundary.bottom, boundary.left, size.width, size.height, ref]);
+
   return { offset, size };
 }
 function useCursor(ref, threshold, resizable) {
