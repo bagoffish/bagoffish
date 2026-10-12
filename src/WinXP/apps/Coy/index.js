@@ -660,13 +660,9 @@ export default function CoyChat({ initialImage, initialText }) {
     } catch (err) {
       if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
-      const networkFailure = err.name === 'AbortError' ||
-        /^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim());
       const nextFailure = (errorCountRef.current || 0) > 0;
       errorCountRef.current = (errorCountRef.current || 0) + 1;
-      setError(networkFailure || !err.message
-        ? (nextFailure ? 'Still doing something…' : 'Gimme a sec, doing something')
-        : err.message);
+      setError(nextFailure ? 'Still doing something…' : 'Gimme a sec, doing something');
     } finally {
       sendLockRef.current = false;
       setBusy(false);
