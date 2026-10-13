@@ -127,9 +127,9 @@ export function applyImportedAnimation(av, clip, elapsed) {
     if (!joint || !part) continue;
     applied += 1;
     if (partName === "torso") {
-      // The imported dance clips animate the torso much less than the limbs.
-      // Add a modest rotation multiplier so the upper body visibly follows the beat.
-      part.quaternion.identity().slerp(joint.quaternion, 1.5).normalize();
+      // Keep the imported joint rotation intact. Extrapolating beyond 1.0 made
+      // torso rotations overshoot during dance loops and look twisted.
+      part.quaternion.copy(joint.quaternion);
     } else {
       part.quaternion.copy(joint.quaternion);
     }
