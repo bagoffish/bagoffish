@@ -39,10 +39,6 @@ function readCFrame(cframe, partName) {
   if (!rest) return null;
 
   // Roblox GetComponents() data is position + row-major R00..R22.
-  // Keep this matrix in the imported rig's local coordinate system: r6Split.js
-  // keeps the OBJ mesh and pivots in that same basis. Converting only the pose
-  // by 180 degrees (without rotating the mesh) reverses shoulder/hip rotation
-  // direction and makes correct Roblox tracks look mirrored or twisted.
   const robloxMatrix = new THREE.Matrix4().set(
     cframe[3], cframe[4], cframe[5], cframe[0],
     cframe[6], cframe[7], cframe[8], cframe[1],
@@ -50,10 +46,16 @@ function readCFrame(cframe, partName) {
     0, 0, 0, 1
   );
 
-  // Pose.CFrame is a joint-local transform. Add its translation to the joint's
-  // rest pivot, then decompose the unmodified rotation for Three.js.
+  // The avatar OBJ was exported in a front-facing basis (a 180-degree Y
+  // turn from Roblox's native character basis). Convert the complete joint
+  // transform into that basis: B * CFrame * B^-1. This flips X/Z translation
+  // and the corresponding rotation directions, while leaving the rest pivots
+  // in the exported mesh's coordinates. Without this, moving clips twist limbs
+  // even though identity/idle poses appear normal.
+  const basis = new THREE.Matrix4().makeRotationY(Math.PI);
+  const converted = basis.clone().multiply(robloxMatrix).multiply(basis);
   const pivot = new THREE.Matrix4().makeTranslation(rest[0], rest[1], rest[2]);
-  const localJoint = pivot.multiply(robloxMatrix);
+  const localJoint = pivot.multiply(converted);
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
