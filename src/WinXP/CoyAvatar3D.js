@@ -225,6 +225,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       av.body.scale.copy(bodyBaseScale);
       if (av.head) av.head.scale.copy(headBaseScale);
       const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
+      // The R6 sit clip bends the legs but keeps the root at standing height.
+      // Lower the whole rig so Coy visibly settles onto the taskbar/ground.
+      if (usingImported && L.pose === "sit") {
+        const sitBlend = clamp((t - poseStartedAt) / 320, 0, 1);
+        av.body.position.y -= 1.05 * sitBlend;
+      }
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
