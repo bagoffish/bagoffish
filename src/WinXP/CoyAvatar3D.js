@@ -31,7 +31,7 @@ function target(pose, t, dir, tiltIn) {
     // Rest the arms forward and lower the hips into the seat.
     case "sit":    return P({ rZ: 0, lZ: 0, rX: -1.42, lX: -1.42, rL: -1.42, lL: -1.42, bob: -1.2, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
-    case "swordslash": { const a = clamp(t / 0.9, 0, 1); return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
+    case "swordslash": { const a = clamp(t / 0.9, 0, 1); return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: 0 }); }
     case "swordlunge": {
       const a = clamp(t / 0.9, 0, 1);
       const thrust = clamp((a - 0.18) / 0.12, 0, 1) * (1 - clamp((a - 0.74) / 0.16, 0, 1));
@@ -615,16 +615,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const position = L.getPos ? (L.getPos() || {}) : {};
       const px = Number.isFinite(position.x) ? position.x : position.left;
-      const aimAt = L.grapple && L.grapple.active
+      const aimAt = L.pose === "grapple" && L.grapple && L.grapple.active
         ? { x: L.grapple.ax, y: L.grapple.ay }
-        : L.look;
+        : null;
       const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
         ? aimAt.x - (px + W / 2)
         : 0;
       const toolFacing = ["grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4
         ? Math.sign(cursorX)
-        : swordPose ? swordFacingDirection : (L.dir < 0 ? -1 : 1);
+        : (L.dir < 0 ? -1 : 1);
       const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
@@ -689,6 +689,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
             : 1 - Math.pow(-2 * travel + 2, 3) / 2;
           const screenX = L.grapple.mx + (L.grapple.ax - L.grapple.mx) * progress;
           const screenY = L.grapple.my + (L.grapple.ay - L.grapple.my) * progress;
+          // Share the exact hook-tip screen position with the rope overlay.
+          L.grapple.hx = screenX;
+          L.grapple.hy = screenY;
           const screenToWorld = (x, y) => new THREE.Vector3(
             ((x - rect.left) / rect.width) * 2 - 1,
             1 - ((y - rect.top) / rect.height) * 2,
