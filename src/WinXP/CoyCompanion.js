@@ -131,6 +131,7 @@ export default function CoyCompanion() {
   const suppressClickAfterDrag = useRef(false);
   // 3D avatar state: pose drives the R6 animation, the refs feed it without re-rendering.
   const [pose, setPose] = useState("wave");
+  const [impact, setImpact] = useState(0);
   const [dir, setDir] = useState(1);
   const dirRef = useRef(1);
   const velRef = useRef({ vx: 0 });
@@ -667,7 +668,7 @@ export default function CoyCompanion() {
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     let vy = 0, last = performance.now();
     setPose("fall");
-    const landOn = (surface, landingLeft) => {
+    const landOn = (surface, landingLeft, impactVelocity) => {
       const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
       const nextLeft = surface.kind === "appbar"
         ? clampValue(surface.minLeft + (surface.maxLeft - surface.minLeft) * surface.anchorRatio, surface.minLeft, surface.maxLeft)
@@ -677,6 +678,8 @@ export default function CoyCompanion() {
       setPosition(landed);
       standingSurfaceRef.current = surface;
       wasStandingAligned.current = true;
+      // Pass the actual impact speed through to the 3D avatar for velocity-based squash.
+      setImpact(Math.max(0, Number(impactVelocity) || 0));
       showPose("land", 520);
     };
     const step = now => {
@@ -689,12 +692,12 @@ export default function CoyCompanion() {
       if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
       const appbar = findAppbarCollision(left, previousTop, nextTop, maxTop);
       if (appbar) {
-        landOn(appbar, left);
+        landOn(appbar, left, vy);
         return;
       }
       top = nextTop;
       if (top >= maxTop) {
-        landOn({ ...getTaskbarSurface(), top: maxTop, kind: "taskbar" }, left);
+        landOn({ ...getTaskbarSurface(), top: maxTop, kind: "taskbar" }, left, vy);
         return;
       }
       posRef.current = { left, top };
@@ -993,7 +996,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
 
       {showBubble && (
