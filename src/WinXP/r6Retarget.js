@@ -35,29 +35,24 @@ function validCFrame(value) {
 // Three.Matrix4.set takes the same row-major order, then stores internally
 // column-major. Convert from Roblox's -Z-facing basis to this +Z-facing scene
 // by conjugation, B * CFrame * B^-1. Since B is a half-turn, B^-1 === B.
+// Roblox CFrame basis conversion is done in the root rig orientation, not by
+// conjugating each joint-local Pose.CFrame. Pose.CFrame is already a local
+// Motor6D Transform; changing its basis independently flips arm/leg rotations.
 function readLocalCFrame(value, partName) {
   if (!validCFrame(value)) return null;
   const rest = REST[partName];
   if (!rest) return null;
-  const source = new THREE.Matrix4().set(
+  const local = new THREE.Matrix4().set(
     value[3], value[4], value[5], value[0],
     value[6], value[7], value[8], value[1],
     value[9], value[10], value[11], value[2],
     0, 0, 0, 1
   );
-  const local = basis.clone().multiply(source).multiply(basis);
-  // The group origin represents the Motor6D joint pivot, not the center of the
-  // visible mesh. Compose the rest pivot with the animated local Transform.
-  // This is the CFrame equivalent of C0 * Transform for the baked R6 rig.
-  local.premultiply(new THREE.Matrix4().makeTranslation(rest[0], rest[1], rest[2]));
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  local.decompose(position, quaternion, scale);
+  const position = new THREE.Vector3(rest[0] + value[0], rest[1] + value[1], rest[2] + value[2]);
+  const quaternion = new THREE.Quaternion().setFromRotationMatrix(local);
   quaternion.normalize();
   return { position, quaternion };
 }
-
 const STYLE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce", "CubicV2"];
 const DIRECTION = ["In", "Out", "InOut"];
 
