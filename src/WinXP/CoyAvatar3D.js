@@ -303,17 +303,17 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (raw >= 1) transitionFrom = null;
       }
-      // Immediate, fixed-strength impact squash. Fall speed is never used;
-      // only a tiny drop gets a gentler hit. Scale from the base each frame.
+      // Landing squash is driven by the actual downward impact speed (px/s),
+      // not drop height. Apply it on the first landing frame, then rebound quickly.
       if (L.pose === "land") {
         const age = Math.max(0, t - poseStartedAt);
-        const dropDistance = Math.max(0, Number(L.impact) || 0);
-        const strength = dropDistance < 90 ? 0.035 : 0.10;
-        const pulse = strength * Math.exp(-age * 8) * Math.cos(age * 18);
+        const impactSpeed = Math.max(0, Number(L.impact) || 0);
+        const strength = 0.10 + 0.20 * clamp(impactSpeed / 1100, 0, 1);
+        const pulse = strength * Math.exp(-age * 10) * Math.cos(age * 19);
         av.body.scale.set(
-          bodyBaseScale.x * (1 + pulse * 0.45),
+          bodyBaseScale.x * (1 + pulse * 0.72),
           bodyBaseScale.y * (1 - pulse),
-          bodyBaseScale.z * (1 + pulse * 0.45)
+          bodyBaseScale.z * (1 + pulse * 0.72)
         );
       }
       renderer.render(scene, camera);
