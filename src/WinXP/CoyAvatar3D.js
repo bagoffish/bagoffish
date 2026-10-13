@@ -358,14 +358,35 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           // Expose minimal diagnostics to verify actual source clips load in the browser.
           window.__coyAnimationStatus = {
             source: "Roblox Pose.CFrame",
+            url: ANIMATIONS_URL,
+            loadedAt: new Date().toISOString(),
+            error: null,
+            current: {
+              pose: live.current.pose,
+              mode: "waiting for the next render frame",
+              clip: null
+            },
             clips: Object.fromEntries(Object.entries(clips)
               .filter(([, clip]) => clip?.frames?.length)
-              .map(([name, clip]) => [name, { frames: clip.frames.length, duration: clip.duration }]))
+              .map(([name, clip]) => [name, {
+                frames: clip.frames.length,
+                duration: clip.duration,
+                joints: Array.from(new Set(clip.frames.flatMap(frame => Object.keys(frame.poses || {}))))
+              }]))
           };
         }
       })
       .catch(error => {
-        if (!cancelled) console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+        if (!cancelled) {
+          window.__coyAnimationStatus = {
+            source: "procedural fallback",
+            url: ANIMATIONS_URL,
+            error: String(error?.message || error),
+            current: { pose: live.current.pose, mode: "procedural fallback", clip: null },
+            clips: {}
+          };
+          console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+        }
       });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
@@ -416,6 +437,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         // pose into a later custom pat/land reaction (or into imported clips).
         if (clip || previousAnimationMode.startsWith("keyframe:")) Object.assign(pose, P({}));
         previousAnimationMode = animationMode;
+        if (window.__coyAnimationStatus) {
+          window.__coyAnimationStatus.current = {
+            pose: L.pose,
+            mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+            clip: clip ? requestedClipName : null,
+            elapsed: 0
+          };
+        }
       }
       const localTime = t - poseStart;
       const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
