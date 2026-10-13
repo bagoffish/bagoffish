@@ -404,6 +404,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         transitionFrom = capturePose();
         transitionStart = t;
         poseStart = t;
+        // The procedural pose accumulator must not carry a raised arm or dance
+        // pose into a later custom pat/land reaction (or into imported clips).
+        if (clip || previousAnimationMode.startsWith("keyframe:")) Object.assign(pose, P({}));
         previousAnimationMode = animationMode;
       }
       const localTime = t - poseStart;
