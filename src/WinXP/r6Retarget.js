@@ -43,8 +43,17 @@ function readLocalCFrame(value, partName) {
     value[9], value[10], value[11], value[2],
     0, 0, 0, 1
   );
-  const position = new THREE.Vector3(rest[0] + value[0], rest[1] + value[1], rest[2] + value[2]);
+  // Pose.CFrame for the torso is the character root transform, not a
+  // Motor6D limb offset. Convert Roblox's coordinate handedness and apply
+  // the root translation directly; adding the torso rest offset here makes
+  // the whole avatar drift and causes every imported animation to look wrong.
+  const position = partName === "torso"
+    ? new THREE.Vector3(-value[0], value[1], -value[2])
+    : new THREE.Vector3(rest[0] + value[0], rest[1] + value[1], rest[2] + value[2]);
   const quaternion = new THREE.Quaternion().setFromRotationMatrix(local);
+  if (partName === "torso") {
+    quaternion.set(-quaternion.x, quaternion.y, -quaternion.z, quaternion.w);
+  }
   quaternion.normalize();
   return { position, quaternion };
 }
