@@ -27,7 +27,6 @@ export const ROBLOX_JOINT_PART = {
 const JOINT_NAMES = Object.keys(ROBLOX_JOINT_PART);
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const compiledClips = new WeakMap();
-const identityQuaternion = () => new THREE.Quaternion();
 
 function validCFrame(value) {
   return Array.isArray(value) && value.length >= 12 &&
