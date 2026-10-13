@@ -33,7 +33,7 @@ function target(name, t, dir, tiltIn) {
       // sway to read as a wave on an elbow-free R6 rig.
       const wave = sin(8.5);
       return P({
-        rArmZ: -2.22 - wave * 0.19,
+        rArmZ: 2.22 + wave * 0.19,
         rArmX: 0.11 + sin(8.5, 1.1) * 0.15,
         lArmZ: 0.025,
         lArmX: sin(2.3) * 0.025,
@@ -229,8 +229,8 @@ function buildAvatar(colors) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(color)); m.position.set(offset[0], offset[1], 0);
     g.add(m); torso.add(g); return g;
   };
-  const rArm = joint("rArm", colors.rightArm, [0.5, -0.5]), lArm = joint("lArm", colors.leftArm, [-0.5, -0.5]);
-  const rLeg = joint("rLeg", colors.rightLeg, [-0.5, -1]), lLeg = joint("lLeg", colors.leftLeg, [0.5, -1]);
+  const rArm = joint("rArm", colors.rightArm, [0, -1]), lArm = joint("lArm", colors.leftArm, [0, -1]);
+  const rLeg = joint("rLeg", colors.rightLeg, [0, -1]), lLeg = joint("lLeg", colors.leftLeg, [0, -1]);
   return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
