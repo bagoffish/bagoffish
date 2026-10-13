@@ -185,6 +185,100 @@ export function sampleClip(clip, elapsed) {
   return result;
 }
 
+
+function sceneCFrame(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
+  const position = new THREE.Vector3(x, y, z);
+  const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, "XYZ"));
+  const sceneMatrix = new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(1, 1, 1));
+  // Convert the scene-local CFrame back into Roblox's native basis. The normal
+  // compile path will convert it forward again, so custom reactions share the
+  // exact same CFrame runtime as imported KeyframeSequences.
+  const source = basis.clone().multiply(sceneMatrix).multiply(basis);
+  const e = source.elements;
+  return [e[12], e[13], e[14], e[0], e[4], e[8], e[1], e[5], e[9], e[2], e[6], e[10]];
+}
+
+function reactionFrame(time, pose) {
+  const poses = {};
+  for (const [joint, values] of Object.entries(pose)) poses[joint] = sceneCFrame(...values);
+  return { time, poses };
+}
+
+export function createReactionClips() {
+  const held = {
+    duration: 0.8, loop: true, frames: [
+      reactionFrame(0, {
+        Torso: [0, 0, 0, 0, 0, -0.035],
+        "Right Arm": [0, 0, 0, 0.08, 0, -1.9],
+        "Left Arm": [0, 0, 0, -0.08, 0, 1.9],
+        "Right Leg": [0, 0, 0, 0.12, 0, 0],
+        "Left Leg": [0, 0, 0, -0.12, 0, 0],
+      }),
+      reactionFrame(0.4, {
+        Torso: [0, 0, 0, 0, 0, 0.035],
+        "Right Arm": [0, 0, 0, -0.08, 0, -1.82],
+        "Left Arm": [0, 0, 0, 0.08, 0, 1.82],
+        "Right Leg": [0, 0, 0, -0.08, 0, 0],
+        "Left Leg": [0, 0, 0, 0.08, 0, 0],
+      }),
+      reactionFrame(0.8, {
+        Torso: [0, 0, 0, 0, 0, -0.035],
+        "Right Arm": [0, 0, 0, 0.08, 0, -1.9],
+        "Left Arm": [0, 0, 0, -0.08, 0, 1.9],
+        "Right Leg": [0, 0, 0, 0.12, 0, 0],
+        "Left Leg": [0, 0, 0, -0.12, 0, 0],
+      }),
+    ],
+  };
+  const land = {
+    duration: 0.52, loop: false, frames: [
+      reactionFrame(0, {
+        Torso: [0, -0.04, 0, 0, 0, 0],
+        "Right Arm": [0, 0, 0, 0, 0, -0.18],
+        "Left Arm": [0, 0, 0, 0, 0, 0.18],
+        "Right Leg": [0, 0, 0, -0.08, 0, 0],
+        "Left Leg": [0, 0, 0, 0.08, 0, 0],
+      }),
+      reactionFrame(0.16, {
+        Torso: [0, -0.22, 0, 0, 0, 0],
+        "Right Arm": [0, 0, 0, 0, 0, -0.38],
+        "Left Arm": [0, 0, 0, 0, 0, 0.38],
+        "Right Leg": [0, 0, 0, -0.18, 0, 0],
+        "Left Leg": [0, 0, 0, 0.18, 0, 0],
+      }),
+      reactionFrame(0.52, {
+        Torso: [0, 0, 0, 0, 0, 0],
+        "Right Arm": [0, 0, 0, 0, 0, 0],
+        "Left Arm": [0, 0, 0, 0, 0, 0],
+        "Right Leg": [0, 0, 0, 0, 0, 0],
+        "Left Leg": [0, 0, 0, 0, 0, 0],
+      }),
+    ],
+  };
+  const pat = {
+    duration: 0.65, loop: false, frames: [
+      reactionFrame(0, { Head: [0, 0, 0, 0, 0, 0] }),
+      reactionFrame(0.16, {
+        Torso: [0, -0.10, 0, 0, 0, 0],
+        Head: [0, 0, 0, -0.13, 0, 0],
+        "Right Arm": [0, 0, 0, -0.05, 0, -0.12],
+        "Left Arm": [0, 0, 0, 0.05, 0, 0.12],
+      }),
+      reactionFrame(0.34, {
+        Torso: [0, -0.03, 0, 0, 0, 0],
+        Head: [0, 0, 0, 0.06, 0, 0],
+      }),
+      reactionFrame(0.65, {
+        Torso: [0, 0, 0, 0, 0, 0],
+        Head: [0, 0, 0, 0, 0, 0],
+        "Right Arm": [0, 0, 0, 0, 0, 0],
+        "Left Arm": [0, 0, 0, 0, 0, 0],
+      }),
+    ],
+  };
+  return { held, land, pat };
+}
+
 export function resetAvatarPose(avatar) {
   if (!avatar) return;
   avatar.body.position.set(0, 0, 0);
