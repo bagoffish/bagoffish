@@ -1012,7 +1012,7 @@ export default function CoyCompanion() {
         style={{
           position: "absolute",
           // Keep the chat icon beside Coy's head rather than beside his torso.
-          left: Math.round(spriteSize * 0.62),
+          left: Math.round(spriteSize * 0.78),
           top: Math.round(spriteSize * 0.19),
           width: 30,
           height: 30,
