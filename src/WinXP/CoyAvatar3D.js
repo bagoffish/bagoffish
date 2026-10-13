@@ -338,7 +338,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
-        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;\n        av.torso.rotation.y = pose.torsoTurn;
+        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
+        av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
       // Show classic gear only during its matching emote.
