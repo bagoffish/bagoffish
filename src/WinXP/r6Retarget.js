@@ -60,7 +60,7 @@ const EASING_DIRECTION_BY_VALUE = ["In", "Out", "InOut"];
 function enumLabel(value, numericLabels) {
   if (typeof value === "number") return numericLabels[value] || "Linear";
   if (typeof value !== "string") return "Linear";
-  const label = value.replace(/^Enum\\.[^.]+\\./, "");
+  const label = value.replace(/^Enum\.[^.]+\./, "");
   return label || "Linear";
 }
 
