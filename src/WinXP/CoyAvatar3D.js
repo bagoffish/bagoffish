@@ -27,7 +27,6 @@ function target(pose, t, dir, tiltIn) {
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
-    case "pat":    return P({ sq: Math.sin(t * 14) * .06, rZ: -.3, lZ: .3 });
     case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
     case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
@@ -169,7 +168,7 @@ function loadModel(model) {
 /**
  * props:
  *  size    - canvas width in px
- *  pose    - idle | walk | held | fall | land | pat | wave | dance | dance2 | dance3
+ *  pose    - idle | walk | held | fall | land | wave | dance | dance2 | dance3
  *  dir     - 1 or -1, walking direction
  *  vx      - horizontal speed (px/s), used to tilt while held or falling
  *  look    - { x, y } cursor position in px (head follows it while calm)
@@ -317,7 +316,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       // Keep landing/patting procedural: imported clips can twist the arms through the torso
       // right as the body compresses, making the squash look inside-out.
-      const clip = (L.pose === "land" || L.pose === "pat") ? null : animations[clipName];
+      const clip = L.pose === "land" ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
@@ -407,7 +406,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
       // Head follows the cursor when calm, layered on top of whatever clip is playing.
       let wy = 0, wx = 0;
-      if (["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
+      if (["idle"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos() || {};
         const px = Number.isFinite(p.x) ? p.x : p.left;          // accept {x, y} or {left, top}
         const py = Number.isFinite(p.y) ? p.y : p.top;
