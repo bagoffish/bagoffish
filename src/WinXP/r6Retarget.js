@@ -21,12 +21,12 @@ const JOINTS = {
   "Left Leg":  { c0: [-1, -1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0],   c1: [-0.5, 1, 0, 0, 0, -1, 0, 1, 0, 1, 0, 0] },
 };
 
-// Roblox names joints from the character's own point of view. The avatar faces +Z (toward the
-// screen), so its right side is on the -X side, which is the group named lArm/lLeg in this rig.
+// Keep Roblox anatomical sides aligned with the OBJ groups and pivots in r6Split.js.
+// The avatar faces +Z, so its anatomical right is screen-left (-X): rArm/rLeg.
 export const ROBLOX_JOINT_PART = {
   "Torso": "torso", "Head": "head",
-  "Right Arm": "lArm", "Left Arm": "rArm",
-  "Right Leg": "lLeg", "Left Leg": "rLeg",
+  "Right Arm": "rArm", "Left Arm": "lArm",
+  "Right Leg": "rLeg", "Left Leg": "lLeg",
 };
 
 // Joint positions at rest. The torso sits on the body (feet at y = 0); everything else hangs
@@ -34,8 +34,8 @@ export const ROBLOX_JOINT_PART = {
 export const REST = {
   torso: [0, 3, 0],
   head: [0, 1, 0],
-  rArm: [1, 0.5, 0], lArm: [-1, 0.5, 0],
-  rLeg: [1, -1, 0],  lLeg: [-1, -1, 0],
+  rArm: [-1, 0.5, 0], lArm: [1, 0.5, 0],
+  rLeg: [-1, -1, 0],  lLeg: [1, -1, 0],
 };
 
 const rotation = cf => new THREE.Matrix4().set(
