@@ -53,7 +53,8 @@ function readCFrame(cframe, partName) {
   return { position, quaternion };
 }
 
-const EASING_STYLE_BY_VALUE = ["Linear", "Sine", "Back", "Quad", "Quart", "Quint", "Bounce", "Elastic", "Exponential", "Circular", "Cubic"];
+// Pose.EasingStyle uses Enum.PoseEasingStyle, not the larger TweenService EasingStyle enum.
+const EASING_STYLE_BY_VALUE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce"];
 const EASING_DIRECTION_BY_VALUE = ["In", "Out", "InOut"];
 
 function enumLabel(value, numericLabels) {
@@ -77,6 +78,7 @@ function easeValue(raw, metadata) {
   const direction = enumLabel(easing.direction, EASING_DIRECTION_BY_VALUE).toLowerCase();
   const easeIn = t => {
     switch (style) {
+      case "constant": return t < 1 ? 0 : 1;
       case "sine": return 1 - Math.cos(t * Math.PI / 2);
       case "back": return 2.70158 * t * t * t - 1.70158 * t * t;
       case "quad": return t * t;
@@ -91,6 +93,7 @@ function easeValue(raw, metadata) {
     }
   };
   if (style === "linear") return raw;
+  if (style === "constant") return raw < 1 ? 0 : 1;
   if (direction === "out") return 1 - easeIn(1 - raw);
   if (direction === "inout") return raw < 0.5
     ? easeIn(raw * 2) / 2
