@@ -598,4 +598,3 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 }
 
 
-
