@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-// All companion motion below is authored as local R6 joint angles and spring curves.
+// All companion motion is authored as local R6 joint angles and spring curves.
  // No Roblox CFrame/keyframe animation data is loaded or played.
 const REST = {
   torso: [0, 3, 0],
@@ -42,140 +42,186 @@ const P = o => Object.assign({
 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-// R6 has one shoulder and one hip joint per side. These motions are explicit
-// local joint angles (plus a small root lean/bob), not imported CFrame clips.
+// Entirely procedural classic-R6 animation. Every limb is animated at its
+// shoulder/hip pivot with local joint angles. There are no imported CFrame clips.
 function target(name, t, dir, tiltIn) {
-  const wave = (speed, phase = 0) => Math.sin(t * speed + phase);
+  const sin = (speed, phase = 0) => Math.sin(t * speed + phase);
+  const cos = (speed, phase = 0) => Math.cos(t * speed + phase);
   switch (name) {
-    case "wave":
-      // Anatomical RIGHT maps to av.lArm in our front-facing scene (screen-left).
-      // Keep the elbow-free R6 arm raised and make the wave a small shoulder roll.
+    case "wave": {
+      // A held-up anatomical RIGHT arm (screen-left), with a small shoulder
+      // sway to read as a wave on an elbow-free R6 rig.
+      const wave = sin(8.5);
       return P({
-        rArmZ: -2.22 - wave(7.5) * 0.20,
-        rArmX: 0.08 + wave(8.5) * 0.16,
-        lArmZ: 0.035,
-        bob: wave(3.8) * 0.008,
-        headX: -0.025,
-        headY: -0.045 + wave(2.4) * 0.025
-      });
-    case "walk": {
-      const step = wave(7.4);
-      return P({
-        rArmZ: -0.04, lArmZ: 0.04,
-        // Opposite arm/leg swing makes a clear, simple walking gait.
-        rArmX: -step * 0.28, lArmX: step * 0.28,
-        rLegX: step * 0.46, lLegX: -step * 0.46,
-        bob: 0.018 + Math.abs(step) * 0.025,
-        tilt: wave(7.4) * 0.018,
-        headX: Math.abs(step) * 0.012,
-        headY: dir * 0.045
+        rArmZ: -2.22 - wave * 0.19,
+        rArmX: 0.11 + sin(8.5, 1.1) * 0.15,
+        lArmZ: 0.025,
+        lArmX: sin(2.3) * 0.025,
+        bob: sin(3.2) * 0.008,
+        headX: -0.035 + sin(2.0) * 0.015,
+        headY: -0.05 + sin(2.4) * 0.025
       });
     }
+
+    case "walk": {
+      // A relaxed alternating gait: opposing arm/leg swing, soft foot lift,
+      // and a slight counter-sway rather than pumping the entire body.
+      const stride = sin(8.1);
+      const lift = Math.max(0, cos(16.2));
+      return P({
+        rArmZ: -0.025 + sin(4.05, Math.PI) * 0.035,
+        lArmZ: 0.025 + sin(4.05) * 0.035,
+        rArmX: -stride * 0.30,
+        lArmX: stride * 0.30,
+        rLegX: stride * 0.48,
+        lLegX: -stride * 0.48,
+        bob: 0.008 + lift * 0.025,
+        tilt: -stride * 0.018,
+        headX: 0.008 + lift * 0.01,
+        headY: dir * 0.035
+      });
+    }
+
     case "dance":
     case "dance1": {
-      const beat = wave(5.5);
-      const sway = wave(2.75);
+      // Side-to-side two-step. The hands stay within a believable R6 range;
+      // hips and shoulders alternate on one shared beat.
+      const beat = sin(5.2);
+      const sway = sin(2.6);
+      const bounce = Math.max(0, cos(5.2));
       return P({
-        rArmZ: -1.05 - beat * 0.16,
-        lArmZ: 1.05 + beat * 0.16,
-        rArmX: 0.12 + wave(5.5, Math.PI / 2) * 0.12,
-        lArmX: -0.12 - wave(5.5, Math.PI / 2) * 0.12,
-        rLegX: -beat * 0.32,
-        lLegX: beat * 0.32,
-        bob: 0.025 + (0.5 + 0.5 * Math.cos(t * 5.5)) * 0.045,
-        tilt: sway * 0.045,
-        headY: sway * 0.07
+        rArmZ: -0.92 - beat * 0.18,
+        lArmZ: 0.92 + beat * 0.18,
+        rArmX: 0.10 + sin(5.2, 1.15) * 0.13,
+        lArmX: -0.10 - sin(5.2, 1.15) * 0.13,
+        rLegX: -beat * 0.34,
+        lLegX: beat * 0.34,
+        bob: 0.008 + bounce * 0.045,
+        tilt: sway * 0.055,
+        headX: -0.015 + bounce * 0.025,
+        headY: sway * 0.065
       });
     }
+
     case "dance2": {
-      const beat = wave(6.3);
-      const sway = wave(3.15);
+      // An alternating step-touch with one arm leading; no whole-body spinning.
+      const beat = sin(6.0);
+      const sway = sin(3.0);
+      const lift = Math.max(0, beat);
       return P({
-        // A deliberately asymmetric step instead of spinning the whole avatar.
-        rArmZ: -1.7 - beat * 0.13,
-        lArmZ: 0.62 + beat * 0.18,
-        rArmX: wave(6.3, 0.5) * 0.16,
-        lArmX: -wave(6.3, 0.5) * 0.16,
-        rLegX: -wave(6.3, 0.7) * 0.34,
-        lLegX: wave(6.3, 0.7) * 0.34,
-        bob: 0.022 + Math.max(0, beat) * 0.045,
-        tilt: sway * 0.05,
-        headY: -sway * 0.075
+        rArmZ: -1.48 - beat * 0.16,
+        lArmZ: 0.48 + beat * 0.13,
+        rArmX: sin(6.0, 0.4) * 0.14,
+        lArmX: -sin(6.0, 0.4) * 0.12,
+        rLegX: -sin(6.0, 0.35) * 0.36,
+        lLegX: sin(6.0, 0.35) * 0.36,
+        bob: 0.012 + lift * 0.04,
+        tilt: sway * 0.048,
+        headX: -0.02,
+        headY: -sway * 0.065
       });
     }
+
     case "dance3": {
-      const beat = wave(4.8);
-      const sway = wave(2.4);
+      // A gentle groove: loose arms, smaller steps and slower upper-body sway.
+      const beat = sin(4.5);
+      const sway = sin(2.25, 0.3);
       return P({
-        rArmZ: -0.72 - beat * 0.34,
-        lArmZ: 0.72 + beat * 0.34,
-        rArmX: 0.16 + wave(4.8, 1.1) * 0.1,
-        lArmX: -0.16 - wave(4.8, 1.1) * 0.1,
-        rLegX: -beat * 0.29,
-        lLegX: beat * 0.29,
-        bob: 0.018 + Math.abs(beat) * 0.026,
-        tilt: sway * 0.043,
-        headY: -sway * 0.06
+        rArmZ: -0.60 - beat * 0.27,
+        lArmZ: 0.60 + beat * 0.27,
+        rArmX: 0.13 + sin(4.5, 1.0) * 0.10,
+        lArmX: -0.13 - sin(4.5, 1.0) * 0.10,
+        rLegX: -beat * 0.27,
+        lLegX: beat * 0.27,
+        bob: 0.008 + Math.abs(beat) * 0.026,
+        tilt: sway * 0.042,
+        headX: sway * 0.018,
+        headY: -sway * 0.055
       });
     }
+
     case "held": {
-      const wiggle = wave(6.8);
+      // A restrained dangling reaction when picked up, with the pointer speed
+      // providing the lean. Arms and legs wobble slightly instead of flailing.
+      const wobble = sin(6.6);
       return P({
-        rArmZ: -2.02 - wiggle * 0.12,
-        lArmZ: 2.02 + wiggle * 0.12,
-        rArmX: wave(7.0) * 0.12,
-        lArmX: -wave(7.0) * 0.12,
-        rLegX: wave(4.0) * 0.18,
-        lLegX: -wave(4.0) * 0.18,
-        tilt: tiltIn,
-        bob: wave(5.0) * 0.012
+        rArmZ: -1.98 - wobble * 0.12,
+        lArmZ: 1.98 + wobble * 0.12,
+        rArmX: sin(5.6, 0.4) * 0.12,
+        lArmX: -sin(5.6, 0.4) * 0.12,
+        rLegX: sin(4.0) * 0.17,
+        lLegX: -sin(4.0) * 0.17,
+        tilt: tiltIn + wobble * 0.025,
+        bob: sin(4.8) * 0.012
       });
     }
-    case "fall":
+
+    case "fall": {
+      // A compact startled pose while falling; tilt follows the throw direction.
+      const flutter = sin(7.0);
       return P({
-        rArmZ: -2.3, lArmZ: 2.3,
-        rArmX: -0.16, lArmX: 0.16,
-        rLegX: 0.32, lLegX: -0.26,
+        rArmZ: -2.24 - flutter * 0.07,
+        lArmZ: 2.24 + flutter * 0.07,
+        rArmX: -0.17 + flutter * 0.035,
+        lArmX: 0.17 - flutter * 0.035,
+        rLegX: 0.30 + sin(5.0, 0.5) * 0.06,
+        lLegX: -0.25 - sin(5.0, 0.5) * 0.06,
         tilt: tiltIn
       });
+    }
+
     case "land": {
-      // Impact squash, one elastic rebound, then settle to neutral.
-      const impact = Math.exp(-t * 8) * Math.cos(t * 20);
+      // One visible impact, one softer rebound, then a quick return to rest.
+      const impact = Math.exp(-t * 7.5) * Math.cos(t * 18);
+      const settle = Math.exp(-t * 8.5);
       return P({
-        rArmZ: -0.18 - impact * 0.30,
-        lArmZ: 0.18 + impact * 0.30,
-        rArmX: -Math.exp(-t * 7) * 0.10,
-        lArmX: Math.exp(-t * 7) * 0.10,
-        rLegX: -Math.exp(-t * 8) * 0.10,
-        lLegX: Math.exp(-t * 8) * 0.10,
-        sq: 0.27 * impact,
-        bob: Math.max(0, wave(20)) * 0.018 * Math.exp(-t * 8)
+        rArmZ: -0.12 - impact * 0.24,
+        lArmZ: 0.12 + impact * 0.24,
+        rArmX: -settle * 0.09,
+        lArmX: settle * 0.09,
+        rLegX: -settle * 0.085,
+        lLegX: settle * 0.085,
+        sq: 0.22 * impact,
+        bob: Math.max(0, sin(18)) * 0.018 * settle,
+        tilt: sin(9) * 0.025 * settle
       });
     }
+
     case "pat": {
-      // A quick, obvious pat squish with a small spring-back instead of a tiny idle pulse.
-      const impact = Math.exp(-t * 7) * Math.cos(t * 20);
+      // A strong pat squash and elastic recovery, with a small head dip.
+      const impact = Math.exp(-t * 7.0) * Math.cos(t * 18.5);
+      const settle = Math.exp(-t * 7.5);
       return P({
-        rArmZ: -0.12 - impact * 0.08,
-        lArmZ: 0.12 + impact * 0.08,
-        rArmX: -Math.exp(-t * 8) * 0.07,
-        lArmX: Math.exp(-t * 8) * 0.07,
+        rArmZ: -0.09 - impact * 0.07,
+        lArmZ: 0.09 + impact * 0.07,
+        rArmX: -settle * 0.065,
+        lArmX: settle * 0.065,
         sq: 0.17 * impact,
-        bob: Math.max(0, wave(16)) * 0.015 * Math.exp(-t * 7),
-        headX: -0.12 * Math.exp(-t * 7),
-        headY: wave(10) * 0.035 * Math.exp(-t * 5)
+        bob: Math.max(0, sin(18.5)) * 0.014 * settle,
+        headX: -0.105 * settle,
+        headY: sin(9.25) * 0.03 * settle
       });
     }
+
     case "idle":
     case "idle1":
     case "idle2":
-    default:
+    default: {
+      // Quiet breathing, relaxed hands and tiny head movements; nothing loops
+      // fast enough to look like jittering when Coy is meant to be standing.
+      const breath = sin(1.65);
+      const glance = sin(0.9, 0.8);
       return P({
-        rArmZ: -0.035, lArmZ: 0.035,
-        bob: wave(1.8) * 0.012,
-        headX: wave(1.35) * 0.018,
-        headY: wave(1.05) * 0.035
+        rArmZ: -0.035 + breath * 0.012,
+        lArmZ: 0.035 - breath * 0.012,
+        rArmX: sin(1.25, Math.PI) * 0.018,
+        lArmX: sin(1.25) * 0.018,
+        bob: breath * 0.012,
+        tilt: sin(0.72) * 0.008,
+        headX: sin(1.1, 0.4) * 0.018,
+        headY: glance * 0.04
       });
+    }
   }
 }
 
@@ -273,6 +319,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let av = null, raf = 0, cancelled = false;
     let previousPose = "";
     let poseStart = 0;
+    let bodyYaw = 0;
     const pose = P({});
     const look = { x: 0, y: 0 };
     const clock = new THREE.Clock();
@@ -311,13 +358,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (L.pose !== previousPose) {
         previousPose = L.pose;
         poseStart = t;
-        Object.assign(pose, P({}));
       }
       const localTime = t - poseStart;
       const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
       const nextPose = target(L.pose, localTime, L.dir, tiltIn);
       const impactPose = L.pose === "pat" || L.pose === "land";
-      const blend = 1 - Math.exp(-delta * (impactPose ? 30 : 15));
+      const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
 
       // Rebuild a clean base pose every frame; only our explicitly authored
       // joint targets are then applied. No imported CFrames are layered over it.
@@ -333,7 +379,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       av.body.position.y = pose.bob;
       // Keep Coy facing the visitor; directional movement is handled by the gait,
       // not by rotating the whole rig into a stiff side-on pose.
-      av.body.rotation.y = 0;
+      // Face the actual horizontal travel direction. In this scene yaw 0 faces
+      // the viewer; +/-90 degrees faces right/left. Ease the shortest angular
+      // path so starts, stops, and direction reversals never snap.
+      const desiredYaw = L.pose === "walk"
+        ? (L.dir >= 0 ? Math.PI / 2 : -Math.PI / 2)
+        : 0;
+      const yawDelta = Math.atan2(
+        Math.sin(desiredYaw - bodyYaw),
+        Math.cos(desiredYaw - bodyYaw)
+      );
+      bodyYaw += yawDelta * (1 - Math.exp(-delta * 5.2));
+      av.body.rotation.y = bodyYaw;
       av.body.rotation.z = pose.tilt;
       av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
 
