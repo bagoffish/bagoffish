@@ -93,6 +93,8 @@ export function splitIntoR6Parts(root) {
   const parts = {};
   const counts = {};
   const torsoMeshes = [];
+  const headMeshes = [];
+  const headAccessoryMeshes = [];
   const tailMeshes = [];
   for (const [name, pivot] of Object.entries(PIVOTS)) {
     const group = new THREE.Group();
@@ -127,6 +129,8 @@ export function splitIntoR6Parts(root) {
     parts[partName].add(mesh);
     if (isTail) tailMeshes.push(mesh);
     else if (partName === "torso") torsoMeshes.push(mesh);
+    else if (/^Handle\\d+$/i.test(sourceName)) headAccessoryMeshes.push(mesh);
+    else if (partName === "head") headMeshes.push(mesh);
     counts[partName] += geometry.index
       ? geometry.index.count / 3
       : geometry.attributes.position.count / 3;
@@ -163,6 +167,40 @@ export function splitIntoR6Parts(root) {
           tail.position[axis] += shift;
           tailBounds.min[axis] += shift;
           tailBounds.max[axis] += shift;
+        }
+      }
+    }
+  }
+
+  // Keep head accessories (hair, clips, hats, etc.) physically touching the head.
+  // OBJ exports sometimes preserve the accessory's world position but lose its
+  // attachment joint; when a Handle is entirely detached on any axis, shift it
+  // just enough to overlap the head rather than leaving it floating nearby.
+  if (headAccessoryMeshes.length && headMeshes.length) {
+    const headBounds = new THREE.Box3();
+    for (const mesh of headMeshes) {
+      mesh.geometry.computeBoundingBox();
+      headBounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix));
+    }
+    for (const accessory of headAccessoryMeshes) {
+      accessory.geometry.computeBoundingBox();
+      const accessoryBounds = accessory.geometry.boundingBox.clone().applyMatrix4(accessory.matrix);
+      const overlap = 0.035;
+      for (const axis of ["x", "y", "z"]) {
+        const min = headBounds.min[axis];
+        const max = headBounds.max[axis];
+        const accessoryMin = accessoryBounds.min[axis];
+        const accessoryMax = accessoryBounds.max[axis];
+        if (accessoryMax < min) {
+          const shift = min - accessoryMax - overlap;
+          accessory.position[axis] += shift;
+          accessoryBounds.min[axis] += shift;
+          accessoryBounds.max[axis] += shift;
+        } else if (accessoryMin > max) {
+          const shift = max - accessoryMin + overlap;
+          accessory.position[axis] += shift;
+          accessoryBounds.min[axis] += shift;
+          accessoryBounds.max[axis] += shift;
         }
       }
     }
