@@ -50,7 +50,7 @@ This is enforced in the server-side model instructions, not just the interface.
 
 ## Frontend
 
-The app uses `REACT_APP_API_BASE` when provided, otherwise it calls the existing Render backend at `https://winxp-7yes.onrender.com`. Do not put API secrets in frontend environment variables.
+The app uses `REACT_APP_API_BASE` when provided, otherwise it calls the existing Render backend at `https://fossils.onrender.com`. Do not put API secrets in frontend environment variables.
 
 ## Privacy and deployment
 
