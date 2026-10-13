@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 
-const RESIZE_CURSOR = 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
+const RESIZE_CURSORS = {
+  horizontal: 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize',
+  vertical: 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize',
+  diagonal1: 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize',
+  diagonal2: 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize',
+};
 
 function useElementResize(ref, options) {
   const {
@@ -360,7 +365,11 @@ function useCursor(ref, threshold, resizable) {
     let resizing = false;
 
     const cursorForEdge = edge => {
-      return edge ? RESIZE_CURSOR : '';
+      if (edge === 'left' || edge === 'right') return RESIZE_CURSORS.horizontal;
+      if (edge === 'top' || edge === 'bottom') return RESIZE_CURSORS.vertical;
+      if (edge === 'topLeft' || edge === 'bottomRight') return RESIZE_CURSORS.diagonal1;
+      if (edge === 'topRight' || edge === 'bottomLeft') return RESIZE_CURSORS.diagonal2;
+      return '';
     };
 
     const clear = () => {

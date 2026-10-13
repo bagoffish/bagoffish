@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Webamp from 'webamp';
 import { initialTracks } from './config';
 
@@ -16,6 +17,21 @@ function Winamp({ onClose, onMinimize }) {
 
     let disposed = false;
     const instance = new Webamp({ initialTracks });
+    const taskbar = document.querySelector('[data-xp-taskbar="true"]');
+    const updateBounds = () => {
+      const rect = taskbar?.getBoundingClientRect();
+      const bottom = rect && rect.height > 0 ? window.innerHeight - rect.top : 30;
+      target.style.bottom = `${Math.max(0, bottom)}px`;
+    };
+    updateBounds();
+    const taskbarObserver = typeof ResizeObserver !== 'undefined' && taskbar
+      ? new ResizeObserver(updateBounds)
+      : null;
+    taskbarObserver?.observe(taskbar);
+    const hitTestingStyle = document.createElement('style');
+    hitTestingStyle.textContent = '#webamp, #webamp * { pointer-events: auto; }';
+    document.head.appendChild(hitTestingStyle);
+    window.addEventListener('resize', updateBounds);
     webamp.current = instance;
 
     instance.onClose(() => {
@@ -36,6 +52,9 @@ function Winamp({ onClose, onMinimize }) {
 
     return () => {
       disposed = true;
+      taskbarObserver?.disconnect();
+      hitTestingStyle.remove();
+      window.removeEventListener('resize', updateBounds);
       if (webamp.current === instance) webamp.current = null;
       try {
         instance.dispose();
@@ -46,12 +65,13 @@ function Winamp({ onClose, onMinimize }) {
     };
   }, []);
 
-  return (
+  return createPortal(
     <div
       ref={ref}
-      style={{ position: 'fixed', inset: '0 0 30px', overflow: 'hidden', transform: 'translateZ(0)' }}
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 30, overflow: 'hidden', clipPath: 'inset(0)', zIndex: 9998, pointerEvents: 'none' }}
       aria-label="Winamp player"
-    />
+    />,
+    document.body
   );
 }
 

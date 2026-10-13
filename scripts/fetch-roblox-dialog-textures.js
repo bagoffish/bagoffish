@@ -10,6 +10,8 @@ const BASE =
   "https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/";
 
 const ASSETS = [
+  "Chat_ds.png",
+  "Chat_ovr.png",
   "chatBubble_botGreen_bkg.png",
   "chatBubble_botGreen_tail.png",
   "chatBubble_botGreen_tailRight.png",

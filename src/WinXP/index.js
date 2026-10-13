@@ -191,17 +191,18 @@ function injectXpCursors() {
   }
   // Resize mode has stronger specificity than the shell-wide cursor rules.
   style.textContent = [
-    'html, body, body *, #root, #root * { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
-    '#root a, #root a *, #root button, #root button *, #root [role="button"], #root [role="button"] *, #root label, #root label *, #root summary, #root summary *, #root select, #root option, #root .xpButton, #root .xpButton *, #root .ie__function_bar__button, #root .ie__function_bar__button *, #root .inline-link, #root .inline-link *, #root [onclick], #root [onclick] *, #root [data-clickable], #root [data-clickable] *, #root input[type="button"], #root input[type="submit"], #root input[type="reset"], #root input[type="checkbox"], #root input[type="radio"], #root input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
-    '#root .app__header button, #root .app__header [role="button"], #root .app__header [onclick] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
-    '#root .xp-cursor-horizontal, #root .xp-cursor-vertical, #root .xp-cursor-diagonal-1, #root .xp-cursor-diagonal-2 { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
-    '#root *::-webkit-scrollbar, #root *::-webkit-scrollbar-thumb, #root *::-webkit-scrollbar-track, #root *::-webkit-scrollbar-button { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
-    '#root .xp-cursor-normal { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
-    'input[type="text"], input[type="password"], input[type="search"], input[type="email"], input[type="number"], input[type="url"], input:not([type]), textarea, [contenteditable="true"] { cursor: url("/images/Normal%20Select.cur") 3 3, text !important; }',
-    '#root textarea::-webkit-resizer { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
-    // Only force the resize cursor across the desktop while the mouse is held.
-    // Hovering a border changes the cursor only on that window's edge.
-    'html body.xp-resizing #root, html body.xp-resizing #root *, html body.xp-resizing #root *::before, html body.xp-resizing #root *::after { cursor: var(--xp-resize-cursor, url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize) !important; }',
+    'html, body, body * { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    'body a, body a *, body button, body button *, body [role="button"], body [role="button"] *, body label, body label *, body summary, body summary *, body select, body option, body .xpButton, body .xpButton *, body .ie__function_bar__button, body .ie__function_bar__button *, body .inline-link, body .inline-link *, body [onclick], body [onclick] *, body [data-clickable], body [data-clickable] *, body input[type="button"], body input[type="submit"], body input[type="reset"], body input[type="checkbox"], body input[type="radio"], body input[type="file"] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
+    'body .app__header button, body .app__header [role="button"], body .app__header [onclick] { cursor: url("/images/Link%20Select.cur") 3 3, pointer !important; }',
+    'body .xp-cursor-horizontal, body [data-resize="horizontal"] { cursor: url("/images/Horizontal%20Resize.cur") 8 8, ew-resize !important; }',
+    'body .xp-cursor-vertical, body [data-resize="vertical"] { cursor: url("/images/Vertical%20Resize.cur") 8 8, ns-resize !important; }',
+    'body .xp-cursor-diagonal-1, body [data-resize="diagonal-1"] { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
+    'body .xp-cursor-diagonal-2, body [data-resize="diagonal-2"] { cursor: url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize !important; }',
+    'body *::-webkit-scrollbar, body *::-webkit-scrollbar-thumb, body *::-webkit-scrollbar-track, body *::-webkit-scrollbar-button { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    'body .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
+    'body input[type="text"], body input[type="password"], body input[type="search"], body input[type="email"], body input[type="number"], body input[type="url"], body input:not([type]), body textarea, body [contenteditable="true"] { cursor: text !important; }',
+    'body textarea::-webkit-resizer { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
+    'body[data-xp-resize] *, body.xp-resizing * { cursor: var(--xp-resize-cursor, url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize) !important; }',
   ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
@@ -708,8 +709,11 @@ const animation = {
 
 /* XP cursors — also enforced in Container for the desktop shell */
 const CURSOR_LINK = `url("/images/Link%20Select.cur") 3 3, pointer`;
-const CURSOR_NORMAL = CURSOR_LINK;
-const CURSOR_RESIZE = `url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize`;
+const CURSOR_NORMAL = `url("/images/Normal%20Select.cur") 3 3, default`;
+const CURSOR_RESIZE_HORIZONTAL = `url("/images/Horizontal%20Resize.cur") 8 8, ew-resize`;
+const CURSOR_RESIZE_VERTICAL = `url("/images/Vertical%20Resize.cur") 8 8, ns-resize`;
+const CURSOR_RESIZE_DIAGONAL_1 = `url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize`;
+const CURSOR_RESIZE_DIAGONAL_2 = `url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize`;
 
 const Container = styled.div`
   @import url('https://fonts.googleapis.com/css?family=Noto+Sans');
@@ -757,36 +761,24 @@ const Container = styled.div`
   }
 
   input, textarea, [contenteditable='true'] {
-    cursor: url("/images/Normal%20Select.cur") 3 3, text !important;
+    cursor: text !important;
   }
   textarea::-webkit-resizer {
-    cursor: ${CURSOR_RESIZE} !important;
+    cursor: ${CURSOR_RESIZE_DIAGONAL_1} !important;
   }
 
   .xp-cursor-horizontal, [data-resize="horizontal"] {
-    cursor: ${CURSOR_RESIZE} !important;
+    cursor: ${CURSOR_RESIZE_HORIZONTAL} !important;
   }
   .xp-cursor-vertical, [data-resize="vertical"] {
-    cursor: ${CURSOR_RESIZE} !important;
+    cursor: ${CURSOR_RESIZE_VERTICAL} !important;
   }
   .xp-cursor-diagonal-1, [data-resize="diagonal-1"] {
-    cursor: ${CURSOR_RESIZE} !important;
+    cursor: ${CURSOR_RESIZE_DIAGONAL_1} !important;
   }
   .xp-cursor-diagonal-2, [data-resize="diagonal-2"] {
-    cursor: ${CURSOR_RESIZE} !important;
+    cursor: ${CURSOR_RESIZE_DIAGONAL_2} !important;
   }
-  }
-  @media (max-width: 700px) {
-    html, body, #root {
-      width: 100%;
-      height: 100%;
-      min-height: 100%;
-      overflow: hidden;
-    }
-    #root {
-      position: fixed;
-      inset: 0;
-    }
   }
 `;
 

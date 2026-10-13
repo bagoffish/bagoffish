@@ -159,7 +159,6 @@ export default function CoyCompanion() {
   const lastPointerAt = useRef(0);
   const ropeSvgRef = useRef(null);
   const ropeLineRef = useRef(null);
-  const ropeHookRef = useRef(null);
   const ropeRaf = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(148);
@@ -250,6 +249,8 @@ export default function CoyCompanion() {
         if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
         const rect = header.getBoundingClientRect();
         const fitRange = getAppbarFitRange(rect);
+        // A bar too close to the viewport top cannot support Coy without clipping him.
+        if (rect.top < height) return null;
         // The whole avatar must fit inside the blue bar at the exact release position.
         if (!fitRange || left < fitRange.minLeft - 0.5 || left > fitRange.maxLeft + 0.5) return null;
         // When a window is near the desktop's top edge, Coy may be clamped
@@ -288,6 +289,8 @@ export default function CoyCompanion() {
         if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
         const rect = header.getBoundingClientRect();
         const fitRange = getAppbarFitRange(rect);
+        // A title bar above Coy cannot be used as a platform; keep falling to the taskbar.
+        if (rect.top < height) return null;
         // Falling past a narrow title bar is not a landing: Coy must fit entirely on it.
         if (!fitRange || left < fitRange.minLeft - 0.5 || left > fitRange.maxLeft + 0.5) return null;
         const landingTop = Math.max(0, rect.top - height);
@@ -346,7 +349,7 @@ export default function CoyCompanion() {
           // update the standing coordinates to the new header rectangle.
           const rect = header.getBoundingClientRect();
           const fitRange = getAppbarFitRange(rect);
-          if (!fitRange) {
+          if (rect.top < getCoyHeight() || !fitRange) {
             // The window was narrowed or moved so Coy no longer fits; let him fall.
             startFall();
             return;
@@ -577,16 +580,27 @@ export default function CoyCompanion() {
     }, ms);
   }
 
+  function startSwordAction(move, duration) {
+    window.clearTimeout(poseTimer.current);
+    poseRef.current = "swordequip";
+    setPose("swordequip");
+    poseTimer.current = window.setTimeout(() => {
+      if (poseRef.current === "swordequip") showPose(move, duration);
+    }, 300);
+  }
+
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
     const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];  // plus coyMoves.wall(), .cursor(), .random()
-    const durations = { swordslash: 1200, swordlunge: 1500, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
+    const durations = { swordslash: 900, swordlunge: 900, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
       play(name, ms) {
         const move = String(name || "").toLowerCase();
         if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
-        showPose(move, Math.max(250, Number(ms) || durations[move] || 1800));
+        const duration = Math.max(250, Number(ms) || durations[move] || 1800);
+        if (move === "swordslash" || move === "swordlunge") startSwordAction(move, duration);
+        else showPose(move, duration);
         console.info("Coy move:", move);
         if (move === "gearhold") gearHeldRef.current = true;
         if (move === "swordslash" || move === "swordlunge") gearHeldRef.current = false;
@@ -633,7 +647,8 @@ export default function CoyCompanion() {
         for (const move of sequence) {
           if (!window.coyMoves || window.coyMoves !== api) return;
           api.play(move, durations[move] || 2200);
-          await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + 180));
+          const equipDelay = move === "swordslash" || move === "swordlunge" ? 300 : 0;
+          await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + equipDelay + 180));
         }
         api.stop();
       }
@@ -849,7 +864,6 @@ export default function CoyCompanion() {
       line.setAttribute("x1", mx); line.setAttribute("y1", my);
       line.setAttribute("x2", hx); line.setAttribute("y2", hy);
     }
-    if (ropeHookRef.current) { ropeHookRef.current.setAttribute("cx", hx); ropeHookRef.current.setAttribute("cy", hy); }
     svg.style.display = "block";
     ropeRaf.current = window.requestAnimationFrame(drawRope);
   }
@@ -963,7 +977,8 @@ export default function CoyCompanion() {
     const dir = wall.dir;
     const token = beginAction("wall");
     const slipAt = wall.kind === "window" && Math.random() < 0.4 ? 0.3 + Math.random() * 0.55 : null;
-    let phase = "fire", t = 0, pullFrom = null, pullDur = 0.7, climbStartTop = 0, climbStopTop = 0, climbDirection = -1, climbStopAt = 0, mantleFrom = null, mantleTo = null, mantleSurface = null;
+    const climbDirection = -1;
+    let phase = "fire", t = 0, pullFrom = null, pullDur = 0.7, climbStartTop = 0, climbStopTop = 0, climbStopAt = 0, mantleFrom = null, mantleTo = null, mantleSurface = null;
     const contactLeft = x => x - dir * WALL_CONTACT_PX - W / 2;
 
     dirRef.current = dir;
@@ -997,7 +1012,6 @@ export default function CoyCompanion() {
           hideRope();
           velRef.current.vx = 0;
           climbStartTop = top;
-          climbDirection = Math.random() < 0.5 ? -1 : 1;
           if (wall.kind === "screen") {
             const vh = window.innerHeight;
             const distance = Math.max(60, (0.18 + Math.random() * 0.37) * vh);
@@ -1125,15 +1139,20 @@ export default function CoyCompanion() {
   }
 
   function doSword() {
-    const dx = lookRef.current.x - (posRef.current.left + spriteSize / 2);
-    if (Math.abs(dx) > 8) {
-      dirRef.current = dx < 0 ? -1 : 1;
-      setDir(dirRef.current);
-    }
-    showPose(randomLine(["swordslash", "swordlunge", "swordslash"]), 1300);
+    startSwordAction("swordlunge", 900);
     return true;
   }
   function doSit() {
+    cancelAction();
+    const surface = getTaskbarSurface();
+    const next = {
+      left: clampValue(posRef.current.left, surface.minLeft, surface.maxLeft),
+      top: surface.top
+    };
+    posRef.current = next;
+    setPosition(next);
+    standingSurfaceRef.current = surface;
+    wasStandingAligned.current = true;
     showPose("sit", 6500 + Math.random() * 3500);
     return true;
   }
@@ -1368,17 +1387,17 @@ export default function CoyCompanion() {
     },
     dialogTail: {
       position: "absolute",
-      // Keep the Roblox tail centered under every bubble width.
+      // Center the tail and tuck its base behind the bubble border to hide the seam.
       left: "50%",
       right: "auto",
       transform: "translateX(-50%)",
-      top: "calc(100% - 7px)",
+      top: "calc(100% - 10px)",
       width: 24,
       height: 24,
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
-      zIndex: 4
+      zIndex: 0
     },
     dialogText: {
       position: "relative",
@@ -1436,7 +1455,6 @@ export default function CoyCompanion() {
         style={{ position: "fixed", left: 0, top: 0, width: "100vw", height: "100vh", display: "none", overflow: "visible", pointerEvents: "none" }}
       >
         <line ref={ropeLineRef} stroke="#161616" strokeWidth="2.2" strokeLinecap="round" />
-        <circle ref={ropeHookRef} r="5.5" fill="#2b2b2b" stroke="#c8c8c8" strokeWidth="1.3" />
       </svg>
       <button
         type="button"
@@ -1459,8 +1477,8 @@ export default function CoyCompanion() {
         style={{
           position: "absolute",
           // Keep the chat icon beside Coy's head rather than beside his torso.
-          left: Math.round(spriteSize * 0.78),
-          top: Math.round(spriteSize * 0.19),
+          left: Math.round(spriteSize * 0.7),
+          top: Math.round(spriteSize * 0.05),
           width: 30,
           height: 30,
           padding: 0,
@@ -1473,15 +1491,15 @@ export default function CoyCompanion() {
         }}
         onMouseEnter={event => {
           const image = event.currentTarget.querySelector("img");
-          if (image) image.src = "https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ovr.png";
+          if (image) image.src = ROBLOX_DIALOG_ASSET_BASE + "Chat_ovr.png";
         }}
         onMouseLeave={event => {
           const image = event.currentTarget.querySelector("img");
-          if (image) image.src = "https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ds.png";
+          if (image) image.src = ROBLOX_DIALOG_ASSET_BASE + "Chat_ds.png";
         }}
       >
         <img
-          src="https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ds.png"
+          src={ROBLOX_DIALOG_ASSET_BASE + "Chat_ds.png"}
           alt=""
           draggable={false}
           style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
