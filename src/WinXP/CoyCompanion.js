@@ -13,7 +13,7 @@ const ACTION_MIN_MS = 6000;       // gap between random actions: sword / sit / g
 const ACTION_MAX_MS = 15000;
 const WALL_CONTACT_PX = 14;       // how far his body centre hangs off the wall while climbing
 const CLIMB_SPEED = 85;           // px/s
-const HOOK_TRAVEL_S = 0.38;       // time for the hook to fly out to its anchor
+const HOOK_TRAVEL_S = 0.7;        // keep the travelling hook visible long enough to follow
 const WALL_ROPE_REACH = 560;      // farthest wall he will fire at, px
 const lerp = (a, b, k) => a + (b - a) * k;
 const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
