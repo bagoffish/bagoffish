@@ -228,7 +228,12 @@ export default function CoyCompanion() {
         const fitRange = getAppbarFitRange(rect);
         // The whole avatar must fit inside the blue bar at the exact release position.
         if (!fitRange || left < fitRange.minLeft - 0.5 || left > fitRange.maxLeft + 0.5) return null;
-        const overlapsVertically = dropBottomY >= rect.top - 34 && top <= rect.bottom + 12;
+        // When a window is near the desktop's top edge, Coy may be clamped
+        // to y=0 and his feet can sit slightly above the title bar. Still allow
+        // a deliberate drop onto that bar instead of sending him back to taskbar.
+        const landingTolerance = Math.max(64, height * 0.45);
+        const overlapsVertically = dropBottomY >= rect.top - landingTolerance &&
+          top <= rect.bottom + 12;
         if (!overlapsVertically) return null;
         return {
           kind: "appbar",
