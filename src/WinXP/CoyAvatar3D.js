@@ -232,17 +232,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
-      // Landing squash: scale is layered over the active animation, never accumulated.
-      if (L.pose === "land") {
-        const age = Math.max(0, Math.min(1, (t - poseStartedAt) / 0.38));
-        const strength = Math.max(0, Math.min(0.17, ((Number(L.impact) || 0) - 500) / 1500));
-        const pulse = Math.sin(Math.PI * age) * strength;
-        av.body.scale.set(
-          bodyBaseScale.x * (1 + pulse * 0.85),
-          bodyBaseScale.y * (1 - pulse),
-          bodyBaseScale.z * (1 + pulse * 0.85)
-        );
-      }
       // Patting uses a damped spring instead of a sharp repeated pulse: a soft
       // compression, a little rebound, then a smooth settle with no scale drift.
       if (L.pose === "pat") {
@@ -310,6 +299,19 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           part.scale.copy(from.scale).lerp(scale, alpha);
         }
         if (raw >= 1) transitionFrom = null;
+      }
+      // Apply landing impact AFTER the pose crossfade so the squash starts on
+      // the exact landing frame instead of being eased in by the 240 ms transition.
+      if (L.pose === "land") {
+        const age = Math.max(0, Math.min(1, (t - poseStartedAt) / 0.38));
+        const strength = Math.max(0, Math.min(0.17, ((Number(L.impact) || 0) - 500) / 1500));
+        // Hit immediately, then rebound and settle quickly like a soft body.
+        const pulse = strength * Math.exp(-age * 4) * Math.cos(age * 15);
+        av.body.scale.set(
+          av.body.scale.x * (1 + pulse * 0.85),
+          av.body.scale.y * (1 - pulse),
+          av.body.scale.z * (1 + pulse * 0.85)
+        );
       }
       renderer.render(scene, camera);
     };
