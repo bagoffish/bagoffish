@@ -6,7 +6,6 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://winxp-7yes.onrender
 const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PAT_LINES = ["Hehe..", "Eek!", ":3c", "Again..!", "Thank you.."];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
@@ -550,7 +549,7 @@ export default function CoyCompanion() {
 
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
-    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit", "pat"];
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];
     const durations = { swordslash: 1200, swordlunge: 1500, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
@@ -598,17 +597,12 @@ export default function CoyCompanion() {
           ["swordslash", 900],
           ["swordlunge", 1200],
           ["swordslash", 900],
-          ["grapple", 2100],
-          ["gearhold", 2200 + Math.random() * 1800],
-          ["climbing", 2200 + Math.random() * 1800]
+          ["grapple", 2100]
         ];
         const [action, duration] = actions[Math.floor(Math.random() * actions.length)];
         showPose(action, duration);
       } else if (roll < 0.30) {
         showPose("sit", 6500 + Math.random() * 3500);
-      } else {
-        const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
-        showPose(dance, 4000 + Math.random() * 2500);
       }
     }, 12000 + Math.random() * 18000);
     return () => window.clearTimeout(timer);
@@ -863,9 +857,9 @@ export default function CoyCompanion() {
     // Clicking Coy only pats him; use the chat button to open the chatbot.
     if (clickTimer.current) window.clearTimeout(clickTimer.current);
     clickTimer.current = null;
-    showPose("pat", 650);
-    setLine(formatCoyText(randomLine(PAT_LINES)));
-    setShowBubble(true);
+    // A direct click plays one dance; it never triggers the old pat pose or a pat bubble.
+    const dances = ["dance", "dance2", "dance3"];
+    showPose(dances[Math.floor(Math.random() * dances.length)], 4500);
     lastActivity.current = Date.now();
   }
 
