@@ -28,6 +28,11 @@ function target(pose, t, dir, tiltIn) {
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
     case "pat":    return P({ sq: Math.sin(t * 14) * .06, rZ: -.3, lZ: .3 });
+    case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
+    case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
+    case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
+    case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
+    case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08, bob: Math.abs(a) * .04 }); }
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
   }
 }
@@ -184,6 +189,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     let av = null, raf = 0, cancelled = false;
     let swordGear = null, grappleGear = null;
+    let grappleHook = null, grappleCable = null;
+    const cableGeometry = new THREE.BufferGeometry();
+    cableGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
+    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false });
+    grappleCable = new THREE.Line(cableGeometry, cableMaterial);
+    grappleCable.frustumCulled = false; grappleCable.renderOrder = 20; scene.add(grappleCable);
+    grappleHook = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), new THREE.MeshStandardMaterial({ color: 0x292929, metalness: 0.65, roughness: 0.4 }));
+    grappleHook.visible = false; grappleHook.renderOrder = 21; scene.add(grappleHook);
+    let grappleStartAt = 0;
     const attachGear = () => {
       if (!av) return;
       if (swordGear) av.rArm.add(swordGear);
@@ -341,7 +355,37 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
       // Show classic gear only during its matching emote.
       if (swordGear) swordGear.visible = L.pose === "swordslash" || L.pose === "swordlunge";
-      if (grappleGear) grappleGear.visible = L.pose === "gearhold" || L.pose === "climbing";
+      if (grappleGear) grappleGear.visible = ["gearhold", "climbing", "grapple"].includes(L.pose);
+      // Rotate the sword through the attack arc, rather than leaving it as a rigid prop.
+      if (swordGear) {
+        const phase = Math.max(0, (t - poseStartedAt) / (L.pose === "swordlunge" ? 1.15 : 0.9));
+        const attack = L.pose === "swordlunge" ? 1 : 0;
+        swordGear.rotation.set(Math.PI / 2 + (attack ? -0.65 : 0.35) * Math.sin(phase * Math.PI * 2), 0, -Math.PI / 2 + (attack ? -1.15 : 1.45) * Math.sin(phase * Math.PI * 2));
+      }
+      if (grappleGear) grappleGear.rotation.set(Math.PI / 2 + Math.sin(t * 5) * 0.04, 0, -Math.PI / 2 - (L.pose === "grapple" ? 0.12 : 0));
+      // Hook projectile + dark cable. The hook flies out, connects, pulls Coy upward, then retracts.
+      if (grappleCable && grappleHook) {
+        const firing = L.pose === "grapple";
+        if (firing && previousPose !== "grapple") grappleStartAt = t;
+        const elapsed = t - grappleStartAt;
+        const active = firing && elapsed < 1.7;
+        grappleCable.visible = active; grappleHook.visible = active;
+        if (active) {
+          av.body.updateMatrixWorld(true); grappleGear?.updateMatrixWorld(true);
+          const origin = new THREE.Vector3(0.08, 0.05, 0.45);
+          if (grappleGear) grappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
+          const targetPoint = new THREE.Vector3(1.6 + Math.sin(grappleStartAt * 2.7) * 0.65, 4.1 + Math.cos(grappleStartAt * 1.9) * 0.35, 0.1);
+          const travel = clamp(elapsed / 0.42, 0, 1);
+          const hookPos = origin.clone().lerp(targetPoint, travel);
+          grappleHook.position.copy(hookPos);
+          const arr = cableGeometry.attributes.position.array;
+          arr[0] = origin.x; arr[1] = origin.y; arr[2] = origin.z;
+          arr[3] = (origin.x + hookPos.x) / 2; arr[4] = (origin.y + hookPos.y) / 2; arr[5] = (origin.z + hookPos.z) / 2;
+          arr[6] = hookPos.x; arr[7] = hookPos.y; arr[8] = hookPos.z;
+          cableGeometry.attributes.position.needsUpdate = true; cableGeometry.computeBoundingSphere();
+          if (elapsed > 0.42) { const pull = clamp((elapsed - 0.42) / 0.8, 0, 1); av.body.position.y += (Math.min(1.15, pull * 1.15) - av.body.position.y) * 0.08; av.body.rotation.z = -0.08; }
+        }
+      }
       // Face the way it is walking: front-facing at rest, a quarter turn while walking.
       if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
       // Held or falling: lean with the sideways speed.
