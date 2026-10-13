@@ -26,6 +26,9 @@ function target(pose, t, dir, tiltIn) {
     case "walk":   s = Math.sin(t * 10); return P({ rX: s * .8, lX: -s * .8, rL: -s * .7, lL: s * .7, bob: Math.abs(s) * .08, spin: dir * 1.1 });
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
+    // Classic R6 has no knee joints, so sitting is a hip bend plus a lower root.
+    // Use a procedural pose because the archived sit clip contains no useful sit keyframes.
+    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.18, lL: -1.18, bob: -1.35, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
     case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
     case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
@@ -316,7 +319,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       // Keep landing/patting procedural: imported clips can twist the arms through the torso
       // right as the body compresses, making the squash look inside-out.
-      const clip = L.pose === "land" ? null : animations[clipName];
+      // The archived sit clip is effectively empty; use the grounded procedural R6 sit pose.
+      const clip = (L.pose === "land" || L.pose === "sit") ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
@@ -327,12 +331,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       av.body.scale.copy(bodyBaseScale);
       if (av.head) av.head.scale.copy(headBaseScale);
       const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
-      // The R6 sit clip bends the legs but keeps the root at standing height.
-      // Lower the whole rig so Coy visibly settles onto the taskbar/ground.
-      if (usingImported && L.pose === "sit") {
-        const sitBlend = clamp((t - poseStartedAt) / 320, 0, 1);
-        av.body.position.y -= 1.05 * sitBlend;
-      }
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
