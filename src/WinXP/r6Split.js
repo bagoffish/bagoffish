@@ -37,7 +37,7 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
       ...[].concat(current.material || []).map(material => material?.name),
     ].filter(value => typeof value === "string");
     if (candidates.some(value => /OpossumTail/i.test(value) || /^Handle7(?:Mtl)?$/i.test(value.trim()))) return true;
-    if (candidates.some(value => /(?:^|\\s)Handle\\d+(?:Mtl)?(?:$|\\s)/i.test(value.trim()))) isHandle = true;
+    if (candidates.some(value => /(?:^|\s)Handle\d+(?:Mtl)?(?:$|\s)/i.test(value.trim()))) isHandle = true;
   }
 
   // Roblox exports can renumber accessory Handles whenever an outfit is re-exported.
@@ -65,7 +65,7 @@ function sourcePartName(object) {
     for (const candidate of candidates) {
       const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
       if (rig && RIG_TO_PART[rig[1]]) return rig[1];
-      const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:$|\s)/);
+      const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
       if (handle) return handle[1];
     }
   }
