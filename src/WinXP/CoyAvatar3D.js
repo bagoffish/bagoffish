@@ -447,6 +447,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       const localTime = t - poseStart;
+      if (window.__coyAnimationStatus) {
+        window.__coyAnimationStatus.current = {
+          pose: L.pose,
+          mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+          clip: clip ? requestedClipName : null,
+          elapsed: localTime
+        };
+      }
       const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
 
       resetAvatarPose(av);
