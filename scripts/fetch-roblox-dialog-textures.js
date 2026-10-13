@@ -1,4 +1,4 @@
-// Fetch the original Roblox 2013 green Dialog textures before a production build.
+// Fetch the original Roblox 2013 Dialog textures before a production build.
 // Archived from the January 17, 2013 Windows Studio client texture package.
 // We keep these as normal local public assets so the live site does not hotlink the archive.
 const fs = require("fs");
@@ -12,6 +12,9 @@ const BASE =
 const ASSETS = [
   "chatBubble_botGreen_bkg.png",
   "chatBubble_botGreen_tail.png",
+  "chatBubble_botGreen_tailRight.png",
+  "chatBubble_botRed_bkg.png",
+  "chatBubble_botRed_tailRight.png",
 ];
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -53,7 +56,7 @@ async function downloadAsset(name) {
 (async () => {
   try {
     for (const name of ASSETS) await downloadAsset(name);
-    console.log("Original Roblox green dialog textures are ready in public/images/roblox-dialog/.");
+    console.log("Original Roblox dialog textures (green + red) are ready in public/images/roblox-dialog/.");
   } catch (error) {
     console.error("Failed to prepare original Roblox dialog textures:", error.message || error);
     process.exitCode = 1;
