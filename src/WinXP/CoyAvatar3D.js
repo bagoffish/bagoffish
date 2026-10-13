@@ -336,6 +336,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
+        if (L.pose === "grapple" && L.look && L.getPos) {
+          // Aim the actual arm/gun toward the cursor, not just the projectile.
+          const p = L.getPos() || {};
+          const px = Number.isFinite(p.x) ? p.x : p.left;
+          const py = Number.isFinite(p.y) ? p.y : p.top;
+          if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(L.look.x) && Number.isFinite(L.look.y)) {
+            const dx = L.look.x - (px + W / 2);
+            const dy = L.look.y - (py + H / 2);
+            tg.rZ = clamp(Math.atan2(dx, dy), -2.65, 2.65);
+            tg.rX = clamp(-dy / Math.max(H, 1) * 2.2, -1.2, 1.2);
+          }
+        }
         for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
