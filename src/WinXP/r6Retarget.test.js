@@ -1,13 +1,14 @@
 import * as THREE from "three";
-const animationData = JSON.parse(require("fs").readFileSync(
-  require("path").join(process.cwd(), "public/avatar/animations.json"), "utf8"
-));
 import {
   REST,
   ROBLOX_JOINT_PART,
   sampleClip,
   createReactionClips,
 } from "./r6Retarget";
+
+const animationData = JSON.parse(require("fs").readFileSync(
+  require("path").join(process.cwd(), "public/avatar/animations.json"), "utf8"
+));
 
 const identity = () => [0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1];
 const cframeZ = angle => {
@@ -62,7 +63,7 @@ describe("R6 CFrame rig", () => {
         }
       }
     }
-  });;
+  });
 
   test("custom held, land, and pat reactions are also CFrame clips", () => {
     const reactions = createReactionClips();
