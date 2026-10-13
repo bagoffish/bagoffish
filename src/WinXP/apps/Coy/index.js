@@ -304,7 +304,7 @@ const styles = {
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#444' },
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 10, background: '#1e1e1e' },
-  bubble: { position: 'relative', maxWidth: '88%', padding: '10px 13px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.4, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 600, border: '2px solid', borderRadius: 10, minHeight: 36, boxSizing: 'border-box', boxShadow: '0 1px 3px rgba(0,0,0,.45)' },
+  bubble: { position: 'relative', width: 'fit-content', maxWidth: 'min(88%, 680px)', minWidth: 0, height: 'auto', minHeight: 36, padding: '10px 13px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.4, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 600, border: '2px solid', borderRadius: 10, boxSizing: 'border-box', boxShadow: '0 1px 3px rgba(0,0,0,.45)' },
   user: { alignSelf: 'flex-end', borderColor: '#ff2424', background: 'linear-gradient(180deg, #ff6868 0%, #d90000 48%, #790000 100%)', marginRight: 8 },
   coy: { alignSelf: 'flex-start', borderColor: '#00f000', background: 'linear-gradient(180deg, #62ff62 0%, #00bb00 48%, #006b00 100%)', marginLeft: 8 },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #333', background: '#2a2a2a', flexShrink: 0, alignItems: 'flex-end' },
