@@ -770,17 +770,28 @@ export default function CoyCompanion() {
       moved: false
     };
     suppressClickAfterDrag.current = false;
-    window.cancelAnimationFrame(fallRaf.current);
+    // A click must not stop the fall; only cancel physics once this becomes a real drag.
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
   }
 
   function onCoyPointerMove(event) {
     const drag = dragState.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
+    let dx = event.clientX - drag.startX;
+    let dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-    if (!drag.moved) { window.clearTimeout(poseTimer.current); setPose("held"); }
+    if (!drag.moved) {
+      window.cancelAnimationFrame(fallRaf.current);
+      // Start dragging from Coy's latest physics position, not where he was on pointer-down.
+      drag.originLeft = posRef.current.left;
+      drag.originTop = posRef.current.top;
+      drag.startX = event.clientX;
+      drag.startY = event.clientY;
+      dx = 0;
+      dy = 0;
+      window.clearTimeout(poseTimer.current);
+      setPose("held");
+    }
     drag.moved = true;
     velRef.current.vx = (event.movementX || 0) * 24 + velRef.current.vx * 0.6;
     velRef.current.t = performance.now();
