@@ -38,7 +38,7 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
       ...[].concat(current.material || []).map(material => material?.name),
     ].filter(value => typeof value === "string");
     if (candidates.some(value => /OpossumTail/i.test(value))) return true;
-    if (candidates.some(value => /(?:^|\\s)Handle\\d+(?:Mtl)?(?:$|\\s)/i.test(value.trim()))) isHandle = true;
+    if (candidates.some(value => /(?:^|\s)Handle\d+(?:Mtl)?(?:$|\s)/i.test(value.trim()))) isHandle = true;
   }
 
   if (!isHandle || !torsoBounds || !headBounds || torsoBounds.isEmpty() || headBounds.isEmpty()) return false;
@@ -72,11 +72,11 @@ function sourcePartName(object) {
     );
   }
   for (const candidate of candidates.filter(value => typeof value === "string")) {
-    const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:Mtl)?(?:$|\\s)/i);
+    const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
     if (handle) return handle[1];
   }
   for (const candidate of candidates.filter(value => typeof value === "string")) {
-    const rig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|\\s)/);
+    const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
     if (rig && RIG_TO_PART[rig[1]]) return rig[1];
   }
   // Preserve unknown accessory meshes rather than dropping them.
