@@ -8,6 +8,7 @@ import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorso
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
+const TOOL_SOUND_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/sounds/coy-tools/";
 const META_URL = BASE + "avatar.json";
 const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
@@ -302,17 +303,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHitPlayed = false;
     const soundIds = {
-      swordSlash: 12222216,
-      swordLunge: 12222208,
-      unsheath: 12222225,
+      swordSlash: TOOL_SOUND_BASE + "slash.mp3",
+      swordLunge: TOOL_SOUND_BASE + "lunge.mp3",
+      unsheath: TOOL_SOUND_BASE + "unsheath.mp3",
       grappleEquip: 12222225,
-      grappleFire: 16211041,
+      grappleFire: TOOL_SOUND_BASE + "grapple.mp3",
       grappleConnect: 13510737,
       grappleHit: 16211030
     };
-    const playGearSound = (id, volume = 0.75) => {
+    const playGearSound = (source, volume = 0.22) => {
       try {
-        const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
+        const src = typeof source === "number" ? "https://www.roblox.com/asset/?id=" + source : source;
+        const audio = new Audio(src);
         audio.volume = volume;
         audio.play().catch(() => {});
       } catch (_) {}
@@ -353,6 +355,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let poseStartedAt = 0;
     // Persist facing independently of the pose reset/imported animation each frame.
     let facingYaw = 0;
+    let swordFacingDirection = 1;
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
@@ -429,22 +432,24 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
+        if (L.pose === "swordequip" || L.pose === "swordslash" || L.pose === "swordlunge") {
+          swordFacingDirection = L.dir < 0 ? -1 : 1;
+        }
         transitionDuration = ["swordslash", "swordlunge"].includes(L.pose) ? 0.12 : 0.34;
-        // Tool audio is best-effort because browsers can block remote media
-        // until the visitor has interacted with the page.
+        // Browsers may block tool audio until the visitor interacts with the page.
         if (L.pose === "gearhold" && !["gearhold", "climbing", "grapple"].includes(priorPose)) {
-          playGearSound(soundIds.grappleEquip, 0.55);
+          playGearSound(soundIds.grappleEquip, 0.18);
         }
         if (L.pose === "swordequip") {
-          playGearSound(soundIds.unsheath, 0.55);
+          playGearSound(soundIds.unsheath, 0.18);
         } else if (L.pose === "swordslash") {
-          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.55);
+          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
           playGearSound(soundIds.swordSlash);
         } else if (L.pose === "swordlunge") {
-          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.55);
+          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
-          if (!["gearhold", "climbing"].includes(priorPose)) playGearSound(soundIds.grappleEquip, 0.55);
+          if (!["gearhold", "climbing"].includes(priorPose)) playGearSound(soundIds.grappleEquip, 0.18);
           grappleHitPlayed = false;
           playGearSound(soundIds.grappleFire);
         }
@@ -522,8 +527,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       resizeViewport(externalGrapple);
       if (externalGrapple && Number(L.grapple.travel) >= 1 && !grappleHitPlayed) {
         grappleHitPlayed = true;
-        playGearSound(soundIds.grappleConnect, 0.7);
-        playGearSound(soundIds.grappleHit, 0.7);
+        playGearSound(soundIds.grappleConnect, 0.22);
+        playGearSound(soundIds.grappleHit, 0.22);
       }
       // Held or falling: lean with the sideways speed.
       if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
@@ -581,10 +586,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (raw >= 1) transitionFrom = null;
       }
+      // Crossfading the previous idle pose can temporarily restore cursor gaze.
+      if (swordPose && av.head) av.head.quaternion.identity();
       // Apply the facing turn after pose crossfading; otherwise the crossfade can
       // repeatedly blend the body back toward its old, front-facing quaternion.
-      // Walking and climbing should turn Coy side-on; grapple/sword aim toward
-      // the cursor or anchor. Smoothly return to the front-facing pose afterward.
+      // Walking and climbing turn with movement; sword poses keep their captured
+      // side-facing direction, while grapple aims toward its anchor.
       const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const position = L.getPos ? (L.getPos() || {}) : {};
       const px = Number.isFinite(position.x) ? position.x : position.left;
@@ -595,7 +602,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         ? aimAt.x - (px + W / 2)
         : 0;
       const toolFacing = ["grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
-      const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
+      const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4
+        ? Math.sign(cursorX)
+        : swordPose ? swordFacingDirection : (L.dir < 0 ? -1 : 1);
       const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
@@ -653,7 +662,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (projectileActive) {
           const rect = canvas.getBoundingClientRect();
           const travel = clamp(Number(L.grapple.travel) || 0, 0, 1);
-          const progress = travel * travel * (3 - 2 * travel);
+          const progress = travel < 0.5
+            ? 4 * travel * travel * travel
+            : 1 - Math.pow(-2 * travel + 2, 3) / 2;
           const screenX = L.grapple.mx + (L.grapple.ax - L.grapple.mx) * progress;
           const screenY = L.grapple.my + (L.grapple.ay - L.grapple.my) * progress;
           const screenToWorld = (x, y) => new THREE.Vector3(
@@ -661,12 +672,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
             1 - ((y - rect.top) / rect.height) * 2,
             muzzleDepth
           ).unproject(camera);
-          grappleGear.position.copy(screenToWorld(screenX, screenY));
+          const hookTip = screenToWorld(screenX, screenY);
           const towardAnchor = screenToWorld(L.grapple.ax, L.grapple.ay).sub(muzzleWorld || grappleGear.position);
           if (towardAnchor.lengthSq() > 0) {
-            grappleGear.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), towardAnchor.normalize());
+            towardAnchor.normalize();
+            grappleGear.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), towardAnchor);
           }
           grappleGear.scale.setScalar(0.35);
+          const hookHalfLength = (grappleGear.userData.muzzleZ || 0) * grappleGear.scale.z;
+          grappleGear.position.copy(hookTip).addScaledVector(towardAnchor, -hookHalfLength);
         }
       }
       // Landing squash is driven by the actual downward impact speed (px/s),
