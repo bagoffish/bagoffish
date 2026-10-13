@@ -393,8 +393,13 @@ export default function Coy({ onClose }) {
     try {
       const prepared = await Promise.all(currentAttachments.map(async file => {
         const { file: preparedFile, mimeType } = await prepareMediaFile(file, file.type);
-        const dataUrl = await readFileAsDataUrl(preparedFile);
-        return { name: preparedFile.name, type: mimeType, dataUrl };
+        const extension = (preparedFile.name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase();
+        const textExtensions = new Set(['txt','md','markdown','csv','tsv','json','jsonl','xml','html','htm','css','js','jsx','ts','tsx','mjs','cjs','py','java','c','h','cpp','hpp','cs','go','rs','php','rb','sql','log','yaml','yml','toml','ini','conf','sh','bash','bat','ps1','diff','patch','env','gitignore']);
+        if (textExtensions.has(extension) && !mimeType.startsWith('image/') && !mimeType.startsWith('audio/')) {
+          return { name: preparedFile.name, mimeType: mimeType || 'text/plain', text: await preparedFile.text() };
+        }
+        const data = await readFileAsDataUrl(preparedFile);
+        return { name: preparedFile.name, mimeType, data };
       }));
 
       const response = await fetch(API_BASE + '/personal-ai/chat', {
