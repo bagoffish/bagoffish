@@ -176,6 +176,23 @@ function loadGear(filename, scale) {
         if (bounds.isEmpty()) { reject(new Error("Empty gear model: " + filename)); return; }
         const center = bounds.getCenter(new THREE.Vector3());
         const muzzleZ = bounds.getSize(new THREE.Vector3()).z * scale / 2;   // barrel tip, in gun space
+        const tipVertices = new Map();
+        root.traverse(object => {
+          if (!object.isMesh) return;
+          const positions = object.geometry.attributes.position;
+          const vertex = new THREE.Vector3();
+          for (let i = 0; i < positions.count; i++) {
+            vertex.fromBufferAttribute(positions, i).applyMatrix4(object.matrixWorld);
+            if (Math.abs(vertex.z - bounds.min.z) < 0.001) {
+              const key = `${vertex.x.toFixed(4)},${vertex.y.toFixed(4)}`;
+              if (!tipVertices.has(key)) tipVertices.set(key, vertex.clone());
+            }
+          }
+        });
+        const tip = tipVertices.size
+          ? [...tipVertices.values()].reduce((sum, vertex) => sum.add(vertex), new THREE.Vector3())
+            .multiplyScalar(scale / tipVertices.size).sub(center.clone().multiplyScalar(scale))
+          : new THREE.Vector3(0, 0, -muzzleZ);
         root.traverse(object => {
           if (!object.isMesh) return;
           object.geometry = object.geometry.clone();
@@ -200,6 +217,7 @@ function loadGear(filename, scale) {
         });
         root.scale.set(1, 1, 1);
         root.userData.muzzleZ = muzzleZ;
+        root.userData.tip = tip;
         root.visible = false;
         resolve(root);
       }, undefined, reject);
@@ -586,8 +604,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (raw >= 1) transitionFrom = null;
       }
-      // Crossfading the previous idle pose can temporarily restore cursor gaze.
-      if (swordPose && av.head) av.head.quaternion.identity();
+      // Keep the head level through sword clips that pitch the torso forward.
+      if (swordPose && av.head && av.torso) {
+        av.head.quaternion.copy(av.torso.quaternion).invert();
+      }
       // Apply the facing turn after pose crossfading; otherwise the crossfade can
       // repeatedly blend the body back toward its old, front-facing quaternion.
       // Walking and climbing turn with movement; sword poses keep their captured
@@ -645,7 +665,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.body.updateMatrixWorld(true);
         activeGrappleGear.updateMatrixWorld(true);
         camera.updateMatrixWorld();
-        const muzzle = new THREE.Vector3(0, 0, activeGrappleGear.userData.muzzleZ || 1.5);
+        const muzzle = (activeGrappleGear.userData.tip || new THREE.Vector3(
+          0, 0, -(activeGrappleGear.userData.muzzleZ || 1.5)
+        )).clone();
         activeGrappleGear.localToWorld(muzzle);
         muzzleWorld = muzzle.clone();
         muzzle.project(camera);
@@ -678,9 +700,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
             towardAnchor.normalize();
             grappleGear.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), towardAnchor);
           }
-          grappleGear.scale.setScalar(0.35);
-          const hookHalfLength = (grappleGear.userData.muzzleZ || 0) * grappleGear.scale.z;
-          grappleGear.position.copy(hookTip).addScaledVector(towardAnchor, -hookHalfLength);
+          grappleGear.scale.setScalar(1);
+          const hookTipLocal = grappleGear.userData.tip || new THREE.Vector3(
+            0, 0, -(grappleGear.userData.muzzleZ || 0)
+          );
+          grappleGear.position.copy(hookTip).sub(hookTipLocal.clone().applyQuaternion(grappleGear.quaternion));
         }
       }
       // Landing squash is driven by the actual downward impact speed (px/s),
