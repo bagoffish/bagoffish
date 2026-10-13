@@ -913,8 +913,8 @@ export default function CoyCompanion() {
     },
     dialogTail: {
       position: "absolute",
-      // Use the original right-hand lightning-tail sprite in its native square
-      // proportions. Its base tucks behind the bubble; no rotation or squashing.
+      // Layer the tail over the background/frame so its base covers the
+      // border where the arrow joins the bubble, avoiding a connecting seam.
       left: "50%",
       top: "calc(100% - 10px)",
       width: 32,
@@ -923,7 +923,7 @@ export default function CoyCompanion() {
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
-      zIndex: 0
+      zIndex: 2
     },
     dialogText: {
       position: "relative",
