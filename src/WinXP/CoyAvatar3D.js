@@ -23,17 +23,17 @@ function target(pose, t, dir, tiltIn) {
     case "dance":  s = Math.sin(t * 8);  return P({ rZ: 2.2 + s * .5, lZ: -(2.2 - s * .5), rL: s * .6, lL: -s * .6, bob: Math.abs(s) * .35, spin: Math.sin(t * 4) * .6 });
     case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
     case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
-    case "walk":   s = Math.sin(t * 10); return P({ rX: s * .8, lX: -s * .8, rL: -s * .7, lL: s * .7, bob: Math.abs(s) * .08, spin: dir * 1.1 });
+    case "walk":   s = Math.sin(t * 8.5); return P({ rX: s * .58, lX: -s * .58, rL: -s * .48, lL: s * .48, bob: Math.abs(s) * .025, spin: 0 });
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
     // Classic R6 has no knee joints, so sitting is a hip bend plus a lower root.
     // Use a procedural pose because the archived sit clip contains no useful sit keyframes.
-    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.18, lL: -1.18, bob: -1.35, tilt: 0 });
+    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.42, lL: -1.42, bob: -2.0, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
     case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
     case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
-    case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
+    case "climbing": { const a = Math.sin(t * 7) * (dir < 0 ? -1 : 1); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: a * .04, tilt: -0.06 }); }
     case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08, bob: Math.abs(a) * .04 }); }
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
   }
@@ -101,7 +101,11 @@ const GEAR = {
   // The grapple gun's real Grip wasn't available, so this holds it by the drum with the barrel
   // pointing forward. Tune it live in the browser console, no rebuild needed:
   //   window.__coyGrip = { grapple: { gripPos: [0, 0, -0.75], gripRotDeg: [0, 180, 0] } }
+  // The legacy asset set contains Grapple.obj, Gun.obj and the combined GrappleGun.obj.
+  // Prefer the combined Roblox gear; allow choosing either exported component for testing.
   grapple: { file: "GrappleGun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  grappleHead: { file: "Grapple.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  grappleGun: { file: "Gun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, -90, 0] },
 };
 const toRad = d => d * Math.PI / 180;
 function gripMatrix(name) {
@@ -242,7 +246,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let grappleHook = null, grappleCable = null;
     const cableGeometry = new THREE.BufferGeometry();
     cableGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
-    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false });
+    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false, transparent: false, linewidth: 1 });
     grappleCable = new THREE.Line(cableGeometry, cableMaterial);
     grappleCable.frustumCulled = false; grappleCable.renderOrder = 20; scene.add(grappleCable);
     grappleHook = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), new THREE.MeshStandardMaterial({ color: 0x292929, metalness: 0.65, roughness: 0.4 }));
@@ -390,7 +394,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // Use the imported R6 clips for sit, gearhold, swordslash, swordlunge,
       // and climbing so their original torso/arm/leg poses are preserved. Keep
       // landing and cursor-aimed grapple procedural; grapple needs live aim input.
-      const clip = (L.pose === "land" || L.pose === "grapple") ? null : animations[clipName];
+      // Sit is deliberately procedural: the archived sit clip leaves the hips too high.
+      const clip = (L.pose === "land" || L.pose === "grapple" || L.pose === "sit") ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
@@ -545,7 +550,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // selects which side of the app/desktop edge he is facing; keep the turn
       // smooth and return to the front-facing pose when the action ends.
       const sideFacing = L.pose === "walk" || L.pose === "climbing";
-      const targetYaw = sideFacing ? (L.dir < 0 ? -1 : 1) * Math.PI / 2 : 0;
+      const toolFacing = ["grapple", "swordslash", "swordlunge"].includes(L.pose);
+      const cursorX = L.look && Number.isFinite(L.look.x) && L.getPos ? L.look.x - ((L.getPos()?.x ?? L.getPos()?.left ?? 0) + W / 2) : 0;
+      const toolDirection = Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
+      const targetYaw = (sideFacing || toolFacing) ? toolDirection * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
       // walk pose writes body.rotation.y every frame too. A quaternion slerp
