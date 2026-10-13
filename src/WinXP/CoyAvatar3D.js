@@ -13,8 +13,9 @@ const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
 
-const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, torsoTurn: 0, tilt: 0, sq: 0 }, o);
+const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, torsoTurn: 0, torsoLean: 0, tilt: 0, sq: 0 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const PROCEDURAL_POSES = new Set(["sit", "land", "grapple"]);
 
 function target(pose, t, dir, tiltIn) {
   let s;
@@ -23,15 +24,24 @@ function target(pose, t, dir, tiltIn) {
     case "dance":  s = Math.sin(t * 8);  return P({ rZ: 2.2 + s * .5, lZ: -(2.2 - s * .5), rL: s * .6, lL: -s * .6, bob: Math.abs(s) * .35, spin: Math.sin(t * 4) * .6 });
     case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
     case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
-    case "walk":   s = Math.sin(t * 8.5); return P({ rX: s * .58, lX: -s * .58, rL: -s * .48, lL: s * .48, bob: Math.abs(s) * .025, spin: 0 });
+    case "walk":   s = Math.sin(t * 8.5); return P({ rX: s * .58, lX: -s * .58, rL: -s * .48, lL: s * .48, bob: 0, spin: 0 });
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
-    // Classic R6 has no knee joints, so sitting is a hip bend plus a lower root.
-    // Use a procedural pose because the archived sit clip contains no useful sit keyframes.
-    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.42, lL: -1.42, bob: -2.0, tilt: 0 });
+    // Rest the arms forward and lower the hips into the seat.
+    case "sit":    return P({ rZ: 0, lZ: 0, rX: -1.42, lX: -1.42, rL: -1.42, lL: -1.42, bob: -1.2, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
-    case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
-    case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
+    case "swordslash": { const a = clamp(t / 0.9, 0, 1); return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
+    case "swordlunge": {
+      const a = clamp(t / 0.9, 0, 1);
+      const thrust = clamp((a - 0.18) / 0.12, 0, 1) * (1 - clamp((a - 0.74) / 0.16, 0, 1));
+      return P({
+        rZ: 1.2 - thrust * 1.05, rX: -0.55 - thrust * 0.85,
+        lZ: -0.35, lX: thrust * 0.55,
+        rL: -thrust * 0.55, lL: thrust * 0.65,
+        torsoLean: thrust * 0.24,
+      });
+    }
+    case "swordequip": return P({ rZ: 1.2, rX: -0.55, lZ: -0.35 });
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
     case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
     case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08 + tiltIn, bob: Math.abs(a) * .04 }); }
@@ -94,31 +104,58 @@ function disposeAvatar(root) {
 // handle coordinates; the scene is Roblox turned 180 degrees about Y (D), and the arm group's
 // origin is the shoulder joint, which is 0.5 above / 0.5 inboard of the arm part's center.
 //   gripPos     Tool.Grip Position (studs, handle space)
-//   gripRotDeg  Tool.Grip Orientation in degrees (Roblox order: Y, X, Z)
+//   gripRotDeg  Tool.Grip Orientation in degrees (Roblox Vector3 X, Y, Z)
 const GEAR = {
   // Classic Sword: Position (0,0,-1.5), Orientation (0,90,90). Hilt in the palm, blade up.
-  sword:      { file: "Sword.obj",      scale: 0.52, gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
-  grapple:    { file: "Grapple.obj",    scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
-  gun:        { file: "Gun.obj",        scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, -90, 0] },
-  grappleGun: { file: "GrappleGun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  sword:      { file: "Sword.obj",      scale: 0.9,  gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
+  grapple:    { file: "Grapple.obj",    scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
+  gun:        { file: "Gun.obj",        scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
+  grappleGun: { file: "GrappleGun.obj", scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
+};
+const POSE_GEAR_GRIPS = {
+  swordlungeout: {
+    sword: {
+      gripPos: [0, 0, -1.7],
+      gripRotationMatrix: [0, 1, 0, 1, 0, 0, 0, 0, -1],
+    },
+  },
 };
 const toRad = d => d * Math.PI / 180;
-function gripMatrix(name, leftHand = false) {
-  const cfg = { ...GEAR[name], ...(typeof window !== "undefined" && window.__coyGrip?.[name]) };
+function gripMatrix(name, leftHand = false, pose) {
+  const cfg = { ...GEAR[name], ...(POSE_GEAR_GRIPS[pose]?.[name] || {}) };
   const D = new THREE.Matrix4().makeScale(-1, 1, -1);                    // Roblox -> scene axes
   const armCenter = new THREE.Matrix4().makeTranslation(leftHand ? -0.5 : 0.5, -0.5, 0);
   const c0 = new THREE.Matrix4().makeTranslation(0, -1, 0)
     .multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
   const [gx, gy, gz] = cfg.gripPos.map(v => v * cfg.scale);              // mesh is scaled, so is the grip point
   const [rx, ry, rz] = cfg.gripRotDeg.map(toRad);
-  const grip = new THREE.Matrix4().makeTranslation(gx, gy, gz)
-    .multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz, "YXZ")));
+  let gripRotation;
+  if (cfg.gripRotationMatrix) {
+    const [m00, m01, m02, m10, m11, m12, m20, m21, m22] = cfg.gripRotationMatrix;
+    gripRotation = new THREE.Matrix4().set(
+      m00, m01, m02, 0,
+      m10, m11, m12, 0,
+      m20, m21, m22, 0,
+      0, 0, 0, 1
+    );
+  } else {
+    gripRotation = new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz, "YXZ"));
+  }
+  const grip = new THREE.Matrix4().makeTranslation(gx, gy, gz).multiply(gripRotation);
   return D.multiply(armCenter).multiply(c0).multiply(grip.invert());
 }
-function placeGear(gear, name, leftHand = false) {
+function placeGear(gear, name, leftHand = false, pose, worldOffset = null) {
   if (!gear) return;
+  const matrix = gripMatrix(name, leftHand, pose);
+  if (worldOffset && gear.parent) {
+    gear.parent.updateWorldMatrix(true, false);
+    const parentInverse = gear.parent.matrixWorld.clone().invert();
+    const origin = new THREE.Vector3().applyMatrix4(parentInverse);
+    const offset = new THREE.Vector3(...worldOffset).applyMatrix4(parentInverse).sub(origin);
+    matrix.premultiply(new THREE.Matrix4().makeTranslation(offset.x, offset.y, offset.z));
+  }
   gear.matrixAutoUpdate = false;
-  gear.matrix.copy(gripMatrix(name, leftHand));
+  gear.matrix.copy(matrix);
   gear.matrixWorldNeedsUpdate = true;
 }
 
@@ -231,27 +268,38 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
   useEffect(() => {
     const canvas = canvasRef.current;
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    const basePixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    let currentRenderWidth = RENDER_W, currentRenderHeight = RENDER_H, currentPixelRatio = basePixelRatio;
+    renderer.setPixelRatio(basePixelRatio);
     renderer.setClearColor(0x000000, 0);
     renderer.setSize(RENDER_W, RENDER_H, false);
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(30, RENDER_W / RENDER_H, .1, 100);
     // Scale distance with the taller viewport to preserve Coy's on-screen size.
     camera.position.set(0, 2.8, 12.5 * (RENDER_H / H)); camera.lookAt(0, 2.8, 0);
+    const resizeViewport = fullScreen => {
+      const width = fullScreen ? Math.max(RENDER_W, Math.ceil(window.innerWidth * 2)) : RENDER_W;
+      const height = fullScreen ? Math.max(RENDER_H, Math.ceil(window.innerHeight * 2)) : RENDER_H;
+      const pixelRatio = fullScreen ? Math.min(basePixelRatio, 1) : basePixelRatio;
+      if (width === currentRenderWidth && height === currentRenderHeight && pixelRatio === currentPixelRatio) return;
+      currentRenderWidth = width; currentRenderHeight = height; currentPixelRatio = pixelRatio;
+      renderer.setPixelRatio(pixelRatio);
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.position.set(0, 2.8, 12.5 * (height / H));
+      camera.lookAt(0, 2.8, 0);
+      camera.far = Math.max(100, camera.position.z + 100);
+      camera.updateProjectionMatrix();
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+      canvas.style.left = `${-Math.round((width - W) / 2)}px`;
+      canvas.style.top = `${-Math.round((height - H) / 2)}px`;
+    };
     scene.add(new THREE.AmbientLight(0xffffff, .7));
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
-    let grappleHook = null, grappleCable = null;
-    const cableGeometry = new THREE.BufferGeometry();
-    cableGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
-    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false });
-    grappleCable = new THREE.Line(cableGeometry, cableMaterial);
-    grappleCable.frustumCulled = false; grappleCable.renderOrder = 20; scene.add(grappleCable);
-    grappleHook = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), new THREE.MeshStandardMaterial({ color: 0x292929, metalness: 0.65, roughness: 0.4 }));
-    grappleHook.visible = false; grappleHook.renderOrder = 21; scene.add(grappleHook);
-    let grappleStartAt = 0;
     let grappleHitPlayed = false;
     const soundIds = {
       swordSlash: 12222216,
@@ -269,13 +317,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         audio.play().catch(() => {});
       } catch (_) {}
     };
-    let lastGripSig = "";
-    let grappleTargetPoint = new THREE.Vector3(1.6, 4.1, 0.1);
     const attachGear = () => {
       if (!av) return;
       if (swordGear) av.rArm.add(swordGear);
-      if (grappleGear) av.rArm.add(grappleGear);
-      if (gunGear) av.lArm.add(gunGear);
+      if (gunGear) av.rArm.add(gunGear);
       if (grappleGunGear) av.rArm.add(grappleGunGear);
     };
     loadGear(GEAR.sword.file, GEAR.sword.scale).then(gear => {
@@ -287,13 +332,13 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     loadGear(GEAR.grapple.file, GEAR.grapple.scale).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       grappleGear = gear;
-      placeGear(grappleGear, "grapple");
-      attachGear();
+      grappleGear.visible = false;
+      scene.add(grappleGear);
     }).catch(e => console.warn("Coy: grapple gear failed to load", e));
     loadGear(GEAR.gun.file, GEAR.gun.scale).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       gunGear = gear;
-      placeGear(gunGear, "gun", true);
+      placeGear(gunGear, "gun");
       attachGear();
     }).catch(e => console.warn("Coy: gun gear failed to load", e));
     loadGear(GEAR.grappleGun.file, GEAR.grappleGun.scale).then(gear => {
@@ -313,7 +358,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let animationStart = 0;
     let transitionFrom = null;
     let transitionStartedAt = 0;
-    const transitionDuration = 0.34;
+    let transitionDuration = 0.34;
     const partNames = ["torso", "head", "rArm", "lArm", "rLeg", "lLeg"];
     const capturePose = () => ({
       bodyPosition: av.body.position.clone(),
@@ -384,16 +429,19 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
+        transitionDuration = ["swordslash", "swordlunge"].includes(L.pose) ? 0.12 : 0.34;
         // Tool audio is best-effort because browsers can block remote media
         // until the visitor has interacted with the page.
         if (L.pose === "gearhold" && !["gearhold", "climbing", "grapple"].includes(priorPose)) {
           playGearSound(soundIds.grappleEquip, 0.55);
         }
-        if (L.pose === "swordslash") {
-          if (priorPose !== "swordlunge" && priorPose !== "swordslash") playGearSound(soundIds.unsheath, 0.55);
+        if (L.pose === "swordequip") {
+          playGearSound(soundIds.unsheath, 0.55);
+        } else if (L.pose === "swordslash") {
+          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.55);
           playGearSound(soundIds.swordSlash);
         } else if (L.pose === "swordlunge") {
-          if (priorPose !== "swordslash" && priorPose !== "swordlunge") playGearSound(soundIds.unsheath, 0.55);
+          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.55);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
           if (!["gearhold", "climbing"].includes(priorPose)) playGearSound(soundIds.grappleEquip, 0.55);
@@ -411,11 +459,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
-      // Use the imported R6 clips for sit, gearhold, swordslash, swordlunge,
-      // and climbing so their original torso/arm/leg poses are preserved. Keep
-      // landing and cursor-aimed grapple procedural; grapple needs live aim input.
-      const clip = (L.pose === "land" || L.pose === "grapple" || L.pose === "sit") ? null : animations[clipName];
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall", swordslash: "gearhold" })[L.pose] || L.pose;
+      // Keep grounded sit, landing, and live-aim grapple procedural; preserve the imported CFrame clips for other moves.
+      const clip = PROCEDURAL_POSES.has(L.pose) ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
@@ -430,7 +476,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
       if (usingImported) {
         // The clips barely move the torso; add shoulder twist / lean / breathing from the limbs.
-        const want = torsoTargets(av, clipName, t - animationStart);
+        const want = clipName === "walk" ? { twist: 0, lean: 0 } : torsoTargets(av, clipName, t - animationStart);
         const k = 1 - Math.exp(-14 * delta);
         torsoLayer.twist += (want.twist - torsoLayer.twist) * k;
         torsoLayer.lean += (want.lean - torsoLayer.lean) * k;
@@ -460,89 +506,31 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
-        av.torso.rotation.y = pose.torsoTurn;
+        av.torso.rotation.x = pose.torsoLean; av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
       // Show classic gear only during its matching emote.
-      if (swordGear) swordGear.visible = L.pose === "swordslash" || L.pose === "swordlunge";
+      if (swordGear) swordGear.visible = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose);
-      const pairedGrapple = typeof window !== "undefined" && window.__coyGear?.mode === "grapple+gun";
-      if (grappleGear) grappleGear.visible = holdingGrapple && pairedGrapple;
+      const grappleMode = typeof window === "undefined" ? "grapplegun" : window.__coyGear?.mode || "grapplegun";
+      const pairedGrapple = grappleMode === "grapple+gun" || (grappleMode === "grapplegun" && Boolean(L.grapple && L.grapple.active));
       if (gunGear) gunGear.visible = holdingGrapple && pairedGrapple;
       if (grappleGunGear) grappleGunGear.visible = holdingGrapple && !pairedGrapple;
-      // Gear is welded to the right hand (see GEAR / gripMatrix) and rides the arm animation.
-      // Re-weld live when tuning through window.__coyGrip.
-      if (typeof window !== "undefined" && window.__coyGrip) {
-        const sig = JSON.stringify(window.__coyGrip);
-        if (sig !== lastGripSig) {
-          lastGripSig = sig;
-          placeGear(swordGear, "sword");
-          placeGear(grappleGear, "grapple");
-          placeGear(gunGear, "gun", true);
-          placeGear(grappleGunGear, "grappleGun");
-        }
-      }
-      // Hook projectile + dark cable. The hook flies out, connects, pulls Coy upward, then retracts.
-      if (grappleCable && grappleHook) {
-        const external = Boolean(L.grapple && L.grapple.active);
-        const firing = L.pose === "grapple" && !external;
-        if (firing && enteredPose) {
-          grappleStartAt = t;
-          const p = L.getPos ? (L.getPos() || {}) : {};
-          const px = Number.isFinite(p.x) ? p.x : p.left;
-          const py = Number.isFinite(p.y) ? p.y : p.top;
-          if (L.look && Number.isFinite(L.look.x) && Number.isFinite(L.look.y) && Number.isFinite(px) && Number.isFinite(py)) {
-            grappleTargetPoint.set(
-              clamp(((L.look.x - (px + W / 2)) / Math.max(W, 1)) * 9, -6.5, 6.5),
-              clamp(2.8 - ((L.look.y - (py + H / 2)) / Math.max(H, 1)) * 7, 0.4, 8.5),
-              0.1
-            );
-          } else {
-            grappleTargetPoint.set(L.dir * 4.5, 4.1, 0.1);
-          }
-        }
-        const elapsed = t - grappleStartAt;
-        const justConnected = (firing && elapsed >= 0.42 && elapsed - delta < 0.42)
-          || (external && Number(L.grapple.travel) >= 1 && !grappleHitPlayed);
-        if (justConnected && !grappleHitPlayed) {
-          grappleHitPlayed = true;
-          playGearSound(soundIds.grappleConnect, 0.7);
-          playGearSound(soundIds.grappleHit, 0.7);
-        }
-        const active = firing && elapsed < 1.7;
-        grappleCable.visible = active; grappleHook.visible = active;
-        if (active) {
-          const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
-          av.body.updateMatrixWorld(true); activeGrappleGear?.updateMatrixWorld(true);
-          const origin = new THREE.Vector3(0, 0, activeGrappleGear?.userData.muzzleZ || 0.98);
-          if (activeGrappleGear) activeGrappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
-          const travel = clamp(elapsed / 0.42, 0, 1);
-          const hookPos = origin.clone().lerp(grappleTargetPoint, travel);
-          grappleHook.position.copy(hookPos);
-          const arr = cableGeometry.attributes.position.array;
-          arr[0] = origin.x; arr[1] = origin.y; arr[2] = origin.z;
-          arr[3] = (origin.x + hookPos.x) / 2; arr[4] = (origin.y + hookPos.y) / 2; arr[5] = (origin.z + hookPos.z) / 2;
-          arr[6] = hookPos.x; arr[7] = hookPos.y; arr[8] = hookPos.z;
-          cableGeometry.attributes.position.needsUpdate = true; cableGeometry.computeBoundingSphere();
-          if (elapsed > 0.42) { const pull = clamp((elapsed - 0.42) / 0.8, 0, 1); av.body.position.y += (Math.min(1.15, pull * 1.15) - av.body.position.y) * 0.08; av.body.rotation.z = -0.08; }
-        }
-      }
-      // Tell the parent where the muzzle is on screen so it can draw the cable from the gun.
-      const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
-      if (L.grapple && activeGrappleGear && activeGrappleGear.visible) {
-        av.body.updateMatrixWorld(true); activeGrappleGear.updateMatrixWorld(true); camera.updateMatrixWorld();
-        const m = new THREE.Vector3(0, 0, activeGrappleGear.userData.muzzleZ || 1.5);
-        activeGrappleGear.localToWorld(m); m.project(camera);
-        const r = canvas.getBoundingClientRect();
-        L.grapple.mx = r.left + (m.x * 0.5 + 0.5) * r.width;
-        L.grapple.my = r.top + (-m.y * 0.5 + 0.5) * r.height;
+      const externalGrapple = Boolean(L.grapple && L.grapple.active);
+      resizeViewport(externalGrapple);
+      if (externalGrapple && Number(L.grapple.travel) >= 1 && !grappleHitPlayed) {
+        grappleHitPlayed = true;
+        playGearSound(soundIds.grappleConnect, 0.7);
+        playGearSound(soundIds.grappleHit, 0.7);
       }
       // Held or falling: lean with the sideways speed.
       if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
 
       // Head follows the cursor when calm, layered on top of whatever clip is playing.
       let wy = 0, wx = 0;
-      if (["idle"].includes(L.pose) && L.look && L.getPos) {
+      const swordPose = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      const canTrackCursor = L.pose === "idle";
+      if (canTrackCursor && L.look && L.getPos) {
         const p = L.getPos() || {};
         const px = Number.isFinite(p.x) ? p.x : p.left;          // accept {x, y} or {left, top}
         const py = Number.isFinite(p.y) ? p.y : p.top;
@@ -554,11 +542,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!Number.isFinite(wy)) wy = 0;                          // NaN would make the head vanish for good
       if (!Number.isFinite(wx)) wx = 0;
       const lookBlend = 1 - Math.exp(-8 * delta);
-      look.y += ((wy - (usingImported ? 0 : pose.spin * .5)) - look.y) * lookBlend;
-      look.x += (wx - look.x) * lookBlend;
-      if (av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
+      if (canTrackCursor) {
+        look.y += ((wy - (usingImported ? 0 : pose.spin * .5)) - look.y) * lookBlend;
+        look.x += (wx - look.x) * lookBlend;
+      } else {
+        look.x = 0;
+        look.y = 0;
+      }
+      if (canTrackCursor && av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
         lookEuler.set(look.x, look.y, 0);
         av.head.quaternion.multiply(lookQuat.setFromEuler(lookEuler));
+      } else if (swordPose && av.head) {
+        av.head.quaternion.identity();
       }
       // Crossfade from the last rendered transform to the new animation target.
       // Smoothstep avoids a sudden start/stop and quaternion slerp makes turns rotate
@@ -588,7 +583,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // repeatedly blend the body back toward its old, front-facing quaternion.
       // Walking and climbing should turn Coy side-on; grapple/sword aim toward
       // the cursor or anchor. Smoothly return to the front-facing pose afterward.
-      const sideFacing = ["walk", "climbing", "grapple", "swordslash", "swordlunge"].includes(L.pose);
+      const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const position = L.getPos ? (L.getPos() || {}) : {};
       const px = Number.isFinite(position.x) ? position.x : position.left;
       const aimAt = L.grapple && L.grapple.active
@@ -597,8 +592,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
         ? aimAt.x - (px + W / 2)
         : 0;
-      const toolFacing = ["grapple", "swordslash", "swordlunge"].includes(L.pose);
-      const toolDirection = Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
+      const toolFacing = ["grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
       const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
@@ -608,6 +603,70 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const yawDelta = Math.atan2(Math.sin(targetYaw - facingYaw), Math.cos(targetYaw - facingYaw));
       facingYaw += yawDelta * yawAlpha;
       av.body.rotation.y = facingYaw;
+      av.body.updateMatrixWorld(true);
+      const rightSide = Math.sign(av.rArm.position.x) || 1;
+      const rightShoulderZ = new THREE.Vector3(rightSide, 0, 0).transformDirection(av.torso.matrixWorld).z;
+      if (L.pose === "grapple") {
+        const aimX = Number.isFinite(aimAt?.x) && Number.isFinite(px) ? aimAt.x - (px + W / 2) : 0;
+        const aimY = Number.isFinite(aimAt?.y) && Number.isFinite(position.y) ? (position.y + H / 2) - aimAt.y : 0;
+        const aimWorld = new THREE.Vector3(aimX, aimY, rightShoulderZ < -0.15 ? 1.2 : 0);
+        if (aimWorld.lengthSq() < 1) aimWorld.set(0, 0, 1).transformDirection(av.body.matrixWorld);
+        aimWorld.normalize();
+        const parentRotation = av.rArm.parent.getWorldQuaternion(new THREE.Quaternion());
+        const aimLocal = aimWorld.applyQuaternion(parentRotation.invert()).normalize();
+        av.rArm.quaternion.setFromUnitVectors(new THREE.Vector3(0, -1, 0), aimLocal);
+        av.body.updateMatrixWorld(true);
+      }
+      const farSideOffset = L.pose === "climbing" && rightShoulderZ < -0.15
+        ? [0, 0, 1]
+        : null;
+      const lungeElapsed = t - poseStartedAt;
+      const swordGripPose = L.pose === "swordlunge" && lungeElapsed >= 0.2 && lungeElapsed < 0.8
+        ? "swordlungeout"
+        : L.pose;
+      placeGear(swordGear, "sword", false, swordGripPose, [0, 0.18, 0]);
+      placeGear(gunGear, "gun", false, L.pose);
+      placeGear(grappleGunGear, "grappleGun", false, L.pose);
+      // Project the muzzle only after the body turn and grip offset are applied.
+      const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
+      let muzzleWorld = null, muzzleDepth = 0;
+      if (L.grapple && activeGrappleGear && activeGrappleGear.visible) {
+        av.body.updateMatrixWorld(true);
+        activeGrappleGear.updateMatrixWorld(true);
+        camera.updateMatrixWorld();
+        const muzzle = new THREE.Vector3(0, 0, activeGrappleGear.userData.muzzleZ || 1.5);
+        activeGrappleGear.localToWorld(muzzle);
+        muzzleWorld = muzzle.clone();
+        muzzle.project(camera);
+        muzzleDepth = muzzle.z;
+        const rect = canvas.getBoundingClientRect();
+        L.grapple.mx = rect.left + (muzzle.x * 0.5 + 0.5) * rect.width;
+        L.grapple.my = rect.top + (-muzzle.y * 0.5 + 0.5) * rect.height;
+      }
+      if (grappleGear) {
+        if (grappleGear.parent !== scene) scene.add(grappleGear);
+        const projectileActive = externalGrapple && holdingGrapple && Number.isFinite(L.grapple.mx)
+          && Number.isFinite(L.grapple.my) && Number.isFinite(L.grapple.ax) && Number.isFinite(L.grapple.ay);
+        grappleGear.visible = Boolean(projectileActive);
+        if (projectileActive) {
+          const rect = canvas.getBoundingClientRect();
+          const travel = clamp(Number(L.grapple.travel) || 0, 0, 1);
+          const progress = travel * travel * (3 - 2 * travel);
+          const screenX = L.grapple.mx + (L.grapple.ax - L.grapple.mx) * progress;
+          const screenY = L.grapple.my + (L.grapple.ay - L.grapple.my) * progress;
+          const screenToWorld = (x, y) => new THREE.Vector3(
+            ((x - rect.left) / rect.width) * 2 - 1,
+            1 - ((y - rect.top) / rect.height) * 2,
+            muzzleDepth
+          ).unproject(camera);
+          grappleGear.position.copy(screenToWorld(screenX, screenY));
+          const towardAnchor = screenToWorld(L.grapple.ax, L.grapple.ay).sub(muzzleWorld || grappleGear.position);
+          if (towardAnchor.lengthSq() > 0) {
+            grappleGear.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, -1), towardAnchor.normalize());
+          }
+          grappleGear.scale.setScalar(0.35);
+        }
+      }
       // Landing squash is driven by the actual downward impact speed (px/s),
       // not drop height. Apply it on the first landing frame, then rebound quickly.
       if (L.pose === "land") {
