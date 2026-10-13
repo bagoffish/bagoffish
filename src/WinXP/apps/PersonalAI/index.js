@@ -10,7 +10,7 @@ const styles = {
   title: { fontWeight: "bold", fontSize: 19, marginBottom: 7, color: "#153e79" },
   subtitle: { lineHeight: 1.55, color: "#34445d" },
   messages: { flex: 1, minHeight: 120, overflowY: "auto", padding: "18px clamp(12px, 3vw, 26px)", display: "flex", flexDirection: "column", gap: 12 },
-  bubble: { maxWidth: "88%", padding: "11px 13px", border: "1px solid #c8c8c8", borderRadius: 8, whiteSpace: "pre-wrap", overflowWrap: "anywhere", lineHeight: 1.6 },
+  bubble: { width: "fit-content", maxWidth: "min(88%, 680px)", minWidth: 0, height: "auto", minHeight: 0, boxSizing: "border-box", padding: "11px 13px", border: "1px solid #c8c8c8", borderRadius: 8, whiteSpace: "pre-wrap", overflowWrap: "anywhere", lineHeight: 1.6 },
   user: { alignSelf: "flex-end", background: "#e3edff", borderColor: "#9db9e7" },
   bot: { alignSelf: "flex-start", background: "#fff" },
   form: { display: "flex", gap: 8, padding: 12, borderTop: "1px solid #b8b8b8", background: "#ece9d8" },
