@@ -6,8 +6,8 @@ import { splitIntoR6Parts } from "./r6Split";
 import { REST, ROBLOX_JOINT_PART, sampleClip, resetAvatarPose } from "./r6Retarget";
 
 // Play Roblox's exported R6 KeyframeSequence CFrames from /avatar/animations.json.
-// R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
-// which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
+// R6 avatar rendered on a transparent canvas. Model and color metadata are loaded
+// from the checked-in /avatar/avatar.json and static model assets.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
 const META_URL = BASE + "avatar.json";
 const ANIMATIONS_URL = BASE + "animations.json";
@@ -241,7 +241,7 @@ function disposeAvatar(root) {
   });
 }
 
-// Loads the Roblox OBJ/MTL that scripts/sync-avatar.mjs downloaded, then splits it into R6 limbs.
+// Loads the checked-in Roblox OBJ/MTL and splits its named groups into R6 limbs.
 function loadModel(model) {
   return new Promise((resolve, reject) => {
     const mtlLoader = new MTLLoader();
