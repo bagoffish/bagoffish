@@ -547,8 +547,6 @@ export default function CoyCompanion() {
     setPose(name);
     poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
   }
-  function playEmote(name) { showPose(name, name === "wave" ? 1650 : name === "sit" ? 8000 : 5000); }
-
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
     const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
@@ -560,13 +558,23 @@ export default function CoyCompanion() {
     };
   }, []);
 
-  // Occasionally dance or sit on his own when the desktop is quiet.
-  // Cancel the timer whenever Coy becomes busy, so he won't interrupt chat or reactions.
+  // Coy occasionally performs a small autonomous action when the desktop is quiet.
+  // Tool animations are deliberately uncommon and never interrupt chat, dragging, or windows.
   useEffect(() => {
     if (chatOpen || showBubble || busy || underAppWindows || pose !== "idle") return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setTimeout(() => {
-      if (Math.random() < 0.22) {
+      const roll = Math.random();
+      if (roll < 0.10) {
+        const actions = [
+          ["swordslash", 850],
+          ["swordlunge", 1100],
+          ["gearhold", 2500 + Math.random() * 2500],
+          ["climbing", 2500 + Math.random() * 2500]
+        ];
+        const [action, duration] = actions[Math.floor(Math.random() * actions.length)];
+        showPose(action, duration);
+      } else if (roll < 0.30) {
         showPose("sit", 6500 + Math.random() * 3500);
       } else {
         const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
@@ -827,12 +835,6 @@ export default function CoyCompanion() {
     if (event && event.preventDefault) event.preventDefault();
     const message = (overrideMessage || draft).trim();
     if (!message || busy) return;
-    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|sit|dance)\s?([123])?$/);
-    if (emote) {                                   // /e wave, /e dance, /e dance2, /e dance 3
-      setDraft("");
-      playEmote(emote[1] === "dance" && emote[2] && emote[2] !== "1" ? "dance" + emote[2] : emote[1]);
-      return;
-    }
     setDraft("");
     setBusy(true);
     const nextHistory = [...history, { role: "user", content: message }];
