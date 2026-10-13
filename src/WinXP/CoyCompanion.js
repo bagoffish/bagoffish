@@ -858,7 +858,8 @@ export default function CoyCompanion() {
     const mx = Number.isFinite(g.mx) ? g.mx : posRef.current.left + W * 0.5;
     const my = Number.isFinite(g.my) ? g.my : posRef.current.top + H * 0.42;
     const k = easeInOut(Math.max(0, Math.min(1, g.travel)));
-    const hx = lerp(mx, g.ax, k), hy = lerp(my, g.ay, k);
+    const hx = Number.isFinite(g.hx) ? g.hx : lerp(mx, g.ax, k);
+    const hy = Number.isFinite(g.hy) ? g.hy : lerp(my, g.ay, k);
     const line = ropeLineRef.current;
     if (line) {
       line.setAttribute("x1", mx); line.setAttribute("y1", my);
@@ -869,11 +870,12 @@ export default function CoyCompanion() {
   }
   function showRope(ax, ay) {
     const g = grappleRef.current;
-    g.ax = ax; g.ay = ay; g.travel = 0; g.mx = NaN; g.my = NaN; g.active = true;
+    g.ax = ax; g.ay = ay; g.travel = 0; g.mx = NaN; g.my = NaN; g.hx = NaN; g.hy = NaN; g.active = true;
     if (!ropeRaf.current) ropeRaf.current = window.requestAnimationFrame(drawRope);
   }
   function hideRope() {
     grappleRef.current.active = false;
+    grappleRef.current.hx = NaN; grappleRef.current.hy = NaN;
     if (ropeSvgRef.current) ropeSvgRef.current.style.display = "none";
   }
 
