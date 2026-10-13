@@ -24,7 +24,6 @@ export const ROBLOX_JOINT_PART = {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const clipCache = new WeakMap();
-const basis = new THREE.Matrix4().makeRotationY(Math.PI);
 
 function validCFrame(value) {
   return Array.isArray(value) && value.length >= 12 &&
@@ -32,12 +31,8 @@ function validCFrame(value) {
 }
 
 // Roblox CFrame:GetComponents(): x,y,z,R00,R01,R02,R10,R11,R12,R20,R21,R22.
-// Three.Matrix4.set takes the same row-major order, then stores internally
-// column-major. Convert from Roblox's -Z-facing basis to this +Z-facing scene
-// by conjugation, B * CFrame * B^-1. Since B is a half-turn, B^-1 === B.
-// Roblox CFrame basis conversion is done in the root rig orientation, not by
-// conjugating each joint-local Pose.CFrame. Pose.CFrame is already a local
-// Motor6D Transform; changing its basis independently flips arm/leg rotations.
+// Pose.CFrame is a joint-local Motor6D Transform. Preserve that local rotation
+// as-is; the avatar's facing direction belongs to the root rig, not each joint.
 function readLocalCFrame(value, partName) {
   if (!validCFrame(value)) return null;
   const rest = REST[partName];
