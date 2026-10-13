@@ -542,7 +542,7 @@ export default function CoyCompanion() {
     setPose(name);
     poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
   }
-  function playEmote(name) { showPose(name, name === "wave" ? 1650 : 5000); }
+  function playEmote(name) { showPose(name, name === "wave" ? 1650 : name === "sit" ? 8000 : 5000); }
 
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
@@ -555,14 +555,18 @@ export default function CoyCompanion() {
     };
   }, []);
 
-  // Occasionally dance on his own when the desktop is quiet.
+  // Occasionally dance or sit on his own when the desktop is quiet.
   // Cancel the timer whenever Coy becomes busy, so he won't interrupt chat or reactions.
   useEffect(() => {
     if (chatOpen || showBubble || busy || underAppWindows || pose !== "idle") return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setTimeout(() => {
-      const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
-      showPose(dance, 4000 + Math.random() * 2500);
+      if (Math.random() < 0.22) {
+        showPose("sit", 6500 + Math.random() * 3500);
+      } else {
+        const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
+        showPose(dance, 4000 + Math.random() * 2500);
+      }
     }, 12000 + Math.random() * 18000);
     return () => window.clearTimeout(timer);
   }, [pose, chatOpen, showBubble, busy, underAppWindows]);
