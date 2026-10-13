@@ -547,7 +547,14 @@ export default function CoyCompanion() {
     setPose(name);
     poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
   }
-  function playEmote(name) { showPose(name, name === "wave" ? 1650 : name === "sit" ? 8000 : 5000); }
+  function playEmote(name) {
+    const durations = {
+      wave: 1650, sit: 8000,
+      swordslash: 850, swordlunge: 1100,
+      gearhold: 5000, climbing: 5000
+    };
+    showPose(name, durations[name] || 5000);
+  }
 
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
@@ -827,10 +834,14 @@ export default function CoyCompanion() {
     if (event && event.preventDefault) event.preventDefault();
     const message = (overrideMessage || draft).trim();
     if (!message || busy) return;
-    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|sit|dance)\s?([123])?$/);
-    if (emote) {                                   // /e wave, /e dance, /e dance2, /e dance 3
+    const emote = message.toLowerCase().replace(/\\s+/g, " ").match(/^\\/e (wave|sit|dance|sword|swordslash|swordlunge|gearhold|climb|climbing)\\s?([123])?$/);
+    if (emote) {                                   // /e wave, /e dance2, /e sword, /e swordlunge, /e gearhold, /e climb
       setDraft("");
-      playEmote(emote[1] === "dance" && emote[2] && emote[2] !== "1" ? "dance" + emote[2] : emote[1]);
+      const requested = emote[1] === "sword" ? "swordslash"
+        : emote[1] === "climb" ? "climbing"
+        : emote[1] === "dance" && emote[2] && emote[2] !== "1" ? "dance" + emote[2]
+        : emote[1];
+      playEmote(requested);
       return;
     }
     setDraft("");
