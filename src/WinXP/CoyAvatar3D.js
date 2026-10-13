@@ -117,7 +117,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let bodyYaw = 0;
     let transitionFrom = null;
     let transitionStart = 0;
-    let animationClips = null;
+    let animationClips = createReactionClips();
+    for (const clip of Object.values(animationClips)) prepareClip(clip);
     let idleClipName = "idle1";
     const look = { x: 0, y: 0 };
     const clock = new THREE.Clock();
