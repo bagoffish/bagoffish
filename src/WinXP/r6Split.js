@@ -89,6 +89,8 @@ export function splitIntoR6Parts(root) {
   const body = new THREE.Group();
   const parts = {};
   const counts = {};
+  const torsoMeshes = [];
+  const tailMeshes = [];
   for (const [name, pivot] of Object.entries(PIVOTS)) {
     const group = new THREE.Group();
     group.name = name;
@@ -102,7 +104,8 @@ export function splitIntoR6Parts(root) {
     if (!object.isMesh) return;
     const sourceName = sourcePartName(object);
     if (!sourceName) return;
-    const partName = isTorsoAccessory(object) ? "torso" : (RIG_TO_PART[sourceName] || "head");
+    const isTail = isTorsoAccessory(object);
+    const partName = isTail ? "torso" : (RIG_TO_PART[sourceName] || "head");
     const pivot = PIVOTS[partName];
     const geometry = object.geometry.clone();
 
@@ -119,10 +122,35 @@ export function splitIntoR6Parts(root) {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     parts[partName].add(mesh);
+    if (isTail) tailMeshes.push(mesh);
+    else if (partName === "torso") torsoMeshes.push(mesh);
     counts[partName] += geometry.index
       ? geometry.index.count / 3
       : geometry.attributes.position.count / 3;
   });
+
+  // The tail's exported attachment transform can leave its base floating away
+  // from the torso even when it is parented to the torso group. Align its nearest
+  // end with the torso's back surface in the same normalized model space.
+  if (tailMeshes.length && torsoMeshes.length) {
+    const torsoBounds = new THREE.Box3();
+    for (const mesh of torsoMeshes) {
+      mesh.geometry.computeBoundingBox();
+      torsoBounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix));
+    }
+    for (const tail of tailMeshes) {
+      tail.geometry.computeBoundingBox();
+      const tailBounds = tail.geometry.boundingBox.clone().applyMatrix4(tail.matrix);
+      const backGap = torsoBounds.min.z - tailBounds.max.z;
+      const frontGap = tailBounds.min.z - torsoBounds.max.z;
+      const overlap = 0.08;
+      if (backGap > 0 && (frontGap <= 0 || backGap <= frontGap)) {
+        tail.position.z += backGap - overlap;
+      } else if (frontGap > 0) {
+        tail.position.z -= frontGap - overlap;
+      }
+    }
+  }
 
   // An OBJ Handle is an accessory mesh. Keep it attached to the head instead
   // of classifying its triangles as random pieces of an arm or torso.
