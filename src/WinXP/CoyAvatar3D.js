@@ -21,7 +21,7 @@ const P = o => Object.assign({
   headX: 0, headY: 0
 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
-const NATIVE_CLIP_POSES = new Set(["idle", "walk", "wave", "dance", "dance1", "dance2", "dance3", "fall"]);
+const NATIVE_CLIP_POSES = new Set(["idle", "idle1", "idle2", "walk", "wave", "dance", "dance1", "dance2", "dance3", "fall"]);
 
 // Procedural fallback for reactions without a source clip (pat, held, land).
 // Walk, wave, idle, and dances use the original imported Roblox Pose.CFrame data.
@@ -333,6 +333,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const keyframeNameForPose = name => {
       switch (name) {
         case "idle": return idleClipName;
+        case "idle1": return "idle1";
+        case "idle2": return "idle2";
         case "walk": return "walk";
         case "wave": return "wave";
         case "dance":
