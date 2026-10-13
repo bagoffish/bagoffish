@@ -132,7 +132,17 @@ function loadModel(model) {
             m.opacity = 1;
             m.depthWrite = true;
             if ("transmission" in m) m.transmission = 0;
-            if (m.map) m.color.set(0xffffff);          // let the texture show at full brightness
+
+            // This avatar export's Handle4 texture is a 1x1 green placeholder,
+            // but the accessory is meant to be white. Don't render that placeholder
+            // as a green hair/accessory; keep its geometry and use a plain white surface.
+            if (/^Handle4Mtl$/i.test(m.name || "")) {
+              m.map = null;
+              m.alphaMap = null;
+              m.color.set(0xffffff);
+            } else if (m.map) {
+              m.color.set(0xffffff);                   // let real textures show at full brightness
+            }
             m.needsUpdate = true;
           });
         });
