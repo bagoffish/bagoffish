@@ -343,25 +343,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;\n        av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
-      // Patting uses a damped spring instead of a sharp repeated pulse: a soft
-      // compression, a little rebound, then a smooth settle with no scale drift.
-      if (L.pose === "pat") {
-        const elapsed = Math.max(0, t - poseStartedAt);
-        const pulse = Math.sin(elapsed * 17) * Math.exp(-elapsed * 4.6);
-        av.body.scale.set(
-          av.body.scale.x * (1 + pulse * 0.045),
-          av.body.scale.y * (1 - pulse * 0.085),
-          av.body.scale.z * (1 + pulse * 0.045)
-        );
-        if (av.head) {
-          av.head.scale.set(
-            headBaseScale.x * (1 + pulse * 0.018),
-            headBaseScale.y * (1 - pulse * 0.035),
-            headBaseScale.z * (1 + pulse * 0.018)
-          );
-        }
-      }
-
       // Show classic gear only during its matching emote.
       if (swordGear) swordGear.visible = L.pose === "swordslash" || L.pose === "swordlunge";
       if (grappleGear) grappleGear.visible = ["gearhold", "climbing", "grapple"].includes(L.pose);
