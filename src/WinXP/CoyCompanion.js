@@ -931,13 +931,11 @@ export default function CoyCompanion() {
     },
     dialogTail: {
       position: "absolute",
-      // Layer the tail over the background/frame so its base covers the
-      // border where the arrow joins the bubble, avoiding a connecting seam.
-      left: "50%",
+      // Use the original right-facing Roblox tail without mirroring it.
+      right: 12,
       top: "calc(100% - 10px)",
       width: 32,
       height: 32,
-      transform: "translateX(-50%)",
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
@@ -1045,7 +1043,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
             alt=""
             aria-hidden="true"
             draggable={false}
