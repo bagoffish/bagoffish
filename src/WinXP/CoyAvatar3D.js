@@ -68,6 +68,51 @@ function disposeAvatar(root) {
   });
 }
 
+// Load classic Roblox gear, recentering exported world-space vertices and scaling for R6.
+function loadGear(filename, scale) {
+  return new Promise((resolve, reject) => {
+    const mtlLoader = new MTLLoader();
+    mtlLoader.setPath(BASE + "gears/");
+    mtlLoader.load(filename.replace(/\.obj$/i, ".mtl"), materials => {
+      materials.preload();
+      const objLoader = new OBJLoader();
+      objLoader.setMaterials(materials);
+      objLoader.setPath(BASE + "gears/");
+      objLoader.load(filename, root => {
+        root.updateMatrixWorld(true);
+        const bounds = new THREE.Box3().setFromObject(root);
+        if (bounds.isEmpty()) { reject(new Error("Empty gear model: " + filename)); return; }
+        const center = bounds.getCenter(new THREE.Vector3());
+        root.traverse(object => {
+          if (!object.isMesh) return;
+          object.geometry = object.geometry.clone();
+          object.geometry.applyMatrix4(object.matrixWorld);
+          object.geometry.translate(-center.x, -center.y, -center.z);
+          object.geometry.scale(scale, scale, scale);
+          object.position.set(0, 0, 0);
+          object.rotation.set(0, 0, 0);
+          object.scale.set(1, 1, 1);
+          const materials = [].concat(object.material).map(material => {
+            const m = material.clone();
+            m.side = THREE.DoubleSide;
+            m.transparent = false;
+            m.depthWrite = true;
+            if (m.map) m.color.set(0xffffff);
+            m.needsUpdate = true;
+            return m;
+          });
+          object.material = materials.length === 1 ? materials[0] : materials;
+          object.castShadow = true;
+          object.receiveShadow = true;
+        });
+        root.scale.set(1, 1, 1);
+        root.visible = false;
+        resolve(root);
+      }, undefined, reject);
+    }, undefined, reject);
+  });
+}
+
 // Loads the Roblox OBJ/MTL that scripts/sync-avatar.mjs downloaded, then splits it into R6 limbs.
 function loadModel(model) {
   return new Promise((resolve, reject) => {
@@ -129,6 +174,26 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
+    let swordGear = null, grappleGear = null;
+    const attachGear = () => {
+      if (!av) return;
+      if (swordGear) av.rArm.add(swordGear);
+      if (grappleGear) av.rArm.add(grappleGear);
+    };
+    loadGear("Sword.obj", 0.52).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      swordGear = gear;
+      swordGear.position.set(0.12, -0.48, 0.24);
+      swordGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      attachGear();
+    }).catch(e => console.warn("Coy: sword gear failed to load", e));
+    loadGear("GrappleGun.obj", 0.72).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      grappleGear = gear;
+      grappleGear.position.set(0.08, -0.42, 0.22);
+      grappleGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      attachGear();
+    }).catch(e => console.warn("Coy: grapple gear failed to load", e));
     const bodyBaseScale = new THREE.Vector3(1, 1, 1);
     const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
@@ -152,20 +217,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const pose = P({});
     const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
-    fetch(BASE + "animations.json?v=1", { cache: "no-store" })
-      .then(response => {
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        return response.json();
-      })
-      .then(data => {
-        animations = data?.animations || {};
-        const names = Object.keys(animations);
-        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
-      })
-      .catch(error => {
-        animations = {};
-        console.error("Coy: imported Roblox animations failed to load; using procedural fallback", error);
-      });
+    const readAnimationFile = url => fetch(url, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : {})
+      .catch(() => ({}));
+    Promise.all([
+      readAnimationFile(BASE + "animations.json?v=2"),
+      readAnimationFile(BASE + "coy-tools-animations.json?v=1")
+    ]).then(([baseData, toolData]) => {
+      animations = { ...(baseData?.animations || {}), ...(toolData?.animations || {}) };
+      // Gear hold and climbing are held poses, regardless of the sequence's Loop flag.
+      for (const name of ["gearhold", "climbing"]) {
+        if (animations[name]) animations[name] = { ...animations[name], loop: true };
+      }
+      const names = Object.keys(animations);
+      if (!names.length) console.warn("Coy: no imported animation clips found; using procedural fallback");
+    });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -183,11 +249,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (!next) next = buildAvatar({ ...DEFAULT_COLORS, ...meta.bodyColors });
         if (cancelled) { disposeAvatar(next.body); return; }
-        if (av) { scene.remove(av.body); disposeAvatar(av.body); }
+        if (av) {
+          swordGear?.removeFromParent(); grappleGear?.removeFromParent();
+          scene.remove(av.body); disposeAvatar(av.body);
+        }
         av = next;
         bodyBaseScale.copy(av.body.scale);
         if (av.head) headBaseScale.copy(av.head.scale);
         scene.add(av.body);
+        attachGear();
       });
     loadMeta();
     const metaTimer = setInterval(loadMeta, 5 * 60 * 1000);
@@ -260,6 +330,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
 
+      // Show classic gear only during its matching emote.
+      if (swordGear) swordGear.visible = L.pose === "swordslash" || L.pose === "swordlunge";
+      if (grappleGear) grappleGear.visible = L.pose === "gearhold" || L.pose === "climbing";
       // Face the way it is walking: front-facing at rest, a quarter turn while walking.
       if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
       // Held or falling: lean with the sideways speed.
@@ -328,6 +401,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     return () => {
       cancelled = true; cancelAnimationFrame(raf); clearInterval(metaTimer);
+      swordGear?.removeFromParent(); grappleGear?.removeFromParent();
+      if (swordGear) disposeAvatar(swordGear);
+      if (grappleGear) disposeAvatar(grappleGear);
       scene.traverse(o => { o.geometry?.dispose(); o.material && [].concat(o.material).forEach(m => { m.map?.dispose(); m.dispose(); }); });
       renderer.dispose();
     };
