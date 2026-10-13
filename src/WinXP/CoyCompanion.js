@@ -810,22 +810,13 @@ export default function CoyCompanion() {
       suppressClickAfterDrag.current = false;
       return;
     }
-    // Single-click pats; double-click opens the chat. Delay the pat just
-    // long enough to distinguish a double-click, and cancel it if the second click arrives.
-    if (clickTimer.current) {
-      window.clearTimeout(clickTimer.current);
-      clickTimer.current = null;
-      openChat();
-    } else {
-      clickTimer.current = window.setTimeout(() => {
-        clickTimer.current = null;
-        // A single click pats Coy; the pat pose restores his little squish.
-        showPose("pat", 650);
-        setLine(formatCoyText(randomLine(PAT_LINES)));
-        setShowBubble(true);
-        lastActivity.current = Date.now();
-      }, 280);
-    }
+    // Clicking Coy only pats him; use the chat button to open the chatbot.
+    if (clickTimer.current) window.clearTimeout(clickTimer.current);
+    clickTimer.current = null;
+    showPose("pat", 650);
+    setLine(formatCoyText(randomLine(PAT_LINES)));
+    setShowBubble(true);
+    lastActivity.current = Date.now();
   }
 
   function openChat() {
