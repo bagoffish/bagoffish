@@ -34,7 +34,7 @@ jobs:
 
       - name: Smoke-test live backend, visitor counter, and CORS
         env:
-          BACKEND_URL: https://fossils.onrender.com
+          BACKEND_URL: https://winxp-7yes.onrender.com
         run: |
           node --input-type=module <<'NODE'
           const base = process.env.BACKEND_URL.replace(/\/+$/, '');
