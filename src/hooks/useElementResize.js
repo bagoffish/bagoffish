@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+const RESIZE_CURSOR = 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
+
 function useElementResize(ref, options) {
   const {
     defaultOffset,
@@ -358,22 +360,7 @@ function useCursor(ref, threshold, resizable) {
     let resizing = false;
 
     const cursorForEdge = edge => {
-      switch (edge) {
-        case 'top':
-        case 'bottom':
-          return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
-        case 'left':
-        case 'right':
-          return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
-        case 'topLeft':
-        case 'bottomRight':
-          return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
-        case 'topRight':
-        case 'bottomLeft':
-          return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
-        default:
-          return '';
-      }
+      return edge ? RESIZE_CURSOR : '';
     };
 
     const clear = () => {
@@ -474,25 +461,6 @@ function getComputedPagePosition(e, boundary) {
   return { pageX, pageY };
 }
 function getCursorStyle(pos) {
-  switch (pos) {
-    case 'top':
-      return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
-    case 'topRight':
-      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
-    case 'right':
-      return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
-    case 'bottomRight':
-      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
-    case 'bottom':
-      return 'url("/images/Vertical%20Resize.cur") 8 8, ns-resize';
-    case 'bottomLeft':
-      return 'url("/images/Diagonal%20Resize%202.cur") 8 8, nesw-resize';
-    case 'left':
-      return 'url("/images/Horizontal%20Resize.cur") 8 8, ew-resize';
-    case 'topLeft':
-      return 'url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize';
-    default:
-      return 'url("/images/Normal%20Select.cur") 3 3, default';
-  }
+  return pos ? RESIZE_CURSOR : 'url("/images/Link%20Select.cur") 3 3, pointer';
 }
 export default useElementResize;

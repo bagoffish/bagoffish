@@ -49,7 +49,7 @@ function Winamp({ onClose, onMinimize }) {
   return (
     <div
       ref={ref}
-      style={{ position: 'fixed', inset: 0 }}
+      style={{ position: 'fixed', inset: '0 0 30px', overflow: 'hidden', transform: 'translateZ(0)' }}
       aria-label="Winamp player"
     />
   );
