@@ -48,7 +48,11 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
   if (accessoryBounds.isEmpty()) return false;
   const center = accessoryBounds.getCenter(new THREE.Vector3());
   const jointBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
-  return center.y < jointBoundary;
+  const torsoSize = torsoBounds.getSize(new THREE.Vector3());
+  // Only classify an accessory as the tail when it is clearly below the neck
+  // joint. Glasses and face accessories can sit low in the exported OBJ, so
+  // using the boundary alone can accidentally parent them to the torso.
+  return center.y < jointBoundary - Math.max(0.2, torsoSize.y * 0.12);
 }
 
 function sourcePartName(object) {
