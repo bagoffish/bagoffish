@@ -1,16 +1,14 @@
 import * as THREE from "three";
 
-// Applies the real Roblox R6 KeyframeSequence data in public/avatar/animations.json.
-// Each exported Pose.CFrame is the local Motor6D Transform. Standard R6 Motor6D
-// C0/C1 rotations are identity; the avatar groups are already placed at the joint
-// pivots by r6Split.js, so the pose translation is an offset from REST.
+// R6 joint-local animation runtime.
 //
-// Roblox characters face -Z; this scene faces +Z toward the camera. Convert both
-// position and rotation through a 180-degree Y basis change (x and z are negated).
+// The source JSON stores Roblox Pose.CFrame values as 12-number GetComponents()
+// arrays. Convert them once when a clip is compiled, then animate with local
+// Vector3 + Quaternion tracks. The render loop never decomposes matrices or
+// allocates a Matrix4 for every joint on every frame.
 export const REST = {
   torso: [0, 3, 0],
   head: [0, 1, 0],
-  // Coy faces the camera (+Z): his right limbs belong on screen-left (-X).
   rArm: [-1, 0.5, 0],
   lArm: [1, 0.5, 0],
   rLeg: [-1, -1, 0],
@@ -20,68 +18,52 @@ export const REST = {
 export const ROBLOX_JOINT_PART = {
   Torso: "torso",
   Head: "head",
-  // The imported avatar's named R6 groups are already assigned to their matching
-  // Roblox body parts in r6Split.js. Do not apply a second left/right swap here:
-  // that made the authored Right Arm track animate the opposite visible arm.
   "Right Arm": "rArm",
   "Left Arm": "lArm",
   "Right Leg": "rLeg",
   "Left Leg": "lLeg",
 };
 
-const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const JOINT_NAMES = Object.keys(ROBLOX_JOINT_PART);
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const compiledClips = new WeakMap();
+const identityQuaternion = () => new THREE.Quaternion();
 
-function readCFrame(cframe, partName) {
-  if (!Array.isArray(cframe) || cframe.length < 12 ||
-      !cframe.slice(0, 12).every(Number.isFinite)) return null;
+function validCFrame(value) {
+  return Array.isArray(value) && value.length >= 12 &&
+    value.slice(0, 12).every(Number.isFinite);
+}
 
-  const rest = REST[partName];
-  if (!rest) return null;
-
-  // Roblox GetComponents() data is position + row-major R00..R22.
-  const robloxMatrix = new THREE.Matrix4().set(
-    cframe[3], cframe[4], cframe[5], cframe[0],
-    cframe[6], cframe[7], cframe[8], cframe[1],
-    cframe[9], cframe[10], cframe[11], cframe[2],
+// Roblox GetComponents() is position followed by row-major R00..R22.
+// Three.Matrix4.set accepts row-major arguments and stores column-major.
+function compileCFrame(value, partName) {
+  if (!validCFrame(value) || !REST[partName]) return null;
+  const matrix = new THREE.Matrix4().set(
+    value[3], value[4], value[5], value[0],
+    value[6], value[7], value[8], value[1],
+    value[9], value[10], value[11], value[2],
     0, 0, 0, 1
   );
 
-  // The avatar OBJ was exported in a front-facing basis (a 180-degree Y
-  // turn from Roblox's native character basis). Convert the complete joint
-  // transform into that basis: B * CFrame * B^-1. This flips X/Z translation
-  // and the corresponding rotation directions, while leaving the rest pivots
-  // in the exported mesh's coordinates. Without this, moving clips twist limbs
-  // even though identity/idle poses appear normal.
-  const basis = new THREE.Matrix4().makeRotationY(Math.PI);
-  const converted = basis.clone().multiply(robloxMatrix).multiply(basis);
-  // Pose.CFrame is Motor6D.Transform, so the actual part frame is
-  // C0 * Transform * C1^-1. Limb/head meshes are stored relative to their joint
-  // pivots already. The torso mesh is stored around its own center: its root
-  // joint sits one stud below that center, so include C1^-1 = translate Y+1.
-  const isTorsoPart = partName === "torso";
-  const jointPivot = isTorsoPart ? [0, 2, 0] : rest;
-  const pivot = new THREE.Matrix4().makeTranslation(...jointPivot);
-  const localJoint = pivot.multiply(converted);
-  if (isTorsoPart) {
-    localJoint.multiply(new THREE.Matrix4().makeTranslation(0, 1, 0));
-  }
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
-  localJoint.decompose(position, quaternion, scale);
+  matrix.decompose(position, quaternion, scale);
+  // Pose.CFrame is a local Motor6D transform. The mesh groups are already
+  // positioned at the R6 joint pivots, so apply its local translation as an
+  // offset from that pivot. Keep the rotation local to the joint as well.
+  position.add(new THREE.Vector3(...REST[partName]));
   quaternion.normalize();
   return { position, quaternion };
 }
 
-// Pose.EasingStyle uses Enum.PoseEasingStyle, not the larger TweenService EasingStyle enum.
-const EASING_STYLE_BY_VALUE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce", "CubicV2"];
-const EASING_DIRECTION_BY_VALUE = ["In", "Out", "InOut"];
+const EASING_STYLE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce", "CubicV2"];
+const EASING_DIRECTION = ["In", "Out", "InOut"];
 
-function enumLabel(value, numericLabels) {
-  if (typeof value === "number") return numericLabels[value] || "Linear";
+function enumLabel(value, labels) {
+  if (typeof value === "number") return labels[value] || "Linear";
   if (typeof value !== "string") return "Linear";
-  const label = value.replace(/^Enum\.[^.]+\./, "");
-  return label || "Linear";
+  return value.replace(/^Enum\.[^.]+\./, "") || "Linear";
 }
 
 function bounceOut(t) {
@@ -92,114 +74,134 @@ function bounceOut(t) {
   return 7.5625 * t * t + 0.984375;
 }
 
+function easeIn(t, style) {
+  switch (style) {
+    case "constant": return t < 1 ? 0 : 1;
+    case "cubicv2": return t * t * (3 - 2 * t);
+    case "quad": return t * t;
+    case "cubic": return t * t * t;
+    case "quart": return t * t * t * t;
+    case "quint": return t * t * t * t * t;
+    case "bounce": return 1 - bounceOut(1 - t);
+    case "elastic": return t === 0 || t === 1 ? t : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI / 3));
+    case "exponential": return t === 0 ? 0 : Math.pow(2, 10 * t - 10);
+    case "circular": return 1 - Math.sqrt(Math.max(0, 1 - t * t));
+    case "back": return 2.70158 * t * t * t - 1.70158 * t * t;
+    default: return t;
+  }
+}
+
 function easeValue(raw, metadata) {
-  const easing = metadata || {};
-  const style = enumLabel(easing.style, EASING_STYLE_BY_VALUE).toLowerCase();
-  const direction = enumLabel(easing.direction, EASING_DIRECTION_BY_VALUE).toLowerCase();
-  const easeIn = t => {
-    switch (style) {
-      case "constant": return t < 1 ? 0 : 1;
-      case "cubicv2": return t * t * (3 - 2 * t);
-      case "sine": return 1 - Math.cos(t * Math.PI / 2);
-      case "back": return 2.70158 * t * t * t - 1.70158 * t * t;
-      case "quad": return t * t;
-      case "quart": return t * t * t * t;
-      case "quint": return t * t * t * t * t;
-      case "bounce": return 1 - bounceOut(1 - t);
-      case "elastic": return t === 0 || t === 1 ? t : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI / 3));
-      case "exponential": return t === 0 ? 0 : Math.pow(2, 10 * t - 10);
-      case "circular": return 1 - Math.sqrt(Math.max(0, 1 - t * t));
-      case "cubic": return t * t * t;
-      default: return t;
-    }
-  };
+  if (!metadata) return raw;
+  const style = enumLabel(metadata.style, EASING_STYLE).toLowerCase();
+  const direction = enumLabel(metadata.direction, EASING_DIRECTION).toLowerCase();
   if (style === "linear") return raw;
   if (style === "constant") {
     if (direction === "out") return raw > 0 ? 1 : 0;
     if (direction === "inout") return raw < 0.5 ? 0 : 1;
     return raw < 1 ? 0 : 1;
   }
-  if (direction === "out") return 1 - easeIn(1 - raw);
-  if (direction === "inout") return raw < 0.5
-    ? easeIn(raw * 2) / 2
-    : 1 - easeIn((1 - raw) * 2) / 2;
-  return easeIn(raw);
-}
-
-function validPoseCFrame(cframe) {
-  return Array.isArray(cframe) && cframe.length >= 12 &&
-    cframe.slice(0, 12).every(Number.isFinite);
-}
-
-// Roblox tracks are joint-specific. A Keyframe may omit a Pose for one joint;
-// don't freeze that joint to an adjacent key just because another joint has a
-// key at this time. Find the surrounding keys for this joint itself.
-function getJointFramePair(frames, jointName, time, duration, looping) {
-  const keys = [];
-  for (const frame of frames) {
-    const cframe = frame.poses?.[jointName];
-    if (validPoseCFrame(cframe)) keys.push({ frame, cframe, time: Number(frame.time) || 0 });
+  if (direction === "out") return 1 - easeIn(1 - raw, style);
+  if (direction === "inout") {
+    return raw < 0.5
+      ? easeIn(raw * 2, style) / 2
+      : 1 - easeIn((1 - raw) * 2, style) / 2;
   }
+  return easeIn(raw, style);
+}
+
+function compileClip(clip) {
+  if (!clip || !Array.isArray(clip.frames) || !clip.frames.length) return null;
+  const duration = Math.max(
+    0,
+    Number(clip.duration) || Number(clip.frames[clip.frames.length - 1]?.time) || 0
+  );
+  const tracks = {};
+
+  for (const jointName of JOINT_NAMES) {
+    const partName = ROBLOX_JOINT_PART[jointName];
+    const keys = [];
+    for (const frame of clip.frames) {
+      const transform = compileCFrame(frame.poses?.[jointName], partName);
+      if (!transform) continue;
+      keys.push({
+        time: Math.max(0, Number(frame.time) || 0),
+        position: transform.position,
+        quaternion: transform.quaternion,
+        easing: frame.easing?.[jointName] || null,
+      });
+    }
+    keys.sort((a, b) => a.time - b.time);
+    if (keys.length) tracks[jointName] = keys;
+  }
+
+  if (!Object.keys(tracks).length) return null;
+  return { duration, loop: clip.loop !== false, tracks };
+}
+
+/**
+ * Compile an imported Roblox KeyframeSequence. Safe to call more than once:
+ * the compiled transform tracks are cached by source clip object identity.
+ */
+export function prepareClip(clip) {
+  if (!clip || typeof clip !== "object") return null;
+  let compiled = compiledClips.get(clip);
+  if (!compiled) {
+    compiled = compileClip(clip);
+    if (compiled) compiledClips.set(clip, compiled);
+  }
+  return compiled;
+}
+
+function findPair(keys, time, duration, looping) {
   if (!keys.length) return null;
+  if (keys.length === 1) return { from: keys[0], to: keys[0], alpha: 0 };
 
-  let previous = null;
-  let next = null;
-  for (const key of keys) {
-    if (key.time <= time) previous = key;
-    if (key.time >= time) {
-      next = key;
-      break;
+  let nextIndex = keys.findIndex(key => key.time >= time);
+  if (nextIndex === -1) {
+    if (!looping || duration <= 0) {
+      return { from: keys[keys.length - 1], to: keys[keys.length - 1], alpha: 0 };
     }
+    const from = keys[keys.length - 1];
+    const to = keys[0];
+    const span = (duration - from.time) + to.time;
+    return { from, to, alpha: span > 0 ? clamp((time - from.time) / span, 0, 1) : 0 };
   }
 
-  // Some exported Roblox loops end with an empty Keyframe. Bridge the last
-  // valid pose back to the first pose across the clip boundary instead of
-  // freezing the last valid pose and snapping abruptly to frame zero.
-  if (looping && duration > 0) {
-    if (!previous && next) {
-      const last = keys[keys.length - 1];
-      previous = { ...last, time: last.time - duration };
-    } else if (previous && !next) {
-      const first = keys[0];
-      next = { ...first, time: first.time + duration };
+  if (nextIndex === 0) {
+    const first = keys[0];
+    if (time >= first.time || !looping || duration <= 0) {
+      return { from: first, to: first, alpha: 0 };
     }
+    const last = keys[keys.length - 1];
+    const fromTime = last.time - duration;
+    const span = first.time - fromTime;
+    return { from: last, to: first, alpha: span > 0 ? clamp((time - fromTime) / span, 0, 1) : 0 };
   }
 
-  if (!previous) previous = next;
-  if (!next) next = previous;
-  if (!previous || !next) return null;
-  if (previous === next || next.time <= previous.time) return { previous, next, alpha: 0 };
-  return {
-    previous,
-    next,
-    alpha: clamp((time - previous.time) / (next.time - previous.time), 0, 1)
-  };
+  const from = keys[nextIndex - 1];
+  const to = keys[nextIndex];
+  if (time === to.time || to.time <= from.time) return { from: to, to, alpha: 0 };
+  return { from, to, alpha: clamp((time - from.time) / (to.time - from.time), 0, 1) };
 }
 
-/** Sample Roblox joint poses at a clip-local time, interpolating each joint's own key track. */
+/** Sample a source clip into local joint transforms at clip-local seconds. */
 export function sampleClip(clip, time) {
-  if (!clip?.frames?.length) return {};
-  const frames = clip.frames;
-  const duration = Math.max(0, Number(clip.duration) || Number(frames[frames.length - 1]?.time) || 0);
-  const localTime = duration > 0 && clip.loop !== false
-    ? ((time % duration) + duration) % duration
-    : clamp(time, 0, duration);
+  const compiled = prepareClip(clip);
+  if (!compiled) return {};
+  const duration = compiled.duration;
+  const localTime = duration > 0
+    ? (compiled.loop ? ((time % duration) + duration) % duration : clamp(time, 0, duration))
+    : 0;
   const sampled = {};
 
-  for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
-    const pair = getJointFramePair(frames, jointName, localTime, duration, clip.loop !== false);
+  for (const [jointName, keys] of Object.entries(compiled.tracks)) {
+    const pair = findPair(keys, localTime, duration, compiled.loop);
     if (!pair) continue;
-    const { previous, next, alpha } = pair;
-    const from = readCFrame(previous.cframe, partName);
-    const to = readCFrame(next.cframe, partName);
-    if (!from || !to) continue;
-
-    // Easing is attached to the earlier key on this particular joint track.
-    // Older exports have no metadata and stay linear rather than guessing.
-    const easedAlpha = easeValue(alpha, previous.frame.easing?.[jointName]);
+    const alpha = easeValue(pair.alpha, pair.from.easing);
     sampled[jointName] = {
-      position: from.position.clone().lerp(to.position, easedAlpha),
-      quaternion: from.quaternion.clone().slerp(to.quaternion, easedAlpha).normalize()
+      position: pair.from.position.clone().lerp(pair.to.position, alpha),
+      quaternion: pair.from.quaternion.clone().slerp(pair.to.quaternion, alpha).normalize(),
     };
   }
   return sampled;
