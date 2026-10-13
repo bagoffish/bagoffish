@@ -3,34 +3,14 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-// All companion motion is authored as local R6 joint angles and spring curves.
- // No Roblox CFrame/keyframe animation data is loaded or played.
-const REST = {
-  torso: [0, 3, 0],
-  head: [0, 1, 0],
-  rArm: [1, 0.5, 0],
-  lArm: [-1, 0.5, 0],
-  rLeg: [1, -1, 0],
-  lLeg: [-1, -1, 0],
-};
-function resetAvatarPose(av) {
-  if (!av) return;
-  av.body.position.set(0, 0, 0);
-  av.body.rotation.set(0, 0, 0);
-  av.body.scale.set(1, 1, 1);
-  for (const [partName, position] of Object.entries(REST)) {
-    const part = av[partName];
-    if (!part) continue;
-    part.position.set(...position);
-    part.quaternion.identity();
-    part.scale.set(1, 1, 1);
-  }
-}
+import { REST, ROBLOX_JOINT_PART, sampleClip, resetAvatarPose } from "./r6Retarget";
 
+// Play Roblox's exported R6 KeyframeSequence CFrames from /avatar/animations.json.
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
 const META_URL = BASE + "avatar.json";
+const ANIMATIONS_URL = BASE + "animations.json";
 const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
@@ -318,11 +298,67 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     let av = null, raf = 0, cancelled = false;
     let previousPose = "";
+    let previousAnimationMode = "";
     let poseStart = 0;
     let bodyYaw = 0;
+    let transitionFrom = null;
+    let transitionStart = 0;
+    let animationClips = null;
+    let idleClipName = "idle1";
     const pose = P({});
     const look = { x: 0, y: 0 };
     const clock = new THREE.Clock();
+
+    const capturePose = () => {
+      if (!av) return null;
+      const parts = {};
+      for (const partName of Object.keys(REST)) {
+        const part = av[partName];
+        if (part) parts[partName] = {
+          position: part.position.clone(),
+          quaternion: part.quaternion.clone()
+        };
+      }
+      return {
+        parts,
+        bodyPosition: av.body.position.clone(),
+        bodyScale: av.body.scale.clone(),
+        bodyTilt: av.body.rotation.z
+      };
+    };
+
+    const keyframeNameForPose = name => {
+      switch (name) {
+        case "idle": return idleClipName;
+        case "walk": return "walk";
+        case "wave": return "wave";
+        case "dance":
+        case "dance1": return "dance1";
+        case "dance2": return "dance2";
+        case "dance3": return "dance3";
+        case "fall": return "fall";
+        default: return null;
+      }
+    };
+
+    // These exported KeyframeSequence clips are used directly. If loading fails,
+    // the procedural motion functions below remain as a graceful fallback.
+    fetch(ANIMATIONS_URL, { cache: "force-cache" })
+      .then(response => {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(payload => {
+        const clips = payload && payload.animations;
+        const required = ["wave", "walk", "dance1", "dance2", "dance3", "idle1", "idle2", "fall"];
+        if (!clips || !required.every(name => clips[name]?.frames?.length)) {
+          throw new Error("R6 keyframe file is missing one or more required clips");
+        }
+        if (!cancelled) animationClips = clips;
+      })
+      .catch(error => {
+        if (!cancelled) console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+      });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
@@ -354,34 +390,75 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const t = clock.elapsedTime;
       const L = live.current;
 
-      // Restart each animation's phase when the companion switches poses.
       if (L.pose !== previousPose) {
         previousPose = L.pose;
         poseStart = t;
+        if (L.pose === "idle") idleClipName = Math.random() < 0.9 ? "idle1" : "idle2";
+      }
+      const requestedClipName = keyframeNameForPose(L.pose);
+      const clip = requestedClipName && animationClips ? animationClips[requestedClipName] : null;
+      const animationMode = clip ? "keyframe:" + L.pose + ":" + requestedClipName : "procedural:" + L.pose;
+
+      // When keyframes finish loading, this resets the greeting to its first frame.
+      if (animationMode !== previousAnimationMode) {
+        transitionFrom = capturePose();
+        transitionStart = t;
+        poseStart = t;
+        previousAnimationMode = animationMode;
       }
       const localTime = t - poseStart;
       const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
-      const nextPose = target(L.pose, localTime, L.dir, tiltIn);
-      const impactPose = L.pose === "pat" || L.pose === "land";
-      const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
 
-      // Rebuild a clean base pose every frame; only our explicitly authored
-      // joint targets are then applied. No imported CFrames are layered over it.
       resetAvatarPose(av);
-      for (const key in pose) pose[key] += (nextPose[key] - pose[key]) * blend;
+      if (clip) {
+        // Apply the original Roblox Pose.CFrame transforms. The anatomical RIGHT
+        // arm maps to the screen-left group in our front-facing R6 scene.
+        const joints = sampleClip(clip, localTime);
+        for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
+          const transform = joints[jointName];
+          const part = av[partName];
+          if (!transform || !part) continue;
+          part.position.copy(transform.position);
+          part.quaternion.copy(transform.quaternion).normalize();
+        }
+      } else {
+        const nextPose = target(L.pose, localTime, L.dir, tiltIn);
+        const impactPose = L.pose === "pat" || L.pose === "land";
+        const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
+        for (const key in pose) pose[key] += (nextPose[key] - pose[key]) * blend;
 
-      // Coy faces +Z. His anatomical RIGHT is therefore on screen-left (lArm/lLeg).
-      av.lArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
-      av.rArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
-      av.lLeg.rotation.x = pose.rLegX;
-      av.rLeg.rotation.x = pose.lLegX;
+        av.lArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
+        av.rArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
+        av.lLeg.rotation.x = pose.rLegX;
+        av.rLeg.rotation.x = pose.lLegX;
+        av.body.position.y = pose.bob;
+        av.body.rotation.z = pose.tilt;
+        av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
+      }
 
-      av.body.position.y = pose.bob;
-      // Keep Coy facing the visitor; directional movement is handled by the gait,
-      // not by rotating the whole rig into a stiff side-on pose.
-      // Face the actual horizontal travel direction. In this scene yaw 0 faces
-      // the viewer; +/-90 degrees faces right/left. Ease the shortest angular
-      // path so starts, stops, and direction reversals never snap.
+      // Smoothly cross-fade actual part transforms when changing clips/reactions.
+      if (transitionFrom) {
+        const rawAlpha = clamp((t - transitionStart) / 0.22, 0, 1);
+        const alpha = rawAlpha * rawAlpha * (3 - 2 * rawAlpha);
+        for (const [partName, from] of Object.entries(transitionFrom.parts)) {
+          const part = av[partName];
+          if (!part) continue;
+          const targetPosition = part.position.clone();
+          const targetQuaternion = part.quaternion.clone();
+          part.position.copy(from.position).lerp(targetPosition, alpha);
+          part.quaternion.copy(from.quaternion).slerp(targetQuaternion, alpha).normalize();
+        }
+        const bodyPosition = av.body.position.clone();
+        const bodyScale = av.body.scale.clone();
+        const bodyTilt = av.body.rotation.z;
+        av.body.position.copy(transitionFrom.bodyPosition).lerp(bodyPosition, alpha);
+        av.body.scale.copy(transitionFrom.bodyScale).lerp(bodyScale, alpha);
+        av.body.rotation.z = transitionFrom.bodyTilt + (bodyTilt - transitionFrom.bodyTilt) * alpha;
+        if (rawAlpha >= 1) transitionFrom = null;
+      }
+
+      // Walking faces +/-90 degrees in the direction of travel, easing back to
+      // front view when he stops instead of snapping or spinning through random angles.
       const desiredYaw = L.pose === "walk"
         ? (L.dir >= 0 ? Math.PI / 2 : -Math.PI / 2)
         : 0;
@@ -391,11 +468,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       );
       bodyYaw += yawDelta * (1 - Math.exp(-delta * 5.2));
       av.body.rotation.y = bodyYaw;
-      av.body.rotation.z = pose.tilt;
-      av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
 
-      // Look toward the cursor when calm, using absolute head angles so rotation
-      // never accumulates frame after frame or inherits a previous dance pose.
+      // Cursor look is a small local offset. It never overwrites imported keyframes.
       let wy = 0, wx = 0;
       if (["idle", "pat"].includes(L.pose) && L.look && L.getPos) {
         const p = L.getPos() || {};
@@ -409,11 +483,22 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const lookBlend = 1 - Math.exp(-8 * delta);
       look.y += (wy - look.y) * lookBlend;
       look.x += (wx - look.x) * lookBlend;
-      av.head.rotation.set(
-        clamp(pose.headX + look.x * 0.32, -0.45, 0.45),
-        clamp(pose.headY + look.y * 0.58, -0.65, 0.65),
-        0
-      );
+      if (clip) {
+        if (L.pose === "idle") {
+          const headLook = new THREE.Quaternion().setFromEuler(new THREE.Euler(
+            clamp(look.x * 0.20, -0.14, 0.14),
+            clamp(look.y * 0.38, -0.24, 0.24),
+            0
+          ));
+          av.head.quaternion.multiply(headLook).normalize();
+        }
+      } else {
+        av.head.rotation.set(
+          clamp(pose.headX + look.x * 0.32, -0.45, 0.45),
+          clamp(pose.headY + look.y * 0.58, -0.65, 0.65),
+          0
+        );
+      }
       renderer.render(scene, camera);
     };
     frame();
