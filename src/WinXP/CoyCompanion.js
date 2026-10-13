@@ -1203,6 +1203,8 @@ export default function CoyCompanion() {
   }
 
   function onCoyClick() {
+    // Tool climbing and falling are locked actions: clicks must not interrupt them.
+    if (pose === "climbing" || pose === "fall" || !wasStandingAligned.current) return;
     if (suppressClickAfterDrag.current) {
       suppressClickAfterDrag.current = false;
       return;
@@ -1296,7 +1298,7 @@ export default function CoyCompanion() {
       height: "auto",
       overflow: "visible",
       pointerEvents: "none",
-      zIndex: 3
+      zIndex: 5
     },
     dialogBody: {
       position: "relative",
@@ -1329,7 +1331,7 @@ export default function CoyCompanion() {
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
-      zIndex: 3
+      zIndex: 4
     },
     dialogText: {
       position: "relative",
