@@ -1027,9 +1027,17 @@ export default function CoyCompanion() {
           display: pose === "wave" ? "none" : "block",
           zIndex: 4
         }}
+        onMouseEnter={event => {
+          const image = event.currentTarget.querySelector("img");
+          if (image) image.src = "https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ovr.png";
+        }}
+        onMouseLeave={event => {
+          const image = event.currentTarget.querySelector("img");
+          if (image) image.src = "https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ds.png";
+        }}
       >
         <img
-          src="https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ovr.png"
+          src="https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ds.png"
           alt=""
           draggable={false}
           style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
