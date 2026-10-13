@@ -108,7 +108,11 @@ export function resetAvatarPose(av) {
     const part = av[name];
     if (!part) continue;
     part.quaternion.identity();
-    part.position.set(...position);
+    if (name === "rLeg" || name === "lLeg") {
+      part.position.set(position[0], REST.torso[1] + position[1], position[2]);
+    } else {
+      part.position.set(...position);
+    }
     part.scale.set(1, 1, 1);
   }
 }
@@ -134,7 +138,12 @@ export function applyImportedAnimation(av, clip, elapsed) {
       part.quaternion.copy(joint.quaternion);
     }
     part.position.copy(joint.position);
-    if (partName === "torso") part.position.y += REST.torso[1];   // pose offset is relative to the root part
+    if (partName === "torso") {
+      part.position.y += REST.torso[1];   // pose offset is relative to the root part
+    } else if (partName === "rLeg" || partName === "lLeg") {
+      // Leg joint positions are now in body/root space so torso turns don't lift or drag the feet.
+      part.position.y += REST.torso[1];
+    }
   }
   return applied > 0;
 }
