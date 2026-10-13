@@ -538,10 +538,10 @@ export default function CoyCompanion() {
     setPose(name);
     poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
   }
-  function playEmote(name) { showPose(name, name === "wave" ? 2600 : 5000); }
+  function playEmote(name) { showPose(name, name === "wave" ? 1650 : 5000); }
 
   useEffect(() => {
-    showPose("wave", 2600);                                    // greets the visitor
+    showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
     const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
     window.addEventListener("pointermove", onMove);
     return () => {
