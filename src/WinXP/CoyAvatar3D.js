@@ -110,16 +110,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
   const canvasRef = useRef(null);
   const live = useRef({});
   live.current = { pose, dir, vx, impact, look, getPos };
+  // Keep the interactive/layout footprint compact, but render into a larger transparent
+  // viewport so wide arm swings, turns, and raised limbs do not get clipped at the canvas edge.
   const W = size, H = Math.round(size / ASPECT);
+  const RENDER_W = Math.round(W * 1.5), RENDER_H = Math.round(H * 1.25);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(W, H, false);
+    renderer.setSize(RENDER_W, RENDER_H, false);
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(30, W / H, .1, 100);
-    camera.position.set(0, 2.8, 12.5); camera.lookAt(0, 2.8, 0);
+    const camera = new THREE.PerspectiveCamera(30, RENDER_W / RENDER_H, .1, 100);
+    // Scale the camera distance with the expanded viewport so Coy stays the same visible size.
+    camera.position.set(0, 2.8, 15.625); camera.lookAt(0, 2.8, 0);
     scene.add(new THREE.AmbientLight(0xffffff, .7));
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
@@ -316,9 +320,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     };
   }, [W, H]);
 
-  // The negative margin lets the feet sit exactly on the taskbar edge.
-  return <canvas ref={canvasRef} aria-label="Coy" role="img"
-    style={{ width: W, height: H, display: "block", marginBottom: -Math.round(H * FOOT), cursor: "grab", touchAction: "none", pointerEvents: "auto" }} />;
+  // The outer footprint stays the same for dragging/collision; the transparent render
+  // surface extends beyond it so animation extremities remain visible.
+  return <div style={{ position: "relative", width: W, height: H, marginBottom: -Math.round(H * FOOT), overflow: "visible", pointerEvents: "none" }}>
+    <canvas ref={canvasRef} aria-label="Coy" role="img"
+      style={{ position: "absolute", left: -Math.round((RENDER_W - W) / 2), top: -Math.round((RENDER_H - H) / 2), width: RENDER_W, height: RENDER_H, display: "block", cursor: "grab", touchAction: "none", pointerEvents: "auto" }} />
+  </div>;
 }
 
 
