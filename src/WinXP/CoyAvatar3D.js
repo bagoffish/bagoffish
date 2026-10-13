@@ -207,6 +207,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     grappleHook = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), new THREE.MeshStandardMaterial({ color: 0x292929, metalness: 0.65, roughness: 0.4 }));
     grappleHook.visible = false; grappleHook.renderOrder = 21; scene.add(grappleHook);
     let grappleStartAt = 0;
+    let grappleTargetPoint = new THREE.Vector3(1.6, 4.1, 0.1);
     const attachGear = () => {
       if (!av) return;
       if (swordGear) av.rArm.add(swordGear);
@@ -317,7 +318,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // Keep landing/patting procedural: imported clips can twist the arms through the torso
       // right as the body compresses, making the squash look inside-out.
       // The archived sit clip is effectively empty; use the grounded procedural R6 sit pose.
-      const clip = (L.pose === "land" || L.pose === "sit") ? null : animations[clipName];
+      // Tool poses use the procedural R6 poses below. Old imported clips can have
+      // incomplete keyframes or incompatible gear grips, which made the sword arm
+      // snap back and the gun appear detached instead of being held.
+      const proceduralToolPose = ["swordslash", "swordlunge", "gearhold", "grapple"].includes(L.pose);
+      const clip = (L.pose === "land" || L.pose === "sit" || proceduralToolPose) ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
@@ -348,11 +353,29 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const attack = L.pose === "swordlunge" ? 1 : 0;
         swordGear.rotation.set(Math.PI / 2 + (attack ? -0.65 : 0.35) * Math.sin(phase * Math.PI * 2), 0, -Math.PI / 2 + (attack ? -1.15 : 1.45) * Math.sin(phase * Math.PI * 2));
       }
-      if (grappleGear) grappleGear.rotation.set(Math.PI / 2 + Math.sin(t * 5) * 0.04, 0, -Math.PI / 2 - (L.pose === "grapple" ? 0.12 : 0));
+      if (grappleGear) {
+        // Keep the gun locked to Coy's right hand. During a shot, rotate the arm
+        // into an aiming pose and let the projectile follow the cursor target.
+        grappleGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      }
       // Hook projectile + dark cable. The hook flies out, connects, pulls Coy upward, then retracts.
       if (grappleCable && grappleHook) {
         const firing = L.pose === "grapple";
-        if (firing && previousPose !== "grapple") grappleStartAt = t;
+        if (firing && previousPose !== "grapple") {
+          grappleStartAt = t;
+          const p = L.getPos ? (L.getPos() || {}) : {};
+          const px = Number.isFinite(p.x) ? p.x : p.left;
+          const py = Number.isFinite(p.y) ? p.y : p.top;
+          if (L.look && Number.isFinite(L.look.x) && Number.isFinite(L.look.y) && Number.isFinite(px) && Number.isFinite(py)) {
+            grappleTargetPoint.set(
+              clamp(((L.look.x - (px + W / 2)) / Math.max(W, 1)) * 9, -6.5, 6.5),
+              clamp(2.8 - ((L.look.y - (py + H / 2)) / Math.max(H, 1)) * 7, 0.4, 8.5),
+              0.1
+            );
+          } else {
+            grappleTargetPoint.set(L.dir * 4.5, 4.1, 0.1);
+          }
+        }
         const elapsed = t - grappleStartAt;
         const active = firing && elapsed < 1.7;
         grappleCable.visible = active; grappleHook.visible = active;
@@ -360,9 +383,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           av.body.updateMatrixWorld(true); grappleGear?.updateMatrixWorld(true);
           const origin = new THREE.Vector3(0.08, 0.05, 0.45);
           if (grappleGear) grappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
-          const targetPoint = new THREE.Vector3(1.6 + Math.sin(grappleStartAt * 2.7) * 0.65, 4.1 + Math.cos(grappleStartAt * 1.9) * 0.35, 0.1);
           const travel = clamp(elapsed / 0.42, 0, 1);
-          const hookPos = origin.clone().lerp(targetPoint, travel);
+          const hookPos = origin.clone().lerp(grappleTargetPoint, travel);
           grappleHook.position.copy(hookPos);
           const arr = cableGeometry.attributes.position.array;
           arr[0] = origin.x; arr[1] = origin.y; arr[2] = origin.z;
