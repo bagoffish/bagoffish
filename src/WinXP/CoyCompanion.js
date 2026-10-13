@@ -605,9 +605,24 @@ export default function CoyCompanion() {
         dirRef.current *= -1;
         setDir(dirRef.current);
       }
+      if (surface.kind === "appbar" && surface.element?.isConnected) {
+        const rect = surface.element.getBoundingClientRect();
+        standingSurfaceRef.current = {
+          ...surface,
+          anchorRatio: clampValue(
+            (left + spriteSize / 2 - rect.left) / Math.max(1, rect.width),
+            0,
+            1
+          ),
+          top: Math.max(0, rect.top - getCoyHeight()),
+          headerRect: readRect(surface.element),
+          windowRect: readRect(surface.windowNode)
+        };
+      }
+      const activeSurface = standingSurfaceRef.current || surface;
       const next = {
         left,
-        top: Number.isFinite(surface.top) ? surface.top : posRef.current.top
+        top: Number.isFinite(activeSurface.top) ? activeSurface.top : posRef.current.top
       };
       posRef.current = next;
       setPosition(next);
