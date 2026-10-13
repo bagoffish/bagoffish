@@ -163,7 +163,7 @@ export const TORSO_GAINS = {
   default:    { arm: 0.35, leg: 0.28, lean: 0.10, sway: 1 },
   idle1:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
   idle2:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
-  walk:       { arm: 0.28, leg: 0.32, lean: 0.08, sway: 0 },
+  walk:       { arm: 0.12, leg: 0.14, lean: 0.03, sway: 0 },
   dance1:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
   dance2:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
   dance3:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
