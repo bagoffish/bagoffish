@@ -319,8 +319,8 @@ const styles = {
   // The bubble body is the Roblox 9-slice texture: corners and glow stay crisp, only the
   // dark centre stretches, so the box grows with the text instead of scaling the artwork.
   bubble: { position: 'relative', zIndex: 1, boxSizing: 'border-box', width: 'fit-content', maxWidth: '100%', minWidth: 46, minHeight: 36, padding: '5px 9px 6px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.35, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 700, border: '7px solid transparent', borderImageSlice: '12 fill', borderImageWidth: '7px', borderImageRepeat: 'stretch', textShadow: '0 1px 1px rgba(0,0,0,.4)' },
-  // Keep the arrow above the box so the pointed end remains visible at the overlap.
-  tail: { position: 'absolute', zIndex: 2, bottom: 1, width: TAIL_W, height: TAIL_H, objectFit: 'contain', pointerEvents: 'none', userSelect: 'none' },
+  // Keep the tail above the bubble body so it remains visible over the message box.
+  tail: { position: 'absolute', zIndex: 3, bottom: 1, width: TAIL_W, height: TAIL_H, objectFit: 'contain', pointerEvents: 'none', userSelect: 'none' },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #333', background: '#2a2a2a', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
