@@ -35,7 +35,10 @@ function isTorsoAccessory(object) {
       current.userData?.objectName,
       current.userData?.groupName,
     ].filter(value => typeof value === "string");
-    if (candidates.some(value => /OpossumTail/i.test(value))) return true;
+    // Roblox's OBJ export strips the accessory name and exposes this avatar's
+    // OpossumTail as Handle7. Without this fallback it gets attached to the head,
+    // so it swings away from the torso when the head looks around.
+    if (candidates.some(value => /OpossumTail/i.test(value) || /^Handle7$/i.test(value.trim()))) return true;
   }
   return false;
 }
