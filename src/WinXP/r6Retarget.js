@@ -54,8 +54,17 @@ function readCFrame(cframe, partName) {
   // even though identity/idle poses appear normal.
   const basis = new THREE.Matrix4().makeRotationY(Math.PI);
   const converted = basis.clone().multiply(robloxMatrix).multiply(basis);
-  const pivot = new THREE.Matrix4().makeTranslation(rest[0], rest[1], rest[2]);
+  // Pose.CFrame is Motor6D.Transform, so the actual part frame is
+  // C0 * Transform * C1^-1. Limb/head meshes are stored relative to their joint
+  // pivots already. The torso mesh is stored around its own center: its root
+  // joint sits one stud below that center, so include C1^-1 = translate Y+1.
+  const isTorsoPart = partName === "torso";
+  const jointPivot = isTorsoPart ? [0, 2, 0] : rest;
+  const pivot = new THREE.Matrix4().makeTranslation(...jointPivot);
   const localJoint = pivot.multiply(converted);
+  if (isTorsoPart) {
+    localJoint.multiply(new THREE.Matrix4().makeTranslation(0, 1, 0));
+  }
   const position = new THREE.Vector3();
   const quaternion = new THREE.Quaternion();
   const scale = new THREE.Vector3();
