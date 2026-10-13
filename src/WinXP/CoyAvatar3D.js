@@ -22,8 +22,8 @@ const P = o => Object.assign({
 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
-// Entirely procedural classic-R6 animation. Every limb is animated at its
-// shoulder/hip pivot with local joint angles. There are no imported CFrame clips.
+// Procedural fallback for reactions without a source clip (pat, held, land).
+// Walk, wave, idle, and dances use the original imported Roblox Pose.CFrame data.
 function target(name, t, dir, tiltIn) {
   const sin = (speed, phase = 0) => Math.sin(t * speed + phase);
   const cos = (speed, phase = 0) => Math.cos(t * speed + phase);
@@ -341,8 +341,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
     };
 
-    // These exported KeyframeSequence clips are used directly. If loading fails,
-    // the procedural motion functions below remain as a graceful fallback.
+    // Use the exported KeyframeSequence CFrames for each clip that exists.
+    // A missing optional clip must not force every other animation back to procedural motion.
     fetch(ANIMATIONS_URL, { cache: "force-cache" })
       .then(response => {
         if (!response.ok) throw new Error("HTTP " + response.status);
@@ -350,11 +350,19 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       })
       .then(payload => {
         const clips = payload && payload.animations;
-        const required = ["wave", "walk", "dance1", "dance2", "dance3", "idle1", "idle2", "fall"];
-        if (!clips || !required.every(name => clips[name]?.frames?.length)) {
-          throw new Error("R6 keyframe file is missing one or more required clips");
+        if (!clips || !Object.values(clips).some(clip => clip?.frames?.length)) {
+          throw new Error("R6 keyframe file contains no usable KeyframeSequence clips");
         }
-        if (!cancelled) animationClips = clips;
+        if (!cancelled) {
+          animationClips = clips;
+          // Expose minimal diagnostics to verify actual source clips load in the browser.
+          window.__coyAnimationStatus = {
+            source: "Roblox Pose.CFrame",
+            clips: Object.fromEntries(Object.entries(clips)
+              .filter(([, clip]) => clip?.frames?.length)
+              .map(([name, clip]) => [name, { frames: clip.frames.length, duration: clip.duration }]))
+          };
+        }
       })
       .catch(error => {
         if (!cancelled) console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
@@ -430,10 +438,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
         for (const key in pose) pose[key] += (nextPose[key] - pose[key]) * blend;
 
-        av.lArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
-        av.rArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
-        av.lLeg.rotation.x = pose.rLegX;
-        av.rLeg.rotation.x = pose.lLegX;
+        // Keep fallback posing aligned with the one-to-one imported joint map.
+        av.rArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
+        av.lArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
+        av.rLeg.rotation.x = pose.rLegX;
+        av.lLeg.rotation.x = pose.lLegX;
         av.body.position.y = pose.bob;
         av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
