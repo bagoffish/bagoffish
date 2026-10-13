@@ -202,9 +202,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         poseStartedAt = t;
         // Preserve the exact currently-rendered pose so every state change crossfades,
         // including the quarter-turn into walk and the return to idle.
-        if (av) {
+        if (av && L.pose !== "land") {
           transitionFrom = capturePose();
           transitionStartedAt = t;
+        } else if (L.pose === "land") {
+          // Landing is an impact, not a blended animation: let the squash hit now.
+          transitionFrom = null;
         }
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
@@ -300,17 +303,17 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (raw >= 1) transitionFrom = null;
       }
-      // A consistent landing squash independent of impact velocity. Only a very
-      // short drop gets a gentler compression; the same soft rebound follows.
+      // Immediate, fixed-strength impact squash. Fall speed is never used;
+      // only a tiny drop gets a gentler hit. Scale from the base each frame.
       if (L.pose === "land") {
         const age = Math.max(0, t - poseStartedAt);
         const dropDistance = Math.max(0, Number(L.impact) || 0);
-        const strength = dropDistance < 90 ? 0.025 : 0.075;
-        const pulse = strength * Math.exp(-age * 5) * Math.cos(age * 15);
+        const strength = dropDistance < 90 ? 0.035 : 0.10;
+        const pulse = strength * Math.exp(-age * 8) * Math.cos(age * 18);
         av.body.scale.set(
-          av.body.scale.x * (1 + pulse * 0.65),
-          av.body.scale.y * (1 - pulse),
-          av.body.scale.z * (1 + pulse * 0.65)
+          bodyBaseScale.x * (1 + pulse * 0.45),
+          bodyBaseScale.y * (1 - pulse),
+          bodyBaseScale.z * (1 + pulse * 0.45)
         );
       }
       renderer.render(scene, camera);
