@@ -24,7 +24,6 @@ export const ROBLOX_JOINT_PART = {
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 const clipCache = new WeakMap();
-const basis = new THREE.Matrix4().makeRotationY(Math.PI);
 
 function validCFrame(value) {
   return Array.isArray(value) && value.length >= 12 &&
@@ -32,32 +31,23 @@ function validCFrame(value) {
 }
 
 // Roblox CFrame:GetComponents(): x,y,z,R00,R01,R02,R10,R11,R12,R20,R21,R22.
-// Three.Matrix4.set takes the same row-major order, then stores internally
-// column-major. Convert from Roblox's -Z-facing basis to this +Z-facing scene
-// by conjugation, B * CFrame * B^-1. Since B is a half-turn, B^-1 === B.
+// Pose.CFrame is a joint-local Motor6D Transform. Preserve that local rotation
+// as-is; the avatar's facing direction belongs to the root rig, not each joint.
 function readLocalCFrame(value, partName) {
   if (!validCFrame(value)) return null;
   const rest = REST[partName];
   if (!rest) return null;
-  const source = new THREE.Matrix4().set(
+  const local = new THREE.Matrix4().set(
     value[3], value[4], value[5], value[0],
     value[6], value[7], value[8], value[1],
     value[9], value[10], value[11], value[2],
     0, 0, 0, 1
   );
-  const local = basis.clone().multiply(source).multiply(basis);
-  // The group origin represents the Motor6D joint pivot, not the center of the
-  // visible mesh. Compose the rest pivot with the animated local Transform.
-  // This is the CFrame equivalent of C0 * Transform for the baked R6 rig.
-  local.premultiply(new THREE.Matrix4().makeTranslation(rest[0], rest[1], rest[2]));
-  const position = new THREE.Vector3();
-  const quaternion = new THREE.Quaternion();
-  const scale = new THREE.Vector3();
-  local.decompose(position, quaternion, scale);
+  const position = new THREE.Vector3(rest[0] + value[0], rest[1] + value[1], rest[2] + value[2]);
+  const quaternion = new THREE.Quaternion().setFromRotationMatrix(local);
   quaternion.normalize();
   return { position, quaternion };
 }
-
 const STYLE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce", "CubicV2"];
 const DIRECTION = ["In", "Out", "InOut"];
 
@@ -190,11 +180,9 @@ function sceneCFrame(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
   const position = new THREE.Vector3(x, y, z);
   const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, "XYZ"));
   const sceneMatrix = new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(1, 1, 1));
-  // Convert the scene-local CFrame back into Roblox's native basis. The normal
-  // compile path will convert it forward again, so custom reactions share the
-  // exact same CFrame runtime as imported KeyframeSequences.
-  const source = basis.clone().multiply(sceneMatrix).multiply(basis);
-  const e = source.elements;
+  // Keep custom reaction transforms in the same scene-local basis as the
+  // imported joint-local transforms. Do not conjugate these a second time.
+  const e = sceneMatrix.elements;
   return [e[12], e[13], e[14], e[0], e[4], e[8], e[1], e[5], e[9], e[2], e[6], e[10]];
 }
 
