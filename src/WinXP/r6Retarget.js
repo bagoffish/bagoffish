@@ -19,11 +19,13 @@ export const REST = {
 export const ROBLOX_JOINT_PART = {
   Torso: "torso",
   Head: "head",
-  // The character faces +Z in this scene, so anatomical right is on scene -X.
-  "Right Arm": "lArm",
-  "Left Arm": "rArm",
-  "Right Leg": "lLeg",
-  "Left Leg": "rLeg",
+  // The imported avatar's named R6 groups are already assigned to their matching
+  // Roblox body parts in r6Split.js. Do not apply a second left/right swap here:
+  // that made the authored Right Arm track animate the opposite visible arm.
+  "Right Arm": "rArm",
+  "Left Arm": "lArm",
+  "Right Leg": "rLeg",
+  "Left Leg": "lLeg",
 };
 
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -32,24 +34,31 @@ function readCFrame(cframe, partName) {
   if (!Array.isArray(cframe) || cframe.length < 12 ||
       !cframe.slice(0, 12).every(Number.isFinite)) return null;
 
-  // THREE.Matrix4.set accepts row-major arguments, matching the export format:
-  // x, y, z, R00, R01, R02, R10, R11, R12, R20, R21, R22.
-  const matrix = new THREE.Matrix4().set(
-    cframe[3], cframe[4], cframe[5], 0,
-    cframe[6], cframe[7], cframe[8], 0,
-    cframe[9], cframe[10], cframe[11], 0,
-    0, 0, 0, 1
-  );
-  const quaternion = new THREE.Quaternion().setFromRotationMatrix(matrix).normalize();
-  quaternion.set(-quaternion.x, quaternion.y, -quaternion.z, quaternion.w).normalize();
-
   const rest = REST[partName];
   if (!rest) return null;
-  const position = new THREE.Vector3(
-    rest[0] - cframe[0],
-    rest[1] + cframe[1],
-    rest[2] - cframe[2]
+
+  // Convert the complete Roblox CFrame matrix, not Euler angles or hand-picked
+  // quaternion signs. Roblox's GetComponents() data is position + row-major R00..R22.
+  const robloxMatrix = new THREE.Matrix4().set(
+    cframe[3], cframe[4], cframe[5], cframe[0],
+    cframe[6], cframe[7], cframe[8], cframe[1],
+    cframe[9], cframe[10], cframe[11], cframe[2],
+    0, 0, 0, 1
   );
+
+  // Roblox avatar models face -Z while this canvas presents the outfit toward +Z.
+  // Change basis with B * CFrame * B^-1. B is a 180-degree Y rotation, so B^-1=B.
+  // Compose the result with the real R6 joint pivot (REST); the mesh geometry is
+  // already expressed in that pivot's local space by r6Split.js.
+  const basis = new THREE.Matrix4().makeRotationY(Math.PI);
+  const converted = basis.clone().multiply(robloxMatrix).multiply(basis);
+  const pivot = new THREE.Matrix4().makeTranslation(rest[0], rest[1], rest[2]);
+  const localJoint = pivot.multiply(converted);
+  const position = new THREE.Vector3();
+  const quaternion = new THREE.Quaternion();
+  const scale = new THREE.Vector3();
+  localJoint.decompose(position, quaternion, scale);
+  quaternion.normalize();
   return { position, quaternion };
 }
 
