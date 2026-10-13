@@ -233,6 +233,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
     let poseStartedAt = 0;
+    // Persist facing independently of the pose reset/imported animation each frame.
+    let facingYaw = 0;
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
@@ -501,10 +503,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // selects which side of the app/desktop edge he is facing; keep the turn
       // smooth and return to the front-facing pose when the action ends.
       const sideFacing = L.pose === "walk" || L.pose === "climbing";
-      const targetYaw = sideFacing ? L.dir * Math.PI / 2 : 0;
-      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 8 : 7));
-      const yawTarget = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetYaw);
-      av.body.quaternion.slerp(yawTarget, yawAlpha).normalize();
+      const targetYaw = sideFacing ? (L.dir < 0 ? -1 : 1) * Math.PI / 2 : 0;
+      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
+      // Imported clips call resetAvatarPose() every frame, and the procedural
+      // walk pose writes body.rotation.y every frame too. A quaternion slerp
+      // from that freshly reset angle can never accumulate to 90 degrees.
+      // Smooth a persistent yaw angle instead, then apply it after all pose code.
+      const yawDelta = Math.atan2(Math.sin(targetYaw - facingYaw), Math.cos(targetYaw - facingYaw));
+      facingYaw += yawDelta * yawAlpha;
+      av.body.rotation.y = facingYaw;
       // Landing squash is driven by the actual downward impact speed (px/s),
       // not drop height. Apply it on the first landing frame, then rebound quickly.
       if (L.pose === "land") {
