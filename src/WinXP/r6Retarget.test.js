@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { prepareClip, sampleClip, REST } from "./r6Retarget";
+import animationData from "../../public/avatar/animations.json";
 
 const cframe = (x = 0, y = 0, z = 0, angleZ = 0) => {
   const c = Math.cos(angleZ);
@@ -72,4 +73,25 @@ describe("R6 Roblox keyframe runtime", () => {
       new THREE.Vector3(0, 0, 1), Math.PI / 4
     ))).toBeCloseTo(0);
   });
+
+  test("all checked-in Roblox animation clips compile and produce finite transforms", () => {
+    const expected = ["walk", "wave", "fall", "idle1", "idle2", "dance1", "dance2", "dance3"];
+    for (const name of expected) {
+      const source = animationData.animations[name];
+      expect(source?.frames?.length).toBeGreaterThan(0);
+      expect(prepareClip(source)).toBeTruthy();
+
+      for (const t of [0, source.duration * 0.37, source.duration * 0.93]) {
+        const sampled = sampleClip(source, t);
+        expect(Object.keys(sampled).length).toBeGreaterThan(0);
+        for (const transform of Object.values(sampled)) {
+          expect(Number.isFinite(transform.position.x)).toBe(true);
+          expect(Number.isFinite(transform.position.y)).toBe(true);
+          expect(Number.isFinite(transform.position.z)).toBe(true);
+          expect(Number.isFinite(transform.quaternion.w)).toBe(true);
+        }
+      }
+    }
+  });
+
 });
