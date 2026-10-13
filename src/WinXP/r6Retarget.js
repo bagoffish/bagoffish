@@ -79,6 +79,7 @@ function easeValue(raw, metadata) {
   const easeIn = t => {
     switch (style) {
       case "constant": return t < 1 ? 0 : 1;
+      case "cubicv2": return t * t * (3 - 2 * t);
       case "sine": return 1 - Math.cos(t * Math.PI / 2);
       case "back": return 2.70158 * t * t * t - 1.70158 * t * t;
       case "quad": return t * t;
@@ -93,7 +94,11 @@ function easeValue(raw, metadata) {
     }
   };
   if (style === "linear") return raw;
-  if (style === "constant") return raw < 1 ? 0 : 1;
+  if (style === "constant") {
+    if (direction === "out") return raw > 0 ? 1 : 0;
+    if (direction === "inout") return raw < 0.5 ? 0 : 1;
+    return raw < 1 ? 0 : 1;
+  }
   if (direction === "out") return 1 - easeIn(1 - raw);
   if (direction === "inout") return raw < 0.5
     ? easeIn(raw * 2) / 2
