@@ -33,8 +33,8 @@ function target(pose, t, dir, tiltIn) {
     case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
     case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
-    case "climbing": { const a = Math.sin(t * 7) * (dir < 0 ? -1 : 1); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: a * .04, tilt: -0.06 }); }
-    case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08, bob: Math.abs(a) * .04 }); }
+    case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
+    case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08 + tiltIn, bob: Math.abs(a) * .04 }); }
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
   }
 }
@@ -97,21 +97,16 @@ function disposeAvatar(root) {
 //   gripRotDeg  Tool.Grip Orientation in degrees (Roblox order: Y, X, Z)
 const GEAR = {
   // Classic Sword: Position (0,0,-1.5), Orientation (0,90,90). Hilt in the palm, blade up.
-  sword:   { file: "Sword.obj",      scale: 0.52, gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
-  // The grapple gun's real Grip wasn't available, so this holds it by the drum with the barrel
-  // pointing forward. Tune it live in the browser console, no rebuild needed:
-  //   window.__coyGrip = { grapple: { gripPos: [0, 0, -0.75], gripRotDeg: [0, 180, 0] } }
-  // The legacy asset set contains Grapple.obj, Gun.obj and the combined GrappleGun.obj.
-  // Prefer the combined Roblox gear; allow choosing either exported component for testing.
-  grapple: { file: "GrappleGun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
-  grappleHead: { file: "Grapple.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
-  grappleGun: { file: "Gun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, -90, 0] },
+  sword:      { file: "Sword.obj",      scale: 0.52, gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
+  grapple:    { file: "Grapple.obj",    scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  gun:        { file: "Gun.obj",        scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, -90, 0] },
+  grappleGun: { file: "GrappleGun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
 };
 const toRad = d => d * Math.PI / 180;
-function gripMatrix(name) {
+function gripMatrix(name, leftHand = false) {
   const cfg = { ...GEAR[name], ...(typeof window !== "undefined" && window.__coyGrip?.[name]) };
   const D = new THREE.Matrix4().makeScale(-1, 1, -1);                    // Roblox -> scene axes
-  const armCenter = new THREE.Matrix4().makeTranslation(0.5, -0.5, 0);   // shoulder joint -> arm part center
+  const armCenter = new THREE.Matrix4().makeTranslation(leftHand ? -0.5 : 0.5, -0.5, 0);
   const c0 = new THREE.Matrix4().makeTranslation(0, -1, 0)
     .multiply(new THREE.Matrix4().makeRotationX(-Math.PI / 2));
   const [gx, gy, gz] = cfg.gripPos.map(v => v * cfg.scale);              // mesh is scaled, so is the grip point
@@ -120,10 +115,10 @@ function gripMatrix(name) {
     .multiply(new THREE.Matrix4().makeRotationFromEuler(new THREE.Euler(rx, ry, rz, "YXZ")));
   return D.multiply(armCenter).multiply(c0).multiply(grip.invert());
 }
-function placeGear(gear, name) {
+function placeGear(gear, name, leftHand = false) {
   if (!gear) return;
   gear.matrixAutoUpdate = false;
-  gear.matrix.copy(gripMatrix(name));
+  gear.matrix.copy(gripMatrix(name, leftHand));
   gear.matrixWorldNeedsUpdate = true;
 }
 
@@ -142,6 +137,7 @@ function loadGear(filename, scale) {
         const bounds = new THREE.Box3().setFromObject(root);
         if (bounds.isEmpty()) { reject(new Error("Empty gear model: " + filename)); return; }
         const center = bounds.getCenter(new THREE.Vector3());
+        const muzzleZ = bounds.getSize(new THREE.Vector3()).z * scale / 2;   // barrel tip, in gun space
         root.traverse(object => {
           if (!object.isMesh) return;
           object.geometry = object.geometry.clone();
@@ -165,6 +161,7 @@ function loadGear(filename, scale) {
           object.receiveShadow = true;
         });
         root.scale.set(1, 1, 1);
+        root.userData.muzzleZ = muzzleZ;
         root.visible = false;
         resolve(root);
       }, undefined, reject);
@@ -218,11 +215,14 @@ function loadModel(model) {
  *  vx      - horizontal speed (px/s), used to tilt while held or falling
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
+ *  grapple - shared ref object. When grapple.active the parent owns the rope: the arm aims at
+ *            (grapple.ax, grapple.ay) in screen px and the muzzle's screen position is written
+ *            back to grapple.mx / grapple.my so the parent can draw the cable to it.
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple }) {
   const canvasRef = useRef(null);
   const live = useRef({});
-  live.current = { pose, dir, vx, impact, look, getPos };
+  live.current = { pose, dir, vx, impact, look, getPos, grapple };
   const W = size, H = Math.round(size / ASPECT);
   // Keep the drag/collision footprint compact, but make the actual WebGL viewport
   // far larger so swinging limbs, turns, and accessories don't get cut at its edges.
@@ -242,22 +242,41 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
-    let swordGear = null, grappleGear = null;
+    let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHook = null, grappleCable = null;
     const cableGeometry = new THREE.BufferGeometry();
     cableGeometry.setAttribute("position", new THREE.BufferAttribute(new Float32Array(9), 3));
-    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false, transparent: false, linewidth: 1 });
+    const cableMaterial = new THREE.LineBasicMaterial({ color: 0x171717, depthTest: false });
     grappleCable = new THREE.Line(cableGeometry, cableMaterial);
     grappleCable.frustumCulled = false; grappleCable.renderOrder = 20; scene.add(grappleCable);
     grappleHook = new THREE.Mesh(new THREE.SphereGeometry(0.105, 8, 6), new THREE.MeshStandardMaterial({ color: 0x292929, metalness: 0.65, roughness: 0.4 }));
     grappleHook.visible = false; grappleHook.renderOrder = 21; scene.add(grappleHook);
     let grappleStartAt = 0;
+    let grappleHitPlayed = false;
+    const soundIds = {
+      swordSlash: 12222216,
+      swordLunge: 12222208,
+      unsheath: 12222225,
+      grappleEquip: 12222225,
+      grappleFire: 16211041,
+      grappleConnect: 13510737,
+      grappleHit: 16211030
+    };
+    const playGearSound = (id, volume = 0.75) => {
+      try {
+        const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
+        audio.volume = volume;
+        audio.play().catch(() => {});
+      } catch (_) {}
+    };
     let lastGripSig = "";
     let grappleTargetPoint = new THREE.Vector3(1.6, 4.1, 0.1);
     const attachGear = () => {
       if (!av) return;
       if (swordGear) av.rArm.add(swordGear);
       if (grappleGear) av.rArm.add(grappleGear);
+      if (gunGear) av.lArm.add(gunGear);
+      if (grappleGunGear) av.rArm.add(grappleGunGear);
     };
     loadGear(GEAR.sword.file, GEAR.sword.scale).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
@@ -271,6 +290,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       placeGear(grappleGear, "grapple");
       attachGear();
     }).catch(e => console.warn("Coy: grapple gear failed to load", e));
+    loadGear(GEAR.gun.file, GEAR.gun.scale).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      gunGear = gear;
+      placeGear(gunGear, "gun", true);
+      attachGear();
+    }).catch(e => console.warn("Coy: gun gear failed to load", e));
+    loadGear(GEAR.grappleGun.file, GEAR.grappleGun.scale).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      grappleGunGear = gear;
+      placeGear(grappleGunGear, "grappleGun");
+      attachGear();
+    }).catch(e => console.warn("Coy: grapple gun gear failed to load", e));
     const bodyBaseScale = new THREE.Vector3(1, 1, 1);
     const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
@@ -331,6 +362,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (cancelled) { disposeAvatar(next.body); return; }
         if (av) {
           swordGear?.removeFromParent(); grappleGear?.removeFromParent();
+          gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
           scene.remove(av.body); disposeAvatar(av.body);
         }
         av = next;
@@ -352,24 +384,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
-        // Play the original classic Roblox gear sounds when the corresponding
-        // tool action begins. Audio is best-effort because browsers may block
-        // remote media until the visitor has interacted with the page.
-        const soundIds = {
-          swordSlash: 12222216,
-          swordLunge: 12222208,
-          unsheath: 12222225,
-          grappleFire: 16211041,
-          grappleConnect: 13510737,
-          grappleHit: 16211030
-        };
-        const playGearSound = (id, volume = 0.75) => {
-          try {
-            const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
-            audio.volume = volume;
-            audio.play().catch(() => {});
-          } catch (_) {}
-        };
+        // Tool audio is best-effort because browsers can block remote media
+        // until the visitor has interacted with the page.
+        if (L.pose === "gearhold" && !["gearhold", "climbing", "grapple"].includes(priorPose)) {
+          playGearSound(soundIds.grappleEquip, 0.55);
+        }
         if (L.pose === "swordslash") {
           if (priorPose !== "swordlunge" && priorPose !== "swordslash") playGearSound(soundIds.unsheath, 0.55);
           playGearSound(soundIds.swordSlash);
@@ -377,6 +396,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           if (priorPose !== "swordslash" && priorPose !== "swordlunge") playGearSound(soundIds.unsheath, 0.55);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
+          if (!["gearhold", "climbing"].includes(priorPose)) playGearSound(soundIds.grappleEquip, 0.55);
+          grappleHitPlayed = false;
           playGearSound(soundIds.grappleFire);
         }
         // Preserve the exact currently-rendered pose so every state change crossfades,
@@ -394,7 +415,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // Use the imported R6 clips for sit, gearhold, swordslash, swordlunge,
       // and climbing so their original torso/arm/leg poses are preserved. Keep
       // landing and cursor-aimed grapple procedural; grapple needs live aim input.
-      // Sit is deliberately procedural: the archived sit clip leaves the hips too high.
       const clip = (L.pose === "land" || L.pose === "grapple" || L.pose === "sit") ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
@@ -421,14 +441,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
         const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
-        if (L.pose === "grapple" && L.look && L.getPos) {
-          // Aim the actual arm/gun toward the cursor, not just the projectile.
+        const ext = L.grapple && L.grapple.active ? { x: L.grapple.ax, y: L.grapple.ay } : null;
+        const aimAt = ext || L.look;
+        if (L.pose === "grapple" && aimAt && L.getPos) {
+          // Aim the actual arm/gun at the anchor (a wall point, the cursor) or the cursor by default.
           const p = L.getPos() || {};
           const px = Number.isFinite(p.x) ? p.x : p.left;
           const py = Number.isFinite(p.y) ? p.y : p.top;
-          if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(L.look.x) && Number.isFinite(L.look.y)) {
-            const dx = L.look.x - (px + W / 2);
-            const dy = L.look.y - (py + H / 2);
+          if (Number.isFinite(px) && Number.isFinite(py) && Number.isFinite(aimAt.x) && Number.isFinite(aimAt.y)) {
+            const dx = aimAt.x - (px + W / 2);
+            const dy = aimAt.y - (py + H / 2);
             tg.rZ = clamp(Math.atan2(dx, dy), -2.65, 2.65);
             tg.rX = clamp(-dy / Math.max(H, 1) * 2.2, -1.2, 1.2);
           }
@@ -443,16 +465,27 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Show classic gear only during its matching emote.
       if (swordGear) swordGear.visible = L.pose === "swordslash" || L.pose === "swordlunge";
-      if (grappleGear) grappleGear.visible = ["gearhold", "climbing", "grapple"].includes(L.pose);
+      const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose);
+      const pairedGrapple = typeof window !== "undefined" && window.__coyGear?.mode === "grapple+gun";
+      if (grappleGear) grappleGear.visible = holdingGrapple && pairedGrapple;
+      if (gunGear) gunGear.visible = holdingGrapple && pairedGrapple;
+      if (grappleGunGear) grappleGunGear.visible = holdingGrapple && !pairedGrapple;
       // Gear is welded to the right hand (see GEAR / gripMatrix) and rides the arm animation.
       // Re-weld live when tuning through window.__coyGrip.
       if (typeof window !== "undefined" && window.__coyGrip) {
         const sig = JSON.stringify(window.__coyGrip);
-        if (sig !== lastGripSig) { lastGripSig = sig; placeGear(swordGear, "sword"); placeGear(grappleGear, "grapple"); }
+        if (sig !== lastGripSig) {
+          lastGripSig = sig;
+          placeGear(swordGear, "sword");
+          placeGear(grappleGear, "grapple");
+          placeGear(gunGear, "gun", true);
+          placeGear(grappleGunGear, "grappleGun");
+        }
       }
       // Hook projectile + dark cable. The hook flies out, connects, pulls Coy upward, then retracts.
       if (grappleCable && grappleHook) {
-        const firing = L.pose === "grapple";
+        const external = Boolean(L.grapple && L.grapple.active);
+        const firing = L.pose === "grapple" && !external;
         if (firing && enteredPose) {
           grappleStartAt = t;
           const p = L.getPos ? (L.getPos() || {}) : {};
@@ -469,23 +502,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           }
         }
         const elapsed = t - grappleStartAt;
-        const justConnected = firing && elapsed >= 0.42 && elapsed - delta < 0.42;
-        if (justConnected) {
-          const soundIds = { connect: 13510737, hit: 16211030 };
-          for (const id of [soundIds.hit, soundIds.connect]) {
-            try {
-              const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
-              audio.volume = 0.7;
-              audio.play().catch(() => {});
-            } catch (_) {}
-          }
+        const justConnected = (firing && elapsed >= 0.42 && elapsed - delta < 0.42)
+          || (external && Number(L.grapple.travel) >= 1 && !grappleHitPlayed);
+        if (justConnected && !grappleHitPlayed) {
+          grappleHitPlayed = true;
+          playGearSound(soundIds.grappleConnect, 0.7);
+          playGearSound(soundIds.grappleHit, 0.7);
         }
         const active = firing && elapsed < 1.7;
         grappleCable.visible = active; grappleHook.visible = active;
         if (active) {
-          av.body.updateMatrixWorld(true); grappleGear?.updateMatrixWorld(true);
-          const origin = new THREE.Vector3(0, 0, 0.98);   // muzzle, in gun space
-          if (grappleGear) grappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
+          const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
+          av.body.updateMatrixWorld(true); activeGrappleGear?.updateMatrixWorld(true);
+          const origin = new THREE.Vector3(0, 0, activeGrappleGear?.userData.muzzleZ || 0.98);
+          if (activeGrappleGear) activeGrappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
           const travel = clamp(elapsed / 0.42, 0, 1);
           const hookPos = origin.clone().lerp(grappleTargetPoint, travel);
           grappleHook.position.copy(hookPos);
@@ -496,6 +526,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           cableGeometry.attributes.position.needsUpdate = true; cableGeometry.computeBoundingSphere();
           if (elapsed > 0.42) { const pull = clamp((elapsed - 0.42) / 0.8, 0, 1); av.body.position.y += (Math.min(1.15, pull * 1.15) - av.body.position.y) * 0.08; av.body.rotation.z = -0.08; }
         }
+      }
+      // Tell the parent where the muzzle is on screen so it can draw the cable from the gun.
+      const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
+      if (L.grapple && activeGrappleGear && activeGrappleGear.visible) {
+        av.body.updateMatrixWorld(true); activeGrappleGear.updateMatrixWorld(true); camera.updateMatrixWorld();
+        const m = new THREE.Vector3(0, 0, activeGrappleGear.userData.muzzleZ || 1.5);
+        activeGrappleGear.localToWorld(m); m.project(camera);
+        const r = canvas.getBoundingClientRect();
+        L.grapple.mx = r.left + (m.x * 0.5 + 0.5) * r.width;
+        L.grapple.my = r.top + (-m.y * 0.5 + 0.5) * r.height;
       }
       // Held or falling: lean with the sideways speed.
       if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
@@ -546,14 +586,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Apply the facing turn after pose crossfading; otherwise the crossfade can
       // repeatedly blend the body back toward its old, front-facing quaternion.
-      // Walking and climbing should both turn Coy side-on. For climbing, dir
-      // selects which side of the app/desktop edge he is facing; keep the turn
-      // smooth and return to the front-facing pose when the action ends.
-      const sideFacing = L.pose === "walk" || L.pose === "climbing";
+      // Walking and climbing should turn Coy side-on; grapple/sword aim toward
+      // the cursor or anchor. Smoothly return to the front-facing pose afterward.
+      const sideFacing = ["walk", "climbing", "grapple", "swordslash", "swordlunge"].includes(L.pose);
+      const position = L.getPos ? (L.getPos() || {}) : {};
+      const px = Number.isFinite(position.x) ? position.x : position.left;
+      const aimAt = L.grapple && L.grapple.active
+        ? { x: L.grapple.ax, y: L.grapple.ay }
+        : L.look;
+      const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
+        ? aimAt.x - (px + W / 2)
+        : 0;
       const toolFacing = ["grapple", "swordslash", "swordlunge"].includes(L.pose);
-      const cursorX = L.look && Number.isFinite(L.look.x) && L.getPos ? L.look.x - ((L.getPos()?.x ?? L.getPos()?.left ?? 0) + W / 2) : 0;
       const toolDirection = Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
-      const targetYaw = (sideFacing || toolFacing) ? toolDirection * Math.PI / 2 : 0;
+      const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
       // walk pose writes body.rotation.y every frame too. A quaternion slerp
@@ -582,8 +628,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     return () => {
       cancelled = true; cancelAnimationFrame(raf); clearInterval(metaTimer);
       swordGear?.removeFromParent(); grappleGear?.removeFromParent();
+      gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
       if (swordGear) disposeAvatar(swordGear);
       if (grappleGear) disposeAvatar(grappleGear);
+      if (gunGear) disposeAvatar(gunGear);
+      if (grappleGunGear) disposeAvatar(grappleGunGear);
       scene.traverse(o => { o.geometry?.dispose(); o.material && [].concat(o.material).forEach(m => { m.map?.dispose(); m.dispose(); }); });
       renderer.dispose();
     };
@@ -596,5 +645,3 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       style={{ position: "absolute", left: -Math.round((RENDER_W - W) / 2), top: -Math.round((RENDER_H - H) / 2), width: RENDER_W, height: RENDER_H, display: "block", background: "transparent", border: 0, outline: 0, cursor: "grab", touchAction: "none", pointerEvents: "none" }} />
   </div>;
 }
-
-

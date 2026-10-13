@@ -3,7 +3,7 @@ import {
   REST,
   ROBLOX_JOINT_PART,
   sampleClip,
-  createReactionClips,
+  applyImportedAnimation,
 } from "./r6Retarget";
 
 const animationData = JSON.parse(require("fs").readFileSync(
@@ -28,9 +28,10 @@ describe("R6 CFrame rig", () => {
     const sampled = sampleClip(testClip([[0, pose]]), 0);
 
     for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
-      expect(sampled[jointName].position.x).toBeCloseTo(REST[partName][0]);
-      expect(sampled[jointName].position.y).toBeCloseTo(REST[partName][1]);
-      expect(sampled[jointName].position.z).toBeCloseTo(REST[partName][2]);
+      const expected = partName === "torso" ? [0, 0, 0] : REST[partName];
+      expect(sampled[jointName].position.x).toBeCloseTo(expected[0]);
+      expect(sampled[jointName].position.y).toBeCloseTo(expected[1]);
+      expect(sampled[jointName].position.z).toBeCloseTo(expected[2]);
       expect(sampled[jointName].quaternion.angleTo(new THREE.Quaternion())).toBeCloseTo(0);
     }
   });
@@ -41,9 +42,9 @@ describe("R6 CFrame rig", () => {
       [1, { Torso: cframeZ(Math.PI / 2) }],
     ]), 0.5).Torso;
 
-    expect(sampled.position.x).toBeCloseTo(REST.torso[0]);
-    expect(sampled.position.y).toBeCloseTo(REST.torso[1]);
-    expect(sampled.position.z).toBeCloseTo(REST.torso[2]);
+    expect(sampled.position.x).toBeCloseTo(0);
+    expect(sampled.position.y).toBeCloseTo(0);
+    expect(sampled.position.z).toBeCloseTo(0);
     expect(Number.isFinite(sampled.quaternion.w)).toBe(true);
   });
 
@@ -65,16 +66,17 @@ describe("R6 CFrame rig", () => {
     }
   });
 
-  test("custom held, land, and pat reactions are also CFrame clips", () => {
-    const reactions = createReactionClips();
-    expect(Object.keys(reactions)).toEqual(["held", "land", "pat"]);
-    for (const clip of Object.values(reactions)) {
-      expect(clip.frames.length).toBeGreaterThan(1);
-      for (const frame of clip.frames) {
-        expect(Object.keys(frame.poses).sort()).toEqual(Object.keys(ROBLOX_JOINT_PART).sort());
+  test("identity animation preserves the avatar's grounded rest pivots", () => {
+    const avatar = { body: new THREE.Group() };
+    for (const partName of Object.values(ROBLOX_JOINT_PART)) avatar[partName] = new THREE.Group();
+    const poses = Object.fromEntries(Object.keys(ROBLOX_JOINT_PART).map(name => [name, identity()]));
+
+    expect(applyImportedAnimation(avatar, testClip([[0, poses]]), 0)).toBe(true);
+    expect(avatar.torso.position.y).toBeCloseTo(REST.torso[1]);
+    for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
+      for (const axis of ["x", "y", "z"]) {
+        expect(avatar[partName].position[axis]).toBeCloseTo(REST[partName][["x", "y", "z"].indexOf(axis)]);
       }
-      const sampled = sampleClip(clip, Math.min(clip.duration * 0.4, clip.duration));
-      expect(Object.keys(sampled)).toHaveLength(6);
     }
   });
 
@@ -86,7 +88,8 @@ describe("R6 CFrame rig", () => {
       [1, { "Right Arm": to }],
     ]), 0.5)["Right Arm"];
 
-    expect(sampled.position.x).toBeCloseTo(REST.rArm[0] - 0.2);
+    expect(sampled.position.x).toBeCloseTo(REST.rArm[0]);
     expect(sampled.position.y).toBeCloseTo(REST.rArm[1] + 0.1);
+    expect(sampled.position.z).toBeCloseTo(0.2);
   });
 });
