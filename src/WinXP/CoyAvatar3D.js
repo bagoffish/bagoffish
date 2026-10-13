@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-import { REST, ROBLOX_JOINT_PART, sampleClip, resetAvatarPose } from "./r6Retarget";
+import { REST, ROBLOX_JOINT_PART, sampleClip, prepareClip, resetAvatarPose } from "./r6Retarget";
 
 // Play Roblox's exported R6 KeyframeSequence CFrames from /avatar/animations.json.
 // R6 avatar rendered on a transparent canvas. Model and color metadata are loaded
@@ -21,6 +21,7 @@ const P = o => Object.assign({
   headX: 0, headY: 0
 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+const NATIVE_CLIP_POSES = new Set(["idle", "walk", "wave", "dance", "dance1", "dance2", "dance3", "fall"]);
 
 // Procedural fallback for reactions without a source clip (pat, held, land).
 // Walk, wave, idle, and dances use the original imported Roblox Pose.CFrame data.
@@ -356,6 +357,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           throw new Error("R6 keyframe file contains no usable KeyframeSequence clips");
         }
         if (!cancelled) {
+          // Compile every source clip before playback so each frame only interpolates cached local transforms.
+          for (const clip of Object.values(clips)) prepareClip(clip);
           animationClips = clips;
           // Expose minimal diagnostics to verify actual source clips load in the browser.
           window.__coyAnimationStatus = {
@@ -381,13 +384,13 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       .catch(error => {
         if (!cancelled) {
           window.__coyAnimationStatus = {
-            source: "procedural fallback",
+            source: "Roblox keyframe data unavailable",
             url: ANIMATIONS_URL,
             error: String(error?.message || error),
-            current: { pose: live.current.pose, mode: "procedural fallback", clip: null },
+            current: { pose: live.current.pose, mode: "safe rest pose; keyframes unavailable", clip: null },
             clips: {}
           };
-          console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+          console.warn("Coy: R6 animation data failed to load; native clips will stay at rest rather than use broken procedural poses.", error);
         }
       });
 
@@ -428,7 +431,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       const requestedClipName = keyframeNameForPose(L.pose);
       const clip = requestedClipName && animationClips ? animationClips[requestedClipName] : null;
-      const animationMode = clip ? "keyframe:" + L.pose + ":" + requestedClipName : "procedural:" + L.pose;
+      const nativePose = NATIVE_CLIP_POSES.has(L.pose);
+      const animationMode = clip
+        ? "keyframe:" + L.pose + ":" + requestedClipName
+        : nativePose ? "missing-keyframe:" + L.pose : "procedural:" + L.pose;
 
       // When keyframes finish loading, this resets the greeting to its first frame.
       if (animationMode !== previousAnimationMode) {
@@ -437,12 +443,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         poseStart = t;
         // The procedural pose accumulator must not carry a raised arm or dance
         // pose into a later custom pat/land reaction (or into imported clips).
-        if (clip || previousAnimationMode.startsWith("keyframe:")) Object.assign(pose, P({}));
+        if (clip || previousAnimationMode.startsWith("keyframe:") || previousAnimationMode.startsWith("missing-keyframe:")) Object.assign(pose, P({}));
         previousAnimationMode = animationMode;
         if (window.__coyAnimationStatus) {
           window.__coyAnimationStatus.current = {
             pose: L.pose,
-            mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+            mode: clip ? "Roblox Pose.CFrame" : nativePose ? "waiting for Roblox keyframes" : "procedural reaction",
             clip: clip ? requestedClipName : null,
             elapsed: 0
           };
@@ -452,7 +458,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (window.__coyAnimationStatus) {
         window.__coyAnimationStatus.current = {
           pose: L.pose,
-          mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+          mode: clip ? "Roblox Pose.CFrame" : nativePose ? "waiting for Roblox keyframes" : "procedural reaction",
           clip: clip ? requestedClipName : null,
           elapsed: localTime
         };
@@ -471,7 +477,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           part.position.copy(transform.position);
           part.quaternion.copy(transform.quaternion).normalize();
         }
-      } else {
+      } else if (!nativePose) {
+        // Only custom one-off reactions use procedural poses. The canonical Roblox
+        // clips above never silently fall back to approximate, limb-breaking motion.
         const nextPose = target(L.pose, localTime, L.dir, tiltIn);
         const impactPose = L.pose === "pat" || L.pose === "land";
         const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
