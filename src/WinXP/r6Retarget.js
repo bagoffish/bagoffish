@@ -10,10 +10,11 @@ import * as THREE from "three";
 export const REST = {
   torso: [0, 3, 0],
   head: [0, 1, 0],
-  rArm: [1, 0.5, 0],
-  lArm: [-1, 0.5, 0],
-  rLeg: [1, -1, 0],
-  lLeg: [-1, -1, 0],
+  // Coy faces the camera (+Z): his right limbs belong on screen-left (-X).
+  rArm: [-1, 0.5, 0],
+  lArm: [1, 0.5, 0],
+  rLeg: [-1, -1, 0],
+  lLeg: [1, -1, 0],
 };
 
 export const ROBLOX_JOINT_PART = {
