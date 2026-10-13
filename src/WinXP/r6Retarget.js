@@ -199,7 +199,10 @@ function sceneCFrame(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
 }
 
 function reactionFrame(time, pose) {
+  // Every generated key contains every joint, so omitted joints return to their
+  // neutral CFrame instead of starting at the first key that happens to exist.
   const poses = {};
+  for (const joint of Object.keys(ROBLOX_JOINT_PART)) poses[joint] = sceneCFrame();
   for (const [joint, values] of Object.entries(pose)) poses[joint] = sceneCFrame(...values);
   return { time, poses };
 }
