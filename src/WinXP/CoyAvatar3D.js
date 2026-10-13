@@ -23,12 +23,12 @@ function target(pose, t, dir, tiltIn) {
     case "dance":  s = Math.sin(t * 8);  return P({ rZ: 2.2 + s * .5, lZ: -(2.2 - s * .5), rL: s * .6, lL: -s * .6, bob: Math.abs(s) * .35, spin: Math.sin(t * 4) * .6 });
     case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
     case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
-    case "walk":   s = Math.sin(t * 10); return P({ rX: s * .8, lX: -s * .8, rL: -s * .7, lL: s * .7, spin: dir * 1.1 });
+    case "walk":   s = Math.sin(t * 8.5); return P({ rX: s * .58, lX: -s * .58, rL: -s * .48, lL: s * .48, bob: Math.abs(s) * .025, spin: 0 });
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
     // Classic R6 has no knee joints, so sitting is a hip bend plus a lower root.
     // Use a procedural pose because the archived sit clip contains no useful sit keyframes.
-    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.18, lL: -1.18, bob: 2 * (Math.cos(1.18) - 1), tilt: 0 });
+    case "sit":    return P({ rZ: 0.18, lZ: -0.18, rL: -1.42, lL: -1.42, bob: -2.0, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
     case "swordslash": { const a = (t % 0.9) / 0.9; return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: a > .28 && a < .58 ? -0.12 : 0 }); }
     case "swordlunge": { const a = (t % 1.15) / 1.15; return P({ rZ: a < .25 ? 1.9 : a < .62 ? 2.8 : .1, rX: a < .25 ? -0.6 : a < .62 ? -1.0 : 0, lZ: a < .62 ? -0.7 : 0.1, tilt: a < .62 ? -0.28 : 0, bob: a < .62 ? 0.12 : 0 }); }
@@ -97,10 +97,10 @@ function disposeAvatar(root) {
 //   gripRotDeg  Tool.Grip Orientation in degrees (Roblox order: Y, X, Z)
 const GEAR = {
   // Classic Sword: Position (0,0,-1.5), Orientation (0,90,90). Hilt in the palm, blade up.
-  sword:   { file: "Sword.obj",      scale: 0.84, gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
-  grapple:    { file: "Grapple.obj",    scale: 1.12, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
-  gun:        { file: "Gun.obj",        scale: 1.12, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
-  grappleGun: { file: "GrappleGun.obj", scale: 1.12, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  sword:      { file: "Sword.obj",      scale: 0.52, gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
+  grapple:    { file: "Grapple.obj",    scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
+  gun:        { file: "Gun.obj",        scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, -90, 0] },
+  grappleGun: { file: "GrappleGun.obj", scale: 0.72, gripPos: [0, -0.05, -0.75], gripRotDeg: [0, 180, 0] },
 };
 const toRad = d => d * Math.PI / 180;
 function gripMatrix(name, leftHand = false) {
@@ -512,7 +512,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const active = firing && elapsed < 1.7;
         grappleCable.visible = active; grappleHook.visible = active;
         if (active) {
-          const activeGrappleGear = pairedGrapple ? grappleGear : grappleGunGear;
+          const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
           av.body.updateMatrixWorld(true); activeGrappleGear?.updateMatrixWorld(true);
           const origin = new THREE.Vector3(0, 0, activeGrappleGear?.userData.muzzleZ || 0.98);
           if (activeGrappleGear) activeGrappleGear.localToWorld(origin); else av.rArm.localToWorld(origin);
@@ -528,7 +528,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Tell the parent where the muzzle is on screen so it can draw the cable from the gun.
-      const activeGrappleGear = pairedGrapple ? grappleGear : grappleGunGear;
+      const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
       if (L.grapple && activeGrappleGear && activeGrappleGear.visible) {
         av.body.updateMatrixWorld(true); activeGrappleGear.updateMatrixWorld(true); camera.updateMatrixWorld();
         const m = new THREE.Vector3(0, 0, activeGrappleGear.userData.muzzleZ || 1.5);
@@ -586,11 +586,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Apply the facing turn after pose crossfading; otherwise the crossfade can
       // repeatedly blend the body back toward its old, front-facing quaternion.
-      // Walking and climbing should both turn Coy side-on. For climbing, dir
-      // selects which side of the app/desktop edge he is facing; keep the turn
-      // smooth and return to the front-facing pose when the action ends.
+      // Walking and climbing should turn Coy side-on; grapple/sword aim toward
+      // the cursor or anchor. Smoothly return to the front-facing pose afterward.
       const sideFacing = ["walk", "climbing", "grapple", "swordslash", "swordlunge"].includes(L.pose);
-      const targetYaw = sideFacing ? (L.dir < 0 ? -1 : 1) * Math.PI / 2 : 0;
+      const position = L.getPos ? (L.getPos() || {}) : {};
+      const px = Number.isFinite(position.x) ? position.x : position.left;
+      const aimAt = L.grapple && L.grapple.active
+        ? { x: L.grapple.ax, y: L.grapple.ay }
+        : L.look;
+      const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
+        ? aimAt.x - (px + W / 2)
+        : 0;
+      const toolFacing = ["grapple", "swordslash", "swordlunge"].includes(L.pose);
+      const toolDirection = Math.abs(cursorX) > 4 ? Math.sign(cursorX) : (L.dir < 0 ? -1 : 1);
+      const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
       // walk pose writes body.rotation.y every frame too. A quaternion slerp
