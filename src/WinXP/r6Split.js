@@ -5,23 +5,24 @@
 // guessed X/Y coordinates cuts through the head and sends arm geometry to the
 // wrong limbs, especially when hair/accessories extend past the body bounds.
 const RIG_TO_PART = {
-  Rig1: "lLeg",
-  Rig2: "rLeg",
-  Rig3: "lArm",
-  Rig4: "rArm",
+  // The OBJ's negative-X groups are on the avatar's anatomical right when
+  // facing the camera (+Z). Keep the mesh labels aligned with Roblox's Pose names.
+  Rig1: "rLeg",
+  Rig2: "lLeg",
+  Rig3: "rArm",
+  Rig4: "lArm",
   Rig5: "torso",
   Rig6: "head",
 };
-// World-space joints in studs (feet at y = 0), matching the real R6 Motor6D positions:
-// neck at the top of the torso, shoulders at the torso's top corners, hips at its bottom corners.
-// rArm/rLeg are the groups on the +X side of the scene (the avatar's own left, since it faces +Z).
+// Joint pivots in centered scene coordinates (feet at y = 0). The avatar faces +Z,
+// so anatomical right is on screen-left (-X), and anatomical left is on screen-right (+X).
 const PIVOTS = {
   head: [0, 4, 0],
   torso: [0, 3, 0],
-  rArm: [1, 3.5, 0],
-  lArm: [-1, 3.5, 0],
-  rLeg: [1, 2, 0],
-  lLeg: [-1, 2, 0],
+  rArm: [-1, 3.5, 0],
+  lArm: [1, 3.5, 0],
+  rLeg: [-1, 2, 0],
+  lLeg: [1, 2, 0],
 };
 
 function sourcePartName(object) {
@@ -120,10 +121,10 @@ export function splitIntoR6Parts(root) {
   // Mesh vertices are already expressed relative to their own pivots.
   parts.torso.add(parts.head, parts.rArm, parts.lArm, parts.rLeg, parts.lLeg);
   parts.head.position.set(0, 1, 0);
-  parts.rArm.position.set(1, 0.5, 0);
-  parts.lArm.position.set(-1, 0.5, 0);
-  parts.rLeg.position.set(1, -1, 0);
-  parts.lLeg.position.set(-1, -1, 0);
+  parts.rArm.position.set(-1, 0.5, 0);
+  parts.lArm.position.set(1, 0.5, 0);
+  parts.rLeg.position.set(-1, -1, 0);
+  parts.lLeg.position.set(1, -1, 0);
 
   return { body, ...parts, counts };
 }
