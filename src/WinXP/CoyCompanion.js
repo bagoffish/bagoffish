@@ -172,75 +172,117 @@ export default function CoyCompanion() {
 
   const clampValue = (value, min, max) => Math.max(min, Math.min(max, value));
 
-  const getStandingSurface = left => {
+  const getTaskbarSurface = () => {
     const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
     const taskbarTop = getTaskbarTop();
-    const fallback = {
+    return {
       kind: "taskbar",
       minLeft: 0,
       maxLeft: viewportMaxLeft,
-      top: taskbarTop,
-      zIndex: -1,
-      distance: 0
+      top: Math.max(0, taskbarTop - getCoyHeight()),
+      zIndex: -1
     };
-    const center = (Number.isFinite(left) ? left : 0) + spriteSize / 2;
-    const candidates = Array.from(document.querySelectorAll(".app__header"))
-      .map(header => {
-        const rect = header.getBoundingClientRect();
-        const headerStyle = window.getComputedStyle(header);
-        const windowNode = header.closest("[data-app-window-id][data-app-title]");
-        if (!windowNode) return null;
-        const windowStyle = window.getComputedStyle(windowNode);
-        if (headerStyle.display === "none" || headerStyle.visibility === "hidden" ||
-            windowStyle.display === "none" || windowStyle.visibility === "hidden" ||
-            Number(headerStyle.opacity) === 0 || Number(windowStyle.opacity) === 0 ||
-            rect.width < spriteSize * 0.65 || rect.height < 8 ||
-            rect.bottom <= 0 || rect.top >= window.innerHeight) return null;
-        const minLeft = clampValue(rect.left, 0, viewportMaxLeft);
-        const maxLeft = clampValue(rect.right - spriteSize, minLeft, viewportMaxLeft);
-        const distance = center < rect.left ? rect.left - center : center > rect.right ? center - rect.right : 0;
-        const zIndex = Number.parseInt(windowStyle.zIndex, 10) || 0;
-        return { kind: "appbar", minLeft, maxLeft, top: rect.top, zIndex, distance };
-      })
-      .filter(Boolean);
-    if (!candidates.length) return fallback;
-    candidates.sort((a, b) => a.distance - b.distance || b.zIndex - a.zIndex);
-    return candidates[0];
   };
 
-  // Coy stands on the nearest visible XP title bar, with the taskbar as his
-  // home when no windows are open. Track window movement/minimizing/resizing.
+  const readRect = element => {
+    if (!element) return null;
+    const rect = element.getBoundingClientRect();
+    return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
+  };
+
+  const rectChanged = (previous, current) => !previous || !current ||
+    Math.abs(previous.left - current.left) > 2 ||
+    Math.abs(previous.top - current.top) > 2 ||
+    Math.abs(previous.width - current.width) > 2 ||
+    Math.abs(previous.height - current.height) > 2;
+
+  const isVisibleAppbar = (header, windowNode) => {
+    if (!header?.isConnected || !windowNode?.isConnected) return false;
+    const rect = header.getBoundingClientRect();
+    const hs = window.getComputedStyle(header);
+    const ws = window.getComputedStyle(windowNode);
+    return hs.display !== "none" && hs.visibility !== "hidden" && Number(hs.opacity) !== 0 &&
+      ws.display !== "none" && ws.visibility !== "hidden" && Number(ws.opacity) !== 0 &&
+      rect.width > 0 && rect.height >= 8 && rect.bottom > 0 && rect.top < window.innerHeight;
+  };
+
+  // Only use a title bar when the user releases Coy directly on it. Being near
+  // an open app must never pull him away from his taskbar home automatically.
+  const findAppbarLanding = (left, top) => {
+    const height = getCoyHeight();
+    const feet = top + height;
+    const center = left + spriteSize / 2;
+    const candidates = Array.from(document.querySelectorAll(".app__header"))
+      .map(header => {
+        const windowNode = header.closest("[data-app-window-id][data-app-title]");
+        if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
+        const rect = header.getBoundingClientRect();
+        const windowRect = windowNode.getBoundingClientRect();
+        const minLeft = clampValue(rect.left, 0, Math.max(0, window.innerWidth - spriteSize));
+        const maxLeft = clampValue(rect.right - spriteSize, minLeft, Math.max(0, window.innerWidth - spriteSize));
+        // The avatar's feet must be close to the header's top edge and its body
+        // must overlap the header horizontally; nearby windows are not enough.
+        if (Math.abs(feet - rect.top) > 24 || center < rect.left || center > rect.right) return null;
+        if (rect.width < spriteSize * 0.65) return null;
+        return {
+          kind: "appbar",
+          minLeft,
+          maxLeft,
+          top: Math.max(0, rect.top - height),
+          zIndex: Number.parseInt(window.getComputedStyle(windowNode).zIndex, 10) || 0,
+          element: header,
+          windowNode,
+          headerRect: readRect(header),
+          windowRect: readRect(windowNode)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => b.zIndex - a.zIndex);
+    return candidates[0] || null;
+  };
+
+  // Coy's home surface is always the taskbar unless he is explicitly dropped
+  // onto an app title bar. While perched on a title bar, remember that exact
+  // window and fall if it closes, minimizes, moves, or resizes out from under him.
   useEffect(() => {
     let frame = 0;
     const placeCoy = () => {
       if (frame) window.cancelAnimationFrame(frame);
       frame = window.requestAnimationFrame(() => {
         frame = 0;
-        if (!rootRef.current) return;
-        const taskbarTop = getTaskbarTop();
-        const coyHeight = getCoyHeight();
-        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
-        const surface = getStandingSurface(posRef.current.left);
-        const exactTop = Math.max(0, surface.top - coyHeight);
-        standingSurfaceRef.current = { ...surface, top: exactTop };
+        if (!rootRef.current || dragState.current || !wasStandingAligned.current) return;
+        const current = standingSurfaceRef.current;
 
-        setPosition(previous => {
-          if (!hasInitialPlacement.current) {
-            hasInitialPlacement.current = true;
-            wasStandingAligned.current = true;
-            return { left: clampValue(previous.left, surface.minLeft, surface.maxLeft), top: exactTop };
+        if (current?.kind === "appbar") {
+          const header = current.element;
+          const windowNode = current.windowNode;
+          if (!isVisibleAppbar(header, windowNode) ||
+              rectChanged(current.headerRect, readRect(header)) ||
+              rectChanged(current.windowRect, readRect(windowNode))) {
+            startFall();
+            return;
           }
-          const stayedAtSurface = wasStandingAligned.current ||
-            Math.abs(previous.top - exactTop) <= 2;
-          const left = stayedAtSurface
-            ? clampValue(previous.left, surface.minLeft, surface.maxLeft)
-            : clampValue(previous.left, 0, viewportMaxLeft);
-          const top = stayedAtSurface
-            ? exactTop
-            : clampValue(previous.top, 0, Math.max(0, taskbarTop - coyHeight));
-          wasStandingAligned.current = Math.abs(top - exactTop) <= 1;
-          return left === previous.left && top === previous.top ? previous : { left, top };
-        });
+          const rect = header.getBoundingClientRect();
+          const left = posRef.current.left;
+          if (left + spriteSize * 0.35 < rect.left ||
+              left + spriteSize * 0.65 > rect.right) {
+            startFall();
+          }
+          return;
+        }
+
+        // Taskbar is the persistent default. Do not search for nearby app bars.
+        const taskbarSurface = getTaskbarSurface();
+        standingSurfaceRef.current = taskbarSurface;
+        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+        const next = {
+          left: clampValue(posRef.current.left, 0, viewportMaxLeft),
+          top: taskbarSurface.top
+        };
+        if (next.left !== posRef.current.left || next.top !== posRef.current.top) {
+          posRef.current = next;
+          setPosition(next);
+        }
       });
     };
 
@@ -266,7 +308,22 @@ export default function CoyCompanion() {
       attributeFilter: ["style", "class", "data-app-title", "data-app-window-id"]
     });
 
-    placeCoy();
+    // Initial placement is deliberately on the taskbar, even if an app window
+    // happens to be open or directly above Coy at startup.
+    const placeInitial = () => {
+      if (!rootRef.current || hasInitialPlacement.current) return;
+      hasInitialPlacement.current = true;
+      wasStandingAligned.current = true;
+      const surface = getTaskbarSurface();
+      standingSurfaceRef.current = surface;
+      const next = {
+        left: clampValue(posRef.current.left, surface.minLeft, surface.maxLeft),
+        top: surface.top
+      };
+      posRef.current = next;
+      setPosition(next);
+    };
+    placeInitial();
     window.addEventListener("resize", placeCoy);
     window.addEventListener("orientationchange", placeCoy);
     window.visualViewport?.addEventListener("resize", placeCoy);
@@ -453,36 +510,50 @@ export default function CoyCompanion() {
         setPose("walk");
         return;
       }
-      if (walking && wasStandingAligned.current) {
-        const surface = standingSurfaceRef.current || {
-          minLeft: 0,
-          maxLeft: Math.max(0, window.innerWidth - spriteSize),
-          top: posRef.current.top
-        };
-        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
-        const minLeft = clampValue(surface.minLeft || 0, 0, viewportMaxLeft);
-        const maxLeft = clampValue(
-          Number.isFinite(surface.maxLeft) ? surface.maxLeft : viewportMaxLeft,
-          minLeft,
-          viewportMaxLeft
-        );
-        let left = posRef.current.left + dirRef.current * 55 * dt;
-        if (left < minLeft || left > maxLeft) {
+      if (!walking || !wasStandingAligned.current) return;
+
+      const surface = standingSurfaceRef.current || getTaskbarSurface();
+      const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+      const minLeft = clampValue(Number.isFinite(surface.minLeft) ? surface.minLeft : 0, 0, viewportMaxLeft);
+      const maxLeft = clampValue(
+        Number.isFinite(surface.maxLeft) ? surface.maxLeft : viewportMaxLeft,
+        minLeft,
+        viewportMaxLeft
+      );
+      let left = posRef.current.left + dirRef.current * 55 * dt;
+      if (left < minLeft || left > maxLeft) {
+        if (surface.kind === "appbar") {
+          // Walking off a window title bar is a real edge: step to its rim,
+          // then fall to the taskbar instead of turning around unnaturally.
           left = clampValue(left, minLeft, maxLeft);
-          dirRef.current *= -1;
-          setDir(dirRef.current);
+          const next = { left, top: Number.isFinite(surface.top) ? surface.top : posRef.current.top };
+          posRef.current = next;
+          setPosition(next);
+          startFall();
+          return;
         }
-        setPosition(p => ({ left, top: Number.isFinite(surface.top) ? surface.top : p.top }));
+        // The taskbar is his home platform, so its screen edges turn him around.
+        left = clampValue(left, minLeft, maxLeft);
+        dirRef.current *= -1;
+        setDir(dirRef.current);
       }
+      const next = {
+        left,
+        top: Number.isFinite(surface.top) ? surface.top : posRef.current.top
+      };
+      posRef.current = next;
+      setPosition(next);
     };
     raf = window.requestAnimationFrame(step);
     return () => window.cancelAnimationFrame(raf);
   }, [pose, chatOpen, showBubble, busy, underAppWindows, spriteSize]);
 
+
   function startFall() {
     window.cancelAnimationFrame(fallRaf.current);
     const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
     let top = posRef.current.top;
+    wasStandingAligned.current = false;
     if (maxTop - top < 3) {
       wasStandingAligned.current = true;
       standingSurfaceRef.current = {
@@ -492,6 +563,7 @@ export default function CoyCompanion() {
         top: maxTop,
         zIndex: -1
       };
+      wasStandingAligned.current = true;
       setPose("idle");
       return;
     }
@@ -512,14 +584,12 @@ export default function CoyCompanion() {
       if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
       if (top >= maxTop) {
         wasStandingAligned.current = true;
-        standingSurfaceRef.current = {
-          kind: "taskbar",
-          minLeft: 0,
-          maxLeft: Math.max(0, window.innerWidth - spriteSize),
-          top: maxTop,
-          zIndex: -1
-        };
-        setPosition({ left, top: maxTop });
+        standingSurfaceRef.current = getTaskbarSurface();
+        standingSurfaceRef.current.top = maxTop;
+        wasStandingAligned.current = true;
+        const landed = { left, top: maxTop };
+        posRef.current = landed;
+        setPosition(landed);
         showPose("land", 520);
         return;
       }
@@ -561,10 +631,12 @@ export default function CoyCompanion() {
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     const taskbarTop = getTaskbarTop();
     const maxTop = Math.max(0, taskbarTop - getCoyHeight());
-    setPosition({
+    const next = {
       left: Math.max(0, Math.min(maxLeft, drag.originLeft + dx)),
       top: Math.max(0, Math.min(maxTop, drag.originTop + dy))
-    });
+    };
+    posRef.current = next;
+    setPosition(next);
   }
 
   function onCoyPointerUp(event) {
@@ -572,9 +644,30 @@ export default function CoyCompanion() {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.moved) {
       suppressClickAfterDrag.current = true;
-      // Keep the click suppression through the browser's synthesized click.
       window.setTimeout(() => { suppressClickAfterDrag.current = false; }, 0);
-      startFall();
+      const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+      const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
+      const released = {
+        left: Math.max(0, Math.min(maxLeft, drag.originLeft + (event.clientX - drag.startX))),
+        top: Math.max(0, Math.min(maxTop, drag.originTop + (event.clientY - drag.startY)))
+      };
+      posRef.current = released;
+      setPosition(released);
+      const appbar = findAppbarLanding(released.left, released.top);
+      if (appbar) {
+        const perched = {
+          left: clampValue(released.left, appbar.minLeft, appbar.maxLeft),
+          top: appbar.top
+        };
+        posRef.current = perched;
+        setPosition(perched);
+        standingSurfaceRef.current = appbar;
+        wasStandingAligned.current = true;
+        showPose("land", 520);
+      } else {
+        wasStandingAligned.current = false;
+        startFall();
+      }
     }
     dragState.current = null;
     try {
