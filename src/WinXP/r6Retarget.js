@@ -160,18 +160,18 @@ const limbForward = part => _dir.set(0, -1, 0).applyQuaternion(part.quaternion).
 
 // gain per clip: arm = twist from arm swing, leg = twist from stride, lean = forward lean.
 export const TORSO_GAINS = {
-  default:    { arm: 0.22, leg: 0.22, lean: 0.06, sway: 1 },
+  default:    { arm: 0.35, leg: 0.28, lean: 0.10, sway: 1 },
   idle1:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
   idle2:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
-  walk:       { arm: 0.22, leg: 0.26, lean: 0.05, sway: 0 },
+  walk:       { arm: 0.28, leg: 0.32, lean: 0.08, sway: 0 },
   dance1:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
   dance2:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
   dance3:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
   wave:       { arm: 0.18, leg: 0.00, lean: 0.04, sway: 1 },
   climbing:   { arm: 0.18, leg: 0.18, lean: 0.00, sway: 0 },
   gearhold:   { arm: 0.30, leg: 0.00, lean: 0.05, sway: 1 },
-  swordslash: { arm: 0.60, leg: 0.00, lean: 0.14, sway: 0 },
-  swordlunge: { arm: 0.55, leg: 0.00, lean: 0.22, sway: 0 },
+  swordslash: { arm: 0.75, leg: 0.00, lean: 0.20, sway: 0 },
+  swordlunge: { arm: 0.70, leg: 0.00, lean: 0.28, sway: 0 },
 };
 
 // Computes the target { twist, lean } for the pose the clip just wrote into `av`.

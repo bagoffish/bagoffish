@@ -1,4 +1,4 @@
-﻿import * as THREE from "three";
+import * as THREE from "three";
 
 // Roblox's avatar-3d OBJ is already divided into named groups (Rig1..Rig6 and
 // Handle1..HandleN). Keep those real part boundaries: splitting triangles by
@@ -25,40 +25,59 @@ const PIVOTS = {
   lLeg: [1, 2, 0],
 };
 
-function isTorsoAccessory(object) {
-  // This tail is a back accessory, not part of the head. Keep it in torso space
-  // so head-look rotations don't swing the tail around with the head.
+function isTorsoAccessory(object, torsoBounds, headBounds) {
+  // A specifically named tail is reliable; Handle numbers are not. Roblox can
+  // renumber handles on export, so Handle7 must never be treated as a tail by name.
+  let isHandle = false;
   for (let current = object; current; current = current.parent) {
     const candidates = [
       current.name,
       current.userData?.name,
       current.userData?.objectName,
       current.userData?.groupName,
+      ...[].concat(current.material || []).map(material => material?.name),
     ].filter(value => typeof value === "string");
-    // Roblox's OBJ export strips the accessory name and exposes this avatar's
-    // OpossumTail as Handle7. Without this fallback it gets attached to the head,
-    // so it swings away from the torso when the head looks around.
-    if (candidates.some(value => /OpossumTail/i.test(value) || /^Handle7$/i.test(value.trim()))) return true;
+    if (candidates.some(value => /OpossumTail/i.test(value))) return true;
+    if (candidates.some(value => /(?:^|\s)Handle\d+(?:Mtl)?(?:$|\s)/i.test(value.trim()))) isHandle = true;
   }
-  return false;
+
+  if (!isHandle || !torsoBounds || !headBounds || torsoBounds.isEmpty() || headBounds.isEmpty()) return false;
+  const accessoryBounds = new THREE.Box3().setFromObject(object);
+  if (accessoryBounds.isEmpty()) return false;
+
+  // Face accessories often sit in front of (rather than inside) the head box.
+  // Give the head a small 3D margin before considering any low Handle a torso tail.
+  const headAccessoryZone = headBounds.clone().expandByScalar(0.7);
+  if (headAccessoryZone.intersectsBox(accessoryBounds)) return false;
+
+  // Only classify a Handle as a tail when it is clearly below the neck joint.
+  const center = accessoryBounds.getCenter(new THREE.Vector3());
+  const jointBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
+  const torsoSize = torsoBounds.getSize(new THREE.Vector3());
+  return center.y < jointBoundary - Math.max(0.2, torsoSize.y * 0.12);
 }
 
 function sourcePartName(object) {
   // OBJLoader versions differ in whether a "g" name is stored on the mesh,
-  // its parent, or the object's userData. Check all of them before falling back.
+  // its parent, or the object's userData. Search all levels for an accessory
+  // Handle first, so a parent Rig5 group cannot swallow glasses into the torso.
+  const candidates = [];
   for (let current = object; current; current = current.parent) {
-    const candidates = [
+    candidates.push(
       current.name,
       current.userData?.name,
       current.userData?.objectName,
       current.userData?.groupName,
-    ].filter(value => typeof value === "string");
-    for (const candidate of candidates) {
-      const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
-      if (rig && RIG_TO_PART[rig[1]]) return rig[1];
-      const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:$|\s)/);
-      if (handle) return handle[1];
-    }
+      ...[].concat(current.material || []).map(material => material?.name),
+    );
+  }
+  for (const candidate of candidates.filter(value => typeof value === "string")) {
+    const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
+    if (handle) return handle[1];
+  }
+  for (const candidate of candidates.filter(value => typeof value === "string")) {
+    const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
+    if (rig && RIG_TO_PART[rig[1]]) return rig[1];
   }
   // Preserve unknown accessory meshes rather than dropping them.
   return "head";
@@ -70,10 +89,14 @@ export function splitIntoR6Parts(root) {
   // Normalize against the six actual body parts, not accessories. Tall hair or
   // hats must not shrink the avatar or move the feet away from the taskbar.
   const bodyBounds = new THREE.Box3();
+  const rigBounds = Object.fromEntries(Object.keys(RIG_TO_PART).map(name => [name, new THREE.Box3()]));
   let foundRigParts = 0;
   root.traverse(object => {
-    if (!object.isMesh || !RIG_TO_PART[sourcePartName(object)]) return;
+    if (!object.isMesh) return;
+    const source = sourcePartName(object);
+    if (!RIG_TO_PART[source]) return;
     bodyBounds.expandByObject(object);
+    rigBounds[source].expandByObject(object);
     foundRigParts += 1;
   });
   if (!foundRigParts || bodyBounds.isEmpty()) {
@@ -109,7 +132,7 @@ export function splitIntoR6Parts(root) {
     if (!object.isMesh) return;
     const sourceName = sourcePartName(object);
     if (!sourceName) return;
-    const isTail = isTorsoAccessory(object);
+    const isTail = isTorsoAccessory(object, rigBounds.Rig5, rigBounds.Rig6);
     const partName = isTail ? "torso" : (RIG_TO_PART[sourceName] || "head");
     const pivot = PIVOTS[partName];
     const geometry = object.geometry.clone();
