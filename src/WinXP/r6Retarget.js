@@ -123,19 +123,37 @@ function validPoseCFrame(cframe) {
 // Roblox tracks are joint-specific. A Keyframe may omit a Pose for one joint;
 // don't freeze that joint to an adjacent key just because another joint has a
 // key at this time. Find the surrounding keys for this joint itself.
-function getJointFramePair(frames, jointName, time) {
-  let previous = null;
-  let next = null;
+function getJointFramePair(frames, jointName, time, duration, looping) {
+  const keys = [];
   for (const frame of frames) {
     const cframe = frame.poses?.[jointName];
-    if (!validPoseCFrame(cframe)) continue;
-    const key = { frame, cframe, time: Number(frame.time) || 0 };
+    if (validPoseCFrame(cframe)) keys.push({ frame, cframe, time: Number(frame.time) || 0 });
+  }
+  if (!keys.length) return null;
+
+  let previous = null;
+  let next = null;
+  for (const key of keys) {
     if (key.time <= time) previous = key;
     if (key.time >= time) {
       next = key;
       break;
     }
   }
+
+  // Some exported Roblox loops end with an empty Keyframe. Bridge the last
+  // valid pose back to the first pose across the clip boundary instead of
+  // freezing the last valid pose and snapping abruptly to frame zero.
+  if (looping && duration > 0) {
+    if (!previous && next) {
+      const last = keys[keys.length - 1];
+      previous = { ...last, time: last.time - duration };
+    } else if (previous && !next) {
+      const first = keys[0];
+      next = { ...first, time: first.time + duration };
+    }
+  }
+
   if (!previous) previous = next;
   if (!next) next = previous;
   if (!previous || !next) return null;
@@ -158,7 +176,7 @@ export function sampleClip(clip, time) {
   const sampled = {};
 
   for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
-    const pair = getJointFramePair(frames, jointName, localTime);
+    const pair = getJointFramePair(frames, jointName, localTime, duration, clip.loop !== false);
     if (!pair) continue;
     const { previous, next, alpha } = pair;
     const from = readCFrame(previous.cframe, partName);
