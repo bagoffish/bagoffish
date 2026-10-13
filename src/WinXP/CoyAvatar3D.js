@@ -133,13 +133,12 @@ function loadModel(model) {
             m.depthWrite = true;
             if ("transmission" in m) m.transmission = 0;
 
-            // This avatar export's Handle4 texture is a 1x1 green placeholder,
-            // but the accessory is meant to be white. Don't render that placeholder
-            // as a green hair/accessory; keep its geometry and use a plain white surface.
+            // Handle4Mtl is Coy's @ hairclip, which should stay neon green.
+            // Its exported 1x1 texture is unreliable, so color the clip explicitly.
             if (/^Handle4Mtl$/i.test(m.name || "")) {
               m.map = null;
               m.alphaMap = null;
-              m.color.set(0xffffff);
+              m.color.set("#39ff14");
             } else if (m.map) {
               m.color.set(0xffffff);                   // let real textures show at full brightness
             }
