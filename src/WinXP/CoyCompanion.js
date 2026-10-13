@@ -907,7 +907,7 @@ export default function CoyCompanion() {
       // The sprite sheet's 64px square corners stay intact; only its middle
       // stretches with the text. The tail sits behind the frame at the bottom.
       left: "50%",
-      bottom: "calc(100% + 10px)",
+      bottom: "calc(100% - 16px)",
       transform: "translateX(-50%)",
       width: "max-content",
       minWidth: 64,
