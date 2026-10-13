@@ -26,8 +26,8 @@ function target(pose, t, dir, tiltIn) {
     case "walk":   s = Math.sin(t * 10); return P({ rX: s * .8, lX: -s * .8, rL: -s * .7, lL: s * .7, bob: Math.abs(s) * .08, spin: dir * 1.1 });
     case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
     case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
-    case "land":   return P({ sq: .25 });
-    case "pat":    return P({ sq: Math.sin(t * 14) * .06, rZ: .3, lZ: -.3 });
+    case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
+    case "pat":    return P({ sq: Math.sin(t * 14) * .06, rZ: -.3, lZ: .3 });
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
   }
 }
