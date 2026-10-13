@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
 
-const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
+const API_BASE = (process.env.REACT_APP_API_BASE || "https://winxp-7yes.onrender.com").replace(/\/$/, "");
 const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
@@ -848,7 +848,8 @@ export default function CoyCompanion() {
         })
       });
       const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || "Chat failed");
+      if (!response.ok) throw new Error(data.error || ("Chat failed (HTTP " + response.status + ")"));
+      if (!data || typeof data !== "object") throw new Error("Invalid chat response");
       const answer = typeof data.answer === "string" ? data.answer.trim() : "";
       if (answer) {
         setHistory(h => [...h, { role: "assistant", content: answer }]);
@@ -856,7 +857,8 @@ export default function CoyCompanion() {
         setShowBubble(true);
       }
     } catch (err) {
-      setLine("Busy rn.. Hold on");
+      console.error("Coy chat request failed:", err);
+      setLine("Can’t reach me rn.. sowwy");
       setShowBubble(true);
     } finally {
       setBusy(false);
