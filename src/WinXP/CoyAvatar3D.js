@@ -155,7 +155,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       .then(data => {
         animations = data?.animations || {};
         const names = Object.keys(animations);
-        console.info("Coy: imported Roblox animations loaded", names);
         if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
       })
       .catch(error => {
