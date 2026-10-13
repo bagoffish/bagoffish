@@ -555,14 +555,14 @@ export default function CoyCompanion() {
     let top = posRef.current.top;
     wasStandingAligned.current = false;
     if (maxTop - top < 3) {
-      wasStandingAligned.current = true;
-      standingSurfaceRef.current = {
-        kind: "taskbar",
-        minLeft: 0,
-        maxLeft: Math.max(0, window.innerWidth - spriteSize),
-        top: maxTop,
-        zIndex: -1
+      const landed = {
+        left: clampValue(posRef.current.left, 0, Math.max(0, window.innerWidth - spriteSize)),
+        top: maxTop
       };
+      posRef.current = landed;
+      setPosition(landed);
+      standingSurfaceRef.current = getTaskbarSurface();
+      standingSurfaceRef.current.top = maxTop;
       wasStandingAligned.current = true;
       setPose("idle");
       return;
@@ -586,7 +586,6 @@ export default function CoyCompanion() {
         wasStandingAligned.current = true;
         standingSurfaceRef.current = getTaskbarSurface();
         standingSurfaceRef.current.top = maxTop;
-        wasStandingAligned.current = true;
         const landed = { left, top: maxTop };
         posRef.current = landed;
         setPosition(landed);
