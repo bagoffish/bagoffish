@@ -513,7 +513,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (swordGear) swordGear.visible = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
       const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose);
       const grappleMode = typeof window === "undefined" ? "grapplegun" : window.__coyGear?.mode || "grapplegun";
-      const pairedGrapple = grappleMode === "grapple+gun" || (grappleMode === "grapplegun" && Boolean(L.grapple && L.grapple.active));
+      // The pose and rope are updated independently; either marks the firing interval.
+      const firingGrapple = L.pose === "grapple" || Boolean(L.grapple && L.grapple.active);
+      const pairedGrapple = grappleMode === "grapple+gun" || (grappleMode === "grapplegun" && firingGrapple);
       if (gunGear) gunGear.visible = holdingGrapple && pairedGrapple;
       if (grappleGunGear) grappleGunGear.visible = holdingGrapple && !pairedGrapple;
       const externalGrapple = Boolean(L.grapple && L.grapple.active);
