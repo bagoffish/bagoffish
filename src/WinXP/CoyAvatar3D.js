@@ -229,8 +229,10 @@ function buildAvatar(colors) {
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(color)); m.position.set(offset[0], offset[1], 0);
     g.add(m); torso.add(g); return g;
   };
-  const rArm = joint("rArm", colors.rightArm, [0, -1]), lArm = joint("lArm", colors.leftArm, [0, -1]);
-  const rLeg = joint("rLeg", colors.rightLeg, [0, -1]), lLeg = joint("lLeg", colors.leftLeg, [0, -1]);
+  // The geometry sits at the end of the Motor6D pivot: arms extend outward
+  // by half a stud and down by half a stud; legs extend inward and down by one.
+  const rArm = joint("rArm", colors.rightArm, [-0.5, -0.5]), lArm = joint("lArm", colors.leftArm, [0.5, -0.5]);
+  const rLeg = joint("rLeg", colors.rightLeg, [0.5, -1]), lLeg = joint("lLeg", colors.leftLeg, [-0.5, -1]);
   return { body, torso, head, rArm, lArm, rLeg, lLeg };
 }
 
