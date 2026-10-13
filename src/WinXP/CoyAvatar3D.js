@@ -152,20 +152,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const pose = P({});
     const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
-    fetch(BASE + "animations.json?v=1", { cache: "no-store" })
-      .then(response => {
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        return response.json();
-      })
-      .then(data => {
-        animations = data?.animations || {};
-        const names = Object.keys(animations);
-        if (!names.length) console.warn("Coy: animations.json loaded but contained no clips");
-      })
-      .catch(error => {
-        animations = {};
-        console.error("Coy: imported Roblox animations failed to load; using procedural fallback", error);
-      });
+    const readAnimationFile = url => fetch(url, { cache: "no-store" })
+      .then(response => response.ok ? response.json() : {})
+      .catch(() => ({}));
+    Promise.all([
+      readAnimationFile(BASE + "animations.json?v=2"),
+      readAnimationFile(BASE + "coy-tools-animations.json?v=1")
+    ]).then(([baseData, toolData]) => {
+      animations = { ...(baseData?.animations || {}), ...(toolData?.animations || {}) };
+      // Gear hold and climbing are held poses, regardless of the sequence's Loop flag.
+      for (const name of ["gearhold", "climbing"]) {
+        if (animations[name]) animations[name] = { ...animations[name], loop: true };
+      }
+      const names = Object.keys(animations);
+      if (!names.length) console.warn("Coy: no imported animation clips found; using procedural fallback");
+    });
 
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
