@@ -46,22 +46,20 @@ function readCFrame(cframe, partName) {
     0, 0, 0, 1
   );
 
-  // The avatar OBJ was exported in a front-facing basis (a 180-degree Y
-  // turn from Roblox's native character basis). Convert the complete joint
-  // transform into that basis: B * CFrame * B^-1. This flips X/Z translation
-  // and the corresponding rotation directions, while leaving the rest pivots
-  // in the exported mesh's coordinates. Without this, moving clips twist limbs
-  // even though identity/idle poses appear normal.
-  const basis = new THREE.Matrix4().makeRotationY(Math.PI);
-  const converted = basis.clone().multiply(robloxMatrix).multiply(basis);
-  // Pose.CFrame is Motor6D.Transform, so the actual part frame is
-  // C0 * Transform * C1^-1. Limb/head meshes are stored relative to their joint
-  // pivots already. The torso mesh is stored around its own center: its root
-  // joint sits one stud below that center, so include C1^-1 = translate Y+1.
+  // The OBJ geometry and R6 pivots have already been normalized into the
+  // front-facing scene basis by r6Split.js. Do not rotate the animation CFrame
+  // by 180 degrees separately: that changes the sign of shoulder/hip rotations
+  // without rotating the mesh, making imported limbs twist or move backwards.
+  // Pose.CFrame is a joint-local transform. Compose it with the joint pivot.
+  // Limb/head geometry is stored relative to its joint pivot. The torso mesh is
+  // centered one stud above its root joint, so rotate that center around y=2.
   const isTorsoPart = partName === "torso";
   const jointPivot = isTorsoPart ? [0, 2, 0] : rest;
   const pivot = new THREE.Matrix4().makeTranslation(...jointPivot);
-  const localJoint = pivot.multiply(converted);
+  const localJoint = pivot.multiply(robloxMatrix);
+  if (isTorsoPart) {
+    localJoint.multiply(new THREE.Matrix4().makeTranslation(0, 1, 0));
+  }
   if (isTorsoPart) {
     localJoint.multiply(new THREE.Matrix4().makeTranslation(0, 1, 0));
   }
