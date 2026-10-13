@@ -60,11 +60,11 @@ function findAll(root, predicate, out = []) {
 }
 function enumName(value) {
   const raw = plain(value);
-  if (typeof raw === "string") return raw.replace(/^Enum\\.[^.]+\\./, "");
+  if (typeof raw === "string") return raw.replace(/^Enum\.[^.]+\./, "");
   if (typeof raw === "number") return raw;
   if (raw && typeof raw === "object") {
     const candidate = raw.Name ?? raw.name ?? raw.Value ?? raw.value;
-    if (typeof candidate === "string") return candidate.replace(/^Enum\\.[^.]+\\./, "");
+    if (typeof candidate === "string") return candidate.replace(/^Enum\.[^.]+\./, "");
     if (typeof candidate === "number") return candidate;
   }
   return null;
