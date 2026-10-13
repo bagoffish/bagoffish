@@ -126,7 +126,14 @@ export function applyImportedAnimation(av, clip, elapsed) {
     const joint = joints[robloxName], part = av[partName];
     if (!joint || !part) continue;
     applied += 1;
-    part.quaternion.copy(joint.quaternion);
+    if (partName === "head") {
+      // Roblox's head keyframes are often much subtler than the limb poses.
+      // Gently exaggerate the rotation around the neck joint so the head reads
+      // as independently animated, while preserving the authored direction.
+      part.quaternion.identity().slerp(joint.quaternion, 1.35).normalize();
+    } else {
+      part.quaternion.copy(joint.quaternion);
+    }
     part.position.copy(joint.position);
     if (partName === "torso") part.position.y += REST.torso[1];   // pose offset is relative to the root part
   }
