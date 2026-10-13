@@ -35,7 +35,7 @@ function isTorsoAccessory(object) {
       current.userData?.objectName,
       current.userData?.groupName,
     ].filter(value => typeof value === "string");
-    if (candidates.some(value => /OpossumTail1Accessory/i.test(value))) return true;
+    if (candidates.some(value => /OpossumTail/i.test(value))) return true;
   }
   return false;
 }
