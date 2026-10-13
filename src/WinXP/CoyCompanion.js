@@ -897,14 +897,13 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      // The sprite sheet's 64px square corners stay intact; only its middle
-      // stretches with the text. The tail sits behind the frame at the bottom.
+      // Compact balloon close to Coy's head; text controls width and wraps when needed.
       left: "50%",
-      bottom: "calc(100% - 16px)",
+      bottom: "calc(100% - 5px)",
       transform: "translateX(-50%)",
       width: "max-content",
-      minWidth: 64,
-      maxWidth: "min(236px, calc(100vw - 20px))",
+      minWidth: 54,
+      maxWidth: "min(204px, calc(100vw - 20px))",
       height: "auto",
       overflow: "visible",
       pointerEvents: "none",
@@ -919,27 +918,27 @@ export default function CoyCompanion() {
       width: "max-content",
       minWidth: 64,
       maxWidth: "min(236px, calc(100vw - 20px))",
-      minHeight: 56,
-      border: "8px solid transparent",
+      minHeight: 44,
+      border: "6px solid transparent",
       // Preserve the original 2013 green border/corners and stretch only the
       // dark-green center, rather than resizing the entire square texture.
       borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
       borderImageSlice: "12 fill",
-      borderImageWidth: "8px",
+      borderImageWidth: "6px",
       borderImageRepeat: "stretch",
       zIndex: 1
     },
     dialogTail: {
       position: "absolute",
-      // Use the original right-facing Roblox tail without mirroring it.
-      right: 12,
-      top: "calc(100% - 10px)",
-      width: 32,
-      height: 32,
+      // Regular Roblox tail layered in front of the box's lower edge.
+      right: 10,
+      top: "calc(100% - 7px)",
+      width: 24,
+      height: 24,
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
-      zIndex: 2
+      zIndex: 3
     },
     dialogText: {
       position: "relative",
@@ -947,16 +946,16 @@ export default function CoyCompanion() {
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 4,
       width: "max-content",
-      minWidth: 32,
-      maxWidth: 208,
+      minWidth: 26,
+      maxWidth: 174,
       boxSizing: "border-box",
-      padding: "3px 4px 2px",
+      padding: "2px 3px 2px",
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 600,
-      lineHeight: "15px",
+      lineHeight: "14px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
@@ -1044,7 +1043,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
             alt=""
             aria-hidden="true"
             draggable={false}
