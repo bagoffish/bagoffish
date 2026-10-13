@@ -115,21 +115,39 @@ function easeValue(raw, metadata) {
   return easeIn(raw);
 }
 
-function getFramePair(frames, time) {
-  if (time <= frames[0].time) return [frames[0], frames[0], 0];
-  const last = frames[frames.length - 1];
-  if (time >= last.time) return [last, last, 0];
-  for (let i = 0; i < frames.length - 1; i += 1) {
-    const a = frames[i], b = frames[i + 1];
-    if (time >= a.time && time <= b.time) {
-      const span = Math.max(1e-6, Number(b.time) - Number(a.time));
-      return [a, b, clamp((time - Number(a.time)) / span, 0, 1)];
-    }
-  }
-  return [last, last, 0];
+function validPoseCFrame(cframe) {
+  return Array.isArray(cframe) && cframe.length >= 12 &&
+    cframe.slice(0, 12).every(Number.isFinite);
 }
 
-/** Sample Roblox joint poses at a clip-local time, interpolating translation and rotation. */
+// Roblox tracks are joint-specific. A Keyframe may omit a Pose for one joint;
+// don't freeze that joint to an adjacent key just because another joint has a
+// key at this time. Find the surrounding keys for this joint itself.
+function getJointFramePair(frames, jointName, time) {
+  let previous = null;
+  let next = null;
+  for (const frame of frames) {
+    const cframe = frame.poses?.[jointName];
+    if (!validPoseCFrame(cframe)) continue;
+    const key = { frame, cframe, time: Number(frame.time) || 0 };
+    if (key.time <= time) previous = key;
+    if (key.time >= time) {
+      next = key;
+      break;
+    }
+  }
+  if (!previous) previous = next;
+  if (!next) next = previous;
+  if (!previous || !next) return null;
+  if (previous === next || next.time <= previous.time) return { previous, next, alpha: 0 };
+  return {
+    previous,
+    next,
+    alpha: clamp((time - previous.time) / (next.time - previous.time), 0, 1)
+  };
+}
+
+/** Sample Roblox joint poses at a clip-local time, interpolating each joint's own key track. */
 export function sampleClip(clip, time) {
   if (!clip?.frames?.length) return {};
   const frames = clip.frames;
@@ -137,18 +155,19 @@ export function sampleClip(clip, time) {
   const localTime = duration > 0 && clip.loop !== false
     ? ((time % duration) + duration) % duration
     : clamp(time, 0, duration);
-  const [a, b, alpha] = getFramePair(frames, localTime);
   const sampled = {};
 
   for (const [jointName, partName] of Object.entries(ROBLOX_JOINT_PART)) {
-    const ca = a.poses?.[jointName];
-    const cb = b.poses?.[jointName];
-    const from = readCFrame(ca || cb, partName);
-    const to = readCFrame(cb || ca, partName);
+    const pair = getJointFramePair(frames, jointName, localTime);
+    if (!pair) continue;
+    const { previous, next, alpha } = pair;
+    const from = readCFrame(previous.cframe, partName);
+    const to = readCFrame(next.cframe, partName);
     if (!from || !to) continue;
-    // Roblox stores easing metadata on the earlier pose for the segment leading
-    // to the next keyframe. Older exports have no metadata and remain linear.
-    const easedAlpha = easeValue(alpha, a.easing?.[jointName]);
+
+    // Easing is attached to the earlier key on this particular joint track.
+    // Older exports have no metadata and stay linear rather than guessing.
+    const easedAlpha = easeValue(alpha, previous.frame.easing?.[jointName]);
     sampled[jointName] = {
       position: from.position.clone().lerp(to.position, easedAlpha),
       quaternion: from.quaternion.clone().slerp(to.quaternion, easedAlpha).normalize()
