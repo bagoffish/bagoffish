@@ -106,10 +106,10 @@ function loadModel(model) {
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, look, getPos }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos }) {
   const canvasRef = useRef(null);
   const live = useRef({});
-  live.current = { pose, dir, vx, look, getPos };
+  live.current = { pose, dir, vx, impact, look, getPos };
   const W = size, H = Math.round(size / ASPECT);
 
   useEffect(() => {
@@ -124,6 +124,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
     let av = null, raf = 0, cancelled = false;
+    const bodyBaseScale = new THREE.Vector3(1, 1, 1);
+    let previousPose = "";
+    let poseStartedAt = 0;
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
@@ -164,6 +167,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (cancelled) { disposeAvatar(next.body); return; }
         if (av) { scene.remove(av.body); disposeAvatar(av.body); }
         av = next;
+        bodyBaseScale.copy(av.body.scale);
         scene.add(av.body);
       });
     loadMeta();
@@ -174,6 +178,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
+      if (L.pose !== previousPose) { previousPose = L.pose; poseStartedAt = t; }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       const clip = animations[clipName];
@@ -184,6 +189,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         animationStart = t;
         console.debug("Coy: playing imported animation", clipName);
       }
+      av.body.scale.copy(bodyBaseScale);
       const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
@@ -195,6 +201,18 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
+      // Landing squash: scale is layered over the active animation, never accumulated.
+      if (L.pose === "land") {
+        const age = Math.max(0, Math.min(1, (t - poseStartedAt) / 0.38));
+        const strength = Math.max(0, Math.min(0.17, ((Number(L.impact) || 0) - 500) / 1500));
+        const pulse = Math.sin(Math.PI * age) * strength;
+        av.body.scale.set(
+          bodyBaseScale.x * (1 + pulse * 0.85),
+          bodyBaseScale.y * (1 - pulse),
+          bodyBaseScale.z * (1 + pulse * 0.85)
+        );
+      }
+
       // Face the way it is walking: front-facing at rest, a quarter turn while walking.
       if (L.pose === "walk") av.body.rotation.y = L.dir * Math.PI / 2;
       // Held or falling: lean with the sideways speed.
@@ -235,3 +253,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
   return <canvas ref={canvasRef} aria-label="Coy" role="img"
     style={{ width: W, height: H, display: "block", marginBottom: -Math.round(H * FOOT), cursor: "grab", touchAction: "none", pointerEvents: "auto" }} />;
 }
+
+
+

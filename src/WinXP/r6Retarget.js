@@ -54,12 +54,25 @@ const tmpV = new THREE.Vector3();
 
 // Joint transform in scene axes: position relative to the parent joint's frame, plus rotation.
 function jointPose(name, cf, outPos, outQuat) {
+  // The root/torso pose is not a Motor6D limb pose. Convert its translation
+  // and rotation directly between Roblox axes and the scene axes.
+  if (name === "Torso") {
+    outPos.set(-cf[0], cf[1], -cf[2]);
+    const rootRotation = rotation(cf);
+    outQuat.setFromRotationMatrix(rootRotation).normalize();
+    outQuat.set(-outQuat.x, outQuat.y, -outQuat.z, outQuat.w);
+    return;
+  }
+
   const j = PREP[name];
+  if (!j) return;
+
+  // Limb and neck poses are joint-local Motor6D transforms.
   tmpM.copy(j.r0).multiply(rotation(cf)).multiply(j.r1Inv);
   outQuat.setFromRotationMatrix(tmpM).normalize();
-  // Pose translation is expressed in the joint frame, so rotate it by C0 before adding C0's position.
+
   tmpV.set(cf[0], cf[1], cf[2]).applyMatrix4(j.r0).add(j.p0);
-  outPos.set(-tmpV.x, tmpV.y, -tmpV.z);                       // Roblox axes -> scene axes
+  outPos.set(-tmpV.x, tmpV.y, -tmpV.z);
   outQuat.set(-outQuat.x, outQuat.y, -outQuat.z, outQuat.w);
 }
 

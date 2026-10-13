@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+﻿import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
 
@@ -28,7 +28,7 @@ function writeCompanionChatCookie(messages) {
   } catch (_) {}
 }
 const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
-  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
+  ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("ðŸ˜¬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
   : part);
 
 
@@ -138,7 +138,8 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
-  const [spriteSize, setSpriteSize] = useState(92);
+  const [spriteSize, setSpriteSize] = useState(101);
+  const [impact, setImpact] = useState(0);
 
   const [position, setPosition] = useState(() => ({
     left: Math.max(0, window.innerWidth - 40),
@@ -226,8 +227,8 @@ export default function CoyCompanion() {
   }, [spriteSize]);
 
   // Place the balloon on the side opposite Coy so it never clips off-screen.
-  // Coy on the left half → balloon to the right of Coy.
-  // Coy on the right half → balloon to the left of Coy.
+  // Coy on the left half â†’ balloon to the right of Coy.
+  // Coy on the right half â†’ balloon to the left of Coy.
   // Tail points back toward Coy from whichever side the balloon sits.
   useEffect(() => {
     const placeBubble = () => {
@@ -482,7 +483,7 @@ export default function CoyCompanion() {
       if (top >= maxTop) {
         wasTaskbarAligned.current = true;
         setPosition({ left, top: maxTop });
-        if (vy > 700) showPose("land", 350); else setPose("idle");
+        if (vy > 700) { setImpact(vy); showPose("land", 350); } else setPose("idle");
         return;
       }
       setPosition({ left, top });
@@ -716,7 +717,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ background: "none", border: "none", padding: 0, margin: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
 
       {showBubble && (
@@ -732,3 +733,7 @@ export default function CoyCompanion() {
     document.body
   );
 }
+
+
+
+
