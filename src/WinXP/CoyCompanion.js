@@ -782,8 +782,8 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      // Keep the bubble centered; its bottom edge sits just above the hair,
-      // while the tail overlaps the frame so there can be no visible seam.
+      // The sprite sheet's 64px square corners stay intact; only its middle
+      // stretches with the text. The tail sits behind the frame at the bottom.
       left: "50%",
       bottom: "calc(100% - 4px)",
       transform: "translateX(-50%)",
@@ -804,25 +804,25 @@ export default function CoyCompanion() {
       width: "max-content",
       minWidth: 64,
       maxWidth: "min(236px, calc(100vw - 20px))",
-      minHeight: 44,
-      border: "7px solid transparent",
-      // Roblox's original 2013 texture has a 7px frame. Nine-slice its center
-      // rather than stretching the square artwork and distorting its corners.
+      minHeight: 56,
+      border: "8px solid transparent",
+      // Preserve the original 2013 green border/corners and stretch only the
+      // dark-green center, rather than resizing the entire square texture.
       borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
-      borderImageSlice: "7 fill",
-      borderImageWidth: "7px",
+      borderImageSlice: "12 fill",
+      borderImageWidth: "8px",
       borderImageRepeat: "stretch",
       zIndex: 1
     },
     dialogTail: {
       position: "absolute",
-      // tailRight's tip points down-left. Its tip starts at the bubble center,
-      // toward Coy's head; its upper edge sits underneath the frame by 6px.
-      left: "50%",
-      top: "calc(100% - 6px)",
-      width: 30,
-      height: 15,
-      objectFit: "fill",
+      // Use the original right-hand lightning-tail sprite in its native square
+      // proportions. Its base tucks behind the bubble; no rotation or squashing.
+      right: 8,
+      top: "calc(100% - 10px)",
+      width: 32,
+      height: 32,
+      objectFit: "contain",
       display: "block",
       pointerEvents: "none",
       zIndex: 0
