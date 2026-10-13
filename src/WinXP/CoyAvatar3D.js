@@ -372,12 +372,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           if (elapsed > 0.42) { const pull = clamp((elapsed - 0.42) / 0.8, 0, 1); av.body.position.y += (Math.min(1.15, pull * 1.15) - av.body.position.y) * 0.08; av.body.rotation.z = -0.08; }
         }
       }
-      // Smoothly turn toward the walking direction instead of snapping the whole rig.
-      // Use exponential damping so turns remain stable at different frame rates.
-      const targetYaw = L.pose === "walk" ? L.dir * Math.PI / 2 : 0;
-      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (L.pose === "walk" ? 5.5 : 7));
-      const yawTarget = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetYaw);
-      av.body.quaternion.slerp(yawTarget, yawAlpha).normalize();
       // Held or falling: lean with the sideways speed.
       if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
 
@@ -425,6 +419,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
         if (raw >= 1) transitionFrom = null;
       }
+      // Apply the facing turn after pose crossfading; otherwise the crossfade can
+      // repeatedly blend the body back toward its old, front-facing quaternion.
+      const targetYaw = L.pose === "walk" ? L.dir * Math.PI / 2 : 0;
+      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (L.pose === "walk" ? 8 : 7));
+      const yawTarget = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetYaw);
+      av.body.quaternion.slerp(yawTarget, yawAlpha).normalize();
       // Landing squash is driven by the actual downward impact speed (px/s),
       // not drop height. Apply it on the first landing frame, then rebound quickly.
       if (L.pose === "land") {
