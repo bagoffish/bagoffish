@@ -916,8 +916,8 @@ export default function CoyCompanion() {
       justifyContent: "center",
       boxSizing: "border-box",
       width: "max-content",
-      minWidth: 64,
-      maxWidth: "min(236px, calc(100vw - 20px))",
+      minWidth: 54,
+      maxWidth: "min(204px, calc(100vw - 20px))",
       minHeight: 44,
       border: "6px solid transparent",
       // Preserve the original 2013 green border/corners and stretch only the
