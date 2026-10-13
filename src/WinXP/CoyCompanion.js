@@ -232,6 +232,7 @@ export default function CoyCompanion() {
           minLeft,
           maxLeft,
           top: Math.max(0, rect.top - height),
+          anchorRatio: clampValue((center - rect.left) / Math.max(1, rect.width), 0, 1),
           zIndex: Number.parseInt(window.getComputedStyle(windowNode).zIndex, 10) || 0,
           element: header,
           windowNode,
@@ -241,6 +242,40 @@ export default function CoyCompanion() {
       })
       .filter(Boolean)
       .sort((a, b) => b.zIndex - a.zIndex);
+    return candidates[0] || null;
+  };
+
+  // A falling Coy can hit a title bar even when the pointer was released far
+  // above it. Test the swept vertical interval each physics frame, not just the
+  // final pointer-release rectangle.
+  const findAppbarCollision = (left, fromTop, toTop, taskbarTop) => {
+    const height = getCoyHeight();
+    const center = left + spriteSize / 2;
+    const candidates = Array.from(document.querySelectorAll(".app__header"))
+      .map(header => {
+        const windowNode = header.closest("[data-app-window-id][data-app-title]");
+        if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
+        const rect = header.getBoundingClientRect();
+        const landingTop = Math.max(0, rect.top - height);
+        if (rect.width < spriteSize * 0.65 || center < rect.left || center > rect.right) return null;
+        // Taskbar is also a solid landing surface. Ignore title bars below it.
+        if (landingTop > taskbarTop) return null;
+        if (fromTop > landingTop + 0.5 || toTop < landingTop) return null;
+        return {
+          kind: "appbar",
+          minLeft: 0,
+          maxLeft: Math.max(0, window.innerWidth - spriteSize),
+          top: landingTop,
+          anchorRatio: clampValue((center - rect.left) / Math.max(1, rect.width), 0, 1),
+          zIndex: Number.parseInt(window.getComputedStyle(windowNode).zIndex, 10) || 0,
+          element: header,
+          windowNode,
+          headerRect: readRect(header),
+          windowRect: readRect(windowNode)
+        };
+      })
+      .filter(Boolean)
+      .sort((a, b) => a.top - b.top || b.zIndex - a.zIndex);
     return candidates[0] || null;
   };
 
@@ -268,17 +303,40 @@ export default function CoyCompanion() {
         if (current?.kind === "appbar") {
           const header = current.element;
           const windowNode = current.windowNode;
-          if (!isVisibleAppbar(header, windowNode) ||
-              rectChanged(current.headerRect, readRect(header)) ||
-              rectChanged(current.windowRect, readRect(windowNode))) {
+          if (!isVisibleAppbar(header, windowNode)) {
             startFall();
             return;
           }
+
+          // Moving/resizing the window moves the support surface, not Coy off
+          // it. Preserve his relative horizontal spot on the title bar and
+          // update the standing coordinates to the new header rectangle.
           const rect = header.getBoundingClientRect();
-          const left = posRef.current.left;
-          if (left + spriteSize * 0.35 < rect.left ||
-              left + spriteSize * 0.65 > rect.right) {
+          const ratio = clampValue(Number.isFinite(current.anchorRatio) ? current.anchorRatio : 0.5, 0, 1);
+          const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+          const next = {
+            left: clampValue(rect.left + rect.width * ratio - spriteSize / 2, 0, viewportMaxLeft),
+            top: Math.max(0, rect.top - getCoyHeight())
+          };
+          const centerX = next.left + spriteSize / 2;
+          if (centerX < rect.left || centerX > rect.right || rect.width < spriteSize * 0.65) {
             startFall();
+            return;
+          }
+          const updated = {
+            ...current,
+            minLeft: 0,
+            maxLeft: viewportMaxLeft,
+            top: next.top,
+            anchorRatio: ratio,
+            headerRect: readRect(header),
+            windowRect: readRect(windowNode)
+          };
+          standingSurfaceRef.current = updated;
+          if (Math.abs(next.left - posRef.current.left) > 0.5 ||
+              Math.abs(next.top - posRef.current.top) > 0.5) {
+            posRef.current = next;
+            setPosition(next);
           }
           return;
         }
@@ -587,24 +645,39 @@ export default function CoyCompanion() {
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     let vy = 0, last = performance.now();
     setPose("fall");
+    const landOn = (surface, landingLeft) => {
+      const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+      const nextLeft = surface.kind === "appbar"
+        ? clampValue(surface.element.getBoundingClientRect().left +
+            surface.element.getBoundingClientRect().width * surface.anchorRatio - spriteSize / 2, 0, viewportMaxLeft)
+        : clampValue(landingLeft, 0, viewportMaxLeft);
+      const landed = { left: nextLeft, top: surface.top };
+      posRef.current = landed;
+      setPosition(landed);
+      standingSurfaceRef.current = surface;
+      wasStandingAligned.current = true;
+      showPose("land", 520);
+    };
     const step = now => {
       const dt = Math.min((now - last) / 1000, 0.05);
       last = now;
       vy += 1800 * dt;
-      top += vy * dt;
+      const previousTop = top;
+      const nextTop = top + vy * dt;
       left += vx * dt;
       if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
-      if (top >= maxTop) {
-        wasStandingAligned.current = true;
-        standingSurfaceRef.current = getTaskbarSurface();
-        standingSurfaceRef.current.top = maxTop;
-        const landed = { left, top: maxTop };
-        posRef.current = landed;
-        setPosition(landed);
-        showPose("land", 520);
+      const appbar = findAppbarCollision(left, previousTop, nextTop, maxTop);
+      if (appbar) {
+        landOn(appbar, left);
         return;
       }
-      setPosition({ left, top });
+      top = nextTop;
+      if (top >= maxTop) {
+        landOn({ ...getTaskbarSurface(), top: maxTop, kind: "taskbar" }, left);
+        return;
+      }
+      posRef.current = { left, top };
+      setPosition(posRef.current);
       fallRaf.current = window.requestAnimationFrame(step);
     };
     fallRaf.current = window.requestAnimationFrame(step);
@@ -671,7 +744,11 @@ export default function CoyCompanion() {
       const appbar = findAppbarLanding(released.left, released.top);
       if (appbar) {
         const perched = {
-          left: clampValue(released.left, appbar.minLeft, appbar.maxLeft),
+          left: clampValue(
+            appbar.headerRect.left + appbar.headerRect.width * appbar.anchorRatio - spriteSize / 2,
+            0,
+            maxLeft
+          ),
           top: appbar.top
         };
         posRef.current = perched;
