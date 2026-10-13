@@ -138,6 +138,7 @@ export default function CoyCompanion() {
   const posRef = useRef({ left: 0, top: 0 });
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
+  const gearHeldRef = useRef(false);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(148);
 
@@ -544,7 +545,7 @@ export default function CoyCompanion() {
   function showPose(name, ms) {
     window.clearTimeout(poseTimer.current);
     setPose(name);
-    poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
+    poseTimer.current = window.setTimeout(() => setPose(gearHeldRef.current ? "gearhold" : "idle"), ms);
   }
 
   // Developer console test hooks for checking every custom and imported move.
@@ -558,9 +559,26 @@ export default function CoyCompanion() {
         if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
         showPose(move, Math.max(250, Number(ms) || durations[move] || 1800));
         console.info("Coy move:", move);
+        if (move === "gearhold") gearHeldRef.current = true;
+        if (move === "swordslash" || move === "swordlunge") gearHeldRef.current = false;
         return true;
       },
-      stop() { window.clearTimeout(poseTimer.current); setPose("idle"); },
+      // Keep the grapple gun equipped between shots. gearhold is the idle pose
+      // while equipped; releaseGear() returns Coy to his normal idle/wandering.
+      holdGear() {
+        gearHeldRef.current = true;
+        window.clearTimeout(poseTimer.current);
+        setPose("gearhold");
+        console.info("Coy is holding the grapple gun. Use coyMoves.play('grapple') to shoot, or coyMoves.releaseGear() to put it away.");
+        return true;
+      },
+      releaseGear() {
+        gearHeldRef.current = false;
+        window.clearTimeout(poseTimer.current);
+        setPose("idle");
+        return true;
+      },
+      stop() { window.clearTimeout(poseTimer.current); setPose(gearHeldRef.current ? "gearhold" : "idle"); },
       async demo() {
         const sequence = ["wave", "dance", "dance2", "dance3", "swordslash", "swordlunge", "gearhold", "grapple", "climbing"];
         for (const move of sequence) {
