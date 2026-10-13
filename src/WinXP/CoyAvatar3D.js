@@ -62,15 +62,12 @@ function buildAvatar(colors) {
     const g = new THREE.Group();
     const m = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 1), mat(color)); m.position.set(offset[0], offset[1], 0);
     g.add(m);
-    if (name === "rLeg" || name === "lLeg") {
-      // Legs are rooted to the ground/body, not parented to the rotating torso.
-      // Preserve their standing world position while allowing the torso to twist independently.
-      g.position.set(REST[name][0], REST.torso[1] + REST[name][1], REST[name][2]);
-      body.add(g);
-    } else {
-      g.position.set(...REST[name]);
-      torso.add(g);
-    }
+    // All R6 limbs use the same torso-relative joint coordinates as REST and
+    // r6Retarget. Keeping legs under the torso is essential: resetAvatarPose and
+    // imported animation frames assign REST[name] directly to each part's position.
+    // Parenting legs to body instead made those same coordinates place them incorrectly.
+    g.position.set(...REST[name]);
+    torso.add(g);
     return g;
   };
   const rArm = joint("rArm", colors.rightArm, [0.5, -0.5]), lArm = joint("lArm", colors.leftArm, [-0.5, -0.5]);
