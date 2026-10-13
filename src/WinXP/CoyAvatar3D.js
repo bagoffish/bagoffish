@@ -302,9 +302,38 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
-      if (L.pose !== previousPose) {
+      const enteredPose = L.pose !== previousPose;
+      if (enteredPose) {
+        const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
+        // Play the original classic Roblox gear sounds when the corresponding
+        // tool action begins. Audio is best-effort because browsers may block
+        // remote media until the visitor has interacted with the page.
+        const soundIds = {
+          swordSlash: 12222216,
+          swordLunge: 12222208,
+          unsheath: 12222225,
+          grappleFire: 16211041,
+          grappleConnect: 13510737,
+          grappleHit: 16211030
+        };
+        const playGearSound = (id, volume = 0.75) => {
+          try {
+            const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
+            audio.volume = volume;
+            audio.play().catch(() => {});
+          } catch (_) {}
+        };
+        if (L.pose === "swordslash") {
+          if (priorPose !== "swordlunge" && priorPose !== "swordslash") playGearSound(soundIds.unsheath, 0.55);
+          playGearSound(soundIds.swordSlash);
+        } else if (L.pose === "swordlunge") {
+          if (priorPose !== "swordslash" && priorPose !== "swordlunge") playGearSound(soundIds.unsheath, 0.55);
+          playGearSound(soundIds.swordLunge);
+        } else if (L.pose === "grapple") {
+          playGearSound(soundIds.grappleFire);
+        }
         // Preserve the exact currently-rendered pose so every state change crossfades,
         // including the quarter-turn into walk and the return to idle.
         if (av && L.pose !== "land") {
@@ -375,7 +404,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // Hook projectile + dark cable. The hook flies out, connects, pulls Coy upward, then retracts.
       if (grappleCable && grappleHook) {
         const firing = L.pose === "grapple";
-        if (firing && previousPose !== "grapple") {
+        if (firing && enteredPose) {
           grappleStartAt = t;
           const p = L.getPos ? (L.getPos() || {}) : {};
           const px = Number.isFinite(p.x) ? p.x : p.left;
@@ -391,6 +420,17 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           }
         }
         const elapsed = t - grappleStartAt;
+        const justConnected = firing && elapsed >= 0.42 && elapsed - delta < 0.42;
+        if (justConnected) {
+          const soundIds = { connect: 13510737, hit: 16211030 };
+          for (const id of [soundIds.hit, soundIds.connect]) {
+            try {
+              const audio = new Audio("https://www.roblox.com/asset/?id=" + id);
+              audio.volume = 0.7;
+              audio.play().catch(() => {});
+            } catch (_) {}
+          }
+        }
         const active = firing && elapsed < 1.7;
         grappleCable.visible = active; grappleHook.visible = active;
         if (active) {
