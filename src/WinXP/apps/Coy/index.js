@@ -433,7 +433,7 @@ export default function Coy({ onClose }) {
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
             <img
-              src={ROBLOX_DIALOG_ASSET_BASE + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailLeft.png')}
+              src={ROBLOX_DIALOG_ASSET_BASE + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png')}
               alt=""
               aria-hidden="true"
               draggable={false}
@@ -459,11 +459,11 @@ export default function Coy({ onClose }) {
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', pointerEvents: 'none', zIndex: 1 }} />
+          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tail.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', pointerEvents: 'none', zIndex: 1 }} />
           Typing...
         </div>}
         {error && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailLeft.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', pointerEvents: 'none', zIndex: 1 }} />
+          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tail.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', pointerEvents: 'none', zIndex: 1 }} />
           {error}
         </div>}
         <div ref={bottomRef} />
