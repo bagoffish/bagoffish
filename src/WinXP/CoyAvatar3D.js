@@ -13,13 +13,13 @@ const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
 
-const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, tilt: 0, sq: 0 }, o);
+const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, torsoTurn: 0, tilt: 0, sq: 0 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
 
 function target(pose, t, dir, tiltIn) {
   let s;
   switch (pose) {
-    case "wave":   return P({ rZ: 2.6 + Math.sin(t * 12) * .35 });
+    case "wave":   return P({ rZ: 2.6 + Math.sin(t * 12) * .35, torsoTurn: Math.sin(t * 2.5) * .28 });
     case "dance":  s = Math.sin(t * 8);  return P({ rZ: 2.2 + s * .5, lZ: -(2.2 - s * .5), rL: s * .6, lL: -s * .6, bob: Math.abs(s) * .35, spin: Math.sin(t * 4) * .6 });
     case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
     case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
@@ -341,7 +341,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
-        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;
+        av.body.position.y = pose.bob; av.body.rotation.y = pose.spin; av.body.rotation.z = pose.tilt;\n        av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
       // Patting uses a damped spring instead of a sharp repeated pulse: a soft
