@@ -668,7 +668,8 @@ export default function CoyCompanion() {
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     let vy = 0, last = performance.now();
     setPose("fall");
-    const landOn = (surface, landingLeft, impactVelocity) => {
+    const startTop = top;
+    const landOn = (surface, landingLeft) => {
       const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
       const nextLeft = surface.kind === "appbar"
         ? clampValue(surface.minLeft + (surface.maxLeft - surface.minLeft) * surface.anchorRatio, surface.minLeft, surface.maxLeft)
@@ -678,8 +679,8 @@ export default function CoyCompanion() {
       setPosition(landed);
       standingSurfaceRef.current = surface;
       wasStandingAligned.current = true;
-      // Pass the actual impact speed through to the 3D avatar for velocity-based squash.
-      setImpact(Math.max(0, Number(impactVelocity) || 0));
+      // Pass drop distance, not velocity: every normal fall gets the same squash.
+      setImpact(Math.max(0, startTop - surface.top));
       showPose("land", 520);
     };
     const step = now => {
@@ -692,12 +693,12 @@ export default function CoyCompanion() {
       if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
       const appbar = findAppbarCollision(left, previousTop, nextTop, maxTop);
       if (appbar) {
-        landOn(appbar, left, vy);
+        landOn(appbar, left);
         return;
       }
       top = nextTop;
       if (top >= maxTop) {
-        landOn({ ...getTaskbarSurface(), top: maxTop, kind: "taskbar" }, left, vy);
+        landOn({ ...getTaskbarSurface(), top: maxTop, kind: "taskbar" }, left);
         return;
       }
       posRef.current = { left, top };
