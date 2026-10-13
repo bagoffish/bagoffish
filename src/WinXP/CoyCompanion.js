@@ -6,7 +6,6 @@ const API_BASE = (process.env.REACT_APP_API_BASE || "https://winxp-7yes.onrender
 const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
-const PAT_LINES = ["Hehe..", "Eek!", ":3c", "Again..!", "Thank you.."];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
@@ -139,6 +138,7 @@ export default function CoyCompanion() {
   const posRef = useRef({ left: 0, top: 0 });
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
+  const gearHeldRef = useRef(false);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(148);
 
@@ -545,8 +545,53 @@ export default function CoyCompanion() {
   function showPose(name, ms) {
     window.clearTimeout(poseTimer.current);
     setPose(name);
-    poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
+    poseTimer.current = window.setTimeout(() => setPose(gearHeldRef.current ? "gearhold" : "idle"), ms);
   }
+
+  // Developer console test hooks for checking every custom and imported move.
+  useEffect(() => {
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];
+    const durations = { swordslash: 1200, swordlunge: 1500, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
+    const api = {
+      moves: names,
+      play(name, ms) {
+        const move = String(name || "").toLowerCase();
+        if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
+        showPose(move, Math.max(250, Number(ms) || durations[move] || 1800));
+        console.info("Coy move:", move);
+        if (move === "gearhold") gearHeldRef.current = true;
+        if (move === "swordslash" || move === "swordlunge") gearHeldRef.current = false;
+        return true;
+      },
+      // Keep the grapple gun equipped between shots. gearhold is the idle pose
+      // while equipped; releaseGear() returns Coy to his normal idle/wandering.
+      holdGear() {
+        gearHeldRef.current = true;
+        window.clearTimeout(poseTimer.current);
+        setPose("gearhold");
+        console.info("Coy is holding the grapple gun. Use coyMoves.play('grapple') to shoot, or coyMoves.releaseGear() to put it away.");
+        return true;
+      },
+      releaseGear() {
+        gearHeldRef.current = false;
+        window.clearTimeout(poseTimer.current);
+        setPose("idle");
+        return true;
+      },
+      stop() { window.clearTimeout(poseTimer.current); setPose(gearHeldRef.current ? "gearhold" : "idle"); },
+      async demo() {
+        const sequence = ["wave", "dance", "dance2", "dance3", "swordslash", "swordlunge", "gearhold", "grapple", "climbing"];
+        for (const move of sequence) {
+          if (!window.coyMoves || window.coyMoves !== api) return;
+          api.play(move, durations[move] || 2200);
+          await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + 180));
+        }
+        api.stop();
+      }
+    };
+    window.coyMoves = api;
+    return () => { if (window.coyMoves === api) delete window.coyMoves; };
+  }, []);
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
     const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
@@ -565,27 +610,25 @@ export default function CoyCompanion() {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setTimeout(() => {
       const roll = Math.random();
-      if (roll < 0.10) {
+      if (roll < 0.24) {
         const actions = [
-          ["swordslash", 850],
-          ["swordlunge", 1100],
-          ["gearhold", 2500 + Math.random() * 2500],
-          ["climbing", 2500 + Math.random() * 2500]
+          ["swordslash", 900],
+          ["swordlunge", 1200],
+          ["swordslash", 900],
+          ["grapple", 2100]
         ];
         const [action, duration] = actions[Math.floor(Math.random() * actions.length)];
         showPose(action, duration);
       } else if (roll < 0.30) {
         showPose("sit", 6500 + Math.random() * 3500);
-      } else {
-        const dance = ["dance", "dance2", "dance3"][Math.floor(Math.random() * 3)];
-        showPose(dance, 4000 + Math.random() * 2500);
       }
     }, 12000 + Math.random() * 18000);
     return () => window.clearTimeout(timer);
   }, [pose, chatOpen, showBubble, busy, underAppWindows]);
 
   useEffect(() => {
-    if (chatOpen || showBubble || busy || underAppWindows) return;
+    // Speech bubbles are visual only: they must not pause Coy's autonomous walking.
+    if (chatOpen || busy || underAppWindows) return;
     if (pose !== "idle" && pose !== "walk") return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0, last = performance.now(), walking = pose === "walk";
@@ -739,17 +782,28 @@ export default function CoyCompanion() {
       moved: false
     };
     suppressClickAfterDrag.current = false;
-    window.cancelAnimationFrame(fallRaf.current);
+    // A click must not stop the fall; only cancel physics once this becomes a real drag.
     try { event.currentTarget.setPointerCapture(event.pointerId); } catch (_) {}
   }
 
   function onCoyPointerMove(event) {
     const drag = dragState.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const dx = event.clientX - drag.startX;
-    const dy = event.clientY - drag.startY;
+    let dx = event.clientX - drag.startX;
+    let dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
-    if (!drag.moved) { window.clearTimeout(poseTimer.current); setPose("held"); }
+    if (!drag.moved) {
+      window.cancelAnimationFrame(fallRaf.current);
+      // Start dragging from Coy's latest physics position, not where he was on pointer-down.
+      drag.originLeft = posRef.current.left;
+      drag.originTop = posRef.current.top;
+      drag.startX = event.clientX;
+      drag.startY = event.clientY;
+      dx = 0;
+      dy = 0;
+      window.clearTimeout(poseTimer.current);
+      setPose("held");
+    }
     drag.moved = true;
     velRef.current.vx = (event.movementX || 0) * 24 + velRef.current.vx * 0.6;
     velRef.current.t = performance.now();
@@ -821,9 +875,9 @@ export default function CoyCompanion() {
     // Clicking Coy only pats him; use the chat button to open the chatbot.
     if (clickTimer.current) window.clearTimeout(clickTimer.current);
     clickTimer.current = null;
-    showPose("pat", 650);
-    setLine(formatCoyText(randomLine(PAT_LINES)));
-    setShowBubble(true);
+    // A direct click plays one dance; it never triggers the old pat pose or a pat bubble.
+    const dances = ["dance", "dance2", "dance3"];
+    showPose(dances[Math.floor(Math.random() * dances.length)], 4500);
     lastActivity.current = Date.now();
   }
 
@@ -897,14 +951,13 @@ export default function CoyCompanion() {
     // the original compact balloon rather than the large UGC item thumbnail.
     bubbleWrap: {
       position: "absolute",
-      // The sprite sheet's 64px square corners stay intact; only its middle
-      // stretches with the text. The tail sits behind the frame at the bottom.
+      // Compact balloon close to Coy's head; text controls width and wraps when needed.
       left: "50%",
-      bottom: "calc(100% - 16px)",
+      bottom: "calc(100% - 5px)",
       transform: "translateX(-50%)",
       width: "max-content",
-      minWidth: 64,
-      maxWidth: "min(236px, calc(100vw - 20px))",
+      minWidth: 54,
+      maxWidth: "min(204px, calc(100vw - 20px))",
       height: "auto",
       overflow: "visible",
       pointerEvents: "none",
@@ -917,31 +970,31 @@ export default function CoyCompanion() {
       justifyContent: "center",
       boxSizing: "border-box",
       width: "max-content",
-      minWidth: 64,
-      maxWidth: "min(236px, calc(100vw - 20px))",
-      minHeight: 56,
-      border: "8px solid transparent",
+      minWidth: 54,
+      maxWidth: "min(204px, calc(100vw - 20px))",
+      minHeight: 44,
+      border: "6px solid transparent",
       // Preserve the original 2013 green border/corners and stretch only the
       // dark-green center, rather than resizing the entire square texture.
       borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
       borderImageSlice: "12 fill",
-      borderImageWidth: "8px",
+      borderImageWidth: "6px",
       borderImageRepeat: "stretch",
       zIndex: 1
     },
     dialogTail: {
       position: "absolute",
-      // Layer the tail over the background/frame so its base covers the
-      // border where the arrow joins the bubble, avoiding a connecting seam.
+      // Keep the Roblox tail centered under every bubble width.
       left: "50%",
-      top: "calc(100% - 10px)",
-      width: 32,
-      height: 32,
+      right: "auto",
       transform: "translateX(-50%)",
+      top: "calc(100% - 7px)",
+      width: 24,
+      height: 24,
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
-      zIndex: 2
+      zIndex: 3
     },
     dialogText: {
       position: "relative",
@@ -949,16 +1002,16 @@ export default function CoyCompanion() {
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 4,
       width: "max-content",
-      minWidth: 32,
-      maxWidth: 208,
+      minWidth: 26,
+      maxWidth: 174,
       boxSizing: "border-box",
-      padding: "3px 4px 2px",
+      padding: "2px 3px 2px",
       overflow: "hidden",
       color: "#fff",
       fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 13,
+      fontSize: 12,
       fontWeight: 600,
-      lineHeight: "15px",
+      lineHeight: "14px",
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
@@ -1013,8 +1066,9 @@ export default function CoyCompanion() {
         onClick={event => { event.stopPropagation(); openChat(); }}
         style={{
           position: "absolute",
-          left: spriteSize - 5,
-          top: Math.round(spriteSize * 0.38),
+          // Keep the chat icon beside Coy's head rather than beside his torso.
+          left: Math.round(spriteSize * 0.78),
+          top: Math.round(spriteSize * 0.19),
           width: 30,
           height: 30,
           padding: 0,
@@ -1022,7 +1076,7 @@ export default function CoyCompanion() {
           background: "transparent",
           cursor: "pointer",
           pointerEvents: "auto",
-          display: pose === "wave" ? "none" : "block",
+          display: "block",
           zIndex: 4
         }}
         onMouseEnter={event => {
@@ -1045,7 +1099,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
             alt=""
             aria-hidden="true"
             draggable={false}

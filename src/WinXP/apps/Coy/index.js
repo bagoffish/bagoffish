@@ -304,9 +304,9 @@ const styles = {
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#444' },
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 10, background: '#1e1e1e' },
-  bubble: { position: 'relative', maxWidth: '92%', padding: '6px 10px 8px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.35, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 600, border: '8px solid transparent', borderImageSlice: '12 fill', borderImageWidth: '8px', borderImageRepeat: 'stretch', minHeight: 36, boxSizing: 'border-box' },
-  user: { alignSelf: 'flex-end', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botRed_bkg.png)`, marginRight: 18 },
-  coy: { alignSelf: 'flex-start', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`, marginLeft: 18 },
+  bubble: { position: 'relative', width: 'fit-content', maxWidth: '88%', padding: '4px 8px 5px', marginTop: 2, marginBottom: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.3, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 600, border: '6px solid transparent', borderImageSlice: '12 fill', borderImageWidth: '6px', borderImageRepeat: 'stretch', minHeight: 30, boxSizing: 'border-box', textShadow: '0 1px 1px rgba(0,0,0,.35)' },
+  user: { alignSelf: 'flex-end', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botRed_bkg.png)`, marginRight: 12, marginLeft: 'auto' },
+  coy: { alignSelf: 'flex-start', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`, marginLeft: 12, marginRight: 'auto' },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #333', background: '#2a2a2a', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
@@ -393,8 +393,13 @@ export default function Coy({ onClose }) {
     try {
       const prepared = await Promise.all(currentAttachments.map(async file => {
         const { file: preparedFile, mimeType } = await prepareMediaFile(file, file.type);
-        const dataUrl = await readFileAsDataUrl(preparedFile);
-        return { name: preparedFile.name, type: mimeType, dataUrl };
+        const extension = (preparedFile.name.match(/\.([^.]+)$/)?.[1] || '').toLowerCase();
+        const textExtensions = new Set(['txt','md','markdown','csv','tsv','json','jsonl','xml','html','htm','css','js','jsx','ts','tsx','mjs','cjs','py','java','c','h','cpp','hpp','cs','go','rs','php','rb','sql','log','yaml','yml','toml','ini','conf','sh','bash','bat','ps1','diff','patch','env','gitignore']);
+        if (textExtensions.has(extension) && !mimeType.startsWith('image/') && !mimeType.startsWith('audio/')) {
+          return { name: preparedFile.name, mimeType: mimeType || 'text/plain', text: await preparedFile.text() };
+        }
+        const data = await readFileAsDataUrl(preparedFile);
+        return { name: preparedFile.name, mimeType, data };
       }));
 
       const response = await fetch(API_BASE + '/personal-ai/chat', {
@@ -434,10 +439,10 @@ export default function Coy({ onClose }) {
               draggable={false}
               style={{
                 position: 'absolute',
-                ...(item.role === 'user' ? { right: -22, transform: 'none' } : { left: -22, transform: 'scaleX(-1)' }),
-                bottom: 6,
-                width: 36,
-                height: 36,
+                ...(item.role === 'user' ? { right: -10 } : { left: -10 }),
+                bottom: -7,
+                width: 20,
+                height: 20,
                 objectFit: 'contain',
                 pointerEvents: 'none',
                 zIndex: 1
@@ -454,11 +459,11 @@ export default function Coy({ onClose }) {
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -22, bottom: 6, width: 36, height: 36, objectFit: 'contain', pointerEvents: 'none', transform: 'scaleX(-1)', zIndex: 1 }} />
+          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', transform: 'scaleX(-1)', pointerEvents: 'none', zIndex: 1 }} />
           Typing...
         </div>}
         {error && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -22, bottom: 6, width: 36, height: 36, objectFit: 'contain', pointerEvents: 'none', transform: 'scaleX(-1)', zIndex: 1 }} />
+          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', transform: 'scaleX(-1)', pointerEvents: 'none', zIndex: 1 }} />
           {error}
         </div>}
         <div ref={bottomRef} />
