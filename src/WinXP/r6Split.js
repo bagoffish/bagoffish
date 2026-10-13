@@ -129,7 +129,7 @@ export function splitIntoR6Parts(root) {
     parts[partName].add(mesh);
     if (isTail) tailMeshes.push(mesh);
     else if (partName === "torso") torsoMeshes.push(mesh);
-    else if (/^Handle\\d+$/i.test(sourceName)) headAccessoryMeshes.push(mesh);
+    else if (/^Handle\d+$/i.test(sourceName)) headAccessoryMeshes.push(mesh);
     else if (partName === "head") headMeshes.push(mesh);
     counts[partName] += geometry.index
       ? geometry.index.count / 3
