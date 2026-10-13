@@ -220,9 +220,11 @@ export default function CoyCompanion() {
         const windowRect = windowNode.getBoundingClientRect();
         const minLeft = clampValue(rect.left, 0, Math.max(0, window.innerWidth - spriteSize));
         const maxLeft = clampValue(rect.right - spriteSize, minLeft, Math.max(0, window.innerWidth - spriteSize));
-        // The avatar's feet must be close to the header's top edge and its body
-        // must overlap the header horizontally; nearby windows are not enough.
-        if (Math.abs(feet - rect.top) > 24 || center < rect.left || center > rect.right) return null;
+        // Treat the release as a drop onto the title bar: allow the sprite to
+        // overlap it while dragging, instead of requiring pixel-perfect foot alignment.
+        const overlapsHeader = dropCenterX >= rect.left && dropCenterX <= rect.right;
+        const overlapsVertically = dropBottomY >= rect.top - 34 && top <= rect.bottom + 12;
+        if (!overlapsHeader || !overlapsVertically || center < rect.left || center > rect.right) return null;
         if (rect.width < spriteSize * 0.65) return null;
         return {
           kind: "appbar",
@@ -638,7 +640,9 @@ export default function CoyCompanion() {
     wasStandingAligned.current = false;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
     const taskbarTop = getTaskbarTop();
-    const maxTop = Math.max(0, taskbarTop - getCoyHeight());
+    // Let Coy be dragged over app title bars; only landing logic decides whether
+    // he perches on a bar or falls back to the taskbar.
+    const maxTop = Math.max(0, window.innerHeight - getCoyHeight());
     const next = {
       left: Math.max(0, Math.min(maxLeft, drag.originLeft + dx)),
       top: Math.max(0, Math.min(maxTop, drag.originTop + dy))
@@ -654,7 +658,9 @@ export default function CoyCompanion() {
       suppressClickAfterDrag.current = true;
       window.setTimeout(() => { suppressClickAfterDrag.current = false; }, 0);
       const maxLeft = Math.max(0, window.innerWidth - spriteSize);
-      const maxTop = Math.max(0, getTaskbarTop() - getCoyHeight());
+      // Do not clamp to the taskbar while dragging: that made title bars above
+      // the taskbar impossible to reach with the pointer.
+      const maxTop = Math.max(0, window.innerHeight - getCoyHeight());
       const released = {
         left: Math.max(0, Math.min(maxLeft, drag.originLeft + (event.clientX - drag.startX))),
         top: Math.max(0, Math.min(maxTop, drag.originTop + (event.clientY - drag.startY)))
@@ -818,10 +824,11 @@ export default function CoyCompanion() {
       position: "absolute",
       // Use the original right-hand lightning-tail sprite in its native square
       // proportions. Its base tucks behind the bubble; no rotation or squashing.
-      right: 8,
+      left: "50%",
       top: "calc(100% - 10px)",
       width: 32,
       height: 32,
+      transform: "translateX(-50%)",
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
@@ -893,7 +900,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
             alt=""
             aria-hidden="true"
             draggable={false}
