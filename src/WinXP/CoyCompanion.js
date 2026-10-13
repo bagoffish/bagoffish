@@ -547,6 +547,34 @@ export default function CoyCompanion() {
     setPose(name);
     poseTimer.current = window.setTimeout(() => setPose("idle"), ms);
   }
+
+  // Developer console test hooks for checking every custom and imported move.
+  useEffect(() => {
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit", "pat"];
+    const durations = { swordslash: 1200, swordlunge: 1500, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
+    const api = {
+      moves: names,
+      play(name, ms) {
+        const move = String(name || "").toLowerCase();
+        if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
+        showPose(move, Math.max(250, Number(ms) || durations[move] || 1800));
+        console.info("Coy move:", move);
+        return true;
+      },
+      stop() { window.clearTimeout(poseTimer.current); setPose("idle"); },
+      async demo() {
+        const sequence = ["wave", "dance", "dance2", "dance3", "swordslash", "swordlunge", "gearhold", "grapple", "climbing"];
+        for (const move of sequence) {
+          if (!window.coyMoves || window.coyMoves !== api) return;
+          api.play(move, durations[move] || 2200);
+          await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + 180));
+        }
+        api.stop();
+      }
+    };
+    window.coyMoves = api;
+    return () => { if (window.coyMoves === api) delete window.coyMoves; };
+  }, []);
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
     const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
@@ -565,12 +593,14 @@ export default function CoyCompanion() {
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const timer = window.setTimeout(() => {
       const roll = Math.random();
-      if (roll < 0.10) {
+      if (roll < 0.24) {
         const actions = [
-          ["swordslash", 850],
-          ["swordlunge", 1100],
-          ["gearhold", 2500 + Math.random() * 2500],
-          ["climbing", 2500 + Math.random() * 2500]
+          ["swordslash", 900],
+          ["swordlunge", 1200],
+          ["swordslash", 900],
+          ["grapple", 2100],
+          ["gearhold", 2200 + Math.random() * 1800],
+          ["climbing", 2200 + Math.random() * 1800]
         ];
         const [action, duration] = actions[Math.floor(Math.random() * actions.length)];
         showPose(action, duration);
