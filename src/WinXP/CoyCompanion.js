@@ -615,7 +615,8 @@ export default function CoyCompanion() {
   }, [pose, chatOpen, showBubble, busy, underAppWindows]);
 
   useEffect(() => {
-    if (chatOpen || showBubble || busy || underAppWindows) return;
+    // Speech bubbles are visual only: they must not pause Coy's autonomous walking.
+    if (chatOpen || busy || underAppWindows) return;
     if (pose !== "idle" && pose !== "walk") return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0, last = performance.now(), walking = pose === "walk";
