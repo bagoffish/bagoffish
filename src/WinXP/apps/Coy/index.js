@@ -440,7 +440,7 @@ export default function Coy({ onClose }) {
                 height: 36,
                 objectFit: 'contain',
                 pointerEvents: 'none',
-                zIndex: 1
+                zIndex: 3
               }}
             />
             {item.content && renderCoyContent(item.content)}
