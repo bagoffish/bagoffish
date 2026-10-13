@@ -348,14 +348,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
-      // Keep landing/patting procedural: imported clips can twist the arms through the torso
-      // right as the body compresses, making the squash look inside-out.
-      // The archived sit clip is effectively empty; use the grounded procedural R6 sit pose.
-      // Tool poses use the procedural R6 poses below. Old imported clips can have
-      // incomplete keyframes or incompatible gear grips, which made the sword arm
-      // snap back and the gun appear detached instead of being held.
-      const proceduralToolPose = ["swordslash", "swordlunge", "gearhold", "grapple"].includes(L.pose);
-      const clip = (L.pose === "land" || L.pose === "sit" || proceduralToolPose) ? null : animations[clipName];
+      // Use the imported R6 clips for sit, gearhold, swordslash, swordlunge,
+      // and climbing so their original torso/arm/leg poses are preserved. Keep
+      // landing and cursor-aimed grapple procedural; grapple needs live aim input.
+      const clip = (L.pose === "land" || L.pose === "grapple") ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
