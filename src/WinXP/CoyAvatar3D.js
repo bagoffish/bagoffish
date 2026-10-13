@@ -131,6 +131,19 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let animations = {};
     let activeAnimation = "";
     let animationStart = 0;
+    let transitionFrom = null;
+    let transitionStartedAt = 0;
+    const transitionDuration = 0.24;
+    const partNames = ["torso", "head", "rArm", "lArm", "rLeg", "lLeg"];
+    const capturePose = () => ({
+      bodyPosition: av.body.position.clone(),
+      bodyQuaternion: av.body.quaternion.clone(),
+      bodyScale: av.body.scale.clone(),
+      parts: Object.fromEntries(partNames.map(name => {
+        const part = av[name];
+        return [name, part ? { position: part.position.clone(), quaternion: part.quaternion.clone(), scale: part.scale.clone() } : null];
+      }))
+    });
     const pose = P({});
     const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
@@ -180,7 +193,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
-      if (L.pose !== previousPose) { previousPose = L.pose; poseStartedAt = t; }
+      if (L.pose !== previousPose) {
+        previousPose = L.pose;
+        poseStartedAt = t;
+        // Preserve the exact currently-rendered pose so every state change crossfades,
+        // including the quarter-turn into walk and the return to idle.
+        if (av) {
+          transitionFrom = capturePose();
+          transitionStartedAt = t;
+        }
+      }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       const clip = animations[clipName];
@@ -215,21 +237,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           bodyBaseScale.z * (1 + pulse * 0.85)
         );
       }
-      // Patting gives Coy a quick, soft bounce. The envelope fades out cleanly
-      // when the pat pose ends, and scales are rebuilt each frame to avoid drift.
+      // Patting uses a damped spring instead of a sharp repeated pulse: a soft
+      // compression, a little rebound, then a smooth settle with no scale drift.
       if (L.pose === "pat") {
-        const age = clamp((t - poseStartedAt) / 0.65, 0, 1);
-        const pulse = Math.abs(Math.sin((t - poseStartedAt) * 19)) * Math.sin(Math.PI * age);
+        const elapsed = Math.max(0, t - poseStartedAt);
+        const pulse = Math.sin(elapsed * 17) * Math.exp(-elapsed * 4.6);
         av.body.scale.set(
           av.body.scale.x * (1 + pulse * 0.045),
-          av.body.scale.y * (1 - pulse * 0.075),
+          av.body.scale.y * (1 - pulse * 0.085),
           av.body.scale.z * (1 + pulse * 0.045)
         );
         if (av.head) {
           av.head.scale.set(
-            headBaseScale.x * (1 + pulse * 0.025),
-            headBaseScale.y * (1 - pulse * 0.045),
-            headBaseScale.z * (1 + pulse * 0.025)
+            headBaseScale.x * (1 + pulse * 0.018),
+            headBaseScale.y * (1 - pulse * 0.035),
+            headBaseScale.z * (1 + pulse * 0.018)
           );
         }
       }
@@ -258,6 +280,30 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (av.head && Number.isFinite(look.x) && Number.isFinite(look.y)) {
         lookEuler.set(look.x, look.y, 0);
         av.head.quaternion.multiply(lookQuat.setFromEuler(lookEuler));
+      }
+      // Crossfade from the last rendered transform to the new animation target.
+      // Smoothstep avoids a sudden start/stop and quaternion slerp makes turns rotate
+      // along the short arc instead of snapping (notably idle <-> 90-degree walk).
+      if (transitionFrom) {
+        const raw = clamp((t - transitionStartedAt) / transitionDuration, 0, 1);
+        const alpha = raw * raw * (3 - 2 * raw);
+        const bodyPosition = av.body.position.clone();
+        const bodyQuaternion = av.body.quaternion.clone();
+        const bodyScale = av.body.scale.clone();
+        av.body.position.copy(transitionFrom.bodyPosition).lerp(bodyPosition, alpha);
+        av.body.quaternion.copy(transitionFrom.bodyQuaternion).slerp(bodyQuaternion, alpha).normalize();
+        av.body.scale.copy(transitionFrom.bodyScale).lerp(bodyScale, alpha);
+        for (const name of partNames) {
+          const from = transitionFrom.parts[name], part = av[name];
+          if (!from || !part) continue;
+          const position = part.position.clone();
+          const quaternion = part.quaternion.clone();
+          const scale = part.scale.clone();
+          part.position.copy(from.position).lerp(position, alpha);
+          part.quaternion.copy(from.quaternion).slerp(quaternion, alpha).normalize();
+          part.scale.copy(from.scale).lerp(scale, alpha);
+        }
+        if (raw >= 1) transitionFrom = null;
       }
       renderer.render(scene, camera);
     };
