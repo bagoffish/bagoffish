@@ -190,12 +190,6 @@ export default function CoyCompanion() {
     return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
   };
 
-  const rectChanged = (previous, current) => !previous || !current ||
-    Math.abs(previous.left - current.left) > 2 ||
-    Math.abs(previous.top - current.top) > 2 ||
-    Math.abs(previous.width - current.width) > 2 ||
-    Math.abs(previous.height - current.height) > 2;
-
   const isVisibleAppbar = (header, windowNode) => {
     if (!header?.isConnected || !windowNode?.isConnected) return false;
     const rect = header.getBoundingClientRect();
@@ -218,9 +212,11 @@ export default function CoyCompanion() {
         const windowNode = header.closest("[data-app-window-id][data-app-title]");
         if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
         const rect = header.getBoundingClientRect();
-        const windowRect = windowNode.getBoundingClientRect();
-        const minLeft = clampValue(rect.left, 0, Math.max(0, window.innerWidth - spriteSize));
-        const maxLeft = clampValue(rect.right - spriteSize, minLeft, Math.max(0, window.innerWidth - spriteSize));
+        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
+        // Bound Coy by his center point, so even a bar narrower than the avatar
+        // remains a usable perch without requiring his whole body to fit on it.
+        const minLeft = clampValue(rect.left - spriteSize / 2, 0, viewportMaxLeft);
+        const maxLeft = clampValue(rect.right - spriteSize / 2, minLeft, viewportMaxLeft);
         // Treat the release as a drop onto the title bar: allow the sprite to
         // overlap it while dragging, instead of requiring pixel-perfect foot alignment.
         const overlapsHeader = dropCenterX >= rect.left && dropCenterX <= rect.right;
@@ -261,10 +257,11 @@ export default function CoyCompanion() {
         // Taskbar is also a solid landing surface. Ignore title bars below it.
         if (landingTop > taskbarTop) return null;
         if (fromTop > landingTop + 0.5 || toTop < landingTop) return null;
+        const viewportMaxLeft = Math.max(0, window.innerWidth - spriteSize);
         return {
           kind: "appbar",
-          minLeft: 0,
-          maxLeft: Math.max(0, window.innerWidth - spriteSize),
+          minLeft: clampValue(rect.left - spriteSize / 2, 0, viewportMaxLeft),
+          maxLeft: clampValue(rect.right - spriteSize / 2, clampValue(rect.left - spriteSize / 2, 0, viewportMaxLeft), viewportMaxLeft),
           top: landingTop,
           anchorRatio: clampValue((center - rect.left) / Math.max(1, rect.width), 0, 1),
           zIndex: Number.parseInt(window.getComputedStyle(windowNode).zIndex, 10) || 0,
@@ -323,10 +320,11 @@ export default function CoyCompanion() {
             startFall();
             return;
           }
+          const minLeft = clampValue(rect.left - spriteSize / 2, 0, viewportMaxLeft);
           const updated = {
             ...current,
-            minLeft: 0,
-            maxLeft: viewportMaxLeft,
+            minLeft,
+            maxLeft: clampValue(rect.right - spriteSize / 2, minLeft, viewportMaxLeft),
             top: next.top,
             anchorRatio: ratio,
             headerRect: readRect(header),
