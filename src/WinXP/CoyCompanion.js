@@ -1008,6 +1008,34 @@ export default function CoyCompanion() {
         <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
 
+      <button
+        type="button"
+        aria-label="Open Coy chat"
+        title="Chat with Coy"
+        onClick={event => { event.stopPropagation(); openChat(); }}
+        style={{
+          position: "absolute",
+          left: spriteSize - 5,
+          top: Math.round(spriteSize * 0.38),
+          width: 30,
+          height: 30,
+          padding: 0,
+          border: 0,
+          background: "transparent",
+          cursor: "pointer",
+          pointerEvents: "auto",
+          display: pose === "wave" ? "none" : "block",
+          zIndex: 4
+        }}
+      >
+        <img
+          src="https://archive.roblonium.com/Client/Windows/RobloxStudio/main%20%28roblox.com%29/2013/1.2013/January%2017%20%282013.1.16.4%29/version-bff7a07361c84c3c/content/textures/Chat_ovr.png"
+          alt=""
+          draggable={false}
+          style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      </button>
+
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
