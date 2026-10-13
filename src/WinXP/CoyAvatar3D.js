@@ -205,7 +205,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
       const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
-      const clip = animations[clipName];
+      // Keep landing/patting procedural: imported clips can twist the arms through the torso
+      // right as the body compresses, making the squash look inside-out.
+      const clip = (L.pose === "land" || L.pose === "pat") ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
       // Otherwise a slow fetch/model load can consume a one-shot wave before Coy appears.
       if (clip && clipName !== activeAnimation) {
