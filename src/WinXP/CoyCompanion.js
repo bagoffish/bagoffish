@@ -679,8 +679,9 @@ export default function CoyCompanion() {
       setPosition(landed);
       standingSurfaceRef.current = surface;
       wasStandingAligned.current = true;
-      // Pass drop distance, not velocity: every normal fall gets the same squash.
-      setImpact(Math.max(0, startTop - surface.top));
+      // Preserve the downward speed at the exact collision frame so the landing
+      // squash reflects how hard Coy hit the surface.
+      setImpact(Math.max(0, vy));
       showPose("land", 520);
     };
     const step = now => {
@@ -780,6 +781,7 @@ export default function CoyCompanion() {
         setPosition(perched);
         standingSurfaceRef.current = appbar;
         wasStandingAligned.current = true;
+        setImpact(0); // A gentle landing when released directly onto a title bar.
         showPose("land", 520);
       } else {
         wasStandingAligned.current = false;
