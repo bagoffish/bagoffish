@@ -54,7 +54,7 @@ function readCFrame(cframe, partName) {
 }
 
 // Pose.EasingStyle uses Enum.PoseEasingStyle, not the larger TweenService EasingStyle enum.
-const EASING_STYLE_BY_VALUE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce"];
+const EASING_STYLE_BY_VALUE = ["Linear", "Constant", "Elastic", "Cubic", "Bounce", "CubicV2"];
 const EASING_DIRECTION_BY_VALUE = ["In", "Out", "InOut"];
 
 function enumLabel(value, numericLabels) {
