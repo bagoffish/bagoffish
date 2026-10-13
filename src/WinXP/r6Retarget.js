@@ -108,11 +108,9 @@ export function resetAvatarPose(av) {
     const part = av[name];
     if (!part) continue;
     part.quaternion.identity();
-    if (name === "rLeg" || name === "lLeg") {
-      part.position.set(position[0], REST.torso[1] + position[1], position[2]);
-    } else {
-      part.position.set(...position);
-    }
+    // All rebuilt limbs are children of the torso, so REST positions are torso-local.
+    // Adding REST.torso.y here lifted both legs by another 3 studs.
+    part.position.set(...position);
     part.scale.set(1, 1, 1);
   }
 }
