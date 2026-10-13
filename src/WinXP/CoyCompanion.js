@@ -997,7 +997,7 @@ export default function CoyCompanion() {
         onPointerMove={onCoyPointerMove}
         onPointerUp={onCoyPointerUp}
         onPointerCancel={onCoyPointerUp}
-        style={{ background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
+        style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
         <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
