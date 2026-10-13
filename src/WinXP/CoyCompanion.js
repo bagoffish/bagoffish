@@ -960,8 +960,10 @@ export default function CoyCompanion() {
     },
     dialogTail: {
       position: "absolute",
-      // Regular Roblox tail layered in front of the box's lower edge.
-      right: 10,
+      // Keep the Roblox tail centered under every bubble width.
+      left: "50%",
+      right: "auto",
+      transform: "translateX(-50%)",
       top: "calc(100% - 7px)",
       width: 24,
       height: 24,
