@@ -53,6 +53,51 @@ function readCFrame(cframe, partName) {
   return { position, quaternion };
 }
 
+const EASING_STYLE_BY_VALUE = ["Linear", "Sine", "Back", "Quad", "Quart", "Quint", "Bounce", "Elastic", "Exponential", "Circular", "Cubic"];
+const EASING_DIRECTION_BY_VALUE = ["In", "Out", "InOut"];
+
+function enumLabel(value, numericLabels) {
+  if (typeof value === "number") return numericLabels[value] || "Linear";
+  if (typeof value !== "string") return "Linear";
+  const label = value.replace(/^Enum\\.[^.]+\\./, "");
+  return label || "Linear";
+}
+
+function bounceOut(t) {
+  if (t < 1 / 2.75) return 7.5625 * t * t;
+  if (t < 2 / 2.75) { t -= 1.5 / 2.75; return 7.5625 * t * t + 0.75; }
+  if (t < 2.5 / 2.75) { t -= 2.25 / 2.75; return 7.5625 * t * t + 0.9375; }
+  t -= 2.625 / 2.75;
+  return 7.5625 * t * t + 0.984375;
+}
+
+function easeValue(raw, metadata) {
+  const easing = metadata || {};
+  const style = enumLabel(easing.style, EASING_STYLE_BY_VALUE).toLowerCase();
+  const direction = enumLabel(easing.direction, EASING_DIRECTION_BY_VALUE).toLowerCase();
+  const easeIn = t => {
+    switch (style) {
+      case "sine": return 1 - Math.cos(t * Math.PI / 2);
+      case "back": return 2.70158 * t * t * t - 1.70158 * t * t;
+      case "quad": return t * t;
+      case "quart": return t * t * t * t;
+      case "quint": return t * t * t * t * t;
+      case "bounce": return 1 - bounceOut(1 - t);
+      case "elastic": return t === 0 || t === 1 ? t : -Math.pow(2, 10 * t - 10) * Math.sin((t * 10 - 10.75) * (2 * Math.PI / 3));
+      case "exponential": return t === 0 ? 0 : Math.pow(2, 10 * t - 10);
+      case "circular": return 1 - Math.sqrt(Math.max(0, 1 - t * t));
+      case "cubic": return t * t * t;
+      default: return t;
+    }
+  };
+  if (style === "linear") return raw;
+  if (direction === "out") return 1 - easeIn(1 - raw);
+  if (direction === "inout") return raw < 0.5
+    ? easeIn(raw * 2) / 2
+    : 1 - easeIn((1 - raw) * 2) / 2;
+  return easeIn(raw);
+}
+
 function getFramePair(frames, time) {
   if (time <= frames[0].time) return [frames[0], frames[0], 0];
   const last = frames[frames.length - 1];
@@ -84,9 +129,12 @@ export function sampleClip(clip, time) {
     const from = readCFrame(ca || cb, partName);
     const to = readCFrame(cb || ca, partName);
     if (!from || !to) continue;
+    // Roblox stores easing metadata on the earlier pose for the segment leading
+    // to the next keyframe. Older exports have no metadata and remain linear.
+    const easedAlpha = easeValue(alpha, a.easing?.[jointName]);
     sampled[jointName] = {
-      position: from.position.clone().lerp(to.position, alpha),
-      quaternion: from.quaternion.clone().slerp(to.quaternion, alpha).normalize()
+      position: from.position.clone().lerp(to.position, easedAlpha),
+      quaternion: from.quaternion.clone().slerp(to.quaternion, easedAlpha).normalize()
     };
   }
   return sampled;
