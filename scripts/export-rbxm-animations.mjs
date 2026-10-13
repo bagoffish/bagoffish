@@ -58,16 +58,36 @@ function findAll(root, predicate, out = []) {
   for (const child of childrenOf(root)) findAll(child, predicate, out);
   return out;
 }
-function readPose(pose, out) {
+function enumName(value) {
+  const raw = plain(value);
+  if (typeof raw === "string") return raw.replace(/^Enum\\.[^.]+\\./, "");
+  if (typeof raw === "number") return raw;
+  if (raw && typeof raw === "object") {
+    const candidate = raw.Name ?? raw.name ?? raw.Value ?? raw.value;
+    if (typeof candidate === "string") return candidate.replace(/^Enum\\.[^.]+\\./, "");
+    if (typeof candidate === "number") return candidate;
+  }
+  return null;
+}
+function readPose(pose, out, easingOut) {
+  const poseName = name(pose);
   const cf = plain(valueOf(pose, "CFrame"));
-  if (Array.isArray(cf) && cf.length >= 12 && cf.every(Number.isFinite)) out[name(pose)] = cf.slice(0, 12);
-  for (const child of childrenOf(pose)) if (cls(child) === "Pose") readPose(child, out);
+  if (Array.isArray(cf) && cf.length >= 12 && cf.slice(0, 12).every(Number.isFinite)) out[poseName] = cf.slice(0, 12);
+  const style = enumName(valueOf(pose, "EasingStyle"));
+  const direction = enumName(valueOf(pose, "EasingDirection"));
+  if (style !== null || direction !== null) {
+    easingOut[poseName] = {};
+    if (style !== null) easingOut[poseName].style = style;
+    if (direction !== null) easingOut[poseName].direction = direction;
+  }
+  for (const child of childrenOf(pose)) if (cls(child) === "Pose") readPose(child, out, easingOut);
 }
 function readSequence(sequence) {
   const frames = findAll(sequence, i => cls(i) === "Keyframe").map(keyframe => {
     const poses = {};
-    for (const child of childrenOf(keyframe)) if (cls(child) === "Pose") readPose(child, poses);
-    return { time: Number(valueOf(keyframe, "Time")) || 0, poses };
+    const easing = {};
+    for (const child of childrenOf(keyframe)) if (cls(child) === "Pose") readPose(child, poses, easing);
+    return { time: Number(valueOf(keyframe, "Time")) || 0, poses, ...(Object.keys(easing).length ? { easing } : {}) };
   }).sort((a, b) => a.time - b.time);
   return {
     duration: frames.reduce((max, f) => Math.max(max, f.time), 0),
@@ -100,5 +120,5 @@ if (errors.length) {
   process.exit(1);
 }
 fs.mkdirSync(path.dirname(output), { recursive: true });
-fs.writeFileSync(output, JSON.stringify({ version: 1, animations }, null, 2) + "\n");
+fs.writeFileSync(output, JSON.stringify({ version: 2, animations }, null, 2) + "\n");
 console.log("Wrote " + output + " (" + Object.keys(animations).length + " animations)");
