@@ -126,7 +126,13 @@ export function applyImportedAnimation(av, clip, elapsed) {
     const joint = joints[robloxName], part = av[partName];
     if (!joint || !part) continue;
     applied += 1;
-    part.quaternion.copy(joint.quaternion);
+    if (partName === "torso") {
+      // The imported dance clips animate the torso much less than the limbs.
+      // Add a modest rotation multiplier so the upper body visibly follows the beat.
+      part.quaternion.identity().slerp(joint.quaternion, 1.5).normalize();
+    } else {
+      part.quaternion.copy(joint.quaternion);
+    }
     part.position.copy(joint.position);
     if (partName === "torso") part.position.y += REST.torso[1];   // pose offset is relative to the root part
   }
