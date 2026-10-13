@@ -1,1 +1,15 @@
-{ "version": "manual-1", "rig": "R6", "bodyColors": {}, "model": { "obj": "avatar.obj", "mtl": "avatar.mtl", "hash": "manual-1" }, "assets": [] }
+﻿{
+    "version":  "coy-r6-export-1",
+    "rig":  "R6",
+    "bodyColors":  {
+
+                   },
+    "model":  {
+                  "obj":  "coy.obj",
+                  "mtl":  "coy.mtl",
+                  "hash":  "coy-r6-export-1"
+              },
+    "assets":  [
+
+               ]
+}
