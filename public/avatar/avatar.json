@@ -1,5 +1,5 @@
 ﻿{
-    "version":  "coy-r6-export-1",
+    "version":  "coy-r6-20261013165934",
     "rig":  "R6",
     "bodyColors":  {
 
@@ -7,7 +7,7 @@
     "model":  {
                   "obj":  "coy.obj",
                   "mtl":  "coy.mtl",
-                  "hash":  "coy-r6-export-1"
+                  "hash":  "coy-r6-20261013165934"
               },
     "assets":  [
 
