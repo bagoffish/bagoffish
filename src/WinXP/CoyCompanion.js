@@ -1011,8 +1011,9 @@ export default function CoyCompanion() {
         onClick={event => { event.stopPropagation(); openChat(); }}
         style={{
           position: "absolute",
-          left: spriteSize - 5,
-          top: Math.round(spriteSize * 0.38),
+          // Keep the chat icon beside Coy's head rather than beside his torso.
+          left: Math.round(spriteSize * 0.62),
+          top: Math.round(spriteSize * 0.19),
           width: 30,
           height: 30,
           padding: 0,
@@ -1020,7 +1021,7 @@ export default function CoyCompanion() {
           background: "transparent",
           cursor: "pointer",
           pointerEvents: "auto",
-          display: pose === "wave" ? "none" : "block",
+          display: "block",
           zIndex: 4
         }}
         onMouseEnter={event => {
