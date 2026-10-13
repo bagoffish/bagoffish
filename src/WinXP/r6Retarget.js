@@ -54,16 +54,13 @@ const tmpV = new THREE.Vector3();
 
 // Joint transform in scene axes: position relative to the parent joint's frame, plus rotation.
 function jointPose(name, cf, outPos, outQuat) {
-  // The root/torso pose is not a Motor6D limb pose. Convert its translation
-  // and rotation directly between Roblox axes and the scene axes.
-  if (name === "Torso") {
-    outPos.set(-cf[0], cf[1], -cf[2]);
-    const rootRotation = rotation(cf);
-    outQuat.setFromRotationMatrix(rootRotation).normalize();
-    outQuat.set(-outQuat.x, outQuat.y, -outQuat.z, outQuat.w);
-    return;
-  }
-
+  // Every joint, including the torso's RootJoint, goes through the same Motor6D formula.
+  // RootJoint has C0 = C1 = ROOT_ROT (a 180 degree turn about (0,1,1)), which swaps the
+  // Y and Z axes: a Torso "Z" value in the clip is UP/DOWN in the world, "Y" is forward/back,
+  // and a rotation about the joint's Z axis is a twist about the vertical. Reading the
+  // torso CFrame directly (as this file used to) put dance bounces on the wrong axis
+  // and turned twists into sideways rolls. In scene axes the net effect is
+  // Rx(-90deg): position (x, y, z) -> (x, z, -y).
   const j = PREP[name];
   if (!j) return;
 
@@ -108,6 +105,8 @@ export function resetAvatarPose(av) {
     const part = av[name];
     if (!part) continue;
     part.quaternion.identity();
+    // All rebuilt limbs are children of the torso, so REST positions are torso-local.
+    // Adding REST.torso.y here lifted both legs by another 3 studs.
     part.position.set(...position);
     part.scale.set(1, 1, 1);
   }
@@ -126,15 +125,86 @@ export function applyImportedAnimation(av, clip, elapsed) {
     const joint = joints[robloxName], part = av[partName];
     if (!joint || !part) continue;
     applied += 1;
-    if (partName === "torso") {
-      // Keep the imported joint rotation intact. Extrapolating beyond 1.0 made
-      // torso rotations overshoot during dance loops and look twisted.
-      part.quaternion.copy(joint.quaternion);
-    } else {
-      part.quaternion.copy(joint.quaternion);
-    }
+    part.quaternion.copy(joint.quaternion);
     part.position.copy(joint.position);
-    if (partName === "torso") part.position.y += REST.torso[1];   // pose offset is relative to the root part
+    if (partName === "torso") {
+      // Torso translation is relative to the feet/root origin.
+      part.position.y += REST.torso[1];
+    }
+    // Limb positions are already torso-local from jointPose(); adding the torso's
+    // 3-stud height to either leg makes it jump upward as soon as an imported clip loads.
   }
   return applied > 0;
+}
+
+
+// ---------------------------------------------------------------------------------------------
+// Torso follow-through
+//
+// Roblox's stock R6 clips (and the sword / gear clips) animate almost only the limbs: across
+// idle/walk/wave/dance the Torso joint rotates 2-14 degrees, and in swordslash, swordlunge and
+// gearhold it does not move at all. That is why the body looks stiff. This layer adds the missing
+// secondary motion on top of whatever clip is playing, driven by what the arms and legs are doing:
+//   - shoulders twist toward the swinging arm (and against the stride while walking),
+//   - the chest leans into reaching/lunging motions, plus a slow breathing sway.
+// Legs are counter-rotated so the hips and feet stay planted, and the head only follows
+// part of the twist so it keeps looking where it was.
+// ---------------------------------------------------------------------------------------------
+const _dir = new THREE.Vector3();
+const _eul = new THREE.Euler();
+const _qT = new THREE.Quaternion(), _qC = new THREE.Quaternion(), _qOld = new THREE.Quaternion();
+const _qId = new THREE.Quaternion();
+
+// z component of "where the limb points" in torso space (+z is forward, toward the screen).
+const limbForward = part => _dir.set(0, -1, 0).applyQuaternion(part.quaternion).z;
+
+// gain per clip: arm = twist from arm swing, leg = twist from stride, lean = forward lean.
+export const TORSO_GAINS = {
+  default:    { arm: 0.22, leg: 0.22, lean: 0.06, sway: 1 },
+  idle1:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
+  idle2:      { arm: 0.10, leg: 0.00, lean: 0.00, sway: 1 },
+  walk:       { arm: 0.22, leg: 0.26, lean: 0.05, sway: 0 },
+  dance1:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
+  dance2:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
+  dance3:     { arm: 0.30, leg: 0.20, lean: 0.08, sway: 0 },
+  wave:       { arm: 0.18, leg: 0.00, lean: 0.04, sway: 1 },
+  climbing:   { arm: 0.18, leg: 0.18, lean: 0.00, sway: 0 },
+  gearhold:   { arm: 0.30, leg: 0.00, lean: 0.05, sway: 1 },
+  swordslash: { arm: 0.60, leg: 0.00, lean: 0.14, sway: 0 },
+  swordlunge: { arm: 0.55, leg: 0.00, lean: 0.22, sway: 0 },
+};
+
+// Computes the target { twist, lean } for the pose the clip just wrote into `av`.
+export function torsoTargets(av, clipName, time) {
+  const g = TORSO_GAINS[clipName] || TORSO_GAINS.default;
+  const rz = limbForward(av.rArm), lz = limbForward(av.lArm);
+  const rlz = limbForward(av.rLeg), llz = limbForward(av.lLeg);
+  // Positive twist (about +Y) brings the anatomical right shoulder forward (+z).
+  const armSwing = (rz - lz) / 2;
+  const stride = (llz - rlz) / 2;           // left leg forward => right shoulder forward
+  const reach = Math.max(rz, lz, 0);        // how far an arm is extended forward
+  const clamp = (v, m) => Math.max(-m, Math.min(m, v));
+  const twist = clamp(g.arm * armSwing + g.leg * stride, 0.45);
+  const lean = clamp(g.lean * reach, 0.3) + g.sway * 0.012 * Math.sin(time * 2.1);
+  return { twist, lean };
+}
+
+// Applies the follow-through. Call after the clip pose has been written and before head-look.
+export function applyTorsoLayer(av, twist, lean, headFollow = 0.55) {
+  if (!av.torso || (Math.abs(twist) < 1e-4 && Math.abs(lean) < 1e-4)) return;
+  _qOld.copy(av.torso.quaternion);
+  _qT.setFromEuler(_eul.set(lean, twist, 0, "YXZ"));
+  av.torso.quaternion.premultiply(_qT).normalize();
+  // Counter-rotate legs (position and orientation) so they stay where the clip put them.
+  _qC.copy(_qOld).invert().multiply(_qT.clone().invert()).multiply(_qOld);
+  for (const leg of [av.rLeg, av.lLeg]) {
+    if (!leg) continue;
+    leg.position.applyQuaternion(_qC);
+    leg.quaternion.premultiply(_qC).normalize();
+  }
+  // The head follows only part of the twist, so it doesn't whip around with the shoulders.
+  if (av.head) {
+    _qId.identity();
+    av.head.quaternion.premultiply(_qId.clone().slerp(_qC, 1 - headFollow)).normalize();
+  }
 }
