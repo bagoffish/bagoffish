@@ -251,6 +251,15 @@ export default function CoyCompanion() {
       frame = window.requestAnimationFrame(() => {
         frame = 0;
         if (!rootRef.current || dragState.current || !wasStandingAligned.current) return;
+        // Observe every eligible window and title bar, including windows created
+        // after Coy was mounted. A resize can change geometry without a style mutation.
+        document.querySelectorAll(".app__header").forEach(header => {
+          const windowNode = header.closest("[data-app-window-id][data-app-title]");
+          if (windowNode) {
+            resizeObserver?.observe(header);
+            resizeObserver?.observe(windowNode);
+          }
+        });
         const current = standingSurfaceRef.current;
 
         if (current?.kind === "appbar") {
