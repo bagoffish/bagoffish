@@ -290,6 +290,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
 
+      // Restore the old elastic squash/stretch reactions independently of the
+      // authored joint animation. The avatar's origin is at its feet, so this
+      // scales the body without making it slide through the taskbar.
+      if (["pat", "land", "held"].includes(L.pose)) {
+        const rate = L.pose === "held" ? 13.5 : L.pose === "pat" ? 18.5 : 18;
+        const decay = L.pose === "held" ? 4.2 : L.pose === "pat" ? 7.5 : 8.5;
+        const impact = Math.exp(-localTime * decay) * Math.cos(localTime * rate);
+        const strength = L.pose === "held" ? 0.045 : L.pose === "pat" ? 0.11 : 0.15;
+        av.body.scale.set(1 + impact * strength, 1 - impact * strength * 1.45, 1 + impact * strength * 0.72);
+        if (L.pose === "pat") {
+          av.head.rotation.x += -0.10 * Math.exp(-localTime * 7.5);
+        }
+      }
+
       // Smoothly cross-fade actual part transforms when changing clips/reactions.
       if (transitionFrom) {
         const rawAlpha = clamp((t - transitionStart) / 0.22, 0, 1);
