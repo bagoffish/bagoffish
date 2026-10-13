@@ -1,4 +1,4 @@
-﻿import * as THREE from "three";
+import * as THREE from "three";
 
 // Roblox's avatar-3d OBJ is already divided into named groups (Rig1..Rig6 and
 // Handle1..HandleN). Keep those real part boundaries: splitting triangles by
@@ -26,7 +26,8 @@ const PIVOTS = {
 };
 
 function isTorsoAccessory(object, torsoBounds, headBounds) {
-  // Prefer the real accessory name when the OBJ preserves it.
+  // A specifically named tail is reliable; Handle numbers are not. Roblox can
+  // renumber handles on export, so Handle7 must never be treated as a tail by name.
   let isHandle = false;
   for (let current = object; current; current = current.parent) {
     const candidates = [
@@ -36,42 +37,47 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
       current.userData?.groupName,
       ...[].concat(current.material || []).map(material => material?.name),
     ].filter(value => typeof value === "string");
-    if (candidates.some(value => /OpossumTail/i.test(value) || /^Handle7(?:Mtl)?$/i.test(value.trim()))) return true;
-    if (candidates.some(value => /(?:^|\s)Handle\d+(?:Mtl)?(?:$|\s)/i.test(value.trim()))) isHandle = true;
+    if (candidates.some(value => /OpossumTail/i.test(value))) return true;
+    if (candidates.some(value => /(?:^|\\s)Handle\\d+(?:Mtl)?(?:$|\\s)/i.test(value.trim()))) isHandle = true;
   }
 
-  // Roblox exports can renumber accessory Handles whenever an outfit is re-exported.
-  // Detect a tail by its position instead of assuming it will always be Handle7:
-  // a tail's center sits below the head/torso joint boundary, unlike hair or glasses.
   if (!isHandle || !torsoBounds || !headBounds || torsoBounds.isEmpty() || headBounds.isEmpty()) return false;
   const accessoryBounds = new THREE.Box3().setFromObject(object);
   if (accessoryBounds.isEmpty()) return false;
+
+  // Face accessories often sit in front of (rather than inside) the head box.
+  // Give the head a small 3D margin before considering any low Handle a torso tail.
+  const headAccessoryZone = headBounds.clone().expandByScalar(0.7);
+  if (headAccessoryZone.intersectsBox(accessoryBounds)) return false;
+
+  // Only classify a Handle as a tail when it is clearly below the neck joint.
   const center = accessoryBounds.getCenter(new THREE.Vector3());
   const jointBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
   const torsoSize = torsoBounds.getSize(new THREE.Vector3());
-  // Only classify an accessory as the tail when it is clearly below the neck
-  // joint. Glasses and face accessories can sit low in the exported OBJ, so
-  // using the boundary alone can accidentally parent them to the torso.
   return center.y < jointBoundary - Math.max(0.2, torsoSize.y * 0.12);
 }
 
 function sourcePartName(object) {
   // OBJLoader versions differ in whether a "g" name is stored on the mesh,
-  // its parent, or the object's userData. Check all of them before falling back.
+  // its parent, or the object's userData. Search all levels for an accessory
+  // Handle first, so a parent Rig5 group cannot swallow glasses into the torso.
+  const candidates = [];
   for (let current = object; current; current = current.parent) {
-    const candidates = [
+    candidates.push(
       current.name,
       current.userData?.name,
       current.userData?.objectName,
       current.userData?.groupName,
       ...[].concat(current.material || []).map(material => material?.name),
-    ].filter(value => typeof value === "string");
-    for (const candidate of candidates) {
-      const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
-      if (rig && RIG_TO_PART[rig[1]]) return rig[1];
-      const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
-      if (handle) return handle[1];
-    }
+    );
+  }
+  for (const candidate of candidates.filter(value => typeof value === "string")) {
+    const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:Mtl)?(?:$|\\s)/i);
+    if (handle) return handle[1];
+  }
+  for (const candidate of candidates.filter(value => typeof value === "string")) {
+    const rig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|\\s)/);
+    if (rig && RIG_TO_PART[rig[1]]) return rig[1];
   }
   // Preserve unknown accessory meshes rather than dropping them.
   return "head";
