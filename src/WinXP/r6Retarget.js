@@ -137,11 +137,11 @@ export function applyImportedAnimation(av, clip, elapsed) {
     }
     part.position.copy(joint.position);
     if (partName === "torso") {
-      part.position.y += REST.torso[1];   // pose offset is relative to the root part
-    } else if (partName === "rLeg" || partName === "lLeg") {
-      // Leg joint positions are now in body/root space so torso turns don't lift or drag the feet.
+      // Torso translation is relative to the feet/root origin.
       part.position.y += REST.torso[1];
     }
+    // Limb positions are already torso-local from jointPose(); adding the torso's
+    // 3-stud height to either leg makes it jump upward as soon as an imported clip loads.
   }
   return applied > 0;
 }
