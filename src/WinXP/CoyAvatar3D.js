@@ -111,9 +111,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
   const live = useRef({});
   live.current = { pose, dir, vx, impact, look, getPos };
   const W = size, H = Math.round(size / ASPECT);
-  // The interaction footprint remains W×H, but render into a much larger
-  // transparent viewport so animated limbs/accessories never hit a square canvas edge.
-  const RENDER_W = Math.round(W * 1.8), RENDER_H = Math.round(H * 1.6);
+  // Keep the drag/collision footprint compact, but make the actual WebGL viewport
+  // far larger so swinging limbs, turns, and accessories don't get cut at its edges.
+  const RENDER_W = Math.round(W * 3), RENDER_H = Math.round(H * 2.5);
 
   useEffect(() => {
     const canvas = canvasRef.current;
