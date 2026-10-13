@@ -216,16 +216,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     loadGear("Sword.obj", 0.52).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       swordGear = gear;
-      // Gear is parented to the shoulder pivot, so place its grip down by the hand.
-      swordGear.position.set(0.12, -1.58, 0.24);
-      swordGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
+      // Roblox sword Tool.Grip: Position (0, 0, -1.5), Orientation (0, 90, 90).
+      swordGear.position.set(0, 0, -1.5);
+      swordGear.rotation.set(0, Math.PI / 2, Math.PI / 2);
       attachGear();
     }).catch(e => console.warn("Coy: sword gear failed to load", e));
     loadGear("GrappleGun.obj", 0.72).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       grappleGear = gear;
-      // Keep the grapple gun in the hand, not floating beside the upper arm.
-      grappleGear.position.set(0.08, -1.48, 0.22);
+      // Roblox grapple Tool.Grip position: (0, -0.6, 1).
+      grappleGear.position.set(0, -0.6, 1);
       grappleGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
       attachGear();
     }).catch(e => console.warn("Coy: grapple gear failed to load", e));
