@@ -216,14 +216,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     loadGear("Sword.obj", 0.52).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       swordGear = gear;
-      swordGear.position.set(0.12, -0.48, 0.24);
+      // Gear is parented to the shoulder pivot, so place its grip down by the hand.
+      swordGear.position.set(0.12, -1.58, 0.24);
       swordGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
       attachGear();
     }).catch(e => console.warn("Coy: sword gear failed to load", e));
     loadGear("GrappleGun.obj", 0.72).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
       grappleGear = gear;
-      grappleGear.position.set(0.08, -0.42, 0.22);
+      // Keep the grapple gun in the hand, not floating beside the upper arm.
+      grappleGear.position.set(0.08, -1.48, 0.22);
       grappleGear.rotation.set(Math.PI / 2, 0, -Math.PI / 2);
       attachGear();
     }).catch(e => console.warn("Coy: grapple gear failed to load", e));
