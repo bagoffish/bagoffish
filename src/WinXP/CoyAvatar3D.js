@@ -253,8 +253,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         transitionFrom = capturePose();
         transitionStart = t;
         poseStart = t;
-        // The procedural pose accumulator must not carry a raised arm or dance
-        // pose into a later custom pat/land reaction (or into imported clips).
+        // Start the new clip from the canonical rig pose; the transition below
+        // blends the captured previous pose into this clip's first CFrame sample.
         if (clip || previousAnimationMode.startsWith("cframe:")) resetAvatarPose(av);
         previousAnimationMode = animationMode;
         if (window.__coyAnimationStatus) {
