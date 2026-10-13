@@ -125,6 +125,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     let av = null, raf = 0, cancelled = false;
     const bodyBaseScale = new THREE.Vector3(1, 1, 1);
+    const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
     let poseStartedAt = 0;
     let animations = {};
@@ -168,6 +169,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (av) { scene.remove(av.body); disposeAvatar(av.body); }
         av = next;
         bodyBaseScale.copy(av.body.scale);
+        if (av.head) headBaseScale.copy(av.head.scale);
         scene.add(av.body);
       });
     loadMeta();
@@ -190,6 +192,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         console.debug("Coy: playing imported animation", clipName);
       }
       av.body.scale.copy(bodyBaseScale);
+      if (av.head) av.head.scale.copy(headBaseScale);
       const usingImported = Boolean(clip) && applyImportedAnimation(av, clip, t - animationStart);
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
@@ -211,6 +214,24 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           bodyBaseScale.y * (1 - pulse),
           bodyBaseScale.z * (1 + pulse * 0.85)
         );
+      }
+      // Patting gives Coy a quick, soft bounce. The envelope fades out cleanly
+      // when the pat pose ends, and scales are rebuilt each frame to avoid drift.
+      if (L.pose === "pat") {
+        const age = clamp((t - poseStartedAt) / 0.65, 0, 1);
+        const pulse = Math.abs(Math.sin((t - poseStartedAt) * 19)) * Math.sin(Math.PI * age);
+        av.body.scale.set(
+          av.body.scale.x * (1 + pulse * 0.045),
+          av.body.scale.y * (1 - pulse * 0.075),
+          av.body.scale.z * (1 + pulse * 0.045)
+        );
+        if (av.head) {
+          av.head.scale.set(
+            headBaseScale.x * (1 + pulse * 0.025),
+            headBaseScale.y * (1 - pulse * 0.045),
+            headBaseScale.z * (1 + pulse * 0.025)
+          );
+        }
       }
 
       // Face the way it is walking: front-facing at rest, a quarter turn while walking.
