@@ -1081,7 +1081,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
             alt=""
             aria-hidden="true"
             draggable={false}
