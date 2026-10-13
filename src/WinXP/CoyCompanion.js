@@ -831,7 +831,7 @@ export default function CoyCompanion() {
     if (event && event.preventDefault) event.preventDefault();
     const message = (overrideMessage || draft).trim();
     if (!message || busy) return;
-    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|dance)\s?([123])?$/);
+    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|sit|dance)\s?([123])?$/);
     if (emote) {                                   // /e wave, /e dance, /e dance2, /e dance 3
       setDraft("");
       playEmote(emote[1] === "dance" && emote[2] && emote[2] !== "1" ? "dance" + emote[2] : emote[1]);
