@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
@@ -111,15 +111,20 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
   const live = useRef({});
   live.current = { pose, dir, vx, impact, look, getPos };
   const W = size, H = Math.round(size / ASPECT);
+  // The interaction footprint remains W×H, but render into a much larger
+  // transparent viewport so animated limbs/accessories never hit a square canvas edge.
+  const RENDER_W = Math.round(W * 1.8), RENDER_H = Math.round(H * 1.6);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(W, H, false);
+    renderer.setClearColor(0x000000, 0);
+    renderer.setSize(RENDER_W, RENDER_H, false);
     const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(30, W / H, .1, 100);
-    camera.position.set(0, 2.8, 12.5); camera.lookAt(0, 2.8, 0);
+    const camera = new THREE.PerspectiveCamera(30, RENDER_W / RENDER_H, .1, 100);
+    // Scale distance with the taller viewport to preserve Coy's on-screen size.
+    camera.position.set(0, 2.8, 12.5 * (RENDER_H / H)); camera.lookAt(0, 2.8, 0);
     scene.add(new THREE.AmbientLight(0xffffff, .7));
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
@@ -315,11 +320,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       scene.traverse(o => { o.geometry?.dispose(); o.material && [].concat(o.material).forEach(m => { m.map?.dispose(); m.dispose(); }); });
       renderer.dispose();
     };
-  }, [W, H]);
+  }, [W, H, RENDER_W, RENDER_H]);
 
-  // The negative margin lets the feet sit exactly on the taskbar edge.
-  return <canvas ref={canvasRef} aria-label="Coy" role="img"
-    style={{ width: W, height: H, display: "block", marginBottom: -Math.round(H * FOOT), cursor: "grab", touchAction: "none", pointerEvents: "auto" }} />;
+  // The visible canvas extends well beyond Coy's drag/collision footprint.
+  // Explicit transparency and overflow-visible parents prevent a visible square frame.
+  return <div style={{ position: "relative", width: W, height: H, marginBottom: -Math.round(H * FOOT), overflow: "visible", background: "transparent", border: 0, outline: 0, pointerEvents: "none" }}>
+    <canvas ref={canvasRef} aria-label="Coy" role="img"
+      style={{ position: "absolute", left: -Math.round((RENDER_W - W) / 2), top: -Math.round((RENDER_H - H) / 2), width: RENDER_W, height: RENDER_H, display: "block", background: "transparent", border: 0, outline: 0, cursor: "grab", touchAction: "none", pointerEvents: "auto" }} />
+  </div>;
 }
 
 
