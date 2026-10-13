@@ -25,6 +25,21 @@ const PIVOTS = {
   lLeg: [1, 2, 0],
 };
 
+function isTorsoAccessory(object) {
+  // This tail is a back accessory, not part of the head. Keep it in torso space
+  // so head-look rotations don't swing the tail around with the head.
+  for (let current = object; current; current = current.parent) {
+    const candidates = [
+      current.name,
+      current.userData?.name,
+      current.userData?.objectName,
+      current.userData?.groupName,
+    ].filter(value => typeof value === "string");
+    if (candidates.some(value => /OpossumTail1Accessory/i.test(value))) return true;
+  }
+  return false;
+}
+
 function sourcePartName(object) {
   // OBJLoader versions differ in whether a "g" name is stored on the mesh,
   // its parent, or the object's userData. Check all of them before falling back.
@@ -87,7 +102,7 @@ export function splitIntoR6Parts(root) {
     if (!object.isMesh) return;
     const sourceName = sourcePartName(object);
     if (!sourceName) return;
-    const partName = RIG_TO_PART[sourceName] || "head";
+    const partName = isTorsoAccessory(object) ? "torso" : (RIG_TO_PART[sourceName] || "head");
     const pivot = PIVOTS[partName];
     const geometry = object.geometry.clone();
 
