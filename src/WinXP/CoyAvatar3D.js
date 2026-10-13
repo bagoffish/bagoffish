@@ -421,8 +421,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       // Apply the facing turn after pose crossfading; otherwise the crossfade can
       // repeatedly blend the body back toward its old, front-facing quaternion.
-      const targetYaw = L.pose === "walk" ? L.dir * Math.PI / 2 : 0;
-      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (L.pose === "walk" ? 8 : 7));
+      // Walking and climbing should both turn Coy side-on. For climbing, dir
+      // selects which side of the app/desktop edge he is facing; keep the turn
+      // smooth and return to the front-facing pose when the action ends.
+      const sideFacing = L.pose === "walk" || L.pose === "climbing";
+      const targetYaw = sideFacing ? L.dir * Math.PI / 2 : 0;
+      const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 8 : 7));
       const yawTarget = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), targetYaw);
       av.body.quaternion.slerp(yawTarget, yawAlpha).normalize();
       // Landing squash is driven by the actual downward impact speed (px/s),
