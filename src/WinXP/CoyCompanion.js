@@ -7,6 +7,16 @@ const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "
 const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
+
+// ---- Coy's autonomous behaviour (tune here) ----
+const ACTION_MIN_MS = 6000;       // gap between random actions: sword / sit / grapple
+const ACTION_MAX_MS = 15000;
+const WALL_CONTACT_PX = 14;       // how far his body centre hangs off the wall while climbing
+const CLIMB_SPEED = 85;           // px/s
+const HOOK_TRAVEL_S = 0.38;       // time for the hook to fly out to its anchor
+const WALL_ROPE_REACH = 560;      // farthest wall he will fire at, px
+const lerp = (a, b, k) => a + (b - a) * k;
+const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 const COY_COMPANION_COOKIE = 'coy_companion_chat';
 function readCompanionChatCookie() {
   try {
@@ -139,6 +149,19 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   const gearHeldRef = useRef(false);
+  // Autonomous grapple / climb routines. grappleRef is shared with the avatar: while
+  // active, the arm aims at (ax, ay) and the avatar writes the muzzle position to (mx, my).
+  const grappleRef = useRef({ active: false, ax: 0, ay: 0, mx: NaN, my: NaN, travel: 0 });
+  const actionRef = useRef(null);
+  const actionsRef = useRef({});
+  const poseRef = useRef("wave");
+  const uiRef = useRef({});
+  const lastPointerAt = useRef(0);
+  const ropeSvgRef = useRef(null);
+  const ropeShadowRef = useRef(null);
+  const ropeLineRef = useRef(null);
+  const ropeHookRef = useRef(null);
+  const ropeRaf = useRef(0);
   // Render Coy at one quarter of the source image width, independent of viewport size.
   const [spriteSize, setSpriteSize] = useState(148);
 
@@ -148,6 +171,8 @@ export default function CoyCompanion() {
   }));
   const lastDesktopReaction = useRef(0);
   posRef.current = position;
+  poseRef.current = pose;
+  uiRef.current = { chatOpen, busy, underAppWindows };
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
@@ -550,7 +575,7 @@ export default function CoyCompanion() {
 
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
-    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];  // plus coyMoves.wall(), .cursor(), .random()
     const durations = { swordslash: 1200, swordlunge: 1500, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
@@ -578,7 +603,11 @@ export default function CoyCompanion() {
         setPose("idle");
         return true;
       },
-      stop() { window.clearTimeout(poseTimer.current); setPose(gearHeldRef.current ? "gearhold" : "idle"); },
+      stop() { actionsRef.current.cancel?.(); window.clearTimeout(poseTimer.current); setPose(gearHeldRef.current ? "gearhold" : "idle"); },
+      // Run the real autonomous routines on demand. side: "left" | "right" | undefined (any).
+      wall(side) { const ok = actionsRef.current.wall?.(side); if (!ok) console.warn("Coy: no wall in reach" + (side ? " on the " + side : "")); return Boolean(ok); },
+      cursor() { const ok = actionsRef.current.cursor?.(true); if (!ok) console.warn("Coy: move the mouse first (and keep it away from him, above the taskbar)"); return Boolean(ok); },
+      random() { actionsRef.current.random?.(); return true; },
       async demo() {
         const sequence = ["wave", "dance", "dance2", "dance3", "swordslash", "swordlunge", "gearhold", "grapple", "climbing"];
         for (const move of sequence) {
@@ -594,37 +623,37 @@ export default function CoyCompanion() {
   }, []);
   useEffect(() => {
     showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
-    const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; };
+    const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; if (e.pointerType !== "touch") lastPointerAt.current = Date.now(); };
     window.addEventListener("pointermove", onMove);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.clearTimeout(poseTimer.current);
       window.cancelAnimationFrame(fallRaf.current);
+      window.cancelAnimationFrame(ropeRaf.current);
     };
   }, []);
 
-  // Coy occasionally performs a small autonomous action when the desktop is quiet.
-  // Tool animations are deliberately uncommon and never interrupt chat, dragging, or windows.
+  // Every few seconds Coy picks something to do on his own: swing the sword, sit down, or
+  // grapple (onto a wall he then climbs, or onto the mouse cursor). This is one long-lived
+  // timer. The old version restarted its countdown every time he toggled idle <-> walk, which
+  // happens every few seconds, so the countdown almost never finished and he rarely did anything.
   useEffect(() => {
-    if (chatOpen || showBubble || busy || underAppWindows || pose !== "idle") return;
-    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const timer = window.setTimeout(() => {
-      const roll = Math.random();
-      if (roll < 0.24) {
-        const actions = [
-          ["swordslash", 900],
-          ["swordlunge", 1200],
-          ["swordslash", 900],
-          ["grapple", 2100]
-        ];
-        const [action, duration] = actions[Math.floor(Math.random() * actions.length)];
-        showPose(action, duration);
-      } else if (roll < 0.30) {
-        showPose("sit", 6500 + Math.random() * 3500);
-      }
-    }, 12000 + Math.random() * 18000);
-    return () => window.clearTimeout(timer);
-  }, [pose, chatOpen, showBubble, busy, underAppWindows]);
+    let timer = 0, dead = false;
+    const reduced = () => Boolean(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const schedule = ms => { timer = window.setTimeout(fire, ms); };
+    const fire = () => {
+      if (dead) return;
+      const ui = uiRef.current;
+      const ready = !ui.chatOpen && !ui.busy && !ui.underAppWindows && !reduced() && !document.hidden &&
+        !actionRef.current && !dragState.current && wasStandingAligned.current &&
+        (poseRef.current === "idle" || poseRef.current === "walk");
+      if (!ready) { schedule(1500 + Math.random() * 1500); return; }
+      try { actionsRef.current.random?.(); } catch (e) { console.warn("Coy action failed", e); }
+      schedule(ACTION_MIN_MS + Math.random() * (ACTION_MAX_MS - ACTION_MIN_MS));
+    };
+    schedule(4500 + Math.random() * 3500);
+    return () => { dead = true; window.clearTimeout(timer); actionsRef.current.cancel?.(); };
+  }, []);
 
   useEffect(() => {
     // Speech bubbles are visual only: they must not pause Coy's autonomous walking.
@@ -726,6 +755,8 @@ export default function CoyCompanion() {
     velRef.current.vx = 0;
     let left = posRef.current.left;
     const maxLeft = Math.max(0, window.innerWidth - spriteSize);
+    // He may let go while hanging half off a screen-edge wall; don't snap him back in.
+    let loL = Math.min(0, left), hiL = Math.max(maxLeft, left);
     let vy = 0, last = performance.now();
     setPose("fall");
     const startTop = top;
@@ -751,7 +782,9 @@ export default function CoyCompanion() {
       const previousTop = top;
       const nextTop = top + vy * dt;
       left += vx * dt;
-      if (left < 0 || left > maxLeft) { left = Math.max(0, Math.min(maxLeft, left)); vx *= -0.5; }  // bounce off the edges
+      if (left >= 0) loL = 0;
+      if (left <= maxLeft) hiL = maxLeft;
+      if (left < loL || left > hiL) { left = Math.max(loL, Math.min(hiL, left)); vx *= -0.5; }  // bounce off the edges
       const appbar = findAppbarCollision(left, previousTop, nextTop, maxTop);
       if (appbar) {
         landOn(appbar, left);
@@ -768,6 +801,307 @@ export default function CoyCompanion() {
     };
     fallRaf.current = window.requestAnimationFrame(step);
   }
+
+
+  // ======================= autonomous routines =======================
+
+  function moveTo(left, top) {
+    const next = { left, top };
+    posRef.current = next;
+    setPosition(next);
+  }
+
+  // ---- rope overlay: drawn on screen, so it can reach a wall far outside his canvas ----
+  function drawRope() {
+    ropeRaf.current = 0;
+    const g = grappleRef.current, svg = ropeSvgRef.current;
+    if (!svg) return;
+    if (!g.active) { svg.style.display = "none"; return; }
+    const W = spriteSize, H = getCoyHeight();
+    const mx = Number.isFinite(g.mx) ? g.mx : posRef.current.left + W * 0.5;
+    const my = Number.isFinite(g.my) ? g.my : posRef.current.top + H * 0.42;
+    const k = easeInOut(Math.max(0, Math.min(1, g.travel)));
+    const hx = lerp(mx, g.ax, k), hy = lerp(my, g.ay, k);
+    for (const line of [ropeShadowRef.current, ropeLineRef.current]) {
+      if (!line) continue;
+      line.setAttribute("x1", mx); line.setAttribute("y1", my);
+      line.setAttribute("x2", hx); line.setAttribute("y2", hy);
+    }
+    if (ropeHookRef.current) { ropeHookRef.current.setAttribute("cx", hx); ropeHookRef.current.setAttribute("cy", hy); }
+    svg.style.display = "block";
+    ropeRaf.current = window.requestAnimationFrame(drawRope);
+  }
+  function showRope(ax, ay) {
+    const g = grappleRef.current;
+    g.ax = ax; g.ay = ay; g.travel = 0; g.mx = NaN; g.my = NaN; g.active = true;
+    if (!ropeRaf.current) ropeRaf.current = window.requestAnimationFrame(drawRope);
+  }
+  function hideRope() {
+    grappleRef.current.active = false;
+    if (ropeSvgRef.current) ropeSvgRef.current.style.display = "none";
+  }
+
+  // ---- routine plumbing ----
+  function beginAction(name) {
+    cancelAction();
+    const token = { name, cancelled: false, raf: 0 };
+    actionRef.current = token;
+    window.cancelAnimationFrame(fallRaf.current);
+    window.clearTimeout(poseTimer.current);
+    wasStandingAligned.current = false;           // placement/walk logic must leave him alone
+    return token;
+  }
+  function cancelAction() {
+    const a = actionRef.current;
+    if (!a) return;
+    a.cancelled = true;
+    window.cancelAnimationFrame(a.raf);
+    actionRef.current = null;
+    hideRope();
+  }
+  function runLoop(token, step) {
+    let last = performance.now();
+    const tick = now => {
+      if (token.cancelled) return;
+      const dt = Math.min((now - last) / 1000, 0.05);
+      last = now;
+      let done = false;
+      try { done = step(dt); } catch (e) { console.warn("Coy action failed", e); letGo(token, 0); return; }
+      if (token.cancelled) return;
+      if (done) { if (actionRef.current === token) actionRef.current = null; return; }
+      token.raf = window.requestAnimationFrame(tick);
+    };
+    token.raf = window.requestAnimationFrame(tick);
+  }
+  // Let go of whatever he is hanging from and fall (carrying a little sideways speed).
+  function letGo(token, vx) {
+    if (token.cancelled) return;
+    window.cancelAnimationFrame(token.raf);
+    if (actionRef.current === token) actionRef.current = null;
+    hideRope();
+    velRef.current.vx = vx;
+    velRef.current.t = performance.now();
+    startFall();
+  }
+
+  // ---- walls he can grapple onto: the screen edges and the outer sides of app windows ----
+  function readWall(wall) {
+    if (wall.kind === "screen") {
+      return { ok: true, x: wall.side === "left" ? 0 : window.innerWidth };
+    }
+    const node = wall.node;
+    if (!node?.isConnected) return { ok: false };
+    const cs = window.getComputedStyle(node);
+    if (cs.display === "none" || cs.visibility === "hidden" || Number(cs.opacity) === 0) return { ok: false };
+    const rect = node.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) return { ok: false };
+    return { ok: true, x: wall.side === "left" ? rect.left : rect.right, rect };
+  }
+
+  function pickWall(onlySide) {
+    const W = spriteSize, H = getCoyHeight();
+    const vw = window.innerWidth;
+    const cx = posRef.current.left + W / 2;
+    const handY = posRef.current.top + H * 0.42;
+    const reach = Math.min(WALL_ROPE_REACH, vw * 0.7);
+    const found = [];
+    const add = (kind, side, x, node, loY, hiY) => {
+      if (onlySide && onlySide !== side) return;
+      const dir = side === "left" ? (kind === "screen" ? -1 : 1) : (kind === "screen" ? 1 : -1);
+      const contactX = x - dir * WALL_CONTACT_PX;
+      const away = Math.abs(contactX - cx);
+      if (contactX < 8 || contactX > vw - 8 || away < 80 || away > reach) return;
+      // Windows must be approached from outside; he never climbs through a window's body.
+      if (kind === "window" && (side === "left" ? cx > contactX - 10 : cx < contactX + 10)) return;
+      const hi = Math.min(hiY, handY - 70), lo = Math.max(loY, handY - 300);
+      if (hi < lo) return;
+      found.push({ kind, side, dir, x, node, anchorY: lo + Math.random() * (hi - lo) });
+    };
+    add("screen", "left", 0, null, 60, Infinity);
+    add("screen", "right", vw, null, 60, Infinity);
+    document.querySelectorAll(".app__header").forEach(header => {
+      const node = header.closest("[data-app-window-id][data-app-title]");
+      if (!node || !isVisibleAppbar(header, node)) return;
+      const rect = node.getBoundingClientRect();
+      if (rect.height < 150 || rect.top - H > posRef.current.top - 30) return;
+      add("window", "left", rect.left, node, rect.top + 24, rect.bottom - 24);
+      add("window", "right", rect.right, node, rect.top + 24, rect.bottom - 24);
+      // Windows are more interesting than bare screen edges, so they get a second ticket.
+      found.push(...found.filter(w => w.node === node));
+    });
+    return found.length ? found[Math.floor(Math.random() * found.length)] : null;
+  }
+
+  // Fire the grapple at a wall, get pulled onto it, climb, then either haul himself up onto
+  // the window's title bar or lose his grip and fall.
+  function startWallGrapple(onlySide) {
+    const wall = pickWall(onlySide);
+    if (!wall) return false;
+    const W = spriteSize, H = getCoyHeight();
+    const dir = wall.dir;
+    const token = beginAction("wall");
+    const slipAt = wall.kind === "window" && Math.random() < 0.4 ? 0.3 + Math.random() * 0.55 : null;
+    let phase = "fire", t = 0, pullFrom = null, pullDur = 0.7, climbStartTop = 0, climbStopTop = 0, mantleFrom = null, mantleTo = null, mantleSurface = null;
+    const contactLeft = x => x - dir * WALL_CONTACT_PX - W / 2;
+
+    dirRef.current = dir;
+    setDir(dir);
+    setPose("grapple");
+    showRope(wall.x, wall.anchorY);
+
+    runLoop(token, dt => {
+      const w = readWall(wall);
+      if (!w.ok) { letGo(token, 0); return true; }
+      grappleRef.current.ax = w.x;                               // the hook stays stuck to a moving window
+      const cur = posRef.current;
+
+      if (phase === "fire") {
+        t += dt;
+        grappleRef.current.travel = t / HOOK_TRAVEL_S;
+        if (t >= HOOK_TRAVEL_S + 0.12) { phase = "pull"; t = 0; pullFrom = { ...cur }; pullDur = Math.max(0.45, Math.min(1.0, Math.hypot(contactLeft(w.x) - cur.left, wall.anchorY - cur.top) / 700)); }
+        return false;
+      }
+
+      if (phase === "pull") {
+        t += dt;
+        const k = easeInOut(Math.min(1, t / pullDur));
+        const toLeft = contactLeft(w.x), toTop = Math.max(0, wall.anchorY - H * 0.42);
+        const left = lerp(pullFrom.left, toLeft, k), top = lerp(pullFrom.top, toTop, k);
+        velRef.current.vx = (left - cur.left) / Math.max(dt, 0.001);        // he leans into the pull
+        moveTo(left, top);
+        if (t >= pullDur) {
+          phase = "climb";
+          hideRope();
+          velRef.current.vx = 0;
+          climbStartTop = top;
+          if (wall.kind === "screen") {
+            const vh = window.innerHeight;
+            climbStopTop = Math.max(8, Math.min(climbStartTop - 60, climbStartTop - (0.18 + Math.random() * 0.37) * vh));
+          }
+          setPose("climbing");
+        }
+        return false;
+      }
+
+      if (phase === "climb") {
+        const left = contactLeft(w.x);
+        const top = cur.top - CLIMB_SPEED * dt;
+        const endTop = wall.kind === "window" ? Math.max(0, w.rect.top - H) : climbStopTop;
+        moveTo(left, top);
+        if (wall.kind === "window") {
+          const total = Math.max(1, climbStartTop - endTop);
+          if (slipAt !== null && (climbStartTop - top) / total >= slipAt) { letGo(token, -dir * 70); return true; }
+        }
+        if (top <= endTop) {
+          if (wall.kind === "screen") { letGo(token, -dir * 190); return true; }   // nothing to stand on: lets go
+          const header = wall.node.querySelector(".app__header");
+          const fit = header && getAppbarFitRange(header.getBoundingClientRect());
+          if (!fit) { letGo(token, -dir * 70); return true; }
+          const standLeft = wall.side === "left" ? fit.minLeft : fit.maxLeft;
+          mantleSurface = {
+            kind: "appbar", minLeft: fit.minLeft, maxLeft: fit.maxLeft, top: endTop,
+            anchorRatio: getAppbarAnchorRatio(standLeft, fit),
+            zIndex: Number.parseInt(window.getComputedStyle(wall.node).zIndex, 10) || 0,
+            element: header, windowNode: wall.node, headerRect: readRect(header), windowRect: readRect(wall.node)
+          };
+          mantleFrom = { left, top: endTop };
+          mantleTo = { left: standLeft, top: endTop };
+          phase = "mantle"; t = 0;
+        }
+        return false;
+      }
+
+      // mantle: swing over the edge onto the title bar
+      t += dt;
+      const k = easeInOut(Math.min(1, t / 0.5));
+      moveTo(lerp(mantleFrom.left, mantleTo.left, k), mantleTo.top);
+      if (t >= 0.5) {
+        standingSurfaceRef.current = mantleSurface;
+        wasStandingAligned.current = true;
+        setImpact(0);
+        showPose("land", 520);
+        return true;
+      }
+      return false;
+    });
+    return true;
+  }
+
+  // Shoot the hook at the mouse cursor, get yanked over to it, dangle for a moment, drop.
+  function startCursorGrapple(force) {
+    const fine = !window.matchMedia || window.matchMedia("(pointer: fine)").matches;
+    if (!fine || Date.now() - lastPointerAt.current > 6000) return false;
+    const W = spriteSize, H = getCoyHeight();
+    const groundTop = getTaskbarTop() - H;
+    const cursor = lookRef.current;
+    const cx = posRef.current.left + W / 2, cy = posRef.current.top + H * 0.42;
+    const dist = Math.hypot(cursor.x - cx, cursor.y - cy);
+    // The cursor has to be somewhere he can swing to: well away from him, above the taskbar.
+    if (dist < 170 || dist > 950 || cursor.y > groundTop + H * 0.3 || cursor.y < 10) return false;
+    const token = beginAction("cursor");
+    const hangFor = 1.1 + Math.random() * 1.1;
+    let phase = "fire", t = 0, speed = 250;
+    const goal = () => ({
+      left: Math.max(0, Math.min(window.innerWidth - W, cursor.x - W / 2)),
+      top: Math.max(0, Math.min(groundTop, cursor.y - H * 0.06))
+    });
+    setPose("grapple");
+    showRope(cursor.x, cursor.y);
+
+    runLoop(token, dt => {
+      grappleRef.current.ax = cursor.x;                         // the hook is stuck to the cursor itself
+      grappleRef.current.ay = cursor.y;
+      const cur = posRef.current, g = goal();
+
+      if (phase === "fire") {
+        t += dt;
+        grappleRef.current.travel = t / HOOK_TRAVEL_S;
+        if (t >= HOOK_TRAVEL_S + 0.1) { phase = "pull"; t = 0; }
+        return false;
+      }
+
+      if (phase === "pull") {
+        t += dt;
+        speed = Math.min(1250, speed + 2200 * dt);
+        const dx = g.left - cur.left, dy = g.top - cur.top, d = Math.hypot(dx, dy);
+        const stepLen = Math.min(d, speed * dt);
+        velRef.current.vx = d > 0 ? (dx / d) * speed : 0;
+        if (d > 0) moveTo(cur.left + (dx / d) * stepLen, cur.top + (dy / d) * stepLen);
+        if (d <= 6 || t > 2.6) { phase = "hang"; t = 0; }
+        return false;
+      }
+
+      // hang: dangles from the cursor, following it with a little lag
+      t += dt;
+      const k = 1 - Math.exp(-9 * dt);
+      const left = lerp(cur.left, g.left, k), top = lerp(cur.top, g.top, k);
+      velRef.current.vx = (left - cur.left) / Math.max(dt, 0.001);
+      moveTo(left, top);
+      if (t >= hangFor) { letGo(token, Math.max(-400, Math.min(400, velRef.current.vx))); return true; }
+      return false;
+    });
+    return true;
+  }
+
+  function doSword() {
+    showPose(randomLine(["swordslash", "swordlunge", "swordslash"]), 1300);
+    return true;
+  }
+  function doSit() {
+    showPose("sit", 6500 + Math.random() * 3500);
+    return true;
+  }
+  // Weighted pick; anything that cannot happen right now (no wall in reach, mouse not moving) falls through.
+  function doRandomAction() {
+    const roll = Math.random();
+    if (roll < 0.08) return;                                    // sometimes he just keeps wandering
+    if (roll < 0.28) { doSword(); return; }
+    if (roll < 0.48) { doSit(); return; }
+    if (roll < 0.58 && startCursorGrapple()) return;
+    if (startWallGrapple()) return;
+    doSword();
+  }
+  actionsRef.current = { wall: startWallGrapple, cursor: startCursorGrapple, random: doRandomAction, cancel: cancelAction };
 
   function onCoyPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
@@ -793,6 +1127,7 @@ export default function CoyCompanion() {
     let dy = event.clientY - drag.startY;
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
     if (!drag.moved) {
+      actionsRef.current.cancel?.();
       window.cancelAnimationFrame(fallRaf.current);
       // Start dragging from Coy's latest physics position, not where he was on pointer-down.
       drag.originLeft = posRef.current.left;
@@ -1046,6 +1381,15 @@ export default function CoyCompanion() {
 
   return createPortal(
     <div ref={rootRef} style={styles.root} data-coy-ui="true">
+      <svg
+        ref={ropeSvgRef}
+        aria-hidden="true"
+        style={{ position: "fixed", left: 0, top: 0, width: "100vw", height: "100vh", display: "none", overflow: "visible", pointerEvents: "none" }}
+      >
+        <line ref={ropeShadowRef} stroke="rgba(255,255,255,0.55)" strokeWidth="4" strokeLinecap="round" />
+        <line ref={ropeLineRef} stroke="#161616" strokeWidth="2.2" strokeLinecap="round" />
+        <circle ref={ropeHookRef} r="5.5" fill="#2b2b2b" stroke="#c8c8c8" strokeWidth="1.3" />
+      </svg>
       <button
         type="button"
         aria-label="Coy companion"
@@ -1056,7 +1400,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
       </button>
 
       <button

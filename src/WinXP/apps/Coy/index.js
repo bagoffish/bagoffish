@@ -297,16 +297,31 @@ async function readFileAsDataUrl(file) {
 }
 
 
+// Tail artwork is 62x53. It is drawn at a fixed size, with its flat edge tucked under the
+// bubble, so it reads as part of the box at every bubble size.
+const TAIL_SCALE = 0.62;
+const TAIL_W = Math.round(62 * TAIL_SCALE);
+const TAIL_H = Math.round(53 * TAIL_SCALE);
+const TAIL_TUCK = 12;                       // px of the tail hidden underneath the bubble
+const TAIL_REACH = TAIL_W - TAIL_TUCK;      // px the tail sticks out past the bubble
+
 const styles = {
   root: { height: '100%', minHeight: 0, display: 'flex', flexDirection: 'column', background: '#ece9d8', color: '#111', font: '12px Tahoma, Arial, sans-serif' },
   intro: { display: 'flex', alignItems: 'center', gap: 12, padding: '10px 12px', background: 'linear-gradient(#fff,#e7e4d6)', borderBottom: '1px solid #9b9b9b', flexShrink: 0 },
   portrait: { width: 58, height: 70, objectFit: 'contain', objectPosition: 'bottom', flexShrink: 0 },
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#444' },
-  messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 10, background: '#1e1e1e' },
-  bubble: { position: 'relative', width: 'fit-content', maxWidth: '88%', padding: '4px 8px 5px', marginTop: 2, marginBottom: 2, whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.3, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 600, border: '6px solid transparent', borderImageSlice: '12 fill', borderImageWidth: '6px', borderImageRepeat: 'stretch', minHeight: 30, boxSizing: 'border-box', textShadow: '0 1px 1px rgba(0,0,0,.35)' },
-  user: { alignSelf: 'flex-end', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botRed_bkg.png)`, marginRight: 12, marginLeft: 'auto' },
-  coy: { alignSelf: 'flex-start', borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`, marginLeft: 12, marginRight: 'auto' },
+  messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: '12px 4px', display: 'flex', flexDirection: 'column', gap: 12, background: '#1e1e1e' },
+  // Each message sits in its own full-width row so a bubble can hug its text and
+  // the tail has room to stick out sideways without being clipped or overlapping text.
+  row: { display: 'flex', width: '100%', flexShrink: 0, boxSizing: 'border-box', padding: `0 ${TAIL_REACH + 6}px` },
+  bubbleWrap: { position: 'relative', width: 'fit-content', minWidth: 0, maxWidth: '82%', flexShrink: 1 },
+  // The bubble body is the Roblox 9-slice texture: corners and glow stay crisp, only the
+  // dark centre stretches, so the box grows with the text instead of scaling the artwork.
+  bubble: { position: 'relative', zIndex: 1, boxSizing: 'border-box', width: 'fit-content', maxWidth: '100%', minWidth: 46, minHeight: 36, padding: '5px 9px 6px', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.35, color: '#fff', fontFamily: 'Arial, Helvetica, sans-serif', fontSize: 13, fontWeight: 700, border: '7px solid transparent', borderImageSlice: '12 fill', borderImageWidth: '7px', borderImageRepeat: 'stretch', textShadow: '0 1px 1px rgba(0,0,0,.4)' },
+  // Tail is drawn BEHIND the body, so its flat cut edge is hidden under the bubble and
+  // only the lightning tip shows outside the box.
+  tail: { position: 'absolute', zIndex: 0, bottom: 1, width: TAIL_W, height: TAIL_H, objectFit: 'contain', pointerEvents: 'none', userSelect: 'none' },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #333', background: '#2a2a2a', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#f7f5eb', borderTop: '1px solid #d0cbb8' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
@@ -315,6 +330,29 @@ const styles = {
   button: { minHeight: 30, padding: '4px 12px', border: '1px solid #003c74', borderRadius: 2, color: '#111', font: '12px Tahoma, Arial', background: 'linear-gradient(#fff,#e1e1e1)', cursor: 'pointer' },
   status: { padding: '5px 9px', background: '#ece9d8', color: '#444', borderTop: '1px solid #d0cbb8', fontSize: 10, flexShrink: 0 },
 };
+
+// One chat bubble. Coy's (green) tail is the mirror image of the user's (red) tail, so each
+// one opens toward its own bubble: red sits on the bubble's right, green on its left.
+function ChatBubble({ role, children }) {
+  const mine = role === 'user';
+  const color = mine ? 'Red' : 'Green';
+  return (
+    <div style={{ ...styles.row, justifyContent: mine ? 'flex-end' : 'flex-start' }}>
+      <div style={styles.bubbleWrap}>
+        <img
+          src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_bot' + color + '_tailRight.png'}
+          alt=""
+          aria-hidden="true"
+          draggable={false}
+          style={{ ...styles.tail, ...(mine ? { right: -TAIL_REACH } : { left: -TAIL_REACH, transform: 'scaleX(-1)' }) }}
+        />
+        <div style={{ ...styles.bubble, borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_bot${color}_bkg.png)` }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function Coy({ onClose }) {
   const [messages, setMessages] = useState(() => {
@@ -431,41 +469,19 @@ export default function Coy({ onClose }) {
     <div style={styles.root} data-coy-chat-window="true">
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
-          <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <img
-              src={ROBLOX_DIALOG_ASSET_BASE + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')}
-              alt=""
-              aria-hidden="true"
-              draggable={false}
-              style={{
-                position: 'absolute',
-                ...(item.role === 'user' ? { right: -10 } : { left: -10 }),
-                bottom: -7,
-                width: 20,
-                height: 20,
-                objectFit: 'contain',
-                pointerEvents: 'none',
-                zIndex: 1
-              }}
-            />
+          <ChatBubble key={index} role={item.role === 'user' ? 'user' : 'assistant'}>
             {item.content && renderCoyContent(item.content)}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
               {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
               {attachment.textContent !== undefined && <pre style={{ margin: '5px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 260, overflow: 'auto', font: '11px Consolas, monospace' }}>{attachment.textContent.slice(0, 12000)}{attachment.textContent.length > 12000 ? '\n… preview truncated' : ''}</pre>}
               {attachment.dataUrl && attachment.type?.startsWith('audio/') && <audio controls preload="metadata" src={attachment.dataUrl} style={{ display: 'block', maxWidth: '100%', width: 280 }} />}
-              <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
+              <span style={{ fontSize: 11, color: '#ddd' }}>📎 {attachment.name || 'Attachment'}</span>
             </div>)}
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
-          </div>
+          </ChatBubble>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', transform: 'scaleX(-1)', pointerEvents: 'none', zIndex: 1 }} />
-          Typing...
-        </div>}
-        {error && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img src={ROBLOX_DIALOG_ASSET_BASE + 'chatBubble_botGreen_tailRight.png'} alt="" aria-hidden="true" draggable={false} style={{ position: 'absolute', left: -10, bottom: -7, width: 20, height: 20, objectFit: 'contain', transform: 'scaleX(-1)', pointerEvents: 'none', zIndex: 1 }} />
-          {error}
-        </div>}
+        {busy && <ChatBubble role="assistant">Typing...</ChatBubble>}
+        {error && <ChatBubble role="assistant">{error}</ChatBubble>}
         <div ref={bottomRef} />
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
