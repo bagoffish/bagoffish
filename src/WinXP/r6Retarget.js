@@ -180,11 +180,9 @@ function sceneCFrame(x = 0, y = 0, z = 0, rx = 0, ry = 0, rz = 0) {
   const position = new THREE.Vector3(x, y, z);
   const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(rx, ry, rz, "XYZ"));
   const sceneMatrix = new THREE.Matrix4().compose(position, quaternion, new THREE.Vector3(1, 1, 1));
-  // Convert the scene-local CFrame back into Roblox's native basis. The normal
-  // compile path will convert it forward again, so custom reactions share the
-  // exact same CFrame runtime as imported KeyframeSequences.
-  const source = basis.clone().multiply(sceneMatrix).multiply(basis);
-  const e = source.elements;
+  // Keep custom reaction transforms in the same scene-local basis as the
+  // imported joint-local transforms. Do not conjugate these a second time.
+  const e = sceneMatrix.elements;
   return [e[12], e[13], e[14], e[0], e[4], e[8], e[1], e[5], e[9], e[2], e[6], e[10]];
 }
 
