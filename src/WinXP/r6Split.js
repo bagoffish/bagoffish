@@ -141,13 +141,26 @@ export function splitIntoR6Parts(root) {
     for (const tail of tailMeshes) {
       tail.geometry.computeBoundingBox();
       const tailBounds = tail.geometry.boundingBox.clone().applyMatrix4(tail.matrix);
-      const backGap = torsoBounds.min.z - tailBounds.max.z;
-      const frontGap = tailBounds.min.z - torsoBounds.max.z;
       const overlap = 0.08;
-      if (backGap > 0 && (frontGap <= 0 || backGap <= frontGap)) {
-        tail.position.z += backGap - overlap;
-      } else if (frontGap > 0) {
-        tail.position.z -= frontGap - overlap;
+      // Move the whole accessory only along axes where its bounding box is
+      // completely detached from the torso. This catches vertical/sideways
+      // offsets too, rather than assuming the export is wrong only on Z.
+      for (const axis of ["x", "y", "z"]) {
+        const min = torsoBounds.min[axis];
+        const max = torsoBounds.max[axis];
+        const tailMin = tailBounds.min[axis];
+        const tailMax = tailBounds.max[axis];
+        if (tailMax < min) {
+          const shift = min - tailMax - overlap;
+          tail.position[axis] += shift;
+          tailBounds.min[axis] += shift;
+          tailBounds.max[axis] += shift;
+        } else if (tailMin > max) {
+          const shift = max - tailMin + overlap;
+          tail.position[axis] += shift;
+          tailBounds.min[axis] += shift;
+          tailBounds.max[axis] += shift;
+        }
       }
     }
   }
