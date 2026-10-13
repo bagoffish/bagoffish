@@ -834,7 +834,7 @@ export default function CoyCompanion() {
     if (event && event.preventDefault) event.preventDefault();
     const message = (overrideMessage || draft).trim();
     if (!message || busy) return;
-    const emote = message.toLowerCase().replace(/\\s+/g, " ").match(/^\\/e (wave|sit|dance|sword|swordslash|swordlunge|gearhold|climb|climbing)\\s?([123])?$/);
+    const emote = message.toLowerCase().replace(/\s+/g, " ").match(/^\/e (wave|sit|dance|sword|swordslash|swordlunge|gearhold|climb|climbing)\s?([123])?$/);
     if (emote) {                                   // /e wave, /e dance2, /e sword, /e swordlunge, /e gearhold, /e climb
       setDraft("");
       const requested = emote[1] === "sword" ? "swordslash"
