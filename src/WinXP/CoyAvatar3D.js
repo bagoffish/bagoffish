@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-import { REST, ROBLOX_JOINT_PART, sampleClip, resetAvatarPose } from "./r6Retarget";
+import { REST, ROBLOX_JOINT_PART, sampleClip, prepareClip, createReactionClips, resetAvatarPose } from "./r6Retarget";
 
 // Play Roblox's exported R6 KeyframeSequence CFrames from /avatar/animations.json.
 // R6 avatar rendered on a transparent canvas. Model and color metadata are loaded
@@ -15,195 +15,7 @@ const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
 
-const P = o => Object.assign({
-  rArmZ: 0, lArmZ: 0, rArmX: 0, lArmX: 0,
-  rLegX: 0, lLegX: 0, bob: 0, tilt: 0, sq: 0,
-  headX: 0, headY: 0
-}, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
-
-// Procedural fallback for reactions without a source clip (pat, held, land).
-// Walk, wave, idle, and dances use the original imported Roblox Pose.CFrame data.
-function target(name, t, dir, tiltIn) {
-  const sin = (speed, phase = 0) => Math.sin(t * speed + phase);
-  const cos = (speed, phase = 0) => Math.cos(t * speed + phase);
-  switch (name) {
-    case "wave": {
-      // A held-up anatomical RIGHT arm (screen-left), with a small shoulder
-      // sway to read as a wave on an elbow-free R6 rig.
-      const wave = sin(8.5);
-      return P({
-        rArmZ: 2.22 + wave * 0.19,
-        rArmX: 0.11 + sin(8.5, 1.1) * 0.15,
-        lArmZ: 0.025,
-        lArmX: sin(2.3) * 0.025,
-        bob: sin(3.2) * 0.008,
-        headX: -0.035 + sin(2.0) * 0.015,
-        headY: -0.05 + sin(2.4) * 0.025
-      });
-    }
-
-    case "walk": {
-      // A relaxed alternating gait: opposing arm/leg swing, soft foot lift,
-      // and a slight counter-sway rather than pumping the entire body.
-      const stride = sin(8.1);
-      const lift = Math.max(0, cos(16.2));
-      return P({
-        rArmZ: -0.025 + sin(4.05, Math.PI) * 0.035,
-        lArmZ: 0.025 + sin(4.05) * 0.035,
-        rArmX: -stride * 0.30,
-        lArmX: stride * 0.30,
-        rLegX: stride * 0.48,
-        lLegX: -stride * 0.48,
-        bob: 0.008 + lift * 0.025,
-        tilt: -stride * 0.018,
-        headX: 0.008 + lift * 0.01,
-        headY: dir * 0.035
-      });
-    }
-
-    case "dance":
-    case "dance1": {
-      // Side-to-side two-step. The hands stay within a believable R6 range;
-      // hips and shoulders alternate on one shared beat.
-      const beat = sin(5.2);
-      const sway = sin(2.6);
-      const bounce = Math.max(0, cos(5.2));
-      return P({
-        rArmZ: -0.92 - beat * 0.18,
-        lArmZ: 0.92 + beat * 0.18,
-        rArmX: 0.10 + sin(5.2, 1.15) * 0.13,
-        lArmX: -0.10 - sin(5.2, 1.15) * 0.13,
-        rLegX: -beat * 0.34,
-        lLegX: beat * 0.34,
-        bob: 0.008 + bounce * 0.045,
-        tilt: sway * 0.055,
-        headX: -0.015 + bounce * 0.025,
-        headY: sway * 0.065
-      });
-    }
-
-    case "dance2": {
-      // An alternating step-touch with one arm leading; no whole-body spinning.
-      const beat = sin(6.0);
-      const sway = sin(3.0);
-      const lift = Math.max(0, beat);
-      return P({
-        rArmZ: -1.48 - beat * 0.16,
-        lArmZ: 0.48 + beat * 0.13,
-        rArmX: sin(6.0, 0.4) * 0.14,
-        lArmX: -sin(6.0, 0.4) * 0.12,
-        rLegX: -sin(6.0, 0.35) * 0.36,
-        lLegX: sin(6.0, 0.35) * 0.36,
-        bob: 0.012 + lift * 0.04,
-        tilt: sway * 0.048,
-        headX: -0.02,
-        headY: -sway * 0.065
-      });
-    }
-
-    case "dance3": {
-      // A gentle groove: loose arms, smaller steps and slower upper-body sway.
-      const beat = sin(4.5);
-      const sway = sin(2.25, 0.3);
-      return P({
-        rArmZ: -0.60 - beat * 0.27,
-        lArmZ: 0.60 + beat * 0.27,
-        rArmX: 0.13 + sin(4.5, 1.0) * 0.10,
-        lArmX: -0.13 - sin(4.5, 1.0) * 0.10,
-        rLegX: -beat * 0.27,
-        lLegX: beat * 0.27,
-        bob: 0.008 + Math.abs(beat) * 0.026,
-        tilt: sway * 0.042,
-        headX: sway * 0.018,
-        headY: -sway * 0.055
-      });
-    }
-
-    case "held": {
-      // A restrained dangling reaction when picked up, with the pointer speed
-      // providing the lean. Arms and legs wobble slightly instead of flailing.
-      const wobble = sin(6.6);
-      return P({
-        rArmZ: -1.98 - wobble * 0.12,
-        lArmZ: 1.98 + wobble * 0.12,
-        rArmX: sin(5.6, 0.4) * 0.12,
-        lArmX: -sin(5.6, 0.4) * 0.12,
-        rLegX: sin(4.0) * 0.17,
-        lLegX: -sin(4.0) * 0.17,
-        tilt: tiltIn + wobble * 0.025,
-        bob: sin(4.8) * 0.012
-      });
-    }
-
-    case "fall": {
-      // A compact startled pose while falling; tilt follows the throw direction.
-      const flutter = sin(7.0);
-      return P({
-        rArmZ: -2.24 - flutter * 0.07,
-        lArmZ: 2.24 + flutter * 0.07,
-        rArmX: -0.17 + flutter * 0.035,
-        lArmX: 0.17 - flutter * 0.035,
-        rLegX: 0.30 + sin(5.0, 0.5) * 0.06,
-        lLegX: -0.25 - sin(5.0, 0.5) * 0.06,
-        tilt: tiltIn
-      });
-    }
-
-    case "land": {
-      // One visible impact, one softer rebound, then a quick return to rest.
-      const impact = Math.exp(-t * 7.5) * Math.cos(t * 18);
-      const settle = Math.exp(-t * 8.5);
-      return P({
-        rArmZ: -0.12 - impact * 0.24,
-        lArmZ: 0.12 + impact * 0.24,
-        rArmX: -settle * 0.09,
-        lArmX: settle * 0.09,
-        rLegX: -settle * 0.085,
-        lLegX: settle * 0.085,
-        sq: 0.22 * impact,
-        bob: Math.max(0, sin(18)) * 0.018 * settle,
-        tilt: sin(9) * 0.025 * settle
-      });
-    }
-
-    case "pat": {
-      // A strong pat squash and elastic recovery, with a small head dip.
-      const impact = Math.exp(-t * 7.0) * Math.cos(t * 18.5);
-      const settle = Math.exp(-t * 7.5);
-      return P({
-        rArmZ: -0.09 - impact * 0.07,
-        lArmZ: 0.09 + impact * 0.07,
-        rArmX: -settle * 0.065,
-        lArmX: settle * 0.065,
-        sq: 0.17 * impact,
-        bob: Math.max(0, sin(18.5)) * 0.014 * settle,
-        headX: -0.105 * settle,
-        headY: sin(9.25) * 0.03 * settle
-      });
-    }
-
-    case "idle":
-    case "idle1":
-    case "idle2":
-    default: {
-      // Quiet breathing, relaxed hands and tiny head movements; nothing loops
-      // fast enough to look like jittering when Coy is meant to be standing.
-      const breath = sin(1.65);
-      const glance = sin(0.9, 0.8);
-      return P({
-        rArmZ: -0.035 + breath * 0.012,
-        lArmZ: 0.035 - breath * 0.012,
-        rArmX: sin(1.25, Math.PI) * 0.018,
-        lArmX: sin(1.25) * 0.018,
-        bob: breath * 0.012,
-        tilt: sin(0.72) * 0.008,
-        headX: sin(1.1, 0.4) * 0.018,
-        headY: glance * 0.04
-      });
-    }
-  }
-}
 
 function buildAvatar(colors) {
   const mat = c => new THREE.MeshLambertMaterial({ color: c });
@@ -305,9 +117,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let bodyYaw = 0;
     let transitionFrom = null;
     let transitionStart = 0;
-    let animationClips = null;
+    let animationClips = createReactionClips();
+    for (const clip of Object.values(animationClips)) prepareClip(clip);
     let idleClipName = "idle1";
-    const pose = P({});
     const look = { x: 0, y: 0 };
     const clock = new THREE.Clock();
 
@@ -332,6 +144,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const keyframeNameForPose = name => {
       switch (name) {
         case "idle": return idleClipName;
+        case "idle1": return "idle1";
+        case "idle2": return "idle2";
         case "walk": return "walk";
         case "wave": return "wave";
         case "dance":
@@ -339,12 +153,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         case "dance2": return "dance2";
         case "dance3": return "dance3";
         case "fall": return "fall";
+        case "held": return "held";
+        case "land": return "land";
+        case "pat": return "pat";
         default: return null;
       }
     };
 
     // Use the exported KeyframeSequence CFrames for each clip that exists.
-    // A missing optional clip must not force every other animation back to procedural motion.
+    // Native clips and custom reactions are all played through the same CFrame track sampler.
     fetch(ANIMATIONS_URL, { cache: "force-cache" })
       .then(response => {
         if (!response.ok) throw new Error("HTTP " + response.status);
@@ -356,7 +173,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           throw new Error("R6 keyframe file contains no usable KeyframeSequence clips");
         }
         if (!cancelled) {
-          animationClips = clips;
+          // Imported Roblox clips and custom reactions share one CFrame player.
+          animationClips = { ...clips, ...createReactionClips() };
+          for (const clip of Object.values(animationClips)) prepareClip(clip);
           // Expose minimal diagnostics to verify actual source clips load in the browser.
           window.__coyAnimationStatus = {
             source: "Roblox Pose.CFrame",
@@ -368,7 +187,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
               mode: "waiting for the next render frame",
               clip: null
             },
-            clips: Object.fromEntries(Object.entries(clips)
+            clips: Object.fromEntries(Object.entries(animationClips)
               .filter(([, clip]) => clip?.frames?.length)
               .map(([name, clip]) => [name, {
                 frames: clip.frames.length,
@@ -381,13 +200,13 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       .catch(error => {
         if (!cancelled) {
           window.__coyAnimationStatus = {
-            source: "procedural fallback",
+            source: "Roblox CFrame data unavailable",
             url: ANIMATIONS_URL,
             error: String(error?.message || error),
-            current: { pose: live.current.pose, mode: "procedural fallback", clip: null },
+            current: { pose: live.current.pose, mode: "safe rest pose; CFrame data unavailable", clip: null },
             clips: {}
           };
-          console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+          console.warn("Coy: R6 CFrame animation data failed to load; keeping the rig in its safe rest pose.", error);
         }
       });
 
@@ -428,21 +247,21 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       const requestedClipName = keyframeNameForPose(L.pose);
       const clip = requestedClipName && animationClips ? animationClips[requestedClipName] : null;
-      const animationMode = clip ? "keyframe:" + L.pose + ":" + requestedClipName : "procedural:" + L.pose;
+      const animationMode = clip ? "cframe:" + L.pose + ":" + requestedClipName : "rest:" + L.pose;
 
       // When keyframes finish loading, this resets the greeting to its first frame.
       if (animationMode !== previousAnimationMode) {
         transitionFrom = capturePose();
         transitionStart = t;
         poseStart = t;
-        // The procedural pose accumulator must not carry a raised arm or dance
-        // pose into a later custom pat/land reaction (or into imported clips).
-        if (clip || previousAnimationMode.startsWith("keyframe:")) Object.assign(pose, P({}));
+        // Start the new clip from the canonical rig pose; the transition below
+        // blends the captured previous pose into this clip's first CFrame sample.
+        if (clip || previousAnimationMode.startsWith("cframe:")) resetAvatarPose(av);
         previousAnimationMode = animationMode;
         if (window.__coyAnimationStatus) {
           window.__coyAnimationStatus.current = {
             pose: L.pose,
-            mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+            mode: clip ? "Roblox CFrame keyframes" : "safe rest pose (no clip)",
             clip: clip ? requestedClipName : null,
             elapsed: 0
           };
@@ -452,13 +271,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (window.__coyAnimationStatus) {
         window.__coyAnimationStatus.current = {
           pose: L.pose,
-          mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+          mode: clip ? "Roblox CFrame keyframes" : "safe rest pose (no clip)",
           clip: clip ? requestedClipName : null,
           elapsed: localTime
         };
       }
-      const tiltIn = clamp(-L.vx * 0.0006, -0.5, 0.5);
-
       resetAvatarPose(av);
       if (clip) {
         // Apply the original Roblox Pose.CFrame transforms. The anatomical RIGHT
@@ -471,20 +288,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           part.position.copy(transform.position);
           part.quaternion.copy(transform.quaternion).normalize();
         }
-      } else {
-        const nextPose = target(L.pose, localTime, L.dir, tiltIn);
-        const impactPose = L.pose === "pat" || L.pose === "land";
-        const blend = 1 - Math.exp(-delta * (impactPose ? 20 : 11.5));
-        for (const key in pose) pose[key] += (nextPose[key] - pose[key]) * blend;
-
-        // Keep fallback posing aligned with the one-to-one imported joint map.
-        av.rArm.rotation.set(pose.rArmX, 0, pose.rArmZ);
-        av.lArm.rotation.set(pose.lArmX, 0, pose.lArmZ);
-        av.rLeg.rotation.x = pose.rLegX;
-        av.lLeg.rotation.x = pose.lLegX;
-        av.body.position.y = pose.bob;
-        av.body.rotation.z = pose.tilt;
-        av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
 
       // Smoothly cross-fade actual part transforms when changing clips/reactions.
@@ -543,12 +346,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           ));
           av.head.quaternion.multiply(headLook).normalize();
         }
-      } else {
-        av.head.rotation.set(
-          clamp(pose.headX + look.x * 0.32, -0.45, 0.45),
-          clamp(pose.headY + look.y * 0.58, -0.65, 0.65),
-          0
-        );
       }
       renderer.render(scene, camera);
     };
