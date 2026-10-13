@@ -210,8 +210,9 @@ export default function CoyCompanion() {
   // an open app must never pull him away from his taskbar home automatically.
   const findAppbarLanding = (left, top) => {
     const height = getCoyHeight();
-    const feet = top + height;
     const center = left + spriteSize / 2;
+    const dropCenterX = center;
+    const dropBottomY = top + height;
     const candidates = Array.from(document.querySelectorAll(".app__header"))
       .map(header => {
         const windowNode = header.closest("[data-app-window-id][data-app-title]");
