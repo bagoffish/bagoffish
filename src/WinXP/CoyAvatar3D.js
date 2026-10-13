@@ -160,7 +160,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     };
 
     // Use the exported KeyframeSequence CFrames for each clip that exists.
-    // A missing optional clip must not force every other animation back to procedural motion.
+    // Native clips and custom reactions are all played through the same CFrame track sampler.
     fetch(ANIMATIONS_URL, { cache: "force-cache" })
       .then(response => {
         if (!response.ok) throw new Error("HTTP " + response.status);
@@ -186,7 +186,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
               mode: "waiting for the next render frame",
               clip: null
             },
-            clips: Object.fromEntries(Object.entries(clips)
+            clips: Object.fromEntries(Object.entries(animationClips)
               .filter(([, clip]) => clip?.frames?.length)
               .map(([name, clip]) => [name, {
                 frames: clip.frames.length,
@@ -199,13 +199,13 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       .catch(error => {
         if (!cancelled) {
           window.__coyAnimationStatus = {
-            source: "procedural fallback",
+            source: "Roblox CFrame data unavailable",
             url: ANIMATIONS_URL,
             error: String(error?.message || error),
-            current: { pose: live.current.pose, mode: "procedural fallback", clip: null },
+            current: { pose: live.current.pose, mode: "safe rest pose; CFrame data unavailable", clip: null },
             clips: {}
           };
-          console.warn("Coy: using procedural animation fallback; R6 keyframes failed to load.", error);
+          console.warn("Coy: R6 CFrame animation data failed to load; keeping the rig in its safe rest pose.", error);
         }
       });
 
@@ -270,7 +270,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (window.__coyAnimationStatus) {
         window.__coyAnimationStatus.current = {
           pose: L.pose,
-          mode: clip ? "Roblox Pose.CFrame" : "procedural fallback",
+          mode: clip ? "Roblox CFrame keyframes" : "safe rest pose (no clip)",
           clip: clip ? requestedClipName : null,
           elapsed: localTime
         };
