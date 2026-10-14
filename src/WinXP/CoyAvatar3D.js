@@ -329,10 +329,19 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       grappleConnect: 13510737,
       grappleHit: 16211030
     };
-    // Reuse preloaded audio objects instead of creating a fresh request on every move.
-    // Mobile Safari and some browsers block playback until a real user gesture.
+    // Web Audio is more reliable than HTMLMediaElement autoplay on iOS Safari.
+    // Decode same-origin gear clips ahead of time, then resume the context directly
+    // inside a real user gesture so later animation-triggered sounds can play.
     const soundPools = new Map();
+    const soundBuffers = new Map();
+    let audioContext = null;
     let audioUnlocked = false;
+    try {
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      if (AudioContextClass) audioContext = new AudioContextClass();
+    } catch (error) {
+      console.warn("Coy: Web Audio unavailable; using HTML audio fallback", error);
+    }
     const soundUrl = source => typeof source === "number"
       ? "https://www.roblox.com/asset/?id=" + source
       : source;
@@ -350,34 +359,68 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       return soundPools.get(src);
     };
+    const localSoundSources = Object.values(soundIds).filter(source => typeof source === "string");
+    if (audioContext) {
+      localSoundSources.forEach(source => {
+        const url = soundUrl(source);
+        fetch(url).then(response => {
+          if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
+          return response.arrayBuffer();
+        }).then(bytes => audioContext.decodeAudioData(bytes)).then(buffer => {
+          soundBuffers.set(url, buffer);
+        }).catch(error => {
+          console.warn("Coy: Web Audio clip preload failed; HTML audio fallback will be used", url, error);
+        });
+      });
+    }
+    // Keep fallback players preloaded too, and retain the remote Roblox asset sounds.
+    Object.values(soundIds).forEach(getSoundPool);
     const unlockGearAudio = () => {
-      if (audioUnlocked) return;
-      audioUnlocked = true;
+      if (audioContext) {
+        // resume() must be called synchronously from this gesture for iOS Safari.
+        const resume = audioContext.resume();
+        if (resume && typeof resume.catch === "function") {
+          resume.then(() => { audioUnlocked = audioContext.state === "running"; })
+            .catch(error => console.warn("Coy: Safari audio context could not resume", error));
+        } else {
+          audioUnlocked = audioContext.state === "running";
+        }
+      }
+      // Unlock the remote Roblox-hosted audio elements as a fallback. Avoid trying
+      // to start every pooled copy simultaneously; that can be rejected by Safari.
       for (const { pool } of soundPools.values()) {
-        for (const audio of pool) {
-          const wasMuted = audio.muted;
-          audio.muted = true;
-          const attempt = audio.play();
-          if (attempt && typeof attempt.then === "function") {
-            attempt.then(() => {
-              audio.pause();
-              try { audio.currentTime = 0; } catch (_) {}
-              audio.muted = wasMuted;
-            }).catch(() => { audio.muted = wasMuted; });
-          } else {
+        const audio = pool[0];
+        audio.muted = true;
+        const attempt = audio.play();
+        if (attempt && typeof attempt.then === "function") {
+          attempt.then(() => {
             audio.pause();
             try { audio.currentTime = 0; } catch (_) {}
-            audio.muted = wasMuted;
-          }
+            audio.muted = false;
+          }).catch(() => { audio.muted = false; });
+        } else {
+          audio.pause();
+          try { audio.currentTime = 0; } catch (_) {}
+          audio.muted = false;
         }
       }
     };
-    // Create the pools before the first user gesture so the gesture can unlock them.
-    Object.values(soundIds).forEach(getSoundPool);
-    const soundUnlockEvents = ["pointerdown", "touchstart", "keydown"];
+    const soundUnlockEvents = ["pointerdown", "touchstart", "keydown", "click"];
     soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockGearAudio, { once: true, capture: true }));
     const playGearSound = (source, volume = 0.22) => {
       try {
+        const src = soundUrl(source);
+        const buffer = soundBuffers.get(src);
+        if (audioContext && buffer && audioContext.state === "running") {
+          const node = audioContext.createBufferSource();
+          const gain = audioContext.createGain();
+          node.buffer = buffer;
+          gain.gain.value = volume;
+          node.connect(gain);
+          gain.connect(audioContext.destination);
+          node.start(0);
+          return;
+        }
         const entry = getSoundPool(source);
         const audio = entry.pool[entry.next];
         entry.next = (entry.next + 1) % entry.pool.length;
@@ -784,6 +827,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockGearAudio, true));
       soundPools.forEach(({ pool }) => pool.forEach(audio => { audio.pause(); audio.src = ""; }));
       soundPools.clear();
+      soundBuffers.clear();
+      if (audioContext && audioContext.state !== "closed") audioContext.close().catch(() => {});
       cancelAnimationFrame(raf); clearInterval(metaTimer);
       swordGear?.removeFromParent(); grappleGear?.removeFromParent();
       gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
