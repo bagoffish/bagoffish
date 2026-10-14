@@ -129,6 +129,7 @@ async function fetchApprovedMemoryFromGithub() {
   if (!token) {
     if (approvedMemoryLastFetch.text.trim()) {
       approvedMemoryLastFetch = { ...approvedMemoryLastFetch, ok: true };
+      approvedMemoryRetryAt = Date.now() + 60_000;
       console.warn("Coy approved memory: GitHub token missing; using last successful in-process copy.");
       return approvedMemoryLastFetch.text;
     }
