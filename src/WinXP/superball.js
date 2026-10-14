@@ -66,7 +66,7 @@ export function preloadSuperBall() {
 // ceiling, with a little random pitch so repeated bounces don't sound robotic. If no file is
 // found, a short synthesized boing plays instead so the ball is never silent.
 const SOUND_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/sounds/coy-tools/";
-const SOUND_FILES = ["superball-bounce.mp3", "superball-bounce.wav", "superball-bounce.ogg"];
+const SOUND_FILES = ["superball-bounce.mp3"];
 const BOUNCE_VOLUME = 0.8;     // 0..1, scaled down for soft hits
 let audioContext = null, bounceBuffer = null, bounceLoad = null, unlockHooked = false;
 const getAudioContext = () => {
