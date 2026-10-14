@@ -123,6 +123,7 @@ function executeCoyRequestedAction(action) {
 }
 
 export default function CoyCompanion() {
+  const [avatarReady, setAvatarReady] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [underAppWindows, setUnderAppWindows] = useState(false);
@@ -657,7 +658,11 @@ export default function CoyCompanion() {
     return () => { if (window.coyMoves === api) delete window.coyMoves; };
   }, []);
   useEffect(() => {
-    showPose("wave", 1650);                                    // return to idle just after the 1.5s Roblox clip
+    // Start the greeting only when the real avatar is ready to appear.
+    if (avatarReady) showPose("wave", 1650);
+  }, [avatarReady]);
+
+  useEffect(() => {
     const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; if (e.pointerType !== "touch") lastPointerAt.current = Date.now(); };
     window.addEventListener("pointermove", onMove);
     return () => {
@@ -1452,7 +1457,7 @@ export default function CoyCompanion() {
   };
 
   return createPortal(
-    <div ref={rootRef} style={styles.root} data-coy-ui="true">
+    <div ref={rootRef} style={{ ...styles.root, visibility: avatarReady ? "visible" : "hidden" }} data-coy-ui="true">
       <svg
         ref={ropeSvgRef}
         aria-hidden="true"
@@ -1470,7 +1475,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} />
+        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
       </button>
 
       <button
