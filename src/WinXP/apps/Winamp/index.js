@@ -43,7 +43,14 @@ function Winamp({ onClose, onMinimize }) {
 
     // renderWhenReady can reject if the component is removed before Webamp
     // finishes loading; handle that path instead of leaving an unhandled error.
-    Promise.resolve(instance.renderWhenReady(target)).catch(error => {
+    Promise.resolve(instance.renderWhenReady(target)).then(() => {
+      if (disposed || !target.isConnected) return;
+      // Webamp 1.x portals its windows to <body>; move its root into the bounded
+      // desktop area so the windows cannot spill over the XP taskbar.
+      const webampNode = document.getElementById('webamp');
+      if (webampNode && webampNode.parentNode !== target) target.appendChild(webampNode);
+      updateBounds();
+    }).catch(error => {
       if (!disposed) {
         // Disposal is still handled by the effect cleanup below.
         console.error('Winamp failed to initialize:', error);
@@ -68,7 +75,7 @@ function Winamp({ onClose, onMinimize }) {
   return createPortal(
     <div
       ref={ref}
-      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 30, overflow: 'hidden', clipPath: 'inset(0)', zIndex: 9998, pointerEvents: 'none' }}
+      style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 30, overflow: 'hidden', clipPath: 'inset(0)', transform: 'translateZ(0)', zIndex: 9998, pointerEvents: 'none' }}
       aria-label="Winamp player"
     />,
     document.body
