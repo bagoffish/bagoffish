@@ -1359,7 +1359,7 @@ export default function CoyCompanion() {
       // Compact balloon close to Coy's head; text controls width and wraps when needed.
       left: "50%",
       bottom: "calc(100% - 5px)",
-      transform: "translateX(-50%)",
+      transform: "translateX(-50%) scaleX(-1)",
       width: "max-content",
       minWidth: 54,
       maxWidth: "min(204px, calc(100vw - 20px))",
@@ -1385,6 +1385,7 @@ export default function CoyCompanion() {
       borderImageSlice: "12 fill",
       borderImageWidth: "6px",
       borderImageRepeat: "stretch",
+      transform: "scaleX(-1)",
       zIndex: 1
     },
     dialogTail: {
@@ -1405,6 +1406,7 @@ export default function CoyCompanion() {
     },
     dialogText: {
       position: "relative",
+      transform: "scaleX(-1)",
       display: "-webkit-box",
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 4,
