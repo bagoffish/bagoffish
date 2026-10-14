@@ -739,8 +739,8 @@ export default function CoyCompanion() {
 
       // Pick up the superball and throw it: coyMoves.ball(); pass a count for multiple balls.
       ball(count = 1) {
-        const amount = Math.floor(Number(count) || 1);
-        if (amount < 1 || amount > 20) {
+        const amount = Number(count);
+        if (!Number.isInteger(amount) || amount < 1 || amount > 20) {
           console.warn("Coy: use coyMoves.ball() or coyMoves.ball(1–20).");
           return false;
         }
