@@ -423,7 +423,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
     };
     soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockWhenReady, { passive: true, capture: true }));
-    const playGearSound = (source, volume = 1) => {
+    const playGearSound = (source, volume = 0.28) => {
       try {
         const src = soundUrl(source);
         const buffer = soundBuffers.get(src);
@@ -431,7 +431,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           const node = audioContext.createBufferSource();
           const gain = audioContext.createGain();
           node.buffer = buffer;
-          gain.gain.value = volume;
+          gain.gain.value = Math.max(0, Math.min(1, volume));
           node.connect(gain);
           gain.connect(audioContext.destination);
           node.start(0);
@@ -442,7 +442,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         entry.next = (entry.next + 1) % entry.pool.length;
         audio.pause();
         try { audio.currentTime = 0; } catch (_) {}
-        audio.volume = volume;
+        audio.volume = Math.max(0, Math.min(1, volume));
         const attempt = audio.play();
         if (attempt && typeof attempt.catch === "function") {
           attempt.catch(error => console.warn("Coy: gear sound could not play", audio.currentSrc || audio.src, error));
