@@ -1406,7 +1406,7 @@ export default function CoyCompanion() {
       objectFit: "fill",
       display: "block",
       pointerEvents: "none",
-      zIndex: 2
+      zIndex: 0
     },
     dialogText: {
       position: "relative",
