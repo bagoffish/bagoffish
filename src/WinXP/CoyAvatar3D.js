@@ -406,11 +406,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     // app. Effects are instead started only when their actual gameplay action occurs.
     // Keep no persistent AudioContext: HTMLAudioElement effects are independent of
     // the page's media session as far as the browser/OS permits.
-    const unlockGearAudio = () => {};
-    const soundUnlockEvents = [];
-    const unlockWhenReady = () => {};
+    // Browsers block media playback until the visitor interacts with the page.
+    // Wait for a real gesture before attempting gear effects, so startup poses
+    // don't spam NotAllowedError warnings or repeatedly try blocked playback.
+    const unlockGearAudio = () => { audioUnlocked = true; };
+    const soundUnlockEvents = ["pointerdown", "keydown", "touchstart"];
+    const unlockWhenReady = () => unlockGearAudio();
+    soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockWhenReady, true));
 
     const playGearSound = (source, volume = 0.16) => {
+      if (!audioUnlocked) return;
       try {
         const src = soundUrl(source);
         const buffer = soundBuffers.get(src);
