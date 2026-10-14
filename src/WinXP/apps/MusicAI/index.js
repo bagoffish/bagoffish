@@ -345,16 +345,20 @@ const ROLE_VOLUME = {
   cello: 78, horn: 56, flute: 64, oboe: 52, clarinet: 50, timpani: 72, pizz: 54, trumpet: 64,
 };
 const ORCHESTRA_VOLUME = {
-  drums: 78, bass: 96, guitar: 62, vocals: 114, keys: 46, pad: 40, strings: 68, arp: 50,
-  cello: 80, horn: 56, flute: 64, oboe: 52, clarinet: 50, timpani: 74, pizz: 56, trumpet: 66,
+  drums: 82, bass: 110, guitar: 85, vocals: 118, keys: 55, pad: 48, strings: 75, arp: 65,
+  cello: 88, horn: 62, flute: 72, oboe: 60, clarinet: 58, timpani: 80, pizz: 68, trumpet: 75,
 };
 const ORCHESTRA_REVERB = {
-  drums: 4, bass: 12, guitar: 34, vocals: 24, keys: 16, pad: 36, strings: 46, arp: 34,
-  cello: 28, horn: 40, flute: 36, oboe: 32, clarinet: 30, timpani: 18, pizz: 12, trumpet: 28,
+  drums: 2, bass: 5, guitar: 8, vocals: 15, keys: 10, pad: 25, strings: 30, arp: 20,
+  cello: 18, horn: 25, flute: 22, oboe: 20, clarinet: 18, timpani: 10, pizz: 8, trumpet: 20,
 };
 const ORCHESTRA_PAN = {
-  drums: 64, bass: 58, guitar: 46, vocals: 66, keys: 48, pad: 90, strings: 64, arp: 96,
-  cello: 74, horn: 40, flute: 90, oboe: 78, clarinet: 52, timpani: 64, pizz: 46, trumpet: 88,
+  drums: 64, bass: 54, guitar: 30, vocals: 70, keys: 52, pad: 95, strings: 75, arp: 110,
+  cello: 80, horn: 25, flute: 105, oboe: 85, clarinet: 45, timpani: 64, pizz: 35, trumpet: 15,
+};
+const ORCHESTRA_CHORUS = {
+  drums: 0, bass: 0, guitar: 40, vocals: 18, keys: 0, pad: 45, strings: 35, arp: 30,
+  cello: 0, horn: 0, flute: 0, oboe: 0, clarinet: 0, timpani: 0, pizz: 0, trumpet: 0,
 };
 
 function mixValue(roleId, notes, soundfontRoles, table, fallback) {
@@ -412,9 +416,13 @@ function makeStemMidi(notes, roleId, programs) {
   track.instrument.number = programs && programs[roleId] != null ? programs[roleId] : (role ? role.program : 0);
   const volume = mixValue(roleId, notes, null, ORCHESTRA_VOLUME, ROLE_VOLUME[roleId]);
   const pan = mixValue(roleId, notes, null, ORCHESTRA_PAN, 64);
+  const chorus = ORCHESTRA_CHORUS[roleId] || 0;
   if (typeof track.addCC === 'function' && volume != null) {
     track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
     track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
+    if (chorus > 0) {
+      track.addCC({ controllerType: 93, value: chorus / 127, time: 0 });
+    }
   }
   notes.filter(note => note.role === roleId).forEach(note => {
     track.addNote({
@@ -719,9 +727,13 @@ function makeMidi(notes, programs, soundfontRoles, name) {
     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
     const volume = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id]);
     const pan = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_PAN, 64);
+    const chorus = ORCHESTRA_CHORUS[role.id] || 0;
     if (typeof track.addCC === 'function' && volume != null) {
       track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
       track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
+      if (chorus > 0) {
+        track.addCC({ controllerType: 93, value: chorus / 127, time: 0 });
+      }
     }
     roleNotes.forEach(note => {
       const bank = bankForNote(note, { soundfontRoles });
@@ -828,6 +840,9 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
       synth.controllerChange(role.channel, 10, mixValue(role.id, notes, playable.soundfontRoles, ORCHESTRA_PAN, 64));
       if (usesOrchestra(notes, playable.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
         synth.controllerChange(role.channel, 91, ORCHESTRA_REVERB[role.id]);
+      }
+      if (usesOrchestra(notes, playable.soundfontRoles) && ORCHESTRA_CHORUS[role.id] != null && ORCHESTRA_CHORUS[role.id] > 0) {
+        synth.controllerChange(role.channel, 93, ORCHESTRA_CHORUS[role.id]);
       }
     });
 
@@ -1533,6 +1548,9 @@ function MusicAI() {
           synth.controllerChange(channel, 10, pan);
           if (usesOrchestra(notes, planRef.current && planRef.current.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
             synth.controllerChange(channel, 91, ORCHESTRA_REVERB[role.id]);
+          }
+          if (usesOrchestra(notes, planRef.current && planRef.current.soundfontRoles) && ORCHESTRA_CHORUS[role.id] != null && ORCHESTRA_CHORUS[role.id] > 0) {
+            synth.controllerChange(channel, 93, ORCHESTRA_CHORUS[role.id]);
           }
         }
       } catch (error) {
