@@ -376,8 +376,27 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       return soundPools.get(src);
     };
     const localSoundSources = Object.values(soundIds);
-    // Start fetching local gear sounds immediately so they are ready for early actions.
-    // If playback is requested before a clip finishes loading, the audio element can queue it.
+    // Start loading local gear sounds immediately so they are ready for early actions.
+    if (audioContext) {
+      localSoundSources.forEach(source => {
+        const url = soundUrl(source);
+        fetch(url, { cache: "force-cache" }).then(response => {
+          if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
+          const type = response.headers.get("content-type") || "";
+          if (/text\/html|application\/json/i.test(type)) throw new Error("Non-audio response (" + type + ") for " + url);
+          return response.arrayBuffer();
+        }).then(bytes => {
+          if (!bytes || bytes.byteLength < 128) throw new Error("Audio file is empty or truncated: " + url);
+          return audioContext.decodeAudioData(bytes);
+        }).then(buffer => {
+          soundBuffers.set(url, buffer);
+        }).catch(error => {
+          console.warn("Coy: local gear sound preload failed; HTML audio fallback will be used", url, error);
+        });
+      });
+    }
+    // HTMLAudioElement playback starts loading immediately; if requested before a clip
+    // finishes loading, the browser can queue playback until the clip is ready.
     localSoundSources.forEach(getSoundPool);
     // Do not "unlock" audio by briefly playing and pausing every pooled clip.
     // On iOS Safari, that synthetic playback can interrupt/duck music from another
