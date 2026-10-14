@@ -202,7 +202,7 @@ function injectXpCursors() {
     'body .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'body input[type="text"], body input[type="password"], body input[type="search"], body input[type="email"], body input[type="number"], body input[type="url"], body input:not([type]), body textarea, body [contenteditable="true"] { cursor: text !important; }',
     'body textarea::-webkit-resizer { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
-    'body[data-xp-resize] *, body.xp-resizing * { cursor: var(--xp-resize-cursor, url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize) !important; }',
+    // Do not apply a resize cursor globally: stale resize state can otherwise leave it stuck after a drag.
   ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
