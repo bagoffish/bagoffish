@@ -110,8 +110,12 @@ const GEAR = {
   // Classic Sword: Position (0,0,-1.5), Orientation (0,90,90). Hilt in the palm, blade up.
   sword:      { file: "Sword.obj",      scale: 0.9,  gripPos: [0, 0, -1.5],      gripRotDeg: [0, 90, 90] },
   grapple:    { file: "Grapple.obj",    scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
-  gun:        { file: "Gun.obj",        scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
-  grappleGun: { file: "GrappleGun.obj", scale: 0.78, gripPos: [0, -0.6, 1],      gripRotDeg: [0, 0, 0] },
+  // gripPos is the handle's centre in the gear mesh's own (bounding-box-centred) coordinates, so the
+  // hand closes around the handle. It used to sit at the handle's bottom edge, which left the whole
+  // gun floating in front of the hand. Measured from the OBJs: GrappleGun handle z +0.67..+1.12,
+  // y -0.58..-0.06; Gun handle z +0.35..+0.70, y -0.41..+0.12.
+  gun:        { file: "Gun.obj",        scale: 0.78, gripPos: [0, -0.15, 0.53],  gripRotDeg: [0, 0, 0] },
+  grappleGun: { file: "GrappleGun.obj", scale: 0.78, gripPos: [0, -0.32, 0.9],   gripRotDeg: [0, 0, 0] },
 };
 const POSE_GEAR_GRIPS = {
   swordlungeout: {
