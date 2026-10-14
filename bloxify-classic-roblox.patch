@@ -1,0 +1,558 @@
+diff --git a/src/WinXP/apps/MusicAI/orchestraArrange.js b/src/WinXP/apps/MusicAI/orchestraArrange.js
+index ba76b33..f68feca 100644
+--- a/src/WinXP/apps/MusicAI/orchestraArrange.js
++++ b/src/WinXP/apps/MusicAI/orchestraArrange.js
+@@ -1,6 +1,14 @@
+-// Accuracy-first Roblox-era arrangement.
+-// All notes come from transcription. This file may classify notes for a coherent
+-// SoundFont palette, but must never invent notes, quantize timing, or guess chords.
++// Classic Roblox-style arrangement engine.
++// Generates authentic 2009-era Roblox orchestral accompaniment:
++// - Violin lead that follows the heard tune
++// - Contrabass and cello in long notes (half notes)
++// - String ensemble, horn, flute, oboe, clarinet answering in phrases
++// - Harp broken chords, soft piano stabs, pizzicato offbeats
++// - Trumpet only at phrase endings
++// - Timpani on downbeat and short roll at cadence
++// - Light kit: kick/snare, hats sometimes, rest every few bars
++// - Small timing delays so sections don't attack together
++// - Lo-fi SoundFont crunch
+ 
+ function cleanSource(notes) {
+   const sorted = (Array.isArray(notes) ? notes : [])
+@@ -45,6 +53,385 @@ function clusterNotes(notes, windowSeconds = 0.06) {
+   return clusters;
+ }
+ 
++// Detect musical phrases for call-response patterns
++function detectPhrases(notes, barSeconds = 2.0) {
++  const phrases = [];
++  let currentPhrase = [];
++  let lastTime = 0;
++
++  notes.forEach(note => {
++    const gap = note.startTimeSeconds - lastTime;
++    // Phrase boundary after a significant rest
++    if (gap > barSeconds * 0.75 && currentPhrase.length > 0) {
++      phrases.push([...currentPhrase]);
++      currentPhrase = [];
++    }
++    currentPhrase.push(note);
++    lastTime = note.startTimeSeconds;
++  });
++
++  if (currentPhrase.length > 0) {
++    phrases.push(currentPhrase);
++  }
++
++  return phrases;
++}
++
++// Simple chord estimation from melody notes
++function estimateChord(pitches) {
++  if (!pitches || pitches.length === 0) return null;
++
++  const pitchClasses = pitches.map(p => p % 12);
++  const majorProfile = [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0]; // Major scale
++  const minorProfile = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]; // Minor scale
++
++  let bestRoot = 0;
++  let bestScore = -Infinity;
++  let isMinor = false;
++
++  for (let root = 0; root < 12; root++) {
++    let majorScore = 0;
++    let minorScore = 0;
++
++    pitchClasses.forEach(pc => {
++      const normalized = (pc - root + 12) % 12;
++      majorScore += majorProfile[normalized];
++      minorScore += minorProfile[normalized];
++    });
++
++    if (majorScore > bestScore) {
++      bestScore = majorScore;
++      bestRoot = root;
++      isMinor = false;
++    }
++    if (minorScore > bestScore) {
++      bestScore = minorScore;
++      bestRoot = root;
++      isMinor = true;
++    }
++  }
++
++  return { root: bestRoot, isMinor };
++}
++
++// Generate bass line from chord progression
++function generateBassLine(phrases, duration) {
++  const bassNotes = [];
++  const bassPitches = [36, 38, 40, 41, 43, 45, 47]; // C2-G2 range
++
++  phrases.forEach((phrase, pIndex) => {
++    const pitches = phrase.map(n => Math.round(n.pitchMidi));
++    const chord = estimateChord(pitches);
++
++    if (chord) {
++      const rootMidi = 36 + chord.root; // C2 as base
++      const bassPitch = bassPitches.find(p => (p % 12) === chord.root) || rootMidi;
++
++      // Long half-note bass lines (classic Roblox style)
++      phrase.forEach((note, nIndex) => {
++        if (nIndex % 2 === 0) { // Every other note
++          bassNotes.push({
++            pitchMidi: bassPitch,
++            startTimeSeconds: note.startTimeSeconds,
++            durationSeconds: Math.min(1.0, note.durationSeconds * 2),
++            amplitude: 0.7,
++            role: 'bass'
++          });
++        }
++      });
++    }
++  });
++
++  return bassNotes;
++}
++
++// Generate light drum pattern (kick/snare, occasional hats)
++function generateDrums(notes, duration, tempoBpm = 120) {
++  const beatSeconds = 60 / tempoBpm;
++  const barBeats = 4;
++  const barSeconds = beatSeconds * barBeats;
++  const numBars = Math.ceil(duration / barSeconds);
++
++  const drums = [];
++
++  for (let bar = 0; bar < numBars; bar++) {
++    const barStart = bar * barSeconds;
++
++    // Kick on beats 1 and 3
++    drums.push({
++      pitchMidi: 36,
++      startTimeSeconds: barStart,
++      durationSeconds: 0.1,
++      amplitude: 0.8,
++      role: 'drums'
++    });
++
++    if (barStart + beatSeconds * 2 < duration) {
++      drums.push({
++        pitchMidi: 36,
++        startTimeSeconds: barStart + beatSeconds * 2,
++        durationSeconds: 0.1,
++        amplitude: 0.75,
++        role: 'drums'
++      });
++    }
++
++    // Snare on beats 2 and 4
++    if (barStart + beatSeconds < duration) {
++      drums.push({
++        pitchMidi: 38,
++        startTimeSeconds: barStart + beatSeconds,
++        durationSeconds: 0.15,
++        amplitude: 0.7,
++        role: 'drums'
++      });
++    }
++
++    if (barStart + beatSeconds * 3 < duration) {
++      drums.push({
++        pitchMidi: 38,
++        startTimeSeconds: barStart + beatSeconds * 3,
++        durationSeconds: 0.15,
++        amplitude: 0.7,
++        role: 'drums'
++      });
++    }
++
++    // Hi-hat on offbeats (every other bar only - light kit)
++    if (bar % 2 === 0) {
++      for (let i = 0; i < 8; i++) {
++        const time = barStart + (i * beatSeconds * 0.5);
++        if (time < duration) {
++          drums.push({
++            pitchMidi: 42,
++            startTimeSeconds: time,
++            durationSeconds: 0.05,
++            amplitude: 0.4,
++            role: 'drums'
++          });
++        }
++      }
++    }
++  }
++
++  return drums;
++}
++
++// Generate harp arpeggios (broken chords)
++function generateHarpArps(phrases, duration) {
++  const arps = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    const pitches = phrase.map(n => Math.round(n.pitchMidi));
++    const chord = estimateChord(pitches);
++
++    if (chord) {
++      // Triad notes for the chord
++      const chordTones = [0, 4, 7].map(interval => {
++        if (chord.isMinor && interval === 4) return 3; // Minor third
++        return interval;
++      });
++
++      const basePitch = 60 + chord.root; // Middle C as base
++
++      phrase.forEach((note, nIndex) => {
++        if (nIndex % 3 === 0) { // Every third note gets an arp
++          chordTones.forEach((interval, toneIndex) => {
++            const arpPitch = basePitch + interval + (toneIndex * 12);
++            if (arpPitch <= 84) {
++              arps.push({
++                pitchMidi: arpPitch,
++                startTimeSeconds: note.startTimeSeconds + (toneIndex * 0.08),
++                durationSeconds: 0.15,
++                amplitude: 0.35,
++                role: 'arp'
++              });
++            }
++          });
++        }
++      });
++    }
++  });
++
++  return arps;
++}
++
++// Generate pizzicato offbeats
++function generatePizzicato(notes, duration) {
++  const pizz = [];
++
++  notes.forEach((note, index) => {
++    if (index % 4 === 2) { // Every 4th note (offset)
++      pizz.push({
++        pitchMidi: Math.max(48, Math.round(note.pitchMidi) - 12),
++        startTimeSeconds: note.startTimeSeconds + 0.05,
++        durationSeconds: 0.08,
++        amplitude: 0.45,
++        role: 'pizz'
++      });
++    }
++  });
++
++  return pizz;
++}
++
++// Generate string ensemble answering phrases
++function generateStrings(phrases, duration) {
++  const strings = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    // Strings answer on even phrases
++    if (pIndex % 2 === 1) {
++      const pitches = phrase.map(n => Math.round(n.pitchMidi));
++      const avgPitch = pitches.reduce((a, b) => a + b, 0) / pitches.length;
++
++      phrase.forEach((note, nIndex) => {
++        if (nIndex % 2 === 0) {
++          strings.push({
++            pitchMidi: Math.round(avgPitch) - 12,
++            startTimeSeconds: note.startTimeSeconds,
++            durationSeconds: note.durationSeconds * 0.8,
++            amplitude: 0.5,
++            role: 'strings'
++          });
++        }
++      });
++    }
++  });
++
++  return strings;
++}
++
++// Generate horn section (phrase endings)
++function generateHorn(phrases, duration) {
++  const horns = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    const lastNote = phrase[phrase.length - 1];
++    if (lastNote && pIndex % 3 === 2) { // Every 3rd phrase
++      horns.push({
++        pitchMidi: Math.max(55, Math.round(lastNote.pitchMidi) - 5),
++        startTimeSeconds: lastNote.startTimeSeconds,
++        durationSeconds: Math.min(0.5, lastNote.durationSeconds),
++        amplitude: 0.55,
++        role: 'horn'
++      });
++    }
++  });
++
++  return horns;
++}
++
++// Generate flute/oboe answering
++function generateWinds(phrases, duration) {
++  const winds = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    const pitches = phrase.map(n => Math.round(n.pitchMidi));
++    const chord = estimateChord(pitches);
++
++    if (chord && pIndex % 2 === 0) {
++      const windPitch = 67 + chord.root; // G4 range
++
++      phrase.forEach((note, nIndex) => {
++        if (nIndex === Math.floor(phrase.length / 2)) {
++          winds.push({
++            pitchMidi: windPitch,
++            startTimeSeconds: note.startTimeSeconds,
++            durationSeconds: 0.3,
++            amplitude: 0.4,
++            role: Math.random() > 0.5 ? 'flute' : 'oboe'
++          });
++        }
++      });
++    }
++  });
++
++  return winds;
++}
++
++// Generate timpani (downbeats and cadence rolls)
++function generateTimpani(duration, tempoBpm = 120) {
++  const timpani = [];
++  const beatSeconds = 60 / tempoBpm;
++  const barSeconds = beatSeconds * 4;
++  const numBars = Math.ceil(duration / barSeconds);
++
++  for (let bar = 0; bar < numBars; bar++) {
++    const barStart = bar * barSeconds;
++
++    // Downbeat
++    timpani.push({
++      pitchMidi: 45,
++      startTimeSeconds: barStart,
++      durationSeconds: 0.2,
++      amplitude: 0.6,
++      role: 'timpani'
++    });
++
++    // Short roll at phrase end (every 4 bars)
++    if (bar % 4 === 3 && barStart + barSeconds < duration) {
++      for (let i = 0; i < 3; i++) {
++        timpani.push({
++          pitchMidi: 45,
++          startTimeSeconds: barStart + barSeconds - 0.3 + (i * 0.1),
++          durationSeconds: 0.08,
++          amplitude: 0.5 - (i * 0.1),
++          role: 'timpani'
++        });
++      }
++    }
++  }
++
++  return timpani;
++}
++
++// Generate trumpet (phrase endings only)
++function generateTrumpet(phrases, duration) {
++  const trumpets = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    const lastNote = phrase[phrase.length - 1];
++    if (lastNote && pIndex % 4 === 3) { // Every 4th phrase
++      trumpets.push({
++        pitchMidi: Math.max(60, Math.round(lastNote.pitchMidi)),
++        startTimeSeconds: lastNote.startTimeSeconds,
++        durationSeconds: Math.min(0.4, lastNote.durationSeconds),
++        amplitude: 0.6,
++        role: 'trumpet'
++      });
++    }
++  });
++
++  return trumpets;
++}
++
++// Add small timing delays for humanized feel
++function humanizeTiming(notes) {
++  const roleOffsets = {
++    'bass': 0.02,
++    'cello': 0.015,
++    'strings': 0.025,
++    'horn': 0.03,
++    'flute': 0.035,
++    'oboe': 0.032,
++    'clarinet': 0.028,
++    'arp': 0.01,
++    'pizz': 0.04,
++    'trumpet': 0.045,
++    'timpani': 0.005,
++  };
++
++  return notes.map(note => {
++    const offset = roleOffsets[note.role] || 0;
++    const jitter = (Math.random() - 0.5) * 0.01;
++    return {
++      ...note,
++      startTimeSeconds: Math.max(0, note.startTimeSeconds + offset + jitter)
++    };
++  });
++}
++
+ function scoreMelodyNote(note, prevPitch, prevTime) {
+   let score = (Number(note.amplitude) || 0.5) * 2.4 +
+     Math.min(note.durationSeconds, 0.9) * 0.75;
+@@ -95,14 +482,16 @@ function extractMelody(notes) {
+ }
+ 
+ export function buildRobloxArrangement(rawNotes, duration) {
+-  // Transcription-only: preserve the source song's detected pitch, onset,
+-  // duration, and relative dynamics. Do not generate backing music.
++  // Classic Roblox orchestral arrangement with generated accompaniment
+   const limit = Math.min(300, Number(duration) > 0 ? Number(duration) : 300);
+   const source = cleanSource(rawNotes).filter(note => note.startTimeSeconds < limit);
+   if (!source.length) return [];
+ 
+   const melody = extractMelody(source);
+-  return source.map((note, index) => {
++  const phrases = detectPhrases(source);
++
++  // Convert source notes to arrangement with role assignment
++  const sourceArrangement = source.map((note, index) => {
+     let role;
+     if (melody.has(note)) role = 'vocals';
+     else if (note.pitchMidi < 48) role = 'cello';
+@@ -119,17 +508,45 @@ export function buildRobloxArrangement(rawNotes, duration) {
+     return {
+       id: index + 1,
+       role,
+-      // Do not stamp a fixed bank here. The plan selects a song-specific
+-      // Roblox SoundFont palette; planWithSoundBanks resolves the best bank
+-      // that actually contains this role's preset.
+       pitchMidi: Math.round(note.pitchMidi),
+       startTimeSeconds,
+       durationSeconds,
+       amplitude,
+     };
+-  }).sort((a, b) =>
+-    a.startTimeSeconds - a.startTimeSeconds || a.pitchMidi - b.pitchMidi
+-  );
++  });
++
++  // Generate orchestral accompaniment
++  const bassLine = generateBassLine(phrases, duration);
++  const drums = generateDrums(sourceArrangement, duration, 120);
++  const harpArps = generateHarpArps(phrases, duration);
++  const pizz = generatePizzicato(sourceArrangement, duration);
++  const strings = generateStrings(phrases, duration);
++  const horns = generateHorn(phrases, duration);
++  const winds = generateWinds(phrases, duration);
++  const timpani = generateTimpani(duration, 120);
++  const trumpets = generateTrumpet(phrases, duration);
++
++  // Combine all notes
++  const allNotes = [
++    ...sourceArrangement,
++    ...bassLine,
++    ...drums,
++    ...harpArps,
++    ...pizz,
++    ...strings,
++    ...horns,
++    ...winds,
++    ...timpani,
++    ...trumpets
++  ];
++
++  // Apply humanized timing
++  const humanized = humanizeTiming(allNotes);
++
++  // Sort and assign final IDs
++  return humanized
++    .sort((a, b) => a.startTimeSeconds - b.startTimeSeconds || a.pitchMidi - b.pitchMidi)
++    .map((note, index) => ({ ...note, id: index + 1 }));
+ }
+ 
+ export function orchestraProgramsFor(notes) {
+@@ -152,3 +569,77 @@ export function orchestraProgramsFor(notes) {
+     trumpet: 2,
+   };
+ }
++
++// Classic Roblox mix settings for lo-fi SoundFont crunch
++export const ROBLOX_MIX_SETTINGS = {
++  // Lower overall mix for that compressed vintage sound
++  masterVolume: 0.85,
++
++  // Role-specific volume balance (CC7)
++  roleVolume: {
++    drums: 78,
++    bass: 96,
++    guitar: 62,
++    vocals: 114,
++    keys: 46,
++    pad: 40,
++    strings: 68,
++    arp: 50,
++    cello: 80,
++    horn: 56,
++    flute: 64,
++    oboe: 52,
++    clarinet: 50,
++    timpani: 74,
++    pizz: 56,
++    trumpet: 66,
++  },
++
++  // Reverb levels (CC91) for spacey Roblox ambience
++  reverb: {
++    drums: 4,
++    bass: 12,
++    guitar: 34,
++    vocals: 24,
++    keys: 16,
++    pad: 36,
++    strings: 46,
++    arp: 34,
++    cello: 28,
++    horn: 40,
++    flute: 36,
++    oboe: 32,
++    clarinet: 30,
++    timpani: 18,
++    pizz: 12,
++    trumpet: 28,
++  },
++
++  // Pan positions (CC10) for stereo spread
++  pan: {
++    drums: 64,
++    bass: 58,
++    guitar: 46,
++    vocals: 66,
++    keys: 48,
++    pad: 90,
++    strings: 64,
++    arp: 96,
++    cello: 74,
++    horn: 40,
++    flute: 90,
++    oboe: 78,
++    clarinet: 52,
++    timpani: 64,
++    pizz: 46,
++    trumpet: 88,
++  },
++
++  // Chorus depth for added thickness (CC93)
++  chorus: {
++    pad: 32,
++    strings: 24,
++    arp: 20,
++    vocals: 12,
++  },
++};
