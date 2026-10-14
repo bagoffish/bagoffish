@@ -10,25 +10,32 @@ const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "
 
 const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
 const REFERENCE_STYLE = {
-  name: "SEWH M.U.L.E / Bloxify",
-  source: "SEWH:RECODE M.U.L.E rips",
+  name: "SEWH M.U.L.E / Bloxify ULTRA",
+  source: "SEWH:RECODE M.U.L.E rips - ULTRA Roblox Edition",
   traits: [
-    "classic Roblox MIDI sound, not just a square-wave loop",
-    "violin lead that follows the heard tune and stays in front",
-    "contrabass and cello in long notes, not constant eighths",
+    "ULTRA classic Roblox MIDI sound with maximum authenticity",
+    "violin lead VERY forward in mix (118 volume)",
+    "contrabass and cello in ULTRA LONG sustained notes (2+ beats, 110 volume)",
+    "square wave synth leads (C64 style) for 8-bit Roblox character",
+    "chord pad layers for sustained backing thickness",
     "string ensemble, horn, flute, oboe, and clarinet answering in phrases",
-    "harp broken chords, soft piano stabs, and pizzicato offbeats",
-    "trumpet only at a phrase ending",
-    "timpani on the downbeat and a short roll at the cadence",
-    "light kit: kick and snare, hats only sometimes, a rest every few bars",
-    "small timing delays so the section does not attack together",
-    "lo-fi SoundFont crunch from the Roblox banks plus GeneralUser GS",
+    "FREQUENT harp broken chords (every 2nd note)",
+    "FREQUENT pizzicato offbeats (every 3rd note, snappier)",
+    "trumpet only at phrase endings",
+    "timpani on downbeat with short roll at cadence",
+    "light kit: kick and snare, hats only sometimes, rest every few bars",
+    "TIGHT timing (more quantized, MIDI feel, 5-18ms humanization)",
+    "DRY mix (less reverb, 2-30 range for Roblox character)",
+    "HEAVY chorus on pads and strings for thickness",
+    "WIDER stereo spread (15-110 pan for epic feel)",
+    "LOUDER overall mix with bass VERY forward",
+    "lo-fi SoundFont crunch from Roblox banks",
     "vocal-less instrumental MIDI",
   ],
-  arrangement: "Keep the uploaded melody recognizable. Build supporting parts that breathe: vary instrument colors, leave rests at phrase ends, and avoid machine-gun accompaniment.",
-  instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
-  tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
-  density: "a clear lead with layered supporting instruments, thinner when the tune is sparse",
+  arrangement: "Keep the uploaded melody recognizable. Build supporting parts with ULTRA Roblox characteristics: very long sustained bass (2+ beats), frequent arpeggios (every 2nd note), frequent pizzicato (every 3rd note), square wave synth leads, chord pad layers, tight quantized timing, dry mix with heavy chorus, wide stereo spread.",
+  instrumentation: "Study violin (very forward), contrabass (ULTRA long notes, very loud), cello, string ensemble, horn, flute, oboe, clarinet, harp (frequent arps), piano, pizzicato (frequent), trumpet, timpani, square wave synth (C64 style), chord pads. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
+  tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel with tight quantization",
+  density: "a clear lead with layered supporting instruments, bass very forward, pads sustained, arps frequent",
 };
 
 const study = require("../src/WinXP/apps/MusicAI/robloxStudy.json");
@@ -81,6 +88,8 @@ const STUDIED_INSTRUMENTS = [
   { role: "arp", name: "Harp", program: 2, bank: "beastmasters" },
   { role: "bass", name: "Bass", program: 4, bank: "fjords-voyage" },
   { role: "drums", name: "Soundtrack kit WAV", program: 0, bank: "stealth" },
+  { role: "guitar", name: "Square Synth", program: 80, bank: "stealth" },
+  { role: "pad", name: "Chord Pad", program: 89, bank: "fjords-hq" },
 ];
 
 function chooseStudiedFamily(analysis) {
@@ -458,15 +467,15 @@ function fallbackPlan(notes, duration) {
   const studied = (study.songs || []).filter((song) => song.family === family.id || (family.id === "strategy" && song.family === "strategy"));
   return {
     primaryRole: "vocals",
-    supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"],
+    supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani", "guitar", "pad"],
     drums: false,
-    density: 0.38,
+    density: 0.45,
     swing: 0,
     quantizeGrid: 0.25,
     preserveMelody: true,
     tempoBpm: 120,
-    harmonicComplexity: 0.28,
-    bassPattern: "half-notes",
+    harmonicComplexity: 0.35,
+    bassPattern: "ultra-long-sustained",
     chordRhythm: "phrases",
     melodyOctave: 0,
     drumPattern: "light",
@@ -481,11 +490,11 @@ function fallbackPlan(notes, duration) {
     studiedFamily: family.id,
     studiedSongs: studied.slice(0, 8).map((song) => song.title),
     studiedCorpus: study.playlistCount,
-    reason: "Bloxify prioritizes detected notes, original timing, and chord tones, using a restrained Roblox SoundFont palette without a fixed drum loop.",
+    reason: "Bloxify ULTRA generates authentic 2009 Roblox orchestral accompaniment with ultra-long sustained bass (2+ beats), frequent arpeggios, frequent pizzicato, square wave synth leads, chord pad layers, tight quantized timing, dry mix with heavy chorus, and wide stereo spread for maximum Roblox authenticity.",
   };
 }
 
-// Keep Bloxify's recognizable orchestral identity consistent, while adapting
+// Keep Bloxify's recognizable ULTRA orchestral identity consistent, while adapting
 // its SoundFont roles and WAV sample layers to each upload's detected notes.
 async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
   const plan = fallbackPlan(notes, duration);
@@ -502,6 +511,7 @@ async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_
     analysis: summarize(notes, duration),
     sampleAssets: plan.sampleAssets || [],
     webResearch: [],
+    ultraMode: true,
   };
 }
 
