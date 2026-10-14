@@ -729,7 +729,7 @@ export default function CoyCompanion() {
 
         return true;
       },
-            bodyswap(id) {
+      bodyswap(id) {
         return Boolean(
           actionsRef.current.bodyswap?.(
             id ? String(id).toLowerCase() : undefined
@@ -741,7 +741,6 @@ export default function CoyCompanion() {
       ball() {
         return Boolean(actionsRef.current.ball?.());
       },
-
       async demo() {
         const sequence = [
           "wave",
