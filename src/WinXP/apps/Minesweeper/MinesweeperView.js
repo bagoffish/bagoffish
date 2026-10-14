@@ -335,6 +335,10 @@ const CeilBackgroundOpen = styled.div`
 `;
 
 export default styled(MineSweeperView)`
+  box-sizing: border-box;
+  min-height: 100%;
+  background: rgb(192, 192, 192);
+  color: #000;
   img {
     pointer-events: none;
   }
@@ -343,6 +347,9 @@ export default styled(MineSweeperView)`
     background: rgb(236, 233, 216);
   }
   .mine__content {
+    width: max-content;
+    max-width: 100%;
+    box-sizing: border-box;
     border-left: rgb(245, 245, 245) solid 3px;
     border-top: rgb(245, 245, 245) solid 3px;
     background-color: rgb(192, 192, 192);
