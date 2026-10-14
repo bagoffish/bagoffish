@@ -737,11 +737,12 @@ export default function CoyCompanion() {
         );
       },
 
-      // Pick up the superball and throw it: coyMoves.ball(); pass a count for multiple balls.
+      // Pick up the superball and throw it: coyMoves.ball(); pass 1–100 for multiple balls.
+      // Autonomous/random behavior calls doBall() without a count, so it still throws one.
       ball(count = 1) {
         const amount = Number(count);
-        if (!Number.isInteger(amount) || amount < 1 || amount > 20) {
-          console.warn("Coy: use coyMoves.ball() or coyMoves.ball(1–20).");
+        if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+          console.warn("Coy: use coyMoves.ball() or coyMoves.ball(1–100).");
           return false;
         }
         return Boolean(actionsRef.current.ball?.(amount));
@@ -1341,7 +1342,7 @@ export default function CoyCompanion() {
   // site for BALL_LIFETIME_MS.
   function doBall(count = 1) {
     if (ballActiveRef.current) return false;
-    const amount = Math.max(1, Math.min(20, Math.floor(Number(count) || 1)));
+    const amount = Math.max(1, Math.min(100, Math.floor(Number(count) || 1)));
     cancelAction();
     // Throw toward the middle of the screen so there is room for the balls to travel.
     const centreX = posRef.current.left + spriteSize / 2;
