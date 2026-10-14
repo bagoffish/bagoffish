@@ -663,7 +663,7 @@ export default function CoyChat({ initialImage, initialText }) {
           <div style={{ transform: 'scaleX(-1)', width: '100%' }}>Typing...</div>
         </div>}
         {error && <div role="alert" style={{ ...styles.bubble, ...styles.coy, color: '#fff', transform: 'scaleX(-1)' }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 3, right: -13, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 3, right: -22, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ transform: 'scaleX(-1)', width: '100%' }}>{error}</div>
         </div>}
         <div ref={bottomRef} />
