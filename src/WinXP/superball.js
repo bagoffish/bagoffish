@@ -226,10 +226,8 @@ function renderSharedFrame(now) {
     ball.pivot.position.set(ball.px, ball.py, 0);
     ball.pivot.scale.set(sx, sy, 1 + ball.squash * 0.6);
   }
-  if (active.size) {
-    sharedRenderer.render(sharedScene, sharedCamera);
-    scheduleSharedFrame();
-  }
+  sharedRenderer.render(sharedScene, sharedCamera);
+  if (active.size) scheduleSharedFrame();
 }
 export function clearSuperBalls() {
   [...active].forEach(ball => ball.stop());
@@ -296,9 +294,10 @@ export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration =
       ownedGeometry?.dispose();
       material.dispose();
       onDone?.();
-      if (!active.size && sharedFrame) {
-        window.cancelAnimationFrame(sharedFrame);
+      if (!active.size) {
+        if (sharedFrame) window.cancelAnimationFrame(sharedFrame);
         sharedFrame = 0;
+        sharedRenderer?.clear();
       }
     }
   };
