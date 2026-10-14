@@ -729,11 +729,19 @@ export default function CoyCompanion() {
 
         return true;
       },
-      bodyswap(id) {
-        return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined));
+            bodyswap(id) {
+        return Boolean(
+          actionsRef.current.bodyswap?.(
+            id ? String(id).toLowerCase() : undefined
+          )
+        );
       },
+
       // Pick up the superball and throw it: coyMoves.ball()
-      ball() { return Boolean(actionsRef.current.ball?.()); },
+      ball() {
+        return Boolean(actionsRef.current.ball?.());
+      },
+
       async demo() {
         const sequence = [
           "wave",

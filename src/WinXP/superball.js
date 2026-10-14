@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 
 // The Roblox superball after Coy lets go of it. A transparent WebGL canvas the size of the ball
 // is dragged around the viewport by a tiny physics loop, bouncing off every edge of the site
@@ -10,7 +11,24 @@ import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 const GRAVITY = 1400;          // px/s^2
 const WALL_BOUNCE = 1;         // 1 = a wall returns all of the ball's speed (it is a SUPER ball)
 const FLOOR_BOUNCE = 0.985;    // each floor hit loses ~1.5% so the arcs stay huge for the whole 7 s
-const FADE_MS = 350;           // pop-out at the end of its life
+const FADE_MS = 2000;          // it turns slowly transparent over the last 2 s of its life
+
+// ---- a little reflection (the Roblox superball is "slightly reflective") ----
+// Mixes a soft studio-lit environment into the ball's surface. 0 = matte, 1 = chrome.
+export const BALL_REFLECTIVITY = 0.28;
+export function createBallEnvironment(renderer) {
+  const generator = new THREE.PMREMGenerator(renderer);
+  const texture = generator.fromScene(new RoomEnvironment(), 0.04).texture;
+  generator.dispose();
+  return texture;
+}
+export function makeBallReflective(material, environment) {
+  if (!material || !environment) return;
+  material.envMap = environment;
+  material.combine = THREE.MixOperation;
+  material.reflectivity = BALL_REFLECTIVITY;
+  material.needsUpdate = true;
+}
 
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/gears/";
 
@@ -171,7 +189,9 @@ export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration =
 
   const pivot = new THREE.Group();                     // squashed on impact
   scene.add(pivot);
-  const material = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 80, specular: 0x666666 });
+  const material = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 80, specular: 0x666666, transparent: true, opacity: 1 });
+  const environment = createBallEnvironment(renderer);
+  makeBallReflective(material, environment);
   let ownedGeometry = null;
   let mesh = null;
   const buildMesh = model => {
@@ -201,6 +221,7 @@ export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration =
     window.cancelAnimationFrame(raf);
     ownedGeometry?.dispose();
     material.dispose();
+    environment.dispose();
     renderer.dispose();
     renderer.forceContextLoss?.();
     canvas.remove();
@@ -234,11 +255,11 @@ export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration =
     if (py > floor - r) { py = floor - r; pvy = -Math.abs(pvy) * FLOOR_BOUNCE; hit("y", Math.abs(pvy)); }
 
     squash *= Math.exp(-dt * 16);
-    const fade = age > duration - FADE_MS ? Math.max(0, (duration - age) / FADE_MS) : 1;
-    const s = fade;
+    const fade = age > duration - FADE_MS ? Math.max(0, (duration - age) / FADE_MS) : 1;   // 1 -> 0 over the last FADE_MS
+    material.opacity = fade;                           // fade out by turning transparent, not by shrinking
     const sx = squashAxis === "x" ? 1 - squash : 1 + squash * 0.6;
     const sy = squashAxis === "y" ? 1 - squash : 1 + squash * 0.6;
-    pivot.scale.set(s * sx, s * sy, s * (1 + squash * 0.6));
+    pivot.scale.set(sx, sy, 1 + squash * 0.6);
 
     canvas.style.transform = `translate3d(${(px - size / 2).toFixed(1)}px, ${(py - size / 2).toFixed(1)}px, 0)`;
     if (mesh) renderer.render(scene, camera);
