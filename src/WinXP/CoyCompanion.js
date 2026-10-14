@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
+import { ROBLOX_FONT, robloxBoxStyle, robloxDownTailStyle, robloxTexture } from "./robloxDialog";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
 const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
@@ -1356,14 +1357,14 @@ export default function CoyCompanion() {
       animation: "none",
       transform: "none"
     },
-    // Original 2013 Roblox ChatGreen textures downloaded into public during prebuild.
-    // Authentic 2013 dialog textures, positioned close to the head and sized like
-    // the original compact balloon rather than the large UGC item thumbnail.
+    // Original 2013 Roblox ChatGreen textures (public/images/roblox-dialog), styled by
+    // ./robloxDialog.js. Everything inside is in em, so the fontSize below scales the
+    // whole balloon: border, padding and tail together.
     bubbleWrap: {
       position: "absolute",
-      // Compact balloon close to Coy's head; text controls width and wraps when needed.
       left: "50%",
-      bottom: "calc(100% - 5px)",
+      // Body bottom sits above the sprite; the lightning tail hangs down toward the head.
+      bottom: "calc(100% + 18px)",
       transform: "translateX(-50%)",
       width: "max-content",
       minWidth: 54,
@@ -1371,42 +1372,17 @@ export default function CoyCompanion() {
       height: "auto",
       overflow: "visible",
       pointerEvents: "none",
-      zIndex: 5
+      zIndex: 5,
+      fontSize: 14
     },
     dialogBody: {
-      position: "relative",
+      ...robloxBoxStyle("green"),
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
-      boxSizing: "border-box",
       width: "max-content",
       minWidth: 54,
-      maxWidth: "min(204px, calc(100vw - 20px))",
-      minHeight: 44,
-      border: "12px solid transparent",
-      // Preserve the original 2013 green border/corners and stretch only the
-      // dark-green center, rather than resizing the entire square texture.
-      borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
-      borderImageSlice: "12 fill",
-      borderImageWidth: "12px",
-      borderImageRepeat: "stretch",
-      zIndex: 1
-    },
-    dialogTail: {
-      position: "absolute",
-      // Center the tail and tuck its base behind the bubble border to hide the seam.
-      left: "50%",
-      right: "auto",
-      transform: "translateX(-50%)",
-      // Put the tail behind the body and overlap the border enough to hide
-      // transparent edge pixels in the original Roblox texture.
-      top: "calc(100% - 15px)",
-      width: 28,
-      height: 28,
-      objectFit: "fill",
-      display: "block",
-      pointerEvents: "none",
-      zIndex: 0
+      maxWidth: "min(204px, calc(100vw - 20px))"
     },
     dialogText: {
       position: "relative",
@@ -1414,16 +1390,14 @@ export default function CoyCompanion() {
       WebkitBoxOrient: "vertical",
       WebkitLineClamp: 4,
       width: "max-content",
-      minWidth: 26,
       maxWidth: 174,
       boxSizing: "border-box",
-      padding: "2px 3px 2px",
       overflow: "hidden",
       color: "#fff",
-      fontFamily: "Arial, Helvetica, sans-serif",
-      fontSize: 12,
-      fontWeight: 600,
-      lineHeight: "14px",
+      fontFamily: ROBLOX_FONT,
+      fontSize: "inherit",
+      fontWeight: 400,
+      lineHeight: 1.125,
       textAlign: "center",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
@@ -1517,16 +1491,16 @@ export default function CoyCompanion() {
 
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
-          <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
-            alt=""
-            aria-hidden="true"
-            draggable={false}
-            style={styles.dialogTail}
-          />
           <div style={styles.dialogBody}>
             <div style={styles.dialogText}>{renderCoyLine(line)}</div>
           </div>
+          <img
+            src={robloxTexture("green", "tailDown")}
+            alt=""
+            aria-hidden="true"
+            draggable={false}
+            style={robloxDownTailStyle()}
+          />
         </div>
       )}
     </div>,
