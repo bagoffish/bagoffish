@@ -6,7 +6,7 @@
 //   - border thickness  = 0.4em      (16px at a 40px font)
 //   - text padding      = 0.15em / 0.35em  (vertical / horizontal)
 //   - line height       = 1.125em
-//   - side tail         = 2.17em x 1.85em, overlapping the box edge by 0.43em
+//   - side tail         = 1.92em x 1.64em, overlapping the box's outer edge by 0.325em
 //   - overhead tail     = 2.7em square, centred under the box
 // Set `fontSize` on the element (or a parent) to scale the whole bubble.
 
@@ -57,18 +57,29 @@ export function robloxBoxStyle(variant = "green") {
 
 // Lightning-bolt tail on the side of a box (used by the chat window).
 // side: "right" points right (original texture); "left" mirrors it.
+// Placement is measured from the textures, not eyeballed:
+//   - the tail texture (62x53) starts with a short vertical ring stub (centre ~3.2 texels in) above
+//     and below an opening (rows 19-43, centre row 31) that is meant to cut through the box's own
+//     side ring. The box ring is centred 0.226em from the outer edge, so the tail's left edge goes
+//     0.226em + 3.2 texels = 0.325em inside the box's outer edge. The tail is a child of the box, and
+//     absolute offsets are measured from the box's padding edge (inside its 0.4em border), so that is
+//     100% + 0.4em - 0.325em = 100% + 0.075em;
+//   - scale 0.031em/texel (1.92em x 1.64em) keeps the tail's ring the same thickness as the box ring;
+//   - vertically the opening (row 31 = 0.96em down the image) is centred on the box, nudged up
+//     0.05em like the original, so the bolt rises from the middle of the side rather than hanging
+//     off the top or bottom corner.
 export function robloxSideTailStyle(side = "right") {
   const base = {
     position: "absolute",
-    top: "calc(50% - 0.1em)",
-    width: "2.17em",
-    height: "1.85em",
+    top: "calc(50% - 1.01em)",
+    width: "1.92em",
+    height: "1.64em",
     pointerEvents: "none",
     zIndex: 2,
   };
   return side === "left"
-    ? { ...base, right: "calc(100% - 0.43em)", transform: "translateY(-50%) scaleX(-1)" }
-    : { ...base, left: "calc(100% - 0.43em)", transform: "translateY(-50%)" };
+    ? { ...base, right: "calc(100% + 0.075em)", transform: "scaleX(-1)" }
+    : { ...base, left: "calc(100% + 0.075em)" };
 }
 
 // Lightning-bolt tail hanging below an overhead speech bubble.
