@@ -14,8 +14,8 @@ const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 // ---- Coy's autonomous behaviour (tune here) ----
 const ACTION_MIN_MS = 18000;      // less frequent random actions: sword / sit / grapple / bodyswap / superball
 const IDLE_SKIP_CHANCE = 0.08;    // sometimes he just keeps wandering instead (set 0 to always act)
-const BALL_HOLD_MS = 1300;        // gearhold pose with the superball in his hand
-const BALL_THROW_MS = 800;        // the throw animation (the ball leaves his hand partway through)
+const BALL_HOLD_MS = 1400;        // gearhold pose with the superball in his hand, then he lets it go
+const BALL_AFTER_MS = 700;        // he keeps the gearhold arm out for a moment after the ball is gone
 const BALL_LIFETIME_MS = 7000;    // how long the ball bounces around the site before vanishing
 const ACTION_MAX_MS = 32000;
 const WALL_CONTACT_PX = 14;       // how far his body centre hangs off the wall while climbing
@@ -166,8 +166,8 @@ export default function CoyCompanion() {
   const poseTimer = useRef(0);
   const gearHeldRef = useRef(false);
   // Superball. ballRef is shared with the avatar: while held is true the ball is drawn in his hand,
-  // the avatar writes the ball's screen position (sx, sy) and calls onRelease when he lets go.
-  const ballRef = useRef({ held: false, sx: NaN, sy: NaN, ppu: 18, onRelease: null });
+  // the avatar writes the ball's screen position (sx, sy) and radius (r) every frame.
+  const ballRef = useRef({ held: false, sx: NaN, sy: NaN, ppu: 24, r: 20 });
   const ballTimers = useRef([]);
   const ballActiveRef = useRef(false);
   // Autonomous grapple / climb routines. grappleRef is shared with the avatar: while
@@ -1323,8 +1323,10 @@ export default function CoyCompanion() {
     showPose("sit", 6500 + Math.random() * 3500);
     return true;
   }
-  // Pick up the superball (gearhold pose), wind up and throw it. The avatar calls onRelease at the
-  // moment the ball leaves his hand; from there it bounces around the whole site for a few seconds.
+  // Like the Roblox gear: equip the superball (gearhold pose), hold it out, then let it fly. There is
+  // no separate throw animation; he stays in gearhold the whole time. The ball is spawned at its
+  // exact on-screen position in his hand (reported by the avatar) and bounces around the whole
+  // site for BALL_LIFETIME_MS.
   function doBall() {
     if (ballActiveRef.current) return false;
     cancelAction();
@@ -1337,10 +1339,12 @@ export default function CoyCompanion() {
     ballActiveRef.current = true;
     ball.held = true;
     ball.sx = NaN; ball.sy = NaN;
-    let released = false;
-    const spawn = ({ x, y, r }) => {
-      if (released) return;
-      released = true;
+    showPose("ballhold", BALL_HOLD_MS + BALL_AFTER_MS);
+    ballTimers.current.push(window.setTimeout(() => {
+      if (!ball.held) return;
+      const x = Number.isFinite(ball.sx) ? ball.sx : posRef.current.left + spriteSize / 2;
+      const y = Number.isFinite(ball.sy) ? ball.sy : posRef.current.top + spriteSize * 0.3;
+      const r = Number.isFinite(ball.r) ? ball.r : 20;
       ball.held = false;
       const g = 1400;                                         // keep in step with GRAVITY in superball.js
       const floorY = getTaskbarTop();
@@ -1354,18 +1358,6 @@ export default function CoyCompanion() {
         getFloor: getTaskbarTop,
         onDone: () => { ballActiveRef.current = false; }
       });
-    };
-    ball.onRelease = spawn;
-    showPose("ballhold", BALL_HOLD_MS + 2000);
-    ballTimers.current.push(window.setTimeout(() => {
-      showPose("ballthrow", BALL_THROW_MS);
-      // Safety net: if the avatar never reported a release, throw from where Coy is standing.
-      ballTimers.current.push(window.setTimeout(() => {
-        if (released) return;
-        const x = Number.isFinite(ball.sx) ? ball.sx : posRef.current.left + spriteSize / 2;
-        const y = Number.isFinite(ball.sy) ? ball.sy : posRef.current.top + spriteSize * 0.3;
-        spawn({ x, y, r: 12 });
-      }, BALL_THROW_MS - 100));
     }, BALL_HOLD_MS));
     return true;
   }
