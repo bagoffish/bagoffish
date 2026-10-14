@@ -1,0 +1,2 @@
+"use strict";(self.webpackChunkwinXP=self.webpackChunkwinXP||[]).push([[62],{2062:function(_,S,e){e.r(S);e(2791),e(184),({NODE_ENV:"production",PUBLIC_URL:"",WDS_SOCKET_HOST:void 0,WDS_SOCKET_PATH:void 0,WDS_SOCKET_PORT:void 0,FAST_REFRESH:!0}.REACT_APP_API_BASE||"https://fossils.onrender.com").replace(/\/$/,"")}}]);
+//# sourceMappingURL=62.6c7e8be1.chunk.js.map
