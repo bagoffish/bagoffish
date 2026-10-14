@@ -333,11 +333,6 @@ export default function CoyChat({ initialImage, initialText }) {
   const sendLockRef = useRef(false);
   const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
-  const [speechLoadingIndex, setSpeechLoadingIndex] = useState(null);
-  const [speechAudio, setSpeechAudio] = useState(null);
-  const [speechErrorIndex, setSpeechErrorIndex] = useState(null);
-  const speechAudioRef = useRef(null);
-  const speechAudioUrlRef = useRef('');
   const errorTimerRef = useRef(null);
   const showError = (msg) => {
     if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
@@ -355,8 +350,6 @@ export default function CoyChat({ initialImage, initialText }) {
     inputRef.current?.focus();
     return () => {
       try { recognitionRef.current?.stop(); } catch (_) {}
-      try { speechAudioRef.current?.pause(); } catch (_) {}
-      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
     };
   }, []);
 
@@ -520,40 +513,6 @@ export default function CoyChat({ initialImage, initialText }) {
   }
 
 
-  async function playCoySpeech(text, index) {
-    if (!String(text || '').trim() || speechLoadingIndex !== null) return;
-    setSpeechLoadingIndex(index);
-    setSpeechErrorIndex(null);
-    try {
-      const response = await fetch(API_BASE + '/personal-ai/speak', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Accept: 'audio/mpeg, application/json' },
-        body: JSON.stringify({ text: String(text).slice(0, 1200) }),
-      });
-      if (!response.ok) throw new Error('speech request failed');
-      const blob = await response.blob();
-      if (!blob.size || !blob.type.startsWith('audio/')) throw new Error('audio response missing');
-      const url = URL.createObjectURL(blob);
-      try { speechAudioRef.current?.pause(); } catch (_) {}
-      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
-      speechAudioUrlRef.current = url;
-      setSpeechAudio({ index, url });
-      const player = new Audio(url);
-      player.preload = 'auto';
-      speechAudioRef.current = player;
-      try {
-        await player.play();
-      } catch (_) {
-        // Safari may require a second, direct tap after the network request.
-        // The native audio controls below remain available as a fallback.
-      }
-    } catch (_) {
-      setSpeechErrorIndex(index);
-    } finally {
-      setSpeechLoadingIndex(null);
-    }
-  }
-
   async function send(event, forcedMessage) {
     event?.preventDefault?.();
     const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
@@ -700,11 +659,7 @@ export default function CoyChat({ initialImage, initialText }) {
                     <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
                   </div>)}
                   {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
-                  {!isUser && item.content && <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
-                    <button type="button" onClick={() => playCoySpeech(item.content, index)} disabled={speechLoadingIndex !== null} title="Play Coy's voice" style={{ ...styles.button, minHeight: 24, padding: '2px 7px', fontSize: 11 }}>{speechLoadingIndex === index ? 'Loading sound…' : '▶ Play voice'}</button>
-                    {speechErrorIndex === index && <span role="status" style={{ color: '#fff', fontSize: 11 }}>Hold on.. Busy rn</span>}
-                    {speechAudio?.index === index && <audio controls preload="auto" src={speechAudio.url} style={{ display: 'block', maxWidth: '100%', width: 220, height: 28 }} />}
-                  </div>}
+
                 </div>
               </div>
             </div>
