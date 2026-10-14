@@ -586,7 +586,7 @@ export default function CoyCompanion() {
     }, ms);
   }
 
-  // Turn side-on toward the mouse cursor before drawing the sword, so the slash / lunge goes
+  // Turn side-on toward the mouse cursor before drawing the sword, so the lunge goes
   // toward the user instead of whichever way Coy happened to be walking. With no recent mouse
   // movement (touch screens, idle mouse) he keeps his current facing.
   function faceSwordTarget() {
@@ -611,19 +611,19 @@ export default function CoyCompanion() {
 
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
-    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordslash", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];  // plus coyMoves.wall(), .cursor(), .random()
-    const durations = { swordslash: 900, swordlunge: 900, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];  // plus coyMoves.wall(), .cursor(), .random()
+    const durations = { swordlunge: 900, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
       play(name, ms) {
         const move = String(name || "").toLowerCase();
         if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
         const duration = Math.max(250, Number(ms) || durations[move] || 1800);
-        if (move === "swordslash" || move === "swordlunge") startSwordAction(move, duration);
+        if (move === "swordlunge") startSwordAction(move, duration);
         else showPose(move, duration);
         console.info("Coy move:", move);
         if (move === "gearhold") gearHeldRef.current = true;
-        if (move === "swordslash" || move === "swordlunge") gearHeldRef.current = false;
+        if (move === "swordlunge") gearHeldRef.current = false;
         return true;
       },
       // Make him say something in the overhead speech bubble: coyMoves.say("hello")
@@ -672,11 +672,11 @@ export default function CoyCompanion() {
       cursor() { const ok = actionsRef.current.cursor?.(true); if (!ok) console.warn("Coy: move the mouse first (and keep it away from him, above the taskbar)"); return Boolean(ok); },
       random() { actionsRef.current.random?.(); return true; },
       async demo() {
-        const sequence = ["wave", "dance", "dance2", "dance3", "swordslash", "swordlunge", "gearhold", "grapple", "climbing"];
+        const sequence = ["wave", "dance", "dance2", "dance3", "swordlunge", "gearhold", "grapple", "climbing"];
         for (const move of sequence) {
           if (!window.coyMoves || window.coyMoves !== api) return;
           api.play(move, durations[move] || 2200);
-          const equipDelay = move === "swordslash" || move === "swordlunge" ? 300 : 0;
+          const equipDelay = move === "swordlunge" ? 300 : 0;
           await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + equipDelay + 180));
         }
         api.stop();

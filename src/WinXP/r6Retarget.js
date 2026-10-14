@@ -142,7 +142,7 @@ export function applyImportedAnimation(av, clip, elapsed) {
 // Torso follow-through
 //
 // Roblox's stock R6 clips (and the sword / gear clips) animate almost only the limbs: across
-// idle/walk/wave/dance the Torso joint rotates 2-14 degrees, and in swordslash, swordlunge and
+// idle/walk/wave/dance the Torso joint rotates 2-14 degrees, and in swordlunge and
 // gearhold it does not move at all. That is why the body looks stiff. This layer adds the missing
 // secondary motion on top of whatever clip is playing, driven by what the arms and legs are doing:
 //   - shoulders twist toward the swinging arm (and against the stride while walking),
@@ -170,7 +170,6 @@ export const TORSO_GAINS = {
   wave:       { arm: 0.18, leg: 0.00, lean: 0.04, sway: 1 },
   climbing:   { arm: 0.18, leg: 0.18, lean: 0.00, sway: 0 },
   gearhold:   { arm: 0.30, leg: 0.00, lean: 0.05, sway: 1 },
-  swordslash: { arm: 0.75, leg: 0.00, lean: 0.00, sway: 0 },
   swordlunge: { arm: 0.70, leg: 0.00, lean: 0.00, sway: 0 },
 };
 
