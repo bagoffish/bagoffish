@@ -644,7 +644,7 @@ export default function CoyChat({ initialImage, initialText }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png')} style={{ position: 'absolute', bottom: 1, ...(item.role === 'user' ? { right: -18 } : { left: -18 }), width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')} style={{ position: 'absolute', bottom: 1, ...(item.role === 'user' ? { right: -18 } : { left: -18, transform: 'scaleX(-1)' }), width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
             {item.content && renderCoyContent(item.content)}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
               {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
