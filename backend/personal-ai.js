@@ -110,20 +110,15 @@ async function loadApprovedMemoryFresh() {
       now - approvedMemoryLastFetch.fetchedAt < MEMORY_CACHE_TTL_MS) {
     return approvedMemoryLastFetch.text;
   }
-  // If GitHub recently failed, prefer the last good in-process copy over repeating
-  // the same network attempts on every user message.
-  if (approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim() && now < approvedMemoryRetryAt) {
-    return approvedMemoryLastFetch.text;
-  }
+  // Respect the retry cooldown whether or not an earlier request loaded memory.
+  // This keeps an unavailable private repository from adding repeat network waits
+  // to every chat message.
+  if (now < approvedMemoryRetryAt) return approvedMemoryLastFetch.text || "";
   if (approvedMemoryFetchPromise) return approvedMemoryFetchPromise;
 
   approvedMemoryFetchPromise = fetchApprovedMemoryFromGithub();
   try {
-    const text = await approvedMemoryFetchPromise;
-    if (approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim()) {
-      approvedMemoryRetryAt = Date.now() + MEMORY_CACHE_TTL_MS;
-    }
-    return text;
+    return await approvedMemoryFetchPromise;
   } finally {
     approvedMemoryFetchPromise = null;
   }
@@ -138,6 +133,7 @@ async function fetchApprovedMemoryFromGithub() {
       return approvedMemoryLastFetch.text;
     }
     approvedMemoryLastFetch = { text: "", fetchedAt: Date.now(), ok: false };
+    approvedMemoryRetryAt = Date.now() + 60_000;
     console.error("Coy approved memory unavailable: COY_MEMORY_GITHUB_TOKEN is missing.");
     return "";
   }
@@ -203,6 +199,7 @@ async function fetchApprovedMemoryFromGithub() {
     return approvedMemoryLastFetch.text;
   }
   approvedMemoryLastFetch = { text: "", fetchedAt: Date.now(), ok: false };
+  approvedMemoryRetryAt = Date.now() + 60_000;
   console.error("Coy approved memory unavailable: " + lastFailure);
   return "";
 }
