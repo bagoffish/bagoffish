@@ -711,9 +711,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         ? aimAt.x - (px + W / 2)
         : 0;
       const toolFacing = ["grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      // Sword poses use the direction captured when the sword came out, so he stays turned
+      // toward the target for the whole equip -> slash/lunge instead of following live walk dir.
       const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4
         ? Math.sign(cursorX)
-        : (L.dir < 0 ? -1 : 1);
+        : (swordPose ? swordFacingDirection : (L.dir < 0 ? -1 : 1));
       const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
