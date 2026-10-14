@@ -332,19 +332,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       grappleConnect: TOOL_SOUND_BASE + "grapple-connect.mp3",
       grappleHit: TOOL_SOUND_BASE + "grapple-hit.mp3"
     };
-    // Web Audio is more reliable than HTMLMediaElement autoplay on iOS Safari.
-    // Decode same-origin gear clips ahead of time, then resume the context directly
-    // inside a real user gesture so later animation-triggered sounds can play.
+    // Use short HTMLAudioElement effects rather than creating a Web Audio
+    // AudioContext. On iOS, a page-owned AudioContext can sometimes cause other
+    // media to duck or pause; the page cannot override the OS audio-session policy,
+    // but avoiding a persistent context reduces the chance of disrupting music.
     const soundPools = new Map();
     const soundBuffers = new Map();
-    let audioContext = null;
+    const audioContext = null;
     let audioUnlocked = false;
-    try {
-      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-      if (AudioContextClass) audioContext = new AudioContextClass();
-    } catch (error) {
-      console.warn("Coy: Web Audio unavailable; using HTML audio fallback", error);
-    }
     const soundUrl = source => typeof source === "number"
       ? "https://www.roblox.com/asset/?id=" + source
       : source;
