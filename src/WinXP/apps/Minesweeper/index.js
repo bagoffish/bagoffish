@@ -97,7 +97,6 @@ export default function Minesweeper() {
     if (status !== 'playing' || board[index].open) return;
     const next = board.map((cell, i) => i === index ? { ...cell, flag: !cell.flag } : cell);
     setBoard(next);
-    if (!started) setStarted(true);
   }
 
   const face = status === 'lost' ? '☹' : status === 'won' ? '😎' : '☺';
