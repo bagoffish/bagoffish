@@ -1,0 +1,42 @@
+newmtl Handle1Mtl
+Material Color
+Ka 0.373615 0.368591 0.383775
+Kd 0.373615 0.368591 0.383775
+Ks 0.0234425 0.0231273 0.02408 
+
+d 1
+
+Ns 0
+
+map_Ka Handle1_diff.png
+map_Kd Handle1_diff.png
+map_d Handle1_diff.png
+
+newmtl Grbc1Mtl
+Material Color
+Ka 0.00258583 0.00258583 0.00258583
+Kd 0.00258583 0.00258583 0.00258583
+Ks 0.000162248 0.000162248 0.000162248 
+
+d 1
+
+Ns 0
+
+map_Ka Handle1_diff.png
+map_Kd Handle1_diff.png
+map_d Handle1_diff.png
+
+newmtl Grbc3Mtl
+Material Color
+Ka 0.940601 0.701169 0.154152
+Kd 0.940601 0.701169 0.154152
+Ks 0.0590181 0.043995 0.0096723 
+
+d 1
+
+Ns 0
+
+map_Ka Handle1_diff.png
+map_Kd Handle1_diff.png
+map_d Handle1_diff.png
+

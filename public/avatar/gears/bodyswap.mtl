@@ -1,0 +1,14 @@
+newmtl Bodyswap1Mtl
+Material Color
+Ka 0 0.280124 0.339223
+Kd 0 0.280124 0.339223
+Ks 0 0.0175764 0.0212846 
+
+d 1
+
+Ns 0
+
+map_Ka Bodyswap1_diff.png
+map_Kd Bodyswap1_diff.png
+map_d Bodyswap1_diff.png
+

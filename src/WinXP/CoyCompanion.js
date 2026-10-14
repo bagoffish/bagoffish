@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
+import { SWAP_AVATARS, BODYSWAP_MS, BODYSWAP_POTION_MS, BODYSWAP_CHANCE } from "./avatarRoster";
 import { ROBLOX_FONT, robloxBoxStyle, robloxDownTailStyle, robloxTexture } from "./robloxDialog";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
@@ -144,6 +145,12 @@ export default function CoyCompanion() {
   const suppressClickAfterDrag = useRef(false);
   // 3D avatar state: pose drives the R6 animation, the refs feed it without re-rendering.
   const [pose, setPose] = useState("wave");
+  // Bodyswap potion: swapPreload warms up the next body while the potion is raised, swapAvatar is
+  // the body currently worn (null = Coy).
+  const [swapAvatar, setSwapAvatar] = useState(null);
+  const [swapPreload, setSwapPreload] = useState(null);
+  const swapRef = useRef(null);
+  const swapTimers = useRef([]);
   const [impact, setImpact] = useState(0);
   const [dir, setDir] = useState(1);
   const dirRef = useRef(1);
@@ -613,7 +620,7 @@ export default function CoyCompanion() {
 
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
-    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit"];  // plus coyMoves.wall(), .cursor(), .random()
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit", "bodyswap"];  // plus coyMoves.wall(), .cursor(), .random(), .bodyswap("ash")
     const durations = { swordlunge: 900, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
@@ -622,6 +629,7 @@ export default function CoyCompanion() {
         if (!names.includes(move)) { console.warn("Unknown Coy move. Available:", names.join(", ")); return false; }
         const duration = Math.max(250, Number(ms) || durations[move] || 1800);
         if (move === "swordlunge") startSwordAction(move, duration);
+        else if (move === "bodyswap") actionsRef.current.bodyswap?.();
         else showPose(move, duration);
         console.info("Coy move:", move);
         if (move === "gearhold") gearHeldRef.current = true;
@@ -673,6 +681,8 @@ export default function CoyCompanion() {
       wall(side) { const ok = actionsRef.current.wall?.(side); if (!ok) console.warn("Coy: no wall in reach" + (side ? " on the " + side : "")); return Boolean(ok); },
       cursor() { const ok = actionsRef.current.cursor?.(true); if (!ok) console.warn("Coy: move the mouse first (and keep it away from him, above the taskbar)"); return Boolean(ok); },
       random() { actionsRef.current.random?.(); return true; },
+      // Drink the bodyswap potion: coyMoves.bodyswap() for a random avatar, or coyMoves.bodyswap("ash").
+      bodyswap(id) { return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined)); },
       async demo() {
         const sequence = ["wave", "dance", "dance2", "dance3", "swordlunge", "gearhold", "grapple", "climbing"];
         for (const move of sequence) {
@@ -698,6 +708,7 @@ export default function CoyCompanion() {
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.clearTimeout(poseTimer.current);
+      swapTimers.current.forEach(id => window.clearTimeout(id));
       window.cancelAnimationFrame(fallRaf.current);
       window.cancelAnimationFrame(ropeRaf.current);
     };
@@ -1182,6 +1193,22 @@ export default function CoyCompanion() {
     startSwordAction("swordlunge", 900);
     return true;
   }
+  // Raise the bodyswap potion (gearhold animation), drink it, wear someone else for a few
+  // seconds, then turn back into Coy.
+  function doBodySwap(id) {
+    if (swapRef.current) return false;
+    const pick = SWAP_AVATARS.includes(id) ? id : SWAP_AVATARS[Math.floor(Math.random() * SWAP_AVATARS.length)];
+    cancelAction();
+    swapRef.current = pick;
+    setSwapPreload(pick);
+    showPose("bodyswap", BODYSWAP_POTION_MS);
+    const later = (fn, ms) => swapTimers.current.push(window.setTimeout(fn, ms));
+    // Change body near the end of the potion animation, while the potion is still in his hand.
+    later(() => setSwapAvatar(pick), BODYSWAP_POTION_MS - 450);
+    later(() => { setSwapAvatar(null); setSwapPreload(null); swapRef.current = null; },
+      BODYSWAP_POTION_MS - 450 + BODYSWAP_MS);
+    return true;
+  }
   function doSit() {
     cancelAction();
     const surface = getTaskbarSurface();
@@ -1200,13 +1227,15 @@ export default function CoyCompanion() {
   function doRandomAction() {
     const roll = Math.random();
     if (roll < 0.08) return;                                    // sometimes he just keeps wandering
-    if (roll < 0.28) { doSword(); return; }
-    if (roll < 0.48) { doSit(); return; }
-    if (roll < 0.58 && startCursorGrapple()) return;
+    if (roll < 0.08 + BODYSWAP_CHANCE && !swapRef.current) { doBodySwap(); return; }
+    const r = roll - BODYSWAP_CHANCE;                           // the rest keep their original odds
+    if (r < 0.28) { doSword(); return; }
+    if (r < 0.48) { doSit(); return; }
+    if (r < 0.58 && startCursorGrapple()) return;
     if (startWallGrapple()) return;
     doSword();
   }
-  actionsRef.current = { wall: startWallGrapple, cursor: startCursorGrapple, random: doRandomAction, cancel: cancelAction };
+  actionsRef.current = { wall: startWallGrapple, cursor: startCursorGrapple, random: doRandomAction, cancel: cancelAction, bodyswap: doBodySwap };
 
   function onCoyPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
@@ -1484,7 +1513,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
+        <CoyAvatar3D size={spriteSize} pose={pose} swap={swapAvatar} swapPreload={swapPreload} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
       </button>
 
       <button
