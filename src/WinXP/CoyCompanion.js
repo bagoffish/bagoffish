@@ -1396,9 +1396,9 @@ export default function CoyCompanion() {
       transform: "translateX(-50%)",
       // Put the tail behind the body and overlap the border enough to hide
       // transparent edge pixels in the original Roblox texture.
-      top: "calc(100% - 14px)",
-      width: 24,
-      height: 24,
+      top: "calc(100% - 19px)",
+      width: 28,
+      height: 28,
       objectFit: "contain",
       display: "block",
       pointerEvents: "none",
