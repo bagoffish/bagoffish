@@ -646,8 +646,9 @@ export default function CoyChat({ initialImage, initialText }) {
     <div style={styles.root} data-coy-chat-window="true">
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
-          <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy) }}>
-            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')} style={{ position: 'absolute', bottom: 1, ...(item.role === 'user' ? { right: -18 } : { left: -18, transform: 'scaleX(-1)' }), width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+          <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy), ...(item.role === 'assistant' ? { transform: 'scaleX(-1)' } : {}) }}>
+            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')} style={{ position: 'absolute', bottom: 1, ...(item.role === 'user' ? { right: -18 } : { right: -18 }), width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+            <div style={item.role === 'assistant' ? { transform: 'scaleX(-1)', width: '100%' } : undefined}>
             {item.content && renderCoyContent(item.content)}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
               {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
@@ -656,15 +657,16 @@ export default function CoyChat({ initialImage, initialText }) {
               <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
             </div>)}
             {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
+            </div>
           </div>
         ))}
-        {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, left: -18, transform: 'scaleX(-1)', width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
-          Typing...
+        {busy && <div style={{ ...styles.bubble, ...styles.coy, transform: 'scaleX(-1)' }}>
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, right: -18, width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+          <div style={{ transform: 'scaleX(-1)', width: '100%' }}>Typing...</div>
         </div>}
-        {error && <div role="alert" style={{ ...styles.bubble, ...styles.coy, color: '#fff' }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, left: -18, transform: 'scaleX(-1)', width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
-          {error}
+        {error && <div role="alert" style={{ ...styles.bubble, ...styles.coy, color: '#fff', transform: 'scaleX(-1)' }}>
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, right: -18, width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+          <div style={{ transform: 'scaleX(-1)', width: '100%' }}>{error}</div>
         </div>}
         <div ref={bottomRef} />
       </div>
