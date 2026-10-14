@@ -523,9 +523,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const swapLoading = new Set();
     const swapFailed = new Set();
     let coyAv = null, shownKey = "coy", swapPulseAt = -10;
+
     const showAvatar = (next, key) => {
-      if (av === next) { shownKey = key; return; }
-      if (av) { detachGear(); scene.remove(av.body); }
+      if (av === next) {
+        shownKey = key;
+        return;
+      }
+      if (av) {
+        detachGear();
+        scene.remove(av.body);
+      }
       av = next;
       shownKey = key;
       bodyBaseScale.copy(av.body.scale);
@@ -596,7 +603,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (L.swapPreload) ensureSwapAvatar(L.swapPreload);
       if (wantKey !== shownKey) {
         const next = wantKey === "coy" ? coyAv : swapCache.get(wantKey);
-        if (next) { showAvatar(next, wantKey); swapPulseAt = t; }
+        if (next) {
+          showAvatar(next, wantKey);
+          swapPulseAt = t;
+        }
         else if (wantKey !== "coy") ensureSwapAvatar(wantKey);
       }
       const enteredPose = L.pose !== previousPose;
