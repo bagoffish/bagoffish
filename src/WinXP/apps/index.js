@@ -15,7 +15,7 @@ import musicIcon from "assets/windowsIcons/550(32x32).png";
 import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
-import minesweeperIcon from "assets/windowsIcons/spider.png";
+import minesweeperIcon from "assets/minesweeper/mine-ceil.png";
 
 /* icons for custom apps */
 import poemsIcon from "assets/windowsIcons/327(32x32).png";
@@ -164,9 +164,9 @@ export const appSettings = {
   Minesweeper: {
     header: { icon: minesweeperIcon, title: "Minesweeper" },
     component: Minesweeper,
-    defaultSize: { width: 340, height: 430 },
+    defaultSize: { width: 270, height: 280 },
     defaultOffset: { x: 260, y: 80 },
-    resizable: false,
+    resizable: true,
     minimized: false,
     maximized: false,
     multiInstance: false,
