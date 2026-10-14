@@ -320,17 +320,16 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let av = null, raf = 0, cancelled = false;
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHitPlayed = false;
-    // Original Roblox classic gear audio asset IDs.
-    // Sword: unsheath.wav (12222225), swordslash.wav (12222216),
-    // swordlunge.wav (12222208). Grapple Hook: Fire (16211041),
-    // Connect (13510737), Hit (16211030).
+    // Serve gear sounds from this site's own origin. Roblox's asset endpoint
+    // can redirect, reject CORS, or return a non-audio response in Safari.
+    // The four verified classic clips are bundled under public/sounds/coy-tools.
     const soundIds = {
-      swordSlash: 12222216,
-      swordLunge: 12222208,
-      unsheath: 12222225,
-      grappleFire: 16211041,
-      grappleConnect: 13510737,
-      grappleHit: 16211030
+      swordSlash: TOOL_SOUND_BASE + "slash.mp3",
+      swordLunge: TOOL_SOUND_BASE + "lunge.mp3",
+      unsheath: TOOL_SOUND_BASE + "unsheath.mp3",
+      grappleFire: TOOL_SOUND_BASE + "grapple.mp3",
+      grappleConnect: TOOL_SOUND_BASE + "grapple-connect.mp3",
+      grappleHit: TOOL_SOUND_BASE + "grapple-hit.mp3"
     };
     // Web Audio is more reliable than HTMLMediaElement autoplay on iOS Safari.
     // Decode same-origin gear clips ahead of time, then resume the context directly
@@ -362,21 +361,27 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       return soundPools.get(src);
     };
-    const localSoundSources = Object.values(soundIds).filter(source => typeof source === "string");
+    const localSoundSources = Object.values(soundIds);
     if (audioContext) {
       localSoundSources.forEach(source => {
         const url = soundUrl(source);
-        fetch(url).then(response => {
+        fetch(url, { cache: "force-cache" }).then(response => {
           if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
+          const type = response.headers.get("content-type") || "";
+          if (/text\/html|application\/json/i.test(type)) throw new Error("Non-audio response (" + type + ") for " + url);
           return response.arrayBuffer();
-        }).then(bytes => audioContext.decodeAudioData(bytes)).then(buffer => {
+        }).then(bytes => {
+          if (!bytes || bytes.byteLength < 128) throw new Error("Audio file is empty or truncated: " + url);
+          return audioContext.decodeAudioData(bytes);
+        }).then(buffer => {
           soundBuffers.set(url, buffer);
         }).catch(error => {
-          console.warn("Coy: Web Audio clip preload failed; HTML audio fallback will be used", url, error);
+          console.warn("Coy: local gear sound preload failed; HTML audio fallback will be used", url, error);
         });
       });
     }
-    // Keep fallback players preloaded too, and retain the remote Roblox asset sounds.
+    // Prime same-origin HTMLAudioElement players as a fallback for browsers that
+    // cannot decode Web Audio. These paths must resolve under PUBLIC_URL.
     Object.values(soundIds).forEach(getSoundPool);
     const unlockGearAudio = () => {
       if (audioContext) {
@@ -409,7 +414,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
     };
     const soundUnlockEvents = ["pointerdown", "touchstart", "keydown", "click"];
-    soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockGearAudio, { once: true, capture: true }));
+    // Keep listeners until audio is actually unlocked: a rejected first attempt
+    // must not permanently strand iOS Safari in a muted state.
+    const unlockWhenReady = () => {
+      unlockGearAudio();
+      if (audioUnlocked || !audioContext) {
+        soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockWhenReady, true));
+      }
+    };
+    soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockWhenReady, { passive: true, capture: true }));
     const playGearSound = (source, volume = 1) => {
       try {
         const src = soundUrl(source);
