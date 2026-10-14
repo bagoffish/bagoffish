@@ -1396,7 +1396,7 @@ export default function CoyCompanion() {
       transform: "translateX(-50%)",
       // Put the tail behind the body and overlap the border enough to hide
       // transparent edge pixels in the original Roblox texture.
-      top: "calc(100% - 7px)",
+      top: "calc(100% - 12px)",
       width: 28,
       height: 28,
       objectFit: "contain",
@@ -1515,7 +1515,7 @@ export default function CoyCompanion() {
       {showBubble && (
         <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
           <img
-            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tailRight.png"}
+            src={ROBLOX_DIALOG_ASSET_BASE + "chatBubble_botGreen_tail.png"}
             alt=""
             aria-hidden="true"
             draggable={false}
