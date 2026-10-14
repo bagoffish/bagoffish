@@ -337,6 +337,7 @@ export default function CoyChat({ initialImage, initialText }) {
   const [speechAudio, setSpeechAudio] = useState(null);
   const [speechErrorIndex, setSpeechErrorIndex] = useState(null);
   const speechAudioRef = useRef(null);
+  const speechAudioUrlRef = useRef('');
   const errorTimerRef = useRef(null);
   const showError = (msg) => {
     if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
@@ -355,9 +356,9 @@ export default function CoyChat({ initialImage, initialText }) {
     return () => {
       try { recognitionRef.current?.stop(); } catch (_) {}
       try { speechAudioRef.current?.pause(); } catch (_) {}
-      if (speechAudio?.url) URL.revokeObjectURL(speechAudio.url);
+      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
     };
-  }, [speechAudio]);
+  }, []);
 
   useEffect(() => {
     const onPrefill = event => {
@@ -534,10 +535,9 @@ export default function CoyChat({ initialImage, initialText }) {
       if (!blob.size || !blob.type.startsWith('audio/')) throw new Error('audio response missing');
       const url = URL.createObjectURL(blob);
       try { speechAudioRef.current?.pause(); } catch (_) {}
-      setSpeechAudio(previous => {
-        if (previous?.url) URL.revokeObjectURL(previous.url);
-        return { index, url };
-      });
+      if (speechAudioUrlRef.current) URL.revokeObjectURL(speechAudioUrlRef.current);
+      speechAudioUrlRef.current = url;
+      setSpeechAudio({ index, url });
       const player = new Audio(url);
       player.preload = 'auto';
       speechAudioRef.current = player;
