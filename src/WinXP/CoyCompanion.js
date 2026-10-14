@@ -1457,7 +1457,7 @@ export default function CoyCompanion() {
   };
 
   return createPortal(
-    <div ref={rootRef} style={{ ...styles.root, visibility: avatarReady ? "visible" : "hidden" }} data-coy-ui="true">
+    <div ref={rootRef} style={{ ...styles.root, visibility: avatarReady && !underAppWindows ? "visible" : "hidden" }} data-coy-ui="true">
       <svg
         ref={ropeSvgRef}
         aria-hidden="true"
