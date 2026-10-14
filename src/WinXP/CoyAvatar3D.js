@@ -641,11 +641,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Show classic gear only during its matching emote.
-<<<<<<< ours
       if (swordGear) swordGear.visible = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
-=======
-      if (swordGear) swordGear.visible = ["swordequip", "swordlunge"].includes(L.pose);
->>>>>>> theirs
       const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose) || gripFall;
       const grappleMode = typeof window === "undefined" ? "grapplegun" : window.__coyGear?.mode || "grapplegun";
       // The pose and rope are updated independently; either marks the firing interval.
