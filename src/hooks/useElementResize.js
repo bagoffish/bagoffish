@@ -443,12 +443,20 @@ function useCursor(ref, threshold, resizable) {
 
     const onWindowBlur = () => onPointerUp();
 
+    // mousemove stops firing once the pointer leaves the window, which would leave the last edge (and
+    // its cursor) stuck on <body>.
+    const onPointerLeave = () => {
+      if (!resizing) setEdge('');
+    };
+
+    target.addEventListener('mouseleave', onPointerLeave);
     target.addEventListener('mousemove', onPointerMove);
     target.addEventListener('mousedown', onPointerDown);
     window.addEventListener('mouseup', onPointerUp, true);
     window.addEventListener('blur', onWindowBlur);
 
     return () => {
+      target.removeEventListener('mouseleave', onPointerLeave);
       target.removeEventListener('mousemove', onPointerMove);
       target.removeEventListener('mousedown', onPointerDown);
       window.removeEventListener('mouseup', onPointerUp, true);
