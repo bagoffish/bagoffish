@@ -298,7 +298,7 @@ const styles = {
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#ccc' },
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8, background: '#242424' },
-  bubble: { position: 'relative', maxWidth: '92%', padding: '8px 10px', border: '6px solid transparent', borderRadius: 0, borderImageSlice: '12 fill', borderImageWidth: '6px', borderImageRepeat: 'stretch', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.45, color: '#fff', textShadow: '0 1px 1px #222' },
+  bubble: { position: 'relative', boxSizing: 'border-box', maxWidth: '100%', padding: '5px 8px', border: '12px solid transparent', borderRadius: 0, borderImageSlice: '12 fill', borderImageWidth: '12px', borderImageRepeat: 'stretch', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.35, color: '#fff', textShadow: '0 1px 1px #222' },
   user: { alignSelf: 'flex-end', background: '#6f1717', borderImageSource: `url(${(process.env.PUBLIC_URL || '').replace(/\/$/, '')}/images/roblox-dialog/chatBubble_botRed_bkg.png)`, marginRight: 7 },
   coy: { alignSelf: 'flex-start', background: '#174c19', borderImageSource: `url(${(process.env.PUBLIC_URL || '').replace(/\/$/, '')}/images/roblox-dialog/chatBubble_botGreen_bkg.png)`, marginLeft: 7 },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #111', background: '#333', flexShrink: 0, alignItems: 'flex-end' },
