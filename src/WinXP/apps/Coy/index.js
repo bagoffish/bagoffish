@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { robloxBoxStyle, robloxSideTailStyle, robloxTexture } from '../../robloxDialog';
 
 const API_BASE = (process.env.REACT_APP_API_BASE || 'https://fossils.onrender.com').replace(/\/$/, '');
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
@@ -298,9 +299,12 @@ const styles = {
   title: { fontWeight: 'bold', fontSize: 14, marginBottom: 5 },
   subtitle: { lineHeight: 1.45, color: '#ccc' },
   messages: { flex: 1, minHeight: 0, overflowY: 'auto', padding: 10, display: 'flex', flexDirection: 'column', gap: 8, background: '#242424' },
-  bubble: { position: 'relative', boxSizing: 'border-box', maxWidth: '100%', padding: '5px 8px', border: '12px solid transparent', borderRadius: 0, borderImageSlice: '12 fill', borderImageWidth: '12px', borderImageRepeat: 'stretch', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', lineHeight: 1.35, color: '#fff', textShadow: '0 1px 1px #222' },
-  user: { alignSelf: 'flex-end', background: '#6f1717', borderImageSource: `url(${(process.env.PUBLIC_URL || '').replace(/\/$/, '')}/images/roblox-dialog/chatBubble_botRed_bkg.png)`, marginRight: 7 },
-  coy: { alignSelf: 'flex-start', background: '#174c19', borderImageSource: `url(${(process.env.PUBLIC_URL || '').replace(/\/$/, '')}/images/roblox-dialog/chatBubble_botGreen_bkg.png)`, marginLeft: 7 },
+  // Same box as the in-game dialog (see robloxDialog.js); everything is in em, so the wrapper's
+  // fontSize scales border, padding and tail together.
+  bubbleWrap: { position: 'relative', width: 'fit-content', maxWidth: '88%', fontSize: 14 },
+  bubble: { whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxWidth: '100%' },
+  user: { alignSelf: 'flex-end', marginRight: 30 },
+  coy: { alignSelf: 'flex-start', marginLeft: 30 },
   form: { display: 'flex', gap: 6, padding: 8, borderTop: '1px solid #111', background: '#333', flexShrink: 0, alignItems: 'flex-end' },
   pendingAttachments: { display: 'flex', flexWrap: 'wrap', gap: 5, padding: '6px 8px', background: '#303030', color: '#eee', borderTop: '1px solid #444' },
   attachmentChip: { display: 'flex', alignItems: 'center', gap: 5, maxWidth: '100%', padding: '4px 6px', border: '1px solid #aaa', background: '#fff', overflowWrap: 'anywhere' },
@@ -309,6 +313,20 @@ const styles = {
   button: { minHeight: 30, padding: '4px 12px', border: '1px solid #777', borderRadius: 0, color: '#eee', font: '12px Tahoma, Arial', background: 'linear-gradient(#555,#333)', cursor: 'pointer' },
   status: { padding: '5px 9px', background: '#303030', color: '#ccc', borderTop: '1px solid #444', fontSize: 10, flexShrink: 0 },
 };
+
+// One chat bubble: glowing box + lightning-bolt tail on the speaker's side (red/right = you,
+// green/left = Coy), matching the 2013 Roblox dialog choice boxes.
+function RobloxBubble({ isUser, children }) {
+  const variant = isUser ? 'red' : 'green';
+  return (
+    <div style={{ ...styles.bubbleWrap, alignSelf: isUser ? 'flex-end' : 'flex-start', marginLeft: isUser ? 0 : 30, marginRight: isUser ? 30 : 0 }}>
+      <div style={{ ...robloxBoxStyle(variant), ...styles.bubble }}>
+        {children}
+        <img aria-hidden="true" alt="" draggable={false} src={robloxTexture(variant, 'tailSide')} style={robloxSideTailStyle(isUser ? 'right' : 'left')} />
+      </div>
+    </div>
+  );
+}
 
 export default function CoyChat({ initialImage, initialText }) {
   const [messages, setMessages] = useState(() => {
@@ -645,38 +663,23 @@ export default function CoyChat({ initialImage, initialText }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => {
           const isUser = item.role === 'user';
-          const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png');
           return (
-            <div key={index} style={{ position: 'relative', alignSelf: isUser ? 'flex-end' : 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: isUser ? 0 : 7, marginRight: isUser ? 7 : 0 }}>
-              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: '50%', ...(isUser ? { right: -18 } : { left: -18 }), transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
-              <div style={{ ...styles.bubble, ...(isUser ? styles.user : styles.coy), alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
-                <div>
-                  {item.content && renderCoyContent(item.content)}
-                  {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
-                    {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
-                    {attachment.textContent !== undefined && <pre style={{ margin: '5px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 260, overflow: 'auto', font: '11px Consolas, monospace' }}>{attachment.textContent.slice(0, 12000)}{attachment.textContent.length > 12000 ? '\n… preview truncated' : ''}</pre>}
-                    {attachment.dataUrl && attachment.type?.startsWith('audio/') && <audio controls preload="metadata" src={attachment.dataUrl} style={{ display: 'block', maxWidth: '100%', width: 280 }} />}
-                    <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
-                  </div>)}
-                  {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
-
-                </div>
+            <RobloxBubble key={index} isUser={isUser}>
+              <div>
+                {item.content && renderCoyContent(item.content)}
+                {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
+                  {attachment.dataUrl && attachment.type?.startsWith('image/') && <img src={attachment.dataUrl} alt={attachment.name || 'Uploaded image'} style={{ display: 'block', maxWidth: '100%', maxHeight: 260, objectFit: 'contain', border: '1px solid #ccc', marginBottom: 4 }} />}
+                  {attachment.textContent !== undefined && <pre style={{ margin: '5px 0 0', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: 260, overflow: 'auto', font: '11px Consolas, monospace' }}>{attachment.textContent.slice(0, 12000)}{attachment.textContent.length > 12000 ? '\n… preview truncated' : ''}</pre>}
+                  {attachment.dataUrl && attachment.type?.startsWith('audio/') && <audio controls preload="metadata" src={attachment.dataUrl} style={{ display: 'block', maxWidth: '100%', width: 280 }} />}
+                  <span style={{ fontSize: 11, color: '#ccc' }}>📎 {attachment.name || 'Attachment'}</span>
+                </div>)}
+                {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
               </div>
-            </div>
+            </RobloxBubble>
           );
         })}
-        {busy && <div style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -18, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
-          <div style={{ ...styles.bubble, ...styles.coy, alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
-            <div>Typing...</div>
-          </div>
-        </div>}
-        {error && <div role="alert" style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -18, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
-          <div style={{ ...styles.bubble, ...styles.coy, color: '#fff', alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
-            <div>{error}</div>
-          </div>
-        </div>}
+        {busy && <RobloxBubble isUser={false}><div>Typing...</div></RobloxBubble>}
+        {error && <div role="alert" style={{ display: 'contents' }}><RobloxBubble isUser={false}><div>{error}</div></RobloxBubble></div>}
         <div ref={bottomRef} />
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">

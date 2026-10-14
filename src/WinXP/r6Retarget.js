@@ -170,8 +170,8 @@ export const TORSO_GAINS = {
   wave:       { arm: 0.18, leg: 0.00, lean: 0.04, sway: 1 },
   climbing:   { arm: 0.18, leg: 0.18, lean: 0.00, sway: 0 },
   gearhold:   { arm: 0.30, leg: 0.00, lean: 0.05, sway: 1 },
-  swordslash: { arm: 0.75, leg: 0.00, lean: 0.20, sway: 0 },
-  swordlunge: { arm: 0.70, leg: 0.00, lean: 0.28, sway: 0 },
+  swordslash: { arm: 0.75, leg: 0.00, lean: 0.00, sway: 0 },
+  swordlunge: { arm: 0.70, leg: 0.00, lean: 0.00, sway: 0 },
 };
 
 // Computes the target { twist, lean } for the pose the clip just wrote into `av`.
