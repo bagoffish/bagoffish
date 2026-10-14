@@ -181,6 +181,24 @@ const reducer = (state, action = { type: '' }) => {
   }
 };
 
+// The resize hook (hooks/useElementResize.js) puts data-xp-resize="<edge>" on <body> while the
+// pointer is on a window edge and for the whole drag. Nothing used to read it, so the resize cursors
+// never showed. :not(#xp-resize-active) adds an id's worth of specificity so these beat the
+// shell-wide "* { cursor: ... !important }" rules (and the same rules in Container below). No hotspot
+// is given: the .cur files carry their own, at the centre of the arrow.
+const RESIZE_EDGE_CURSORS = [
+  [['left', 'right'], 'Horizontal%20Resize.cur', 'ew-resize'],
+  [['top', 'bottom'], 'Vertical%20Resize.cur', 'ns-resize'],
+  [['topLeft', 'bottomRight'], 'Diagonal%20Resize%201.cur', 'nwse-resize'],
+  [['topRight', 'bottomLeft'], 'Diagonal%20Resize%202.cur', 'nesw-resize'],
+];
+const resizeEdgeRules = () => RESIZE_EDGE_CURSORS.map(([edges, file, fallback]) => {
+  const selector = edges
+    .map(edge => `html body[data-xp-resize="${edge}"]:not(#xp-resize-active), html body[data-xp-resize="${edge}"]:not(#xp-resize-active) *`)
+    .join(', ');
+  return `${selector} { cursor: url("/images/${file}"), ${fallback} !important; }`;
+});
+
 function injectXpCursors() {
   if (typeof document === 'undefined' || !document.head) return;
   let style = document.getElementById('xp-cursor-style');
@@ -202,7 +220,9 @@ function injectXpCursors() {
     'body .xp-cursor-normal { cursor: url("/images/Normal%20Select.cur") 3 3, default !important; }',
     'body input[type="text"], body input[type="password"], body input[type="search"], body input[type="email"], body input[type="number"], body input[type="url"], body input:not([type]), body textarea, body [contenteditable="true"] { cursor: text !important; }',
     'body textarea::-webkit-resizer { cursor: url("/images/Diagonal%20Resize%201.cur") 8 8, nwse-resize !important; }',
-    // Do not apply a resize cursor globally: stale resize state can otherwise leave it stuck after a drag.
+    // Only active while the hook has marked <body> (edge hover or an active drag); the hook clears it on
+    // mouseup, blur and when the pointer leaves the window, so it can't stick.
+    ...resizeEdgeRules(),
   ].join('\n');
   const mark = () => {
     document.querySelectorAll('#root button, #root a, #root label, #root [role="button"], #root select').forEach(el => {
