@@ -622,6 +622,15 @@ export default function CoyCompanion() {
         if (move === "swordslash" || move === "swordlunge") gearHeldRef.current = false;
         return true;
       },
+      // Make him say something in the overhead speech bubble: coyMoves.say("hello")
+      say(text) {
+        const message = String(text ?? "").trim();
+        if (!message) { console.warn("Usage: coyMoves.say('something to say')"); return false; }
+        setLine(formatCoyText(message));
+        setShowBubble(true);
+        lastActivity.current = Date.now();
+        return true;
+      },
       // Keep the grapple gun equipped between shots. gearhold is the idle pose
       // while equipped; releaseGear() returns Coy to his normal idle/wandering.
       holdGear() {
