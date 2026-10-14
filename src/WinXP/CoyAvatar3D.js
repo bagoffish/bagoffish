@@ -31,7 +31,6 @@ function target(pose, t, dir, tiltIn) {
     // Rest the arms forward and lower the hips into the seat.
     case "sit":    return P({ rZ: 0, lZ: 0, rX: -1.42, lX: -1.42, rL: -1.42, lL: -1.42, bob: -1.2, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
-    case "swordslash": { const a = clamp(t / 0.9, 0, 1); return P({ rZ: a < .28 ? 1.8 : a < .58 ? -1.8 : .2, rX: a < .28 ? -0.7 : a < .58 ? 0.65 : 0, lZ: -0.25, tilt: 0 }); }
     case "swordlunge": {
       const a = clamp(t / 0.9, 0, 1);
       const thrust = clamp((a - 0.18) / 0.12, 0, 1) * (1 - clamp((a - 0.74) / 0.16, 0, 1));
@@ -329,7 +328,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     // can redirect, reject CORS, or return a non-audio response in Safari.
     // The four verified classic clips are bundled under public/sounds/coy-tools.
     const soundIds = {
-      swordSlash: TOOL_SOUND_BASE + "slash.mp3",
       swordLunge: TOOL_SOUND_BASE + "lunge.mp3",
       unsheath: TOOL_SOUND_BASE + "unsheath.mp3",
       grappleFire: TOOL_SOUND_BASE + "grapple.mp3",
@@ -542,18 +540,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
-        if (L.pose === "swordequip" || L.pose === "swordslash" || L.pose === "swordlunge") {
+        if (L.pose === "swordequip" || L.pose === "swordlunge") {
           swordFacingDirection = L.dir < 0 ? -1 : 1;
         }
-        transitionDuration = ["swordslash", "swordlunge"].includes(L.pose) ? 0.12 : 0.34;
+        transitionDuration = L.pose === "swordlunge" ? 0.12 : 0.34;
         // Holding the grapple gear is silent; play tool sounds only when a move begins.
         if (L.pose === "swordequip") {
           playGearSound(soundIds.unsheath);
-        } else if (L.pose === "swordslash") {
-          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
-          playGearSound(soundIds.swordSlash);
         } else if (L.pose === "swordlunge") {
-          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
+          if (!["swordequip", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
           grappleHitPlayed = false;
@@ -565,7 +560,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           transitionFrom = capturePose();
           transitionStartedAt = t;
           // Sword poses keep the head level; don't fade in the idle cursor-look tilt.
-          if (["swordequip", "swordslash", "swordlunge"].includes(L.pose)) {
+          if (["swordequip", "swordlunge"].includes(L.pose)) {
             transitionFrom.parts.head = null;
             look.x = 0; look.y = 0;
           }
@@ -575,7 +570,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall", swordslash: "gearhold" })[L.pose] || L.pose;
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
       // Keep grounded sit, landing, and live-aim grapple procedural; preserve the imported CFrame clips for other moves.
       const clip = PROCEDURAL_POSES.has(L.pose) ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
@@ -646,7 +641,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Show classic gear only during its matching emote.
+<<<<<<< ours
       if (swordGear) swordGear.visible = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
+=======
+      if (swordGear) swordGear.visible = ["swordequip", "swordlunge"].includes(L.pose);
+>>>>>>> theirs
       const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose) || gripFall;
       const grappleMode = typeof window === "undefined" ? "grapplegun" : window.__coyGear?.mode || "grapplegun";
       // The pose and rope are updated independently; either marks the firing interval.
@@ -666,7 +665,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
       // Head follows the cursor when calm, layered on top of whatever clip is playing.
       let wy = 0, wx = 0;
-      const swordPose = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      const swordPose = ["swordequip", "swordlunge"].includes(L.pose);
       const canTrackCursor = L.pose === "idle";
       if (canTrackCursor && L.look && L.getPos) {
         const p = L.getPos() || {};
@@ -725,7 +724,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // repeatedly blend the body back toward its old, front-facing quaternion.
       // Walking and climbing turn with movement; sword poses keep their captured
       // side-facing direction, while grapple aims toward its anchor.
-      const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordlunge"].includes(L.pose);
       const position = L.getPos ? (L.getPos() || {}) : {};
       const px = Number.isFinite(position.x) ? position.x : position.left;
       const aimAt = L.pose === "grapple" && L.grapple && L.grapple.active
@@ -734,9 +733,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
         ? aimAt.x - (px + W / 2)
         : 0;
-      const toolFacing = ["grapple", "swordequip", "swordslash", "swordlunge"].includes(L.pose);
+      const toolFacing = ["grapple", "swordequip", "swordlunge"].includes(L.pose);
       // Sword poses use the direction captured when the sword came out, so he stays turned
-      // toward the target for the whole equip -> slash/lunge instead of following live walk dir.
+      // toward the target for the whole equip -> lunge instead of following live walk dir.
       const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4
         ? Math.sign(cursorX)
         : (swordPose ? swordFacingDirection : (L.dir < 0 ? -1 : 1));
