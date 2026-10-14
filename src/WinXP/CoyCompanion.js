@@ -712,15 +712,68 @@ export default function CoyCompanion() {
         return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined));
       },
       async demo() {
-        const sequence = ["wave", "dance", "dance2", "dance3", "swordlunge", "gearhold", "grapple", "climbing"];
+        const sequence = [
+          "wave",
+          "dance",
+          "dance2",
+          "dance3",
+          "swordlunge",
+          "gearhold",
+          "grapple",
+          "climbing"
+        ];
+
         for (const move of sequence) {
           if (!window.coyMoves || window.coyMoves !== api) return;
+
           api.play(move, durations[move] || 2200);
+
           const equipDelay = move === "swordlunge" ? 300 : 0;
-          await new Promise(resolve => window.setTimeout(resolve, (durations[move] || 2200) + equipDelay + 180));
+
+          await new Promise(resolve =>
+            window.setTimeout(
+              resolve,
+              (durations[move] || 2200) + equipDelay + 180
+            )
+          );
         }
+
         api.stop();
       }
+    };
+
+    window.coyMoves = api;
+
+    return () => {
+      if (window.coyMoves === api) delete window.coyMoves;
+    };
+  }, []);
+
+  useEffect(() => {
+    // Start the greeting only when the real avatar is ready to appear.
+    if (avatarReady) showPose("wave", 1650);
+  }, [avatarReady]);
+
+  useEffect(() => {
+    const onMove = e => {
+      lookRef.current.x = e.clientX;
+      lookRef.current.y = e.clientY;
+
+      if (e.pointerType !== "touch") {
+        lastPointerAt.current = Date.now();
+      }
+    };
+
+    window.addEventListener("pointermove", onMove);
+
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.clearTimeout(poseTimer.current);
+      swapTimers.current.forEach(id => window.clearTimeout(id));
+      window.cancelAnimationFrame(fallRaf.current);
+      window.cancelAnimationFrame(ropeRaf.current);
+    };
+  }, []);
 
   // Every few seconds Coy picks something to do on his own: swing the sword, sit down, or
   // grapple (onto a wall he then climbs, or onto the mouse cursor). This is one long-lived
