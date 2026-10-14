@@ -1378,12 +1378,12 @@ export default function CoyCompanion() {
       minWidth: 54,
       maxWidth: "min(204px, calc(100vw - 20px))",
       minHeight: 44,
-      border: "6px solid transparent",
+      border: "12px solid transparent",
       // Preserve the original 2013 green border/corners and stretch only the
       // dark-green center, rather than resizing the entire square texture.
       borderImageSource: `url(${ROBLOX_DIALOG_ASSET_BASE}chatBubble_botGreen_bkg.png)`,
       borderImageSlice: "12 fill",
-      borderImageWidth: "6px",
+      borderImageWidth: "12px",
       borderImageRepeat: "stretch",
       zIndex: 1
     },
