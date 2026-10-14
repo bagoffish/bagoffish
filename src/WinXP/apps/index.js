@@ -77,9 +77,9 @@ export const defaultIconState = [
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
+  { id: 10, icon: minesweeperIcon, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
   { id: 6, icon: winamp, title: "Winamp", component: Winamp, isFocus: false },
-  { id: 10, icon: minesweeperIcon, title: "Minesweeper", component: Minesweeper, isFocus: false },
 ];
 
 /* start menu / openApp settings */
