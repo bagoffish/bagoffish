@@ -1,0 +1,656 @@
+diff --git a/backend/bloxify.cjs b/backend/bloxify.cjs
+index 9919f3c..6fd50c4 100644
+--- a/backend/bloxify.cjs
++++ b/backend/bloxify.cjs
+@@ -10,25 +10,32 @@ const ROLES = ["drums", "bass", "cello", "vocals", "strings", "horn", "flute", "
+ 
+ const REFERENCE_URL = "https://youtu.be/XWpqGrSfd_0?si=r3tQJEW9U4K_bRIy";
+ const REFERENCE_STYLE = {
+-  name: "SEWH M.U.L.E / Bloxify",
+-  source: "SEWH:RECODE M.U.L.E rips",
++  name: "SEWH M.U.L.E / Bloxify ULTRA",
++  source: "SEWH:RECODE M.U.L.E rips - ULTRA Roblox Edition",
+   traits: [
+-    "classic Roblox MIDI sound, not just a square-wave loop",
+-    "violin lead that follows the heard tune and stays in front",
+-    "contrabass and cello in long notes, not constant eighths",
++    "ULTRA classic Roblox MIDI sound with maximum authenticity",
++    "violin lead VERY forward in mix (118 volume)",
++    "contrabass and cello in ULTRA LONG sustained notes (2+ beats, 110 volume)",
++    "square wave synth leads (C64 style) for 8-bit Roblox character",
++    "chord pad layers for sustained backing thickness",
+     "string ensemble, horn, flute, oboe, and clarinet answering in phrases",
+-    "harp broken chords, soft piano stabs, and pizzicato offbeats",
+-    "trumpet only at a phrase ending",
+-    "timpani on the downbeat and a short roll at the cadence",
+-    "light kit: kick and snare, hats only sometimes, a rest every few bars",
+-    "small timing delays so the section does not attack together",
+-    "lo-fi SoundFont crunch from the Roblox banks plus GeneralUser GS",
++    "FREQUENT harp broken chords (every 2nd note)",
++    "FREQUENT pizzicato offbeats (every 3rd note, snappier)",
++    "trumpet only at phrase endings",
++    "timpani on downbeat with short roll at cadence",
++    "light kit: kick and snare, hats only sometimes, rest every few bars",
++    "TIGHT timing (more quantized, MIDI feel, 5-18ms humanization)",
++    "DRY mix (less reverb, 2-30 range for Roblox character)",
++    "HEAVY chorus on pads and strings for thickness",
++    "WIDER stereo spread (15-110 pan for epic feel)",
++    "LOUDER overall mix with bass VERY forward",
++    "lo-fi SoundFont crunch from Roblox banks",
+     "vocal-less instrumental MIDI",
+   ],
+-  arrangement: "Keep the uploaded melody recognizable. Build supporting parts that breathe: vary instrument colors, leave rests at phrase ends, and avoid machine-gun accompaniment.",
+-  instrumentation: "Study violin, contrabass, cello, string ensemble, horn, flute, oboe, clarinet, harp, piano, pizzicato, trumpet, timpani, and drums. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
+-  tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel",
+-  density: "a clear lead with layered supporting instruments, thinner when the tune is sparse",
++  arrangement: "Keep the uploaded melody recognizable. Build supporting parts with ULTRA Roblox characteristics: very long sustained bass (2+ beats), frequent arpeggios (every 2nd note), frequent pizzicato (every 3rd note), square wave synth leads, chord pad layers, tight quantized timing, dry mix with heavy chorus, wide stereo spread.",
++  instrumentation: "Study violin (very forward), contrabass (ULTRA long notes, very loud), cello, string ensemble, horn, flute, oboe, clarinet, harp (frequent arps), piano, pizzicato (frequent), trumpet, timpani, square wave synth (C64 style), chord pads. Choose SoundFonts per role from the complete public/audios/soundfonts catalog; layer selected WAV percussion and accents from public/audios/WAV when the note analysis suits them.",
++  tempoFeel: "steady mid-tempo game pulse, typically 100–140 BPM feel with tight quantization",
++  density: "a clear lead with layered supporting instruments, bass very forward, pads sustained, arps frequent",
+ };
+ 
+ const study = require("../src/WinXP/apps/MusicAI/robloxStudy.json");
+@@ -81,6 +88,8 @@ const STUDIED_INSTRUMENTS = [
+   { role: "arp", name: "Harp", program: 2, bank: "beastmasters" },
+   { role: "bass", name: "Bass", program: 4, bank: "fjords-voyage" },
+   { role: "drums", name: "Soundtrack kit WAV", program: 0, bank: "stealth" },
++  { role: "guitar", name: "Square Synth", program: 80, bank: "stealth" },
++  { role: "pad", name: "Chord Pad", program: 89, bank: "fjords-hq" },
+ ];
+ 
+ function chooseStudiedFamily(analysis) {
+@@ -458,15 +467,15 @@ function fallbackPlan(notes, duration) {
+   const studied = (study.songs || []).filter((song) => song.family === family.id || (family.id === "strategy" && song.family === "strategy"));
+   return {
+     primaryRole: "vocals",
+-    supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani"],
++    supportRoles: ["bass", "cello", "strings", "horn", "flute", "oboe", "clarinet", "arp", "keys", "pizz", "trumpet", "timpani", "guitar", "pad"],
+     drums: false,
+-    density: 0.38,
++    density: 0.45,
+     swing: 0,
+     quantizeGrid: 0.25,
+     preserveMelody: true,
+     tempoBpm: 120,
+-    harmonicComplexity: 0.28,
+-    bassPattern: "half-notes",
++    harmonicComplexity: 0.35,
++    bassPattern: "ultra-long-sustained",
+     chordRhythm: "phrases",
+     melodyOctave: 0,
+     drumPattern: "light",
+@@ -481,11 +490,11 @@ function fallbackPlan(notes, duration) {
+     studiedFamily: family.id,
+     studiedSongs: studied.slice(0, 8).map((song) => song.title),
+     studiedCorpus: study.playlistCount,
+-    reason: "Bloxify prioritizes detected notes, original timing, and chord tones, using a restrained Roblox SoundFont palette without a fixed drum loop.",
++    reason: "Bloxify ULTRA generates authentic 2009 Roblox orchestral accompaniment with ultra-long sustained bass (2+ beats), frequent arpeggios, frequent pizzicato, square wave synth leads, chord pad layers, tight quantized timing, dry mix with heavy chorus, and wide stereo spread for maximum Roblox authenticity.",
+   };
+ }
+ 
+-// Keep Bloxify's recognizable orchestral identity consistent, while adapting
++// Keep Bloxify's recognizable ULTRA orchestral identity consistent, while adapting
+ // its SoundFont roles and WAV sample layers to each upload's detected notes.
+ async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_URL) {
+   const plan = fallbackPlan(notes, duration);
+@@ -502,6 +511,7 @@ async function createBloxifyStylePlan(notes, duration, referenceUrl = REFERENCE_
+     analysis: summarize(notes, duration),
+     sampleAssets: plan.sampleAssets || [],
+     webResearch: [],
++    ultraMode: true,
+   };
+ }
+ 
+diff --git a/src/WinXP/apps/MusicAI/index.js b/src/WinXP/apps/MusicAI/index.js
+index 0619136..e9473d2 100644
+--- a/src/WinXP/apps/MusicAI/index.js
++++ b/src/WinXP/apps/MusicAI/index.js
+@@ -345,16 +345,20 @@ const ROLE_VOLUME = {
+   cello: 78, horn: 56, flute: 64, oboe: 52, clarinet: 50, timpani: 72, pizz: 54, trumpet: 64,
+ };
+ const ORCHESTRA_VOLUME = {
+-  drums: 78, bass: 96, guitar: 62, vocals: 114, keys: 46, pad: 40, strings: 68, arp: 50,
+-  cello: 80, horn: 56, flute: 64, oboe: 52, clarinet: 50, timpani: 74, pizz: 56, trumpet: 66,
++  drums: 82, bass: 110, guitar: 85, vocals: 118, keys: 55, pad: 48, strings: 75, arp: 65,
++  cello: 88, horn: 62, flute: 72, oboe: 60, clarinet: 58, timpani: 80, pizz: 68, trumpet: 75,
+ };
+ const ORCHESTRA_REVERB = {
+-  drums: 4, bass: 12, guitar: 34, vocals: 24, keys: 16, pad: 36, strings: 46, arp: 34,
+-  cello: 28, horn: 40, flute: 36, oboe: 32, clarinet: 30, timpani: 18, pizz: 12, trumpet: 28,
++  drums: 2, bass: 5, guitar: 8, vocals: 15, keys: 10, pad: 25, strings: 30, arp: 20,
++  cello: 18, horn: 25, flute: 22, oboe: 20, clarinet: 18, timpani: 10, pizz: 8, trumpet: 20,
+ };
+ const ORCHESTRA_PAN = {
+-  drums: 64, bass: 58, guitar: 46, vocals: 66, keys: 48, pad: 90, strings: 64, arp: 96,
+-  cello: 74, horn: 40, flute: 90, oboe: 78, clarinet: 52, timpani: 64, pizz: 46, trumpet: 88,
++  drums: 64, bass: 54, guitar: 30, vocals: 70, keys: 52, pad: 95, strings: 75, arp: 110,
++  cello: 80, horn: 25, flute: 105, oboe: 85, clarinet: 45, timpani: 64, pizz: 35, trumpet: 15,
++};
++const ORCHESTRA_CHORUS = {
++  drums: 0, bass: 0, guitar: 40, vocals: 18, keys: 0, pad: 45, strings: 35, arp: 30,
++  cello: 0, horn: 0, flute: 0, oboe: 0, clarinet: 0, timpani: 0, pizz: 0, trumpet: 0,
+ };
+ 
+ function mixValue(roleId, notes, soundfontRoles, table, fallback) {
+@@ -412,9 +416,13 @@ function makeStemMidi(notes, roleId, programs) {
+   track.instrument.number = programs && programs[roleId] != null ? programs[roleId] : (role ? role.program : 0);
+   const volume = mixValue(roleId, notes, null, ORCHESTRA_VOLUME, ROLE_VOLUME[roleId]);
+   const pan = mixValue(roleId, notes, null, ORCHESTRA_PAN, 64);
++  const chorus = ORCHESTRA_CHORUS[roleId] || 0;
+   if (typeof track.addCC === 'function' && volume != null) {
+     track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
+     track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
++    if (chorus > 0) {
++      track.addCC({ controllerType: 93, value: chorus / 127, time: 0 });
++    }
+   }
+   notes.filter(note => note.role === roleId).forEach(note => {
+     track.addNote({
+@@ -719,9 +727,13 @@ function makeMidi(notes, programs, soundfontRoles, name) {
+     track.instrument.number = programs && programs[role.id] != null ? programs[role.id] : role.program;
+     const volume = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_VOLUME, ROLE_VOLUME[role.id]);
+     const pan = mixValue(role.id, notes, soundfontRoles, ORCHESTRA_PAN, 64);
++    const chorus = ORCHESTRA_CHORUS[role.id] || 0;
+     if (typeof track.addCC === 'function' && volume != null) {
+       track.addCC({ controllerType: 7, value: volume / 127, time: 0 });
+       track.addCC({ controllerType: 10, value: pan / 127, time: 0 });
++      if (chorus > 0) {
++        track.addCC({ controllerType: 93, value: chorus / 127, time: 0 });
++      }
+     }
+     roleNotes.forEach(note => {
+       const bank = bankForNote(note, { soundfontRoles });
+@@ -829,6 +841,9 @@ async function renderCombinedWav(notes, duration, onProgress, plan) {
+       if (usesOrchestra(notes, playable.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
+         synth.controllerChange(role.channel, 91, ORCHESTRA_REVERB[role.id]);
+       }
++      if (usesOrchestra(notes, playable.soundfontRoles) && ORCHESTRA_CHORUS[role.id] != null && ORCHESTRA_CHORUS[role.id] > 0) {
++        synth.controllerChange(role.channel, 93, ORCHESTRA_CHORUS[role.id]);
++      }
+     });
+ 
+     await context.resume();
+@@ -1534,6 +1549,9 @@ function MusicAI() {
+           if (usesOrchestra(notes, planRef.current && planRef.current.soundfontRoles) && ORCHESTRA_REVERB[role.id] != null) {
+             synth.controllerChange(channel, 91, ORCHESTRA_REVERB[role.id]);
+           }
++          if (usesOrchestra(notes, planRef.current && planRef.current.soundfontRoles) && ORCHESTRA_CHORUS[role.id] != null && ORCHESTRA_CHORUS[role.id] > 0) {
++            synth.controllerChange(channel, 93, ORCHESTRA_CHORUS[role.id]);
++          }
+         }
+       } catch (error) {
+         console.warn('Bloxify patch setup failed for', role.id, error);
+diff --git a/src/WinXP/apps/MusicAI/orchestraArrange.js b/src/WinXP/apps/MusicAI/orchestraArrange.js
+index f68feca..8875ea7 100644
+--- a/src/WinXP/apps/MusicAI/orchestraArrange.js
++++ b/src/WinXP/apps/MusicAI/orchestraArrange.js
+@@ -1,14 +1,16 @@
+-// Classic Roblox-style arrangement engine.
++// ULTRA Classic Roblox-style arrangement engine.
+ // Generates authentic 2009-era Roblox orchestral accompaniment:
+ // - Violin lead that follows the heard tune
+-// - Contrabass and cello in long notes (half notes)
++// - Contrabass and cello in LONG sustained notes (Roblox signature)
++// - Heavy use of square/synth waves from C64 samples
+ // - String ensemble, horn, flute, oboe, clarinet answering in phrases
+ // - Harp broken chords, soft piano stabs, pizzicato offbeats
+ // - Trumpet only at phrase endings
+ // - Timpani on downbeat and short roll at cadence
+ // - Light kit: kick/snare, hats sometimes, rest every few bars
+-// - Small timing delays so sections don't attack together
+-// - Lo-fi SoundFont crunch
++// - More quantized timing (less humanization for that MIDI feel)
++// - Lo-fi SoundFont crunch with heavier compression
++// - Simple I-V-vi-IV chord progressions (very Roblox)
+ 
+ function cleanSource(notes) {
+   const sorted = (Array.isArray(notes) ? notes : [])
+@@ -77,28 +79,28 @@ function detectPhrases(notes, barSeconds = 2.0) {
+   return phrases;
+ }
+ 
+-// Simple chord estimation from melody notes
++// Simple chord estimation from melody notes - favors simple Roblox progressions
+ function estimateChord(pitches) {
+   if (!pitches || pitches.length === 0) return null;
+-  
++
+   const pitchClasses = pitches.map(p => p % 12);
+   const majorProfile = [1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0]; // Major scale
+   const minorProfile = [1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0]; // Minor scale
+-  
++
+   let bestRoot = 0;
+   let bestScore = -Infinity;
+   let isMinor = false;
+-  
++
+   for (let root = 0; root < 12; root++) {
+     let majorScore = 0;
+     let minorScore = 0;
+-    
++
+     pitchClasses.forEach(pc => {
+       const normalized = (pc - root + 12) % 12;
+       majorScore += majorProfile[normalized];
+       minorScore += minorProfile[normalized];
+     });
+-    
++
+     if (majorScore > bestScore) {
+       bestScore = majorScore;
+       bestRoot = root;
+@@ -110,38 +112,45 @@ function estimateChord(pitches) {
+       isMinor = true;
+     }
+   }
+-  
++
+   return { root: bestRoot, isMinor };
+ }
+ 
+-// Generate bass line from chord progression
++// Generate simple I-V-vi-IV progression (very Roblox)
++function getRobloxProgression(rootKey) {
++  // I (tonic), V (dominant), vi (submediant), IV (subdominant)
++  const intervals = [0, 7, 9, 5]; // Semitones from root
++  return intervals.map(interval => (rootKey + interval) % 12);
++}
++
++// Generate bass line from chord progression - VERY LONG sustained notes
+ function generateBassLine(phrases, duration) {
+   const bassNotes = [];
+   const bassPitches = [36, 38, 40, 41, 43, 45, 47]; // C2-G2 range
+-  
++
+   phrases.forEach((phrase, pIndex) => {
+     const pitches = phrase.map(n => Math.round(n.pitchMidi));
+     const chord = estimateChord(pitches);
+-    
++
+     if (chord) {
+       const rootMidi = 36 + chord.root; // C2 as base
+       const bassPitch = bassPitches.find(p => (p % 12) === chord.root) || rootMidi;
+-      
+-      // Long half-note bass lines (classic Roblox style)
++
++      // ULTRA long sustained bass notes (Roblox signature - 2+ beats)
+       phrase.forEach((note, nIndex) => {
+-        if (nIndex % 2 === 0) { // Every other note
++        if (nIndex % 4 === 0) { // Every 4th note for even longer sustain
+           bassNotes.push({
+             pitchMidi: bassPitch,
+             startTimeSeconds: note.startTimeSeconds,
+-            durationSeconds: Math.min(1.0, note.durationSeconds * 2),
+-            amplitude: 0.7,
++            durationSeconds: Math.min(2.0, note.durationSeconds * 3), // Much longer
++            amplitude: 0.8, // Louder bass
+             role: 'bass'
+           });
+         }
+       });
+     }
+   });
+-  
++
+   return bassNotes;
+ }
+ 
+@@ -217,33 +226,33 @@ function generateDrums(notes, duration, tempoBpm = 120) {
+   return drums;
+ }
+ 
+-// Generate harp arpeggios (broken chords)
++// Generate harp arpeggios (broken chords) - more frequent for Roblox feel
+ function generateHarpArps(phrases, duration) {
+   const arps = [];
+-  
++
+   phrases.forEach((phrase, pIndex) => {
+     const pitches = phrase.map(n => Math.round(n.pitchMidi));
+     const chord = estimateChord(pitches);
+-    
++
+     if (chord) {
+       // Triad notes for the chord
+       const chordTones = [0, 4, 7].map(interval => {
+         if (chord.isMinor && interval === 4) return 3; // Minor third
+         return interval;
+       });
+-      
++
+       const basePitch = 60 + chord.root; // Middle C as base
+-      
++
+       phrase.forEach((note, nIndex) => {
+-        if (nIndex % 3 === 0) { // Every third note gets an arp
++        if (nIndex % 2 === 0) { // More frequent arps (every 2nd note)
+           chordTones.forEach((interval, toneIndex) => {
+             const arpPitch = basePitch + interval + (toneIndex * 12);
+             if (arpPitch <= 84) {
+               arps.push({
+                 pitchMidi: arpPitch,
+-                startTimeSeconds: note.startTimeSeconds + (toneIndex * 0.08),
+-                durationSeconds: 0.15,
+-                amplitude: 0.35,
++                startTimeSeconds: note.startTimeSeconds + (toneIndex * 0.06), // Faster arps
++                durationSeconds: 0.2, // Slightly longer
++                amplitude: 0.45, // Louder
+                 role: 'arp'
+               });
+             }
+@@ -252,29 +261,94 @@ function generateHarpArps(phrases, duration) {
+       });
+     }
+   });
+-  
++
+   return arps;
+ }
+ 
+-// Generate pizzicato offbeats
++// Generate pizzicato offbeats - MORE frequent (very Roblox)
+ function generatePizzicato(notes, duration) {
+   const pizz = [];
+-  
++
+   notes.forEach((note, index) => {
+-    if (index % 4 === 2) { // Every 4th note (offset)
++    if (index % 3 === 1) { // Every 3rd note (more frequent)
+       pizz.push({
+         pitchMidi: Math.max(48, Math.round(note.pitchMidi) - 12),
+-        startTimeSeconds: note.startTimeSeconds + 0.05,
+-        durationSeconds: 0.08,
+-        amplitude: 0.45,
++        startTimeSeconds: note.startTimeSeconds + 0.03, // Tighter timing
++        durationSeconds: 0.06, // Shorter, snappier
++        amplitude: 0.55, // Louder
+         role: 'pizz'
+       });
+     }
+   });
+-  
++
+   return pizz;
+ }
+ 
++// Generate square wave synth leads (C64 Roblox style)
++function generateSquareSynth(phrases, duration) {
++  const squares = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    if (pIndex % 2 === 0) { // Every other phrase
++      const pitches = phrase.map(n => Math.round(n.pitchMidi));
++      const avgPitch = pitches.reduce((a, b) => a + b, 0) / pitches.length;
++
++      phrase.forEach((note, nIndex) => {
++        if (nIndex % 2 === 0) {
++          squares.push({
++            pitchMidi: Math.round(avgPitch),
++            startTimeSeconds: note.startTimeSeconds,
++            durationSeconds: note.durationSeconds * 0.6,
++            amplitude: 0.5,
++            role: 'guitar' // Use guitar channel for square synth
++          });
++        }
++      });
++    }
++  });
++
++  return squares;
++}
++
++// Generate simple chord pad layers (very Roblox - sustained chords)
++function generateChordPads(phrases, duration) {
++  const pads = [];
++
++  phrases.forEach((phrase, pIndex) => {
++    const pitches = phrase.map(n => Math.round(n.pitchMidi));
++    const chord = estimateChord(pitches);
++
++    if (chord) {
++      const chordTones = [0, 4, 7].map(interval => {
++        if (chord.isMinor && interval === 4) return 3;
++        return interval;
++      });
++
++      const basePitch = 48 + chord.root; // C3 as base
++
++      // One sustained chord per phrase
++      if (phrase.length > 0) {
++        const firstNote = phrase[0];
++        const lastNote = phrase[phrase.length - 1];
++        const chordDuration = lastNote.startTimeSeconds + lastNote.durationSeconds - firstNote.startTimeSeconds;
++
++        chordTones.forEach((interval) => {
++          const padPitch = basePitch + interval;
++          pads.push({
++            pitchMidi: padPitch,
++            startTimeSeconds: firstNote.startTimeSeconds,
++            durationSeconds: chordDuration,
++            amplitude: 0.35,
++            role: 'pad'
++          });
++        });
++      }
++    }
++  });
++
++  return pads;
++}
++
+ // Generate string ensemble answering phrases
+ function generateStrings(phrases, duration) {
+   const strings = [];
+@@ -406,25 +480,26 @@ function generateTrumpet(phrases, duration) {
+   return trumpets;
+ }
+ 
+-// Add small timing delays for humanized feel
++// Add small timing delays for humanized feel - REDUCED for more MIDI feel
+ function humanizeTiming(notes) {
+   const roleOffsets = {
+-    'bass': 0.02,
+-    'cello': 0.015,
+-    'strings': 0.025,
+-    'horn': 0.03,
+-    'flute': 0.035,
+-    'oboe': 0.032,
+-    'clarinet': 0.028,
+-    'arp': 0.01,
+-    'pizz': 0.04,
+-    'trumpet': 0.045,
+-    'timpani': 0.005,
++    'bass': 0.008,  // Much tighter
++    'cello': 0.005,
++    'strings': 0.01,
++    'horn': 0.012,
++    'flute': 0.015,
++    'oboe': 0.012,
++    'clarinet': 0.01,
++    'arp': 0.003,
++    'pizz': 0.015,
++    'trumpet': 0.018,
++    'timpani': 0.002,
++    'guitar': 0.004, // Square synth
+   };
+-  
++
+   return notes.map(note => {
+     const offset = roleOffsets[note.role] || 0;
+-    const jitter = (Math.random() - 0.5) * 0.01;
++    const jitter = (Math.random() - 0.5) * 0.005; // Less jitter
+     return {
+       ...note,
+       startTimeSeconds: Math.max(0, note.startTimeSeconds + offset + jitter)
+@@ -525,6 +600,8 @@ export function buildRobloxArrangement(rawNotes, duration) {
+   const winds = generateWinds(phrases, duration);
+   const timpani = generateTimpani(duration, 120);
+   const trumpets = generateTrumpet(phrases, duration);
++  const squareSynth = generateSquareSynth(phrases, duration);
++  const chordPads = generateChordPads(phrases, duration);
+ 
+   // Combine all notes
+   const allNotes = [
+@@ -537,7 +614,9 @@ export function buildRobloxArrangement(rawNotes, duration) {
+     ...horns,
+     ...winds,
+     ...timpani,
+-    ...trumpets
++    ...trumpets,
++    ...squareSynth,
++    ...chordPads
+   ];
+ 
+   // Apply humanized timing
+@@ -553,10 +632,10 @@ export function orchestraProgramsFor(notes) {
+   return {
+     drums: 0,
+     bass: 43,
+-    guitar: 42,
++    guitar: 80,      // Square synth program
+     vocals: 3,
+     keys: 0,
+-    pad: 60,
++    pad: 89,         // Pad program
+     strings: 4,
+     arp: 46,
+     cello: 4,
+@@ -570,76 +649,77 @@ export function orchestraProgramsFor(notes) {
+   };
+ }
+ 
+-// Classic Roblox mix settings for lo-fi SoundFont crunch
++// ULTRA Classic Roblox mix settings for maximum lo-fi crunch
+ export const ROBLOX_MIX_SETTINGS = {
+   // Lower overall mix for that compressed vintage sound
+-  masterVolume: 0.85,
+-  
+-  // Role-specific volume balance (CC7)
++  masterVolume: 0.88,
++
++  // Role-specific volume balance (CC7) - LEAD WAY FORWARD
+   roleVolume: {
+-    drums: 78,
+-    bass: 96,
+-    guitar: 62,
+-    vocals: 114,
+-    keys: 46,
+-    pad: 40,
+-    strings: 68,
+-    arp: 50,
+-    cello: 80,
+-    horn: 56,
+-    flute: 64,
+-    oboe: 52,
+-    clarinet: 50,
+-    timpani: 74,
+-    pizz: 56,
+-    trumpet: 66,
++    drums: 82,       // Louder drums
++    bass: 110,       // MUCH louder bass (Roblox signature)
++    guitar: 85,      // Louder square synth
++    vocals: 118,     // Violin very forward
++    keys: 55,        // Louder piano
++    pad: 48,         // Louder pad
++    strings: 75,     // Louder strings
++    arp: 65,         // Louder arps
++    cello: 88,       // Louder cello
++    horn: 62,        // Louder horn
++    flute: 72,       // Louder flute
++    oboe: 60,        // Louder oboe
++    clarinet: 58,    // Louder clarinet
++    timpani: 80,     // Louder timpani
++    pizz: 68,        // Louder pizz
++    trumpet: 75,     // Louder trumpet
+   },
+-  
+-  // Reverb levels (CC91) for spacey Roblox ambience
++
++  // Reverb levels (CC91) - LESS reverb (more dry, Roblox sound)
+   reverb: {
+-    drums: 4,
+-    bass: 12,
+-    guitar: 34,
+-    vocals: 24,
+-    keys: 16,
+-    pad: 36,
+-    strings: 46,
+-    arp: 34,
+-    cello: 28,
+-    horn: 40,
+-    flute: 36,
+-    oboe: 32,
+-    clarinet: 30,
+-    timpani: 18,
+-    pizz: 12,
+-    trumpet: 28,
++    drums: 2,        // Very dry drums
++    bass: 5,         // Dry bass
++    guitar: 8,       // Dry synth
++    vocals: 15,      // Less verb on lead
++    keys: 10,
++    pad: 25,
++    strings: 30,
++    arp: 20,
++    cello: 18,
++    horn: 25,
++    flute: 22,
++    oboe: 20,
++    clarinet: 18,
++    timpani: 10,
++    pizz: 8,
++    trumpet: 20,
+   },
+-  
+-  // Pan positions (CC10) for stereo spread
++
++  // Pan positions (CC10) - WIDER stereo spread
+   pan: {
+     drums: 64,
+-    bass: 58,
+-    guitar: 46,
+-    vocals: 66,
+-    keys: 48,
+-    pad: 90,
+-    strings: 64,
+-    arp: 96,
+-    cello: 74,
+-    horn: 40,
+-    flute: 90,
+-    oboe: 78,
+-    clarinet: 52,
++    bass: 54,        // Bass more centered
++    guitar: 30,      // Square synth left
++    vocals: 70,      // Lead slightly right
++    keys: 52,
++    pad: 95,         // Pad far right
++    strings: 75,     // Strings right
++    arp: 110,        // Arps far right
++    cello: 80,       // Cello right
++    horn: 25,        // Horn far left
++    flute: 105,      // Flute far right
++    oboe: 85,        // Oboe right
++    clarinet: 45,    // Clarinet left
+     timpani: 64,
+-    pizz: 46,
+-    trumpet: 88,
++    pizz: 35,        // Pizz left
++    trumpet: 15,     // Trumpet far left
+   },
+-  
+-  // Chorus depth for added thickness (CC93)
++
++  // Chorus depth for added thickness (CC93) - MORE chorus
+   chorus: {
+-    pad: 32,
+-    strings: 24,
+-    arp: 20,
+-    vocals: 12,
++    pad: 45,         // Heavy chorus on pad
++    strings: 35,     // More chorus
++    arp: 30,         // More chorus
++    vocals: 18,      // Light chorus on lead
++    guitar: 40,      // Heavy chorus on square synth
+   },
+ };
