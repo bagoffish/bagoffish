@@ -551,7 +551,7 @@ export default function CoyCompanion() {
     const onRendererLookup = event => {
       const detail = event.detail || {};
       if (String(detail.id || "") !== "37753591") return;
-      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "oh, you're looking me up?", "that's me! why'd you search me up?"]));
+      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "Oh, you're looking me up?", "That's me..!"]));
       setShowBubble(true);
       lastActivity.current = Date.now();
     };
