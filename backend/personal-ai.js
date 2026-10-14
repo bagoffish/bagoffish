@@ -101,7 +101,35 @@ const MEMORY_CACHE_TTL_MS = 5 * 60 * 1000;
 let githubMemoryCache = { text: "", loadedAt: 0 };
 let approvedMemoryLastFetch = { text: "", fetchedAt: 0, ok: false };
 
+let approvedMemoryFetchPromise = null;
+let approvedMemoryRetryAt = 0;
+
 async function loadApprovedMemoryFresh() {
+  const now = Date.now();
+  if (approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim() &&
+      now - approvedMemoryLastFetch.fetchedAt < MEMORY_CACHE_TTL_MS) {
+    return approvedMemoryLastFetch.text;
+  }
+  // If GitHub recently failed, prefer the last good in-process copy over repeating
+  // the same network attempts on every user message.
+  if (approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim() && now < approvedMemoryRetryAt) {
+    return approvedMemoryLastFetch.text;
+  }
+  if (approvedMemoryFetchPromise) return approvedMemoryFetchPromise;
+
+  approvedMemoryFetchPromise = fetchApprovedMemoryFromGithub();
+  try {
+    const text = await approvedMemoryFetchPromise;
+    if (approvedMemoryLastFetch.ok && approvedMemoryLastFetch.text.trim()) {
+      approvedMemoryRetryAt = Date.now() + MEMORY_CACHE_TTL_MS;
+    }
+    return text;
+  } finally {
+    approvedMemoryFetchPromise = null;
+  }
+}
+
+async function fetchApprovedMemoryFromGithub() {
   const token = process.env.COY_MEMORY_GITHUB_TOKEN;
   if (!token) {
     if (approvedMemoryLastFetch.text.trim()) {
@@ -159,6 +187,7 @@ async function loadApprovedMemoryFresh() {
           continue;
         }
         approvedMemoryLastFetch = { text, fetchedAt: Date.now(), ok: true };
+        approvedMemoryRetryAt = approvedMemoryLastFetch.fetchedAt + MEMORY_CACHE_TTL_MS;
         console.info("Coy approved memory loaded from " + filePath);
         return text;
       } catch (error) {
@@ -168,6 +197,8 @@ async function loadApprovedMemoryFresh() {
   }
   if (approvedMemoryLastFetch.text.trim()) {
     approvedMemoryLastFetch = { ...approvedMemoryLastFetch, ok: true };
+    approvedMemoryLastFetch = { ...approvedMemoryLastFetch, ok: true };
+    approvedMemoryRetryAt = Date.now() + 60_000;
     console.warn("Coy approved memory refresh failed (" + lastFailure + "); using last successful in-process copy.");
     return approvedMemoryLastFetch.text;
   }
@@ -176,7 +207,7 @@ async function loadApprovedMemoryFresh() {
   return "";
 }
 let githubMemoryStatus = { loadedFiles: [], failedFiles: [], lastAttemptAt: null };
-let githubStyleLinesCache = { source: "", lines: [] };
+const githubStyleCorpusCache = new Map();
 
 async function loadGithubMemory() {
   const token = process.env.COY_MEMORY_GITHUB_TOKEN;
@@ -256,10 +287,12 @@ async function loadGithubMemory() {
   }));
 
   const text = contents.filter(Boolean).join("\n\n");
-  if (text.trim()) githubMemoryCache = { text, loadedAt: Date.now() };
+  if (text.trim()) {
+    if (githubMemoryCache.text !== text) githubStyleCorpusCache.clear();
+    githubMemoryCache = { text, loadedAt: Date.now() };
+  }
   githubMemoryStatus = { loadedFiles: [...loadedFiles], failedFiles: [...failedFiles], lastAttemptAt: new Date().toISOString() };
   if (loadedFiles.length) {
-    githubStyleLinesCache = { source: "", lines: [] };
     console.info("Coy GitHub memory loaded:", loadedFiles.join(", "));
   }
   return text;
@@ -347,18 +380,28 @@ function studyArchives(corpus) {
   personalityStudyCache.text = text;
   return text;
 }
-function getStyleCorpusLines(corpus) {
-  if (githubStyleLinesCache.source === corpus && githubStyleLinesCache.lines.length) {
-    return githubStyleLinesCache.lines;
-  }
+function getStyleCorpusAnalysis(corpus) {
+  const cached = githubStyleCorpusCache.get(corpus);
+  if (cached) return cached;
+
   // Preserve long and hash-prefixed authored messages instead of silently dropping them.
   const lines = (corpus || "").split(/\n\s*\n|\r?\n/)
     .map(value => value.trim())
     .filter(value => value.length >= 1 && value.length <= 10000)
     .filter(value => !value.startsWith("====="))
     .sort((a, b) => a.length - b.length); // short-to-long voice examples
-  githubStyleLinesCache = { source: corpus, lines };
-  return lines;
+  const analysis = {
+    lines,
+    styleProfile: analyzeFullDiscordStyleCorpus(lines),
+  };
+  githubStyleCorpusCache.set(corpus, analysis);
+  // Keep just the current corpora and a small safety margin if a source changes.
+  while (githubStyleCorpusCache.size > 4) {
+    const oldestKey = githubStyleCorpusCache.keys().next().value;
+    if (oldestKey === undefined) break;
+    githubStyleCorpusCache.delete(oldestKey);
+  }
+  return analysis;
 }
 
 function analyzeFullDiscordStyleCorpus(lines) {
@@ -402,41 +445,12 @@ function analyzeFullDiscordStyleCorpus(lines) {
   ].join("\n");
 }
 
-function findGithubMemoryExcerpts(corpus, query) {
-  const lines = getStyleCorpusLines(corpus);
+function findGithubMemoryExcerpts(corpus) {
+  // Archive excerpts are intentionally excluded from prompts for privacy. Cache the
+  // aggregate mechanics once per loaded source instead of re-tokenizing every line
+  // for each message and then discarding all retrieved candidates.
+  const { lines, styleProfile } = getStyleCorpusAnalysis(corpus);
   if (!lines.length) return { relevant: [], styleAnchors: [], styleProfile: "No usable Discord messages were loaded." };
-  const styleProfile = analyzeFullDiscordStyleCorpus(lines);
-
-  // Retrieve against the current turn plus recent user turns, so short follow-ups
-  // still connect to the topic they refer to.
-  const stopWords = new Set([
-    "about", "after", "again", "also", "and", "are", "can", "did", "does", "for",
-    "from", "have", "how", "into", "just", "like", "what", "when", "where", "who",
-    "why", "with", "you", "your", "the", "that", "this", "was", "were", "would",
-    "could", "should", "tell", "remember", "recall", "anything", "something", "please",
-    "this", "that", "there", "then", "them", "they", "it's", "im", "i'm", "youre",
-  ]);
-  const tokenize = value => (String(value || "").toLowerCase().match(/[a-z0-9가-힣]{2,}/g) || [])
-    .filter(term => !stopWords.has(term));
-  const terms = [...new Set(tokenize(query))].slice(0, 80);
-
-  const candidates = [];
-  if (terms.length) {
-    for (let i = 0; i < lines.length; i++) {
-      const lower = lines[i].toLowerCase();
-      const lineTerms = new Set(tokenize(lines[i]));
-      let score = 0;
-      for (const term of terms) {
-        if (lineTerms.has(term)) score += term.length >= 5 ? 3 : 1;
-        else if (term.length >= 5 && lower.includes(term)) score += 1;
-      }
-      // Prefer useful, information-bearing examples without letting long messages dominate.
-      if (score > 0) candidates.push({ score: score / Math.sqrt(Math.max(1, lineTerms.size)), index: i, text: lines[i] });
-    }
-  }
-  candidates.sort((a, b) => b.score - a.score || a.index - b.index);
-  // Never pass raw archive excerpts to the conversation model. Even private context
-  // supplied to a model can be coaxed into disclosure. Keep only aggregate mechanics.
   return { relevant: [], styleAnchors: [], styleProfile };
 }
 
@@ -451,8 +465,8 @@ async function getGithubMemoryContext(query) {
     // are authored-voice evidence, and retweets are context only. Combining them
     // used to label retrieved tweets as Discord messages and let a large source
     // crowd the other source out of the representative voice examples.
-    const discordStudy = findGithubMemoryExcerpts(discordBlock, query);
-    const twitterStudy = findGithubMemoryExcerpts(tweetsBlock, query);
+    const discordStudy = findGithubMemoryExcerpts(discordBlock);
+    const twitterStudy = findGithubMemoryExcerpts(tweetsBlock);
     const styleAnchors = [
       ...discordStudy.styleAnchors.slice(0, 24).map(text => ({ source: "DISCORD", text })),
       ...twitterStudy.styleAnchors.slice(0, 24).map(text => ({ source: "OWN X/TWITTER", text })),
