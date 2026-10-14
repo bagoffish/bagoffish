@@ -44,7 +44,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261012-headshot-grid-v21";
+    s.src = "/js/renderer.js?v=20261014-coy-lookup-v22";
     s.async = true;
     s.onload = function () {
       if (window.initLegacyRenderer) window.initLegacyRenderer();
