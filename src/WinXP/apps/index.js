@@ -3,6 +3,7 @@ import AboutMe from "./AboutMe";
 const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
 const Paint = lazyApp(() => import("./Paint"));
+const Minesweeper = lazyApp(() => import("./Minesweeper"));
 const Poems = lazyApp(() => import("./Poems"));
 import Winamp from "./Winamp";
 const Bloxify = lazyApp(() => import("./MusicAI"));
@@ -14,6 +15,7 @@ import musicIcon from "assets/windowsIcons/550(32x32).png";
 import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
+import minesweeperIcon from "assets/windowsIcons/spider.png";
 
 /* icons for custom apps */
 import poemsIcon from "assets/windowsIcons/327(32x32).png";
@@ -77,6 +79,7 @@ export const defaultIconState = [
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
   { id: 6, icon: winamp, title: "Winamp", component: Winamp, isFocus: false },
+  { id: 10, icon: minesweeperIcon, title: "Minesweeper", component: Minesweeper, isFocus: false },
 ];
 
 /* start menu / openApp settings */
@@ -158,6 +161,17 @@ export const appSettings = {
     multiInstance: false,
   },
 
+  Minesweeper: {
+    header: { icon: minesweeperIcon, title: "Minesweeper" },
+    component: Minesweeper,
+    defaultSize: { width: 340, height: 430 },
+    defaultOffset: { x: 260, y: 80 },
+    resizable: false,
+    minimized: false,
+    maximized: false,
+    multiInstance: false,
+  },
+
   Paint: {
     header: { icon: paintSmall, title: "Untitled - Paint" },
     component: Paint,
@@ -187,6 +201,7 @@ export {
   Renderer,
   ErrorBox,
   Paint,
+  Minesweeper,
   Winamp,
   Bloxify,
   WinterLetter,
