@@ -1395,13 +1395,13 @@ export default function CoyCompanion() {
       transform: "translateX(-50%)",
       // Put the tail behind the body and overlap the border enough to hide
       // transparent edge pixels in the original Roblox texture.
-      top: "calc(100% - 12px)",
+      top: "calc(100% - 15px)",
       width: 28,
       height: 28,
-      objectFit: "contain",
+      objectFit: "fill",
       display: "block",
       pointerEvents: "none",
-      zIndex: 0
+      zIndex: 2
     },
     dialogText: {
       position: "relative",
