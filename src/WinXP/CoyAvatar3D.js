@@ -3,11 +3,13 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
+import { SWAP_AVATARS } from "./avatarRoster";
 import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorsoLayer, sampleClip } from "./r6Retarget";
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
+const AVATARS_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatars/";
 const TOOL_SOUND_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/sounds/coy-tools/";
 const META_URL = BASE + "avatar.json";
 const ASPECT = 0.9;          // canvas width / height
@@ -43,6 +45,7 @@ function target(pose, t, dir, tiltIn) {
     }
     case "swordequip": return P({ rZ: 1.2, rX: -0.55, lZ: -0.35 });
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
+    case "bodyswap": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
     case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
     case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08 + tiltIn, bob: Math.abs(a) * .04 }); }
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
@@ -115,6 +118,11 @@ const GEAR = {
   // y -0.58..-0.06; Gun handle z +0.35..+0.70, y -0.41..+0.12.
   gun:        { file: "Gun.obj",        scale: 0.78, gripPos: [0, -0.15, 0.53],  gripRotDeg: [0, 0, 0] },
   grappleGun: { file: "GrappleGun.obj", scale: 0.78, gripPos: [0, -0.32, 0.9],   gripRotDeg: [0, 0, 0] },
+  // Bodyswap potion: a flat blue/red figure card. In its own mesh space it lies flat (thin in Y)
+  // with its long axis along Z. This grip (Rx +90 degrees) stands it upright, face toward the
+  // camera, in the outstretched gearhold arm; the hand holds it a little below its centre.
+  potion:     { file: "bodyswap.obj",   scale: 0.8,  gripPos: [0, 0, -0.3],     gripRotDeg: [0, 0, 0],
+                gripRotationMatrix: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
 };
 const POSE_GEAR_GRIPS = {
   swordlungeout: {
@@ -229,15 +237,15 @@ function loadGear(filename, scale) {
 }
 
 // Loads the Roblox OBJ/MTL that scripts/sync-avatar.mjs downloaded, then splits it into R6 limbs.
-function loadModel(model) {
+function loadModel(model, base = BASE, options = {}) {
   return new Promise((resolve, reject) => {
     const mtlLoader = new MTLLoader();
-    mtlLoader.setPath(BASE);
+    mtlLoader.setPath(base);
     mtlLoader.load(model.mtl, materials => {
       materials.preload();
       const objLoader = new OBJLoader();
       objLoader.setMaterials(materials);
-      objLoader.setPath(BASE);
+      objLoader.setPath(base);
       objLoader.load(model.obj, root => {
         root.traverse(o => {
           if (!o.isMesh) return;
@@ -250,7 +258,8 @@ function loadModel(model) {
 
             // Handle4Mtl is Coy's @ hairclip, which should stay neon green.
             // Its exported 1x1 texture is unreliable, so color the clip explicitly.
-            if (/^Handle4Mtl$/i.test(m.name || "")) {
+            // Only Coy's: other avatars' Handle4 is a real texture (yache, coolest).
+            if (options.neonClip && /^Handle4Mtl$/i.test(m.name || "")) {
               m.map = null;
               m.alphaMap = null;
               m.color.set("#39ff14");
@@ -274,14 +283,16 @@ function loadModel(model) {
  *  vx      - horizontal speed (px/s), used to tilt while held or falling
  *  look    - { x, y } cursor position in px (head follows it while calm)
  *  getPos  - () => { x, y } of the canvas on screen, for head tracking
+ *  swap    - id of an avatar in public/avatars/<id>/ to wear (bodyswap potion); null = Coy
+ *  swapPreload - id to start loading early (while the potion is still being raised)
  *  grapple - shared ref object. When grapple.active the parent owns the rope: the arm aims at
  *            (grapple.ax, grapple.ay) in screen px and the muzzle's screen position is written
  *            back to grapple.mx / grapple.my so the parent can draw the cable to it.
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple, onReady }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple, swap = null, swapPreload = null, onReady }) {
   const canvasRef = useRef(null);
   const live = useRef({});
-  live.current = { pose, dir, vx, impact, look, getPos, grapple, onReady };
+  live.current = { pose, dir, vx, impact, look, getPos, grapple, swap, swapPreload, onReady };
   const W = size, H = Math.round(size / ASPECT);
   // Keep the drag/collision footprint compact, but make the actual WebGL viewport
   // far larger so swinging limbs, turns, and accessories don't get cut at its edges.
@@ -322,7 +333,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     // No substitute model: wait for the actual Roblox avatar before spawning Coy.
     let av = null, raf = 0, cancelled = false;
-    let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
+    let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null, potionGear = null;
     let grappleHitPlayed = false;
     // Serve gear sounds from this site's own origin. Roblox's asset endpoint
     // can redirect, reject CORS, or return a non-audio response in Safari.
@@ -427,6 +438,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (swordGear) av.rArm.add(swordGear);
       if (gunGear) av.rArm.add(gunGear);
       if (grappleGunGear) av.rArm.add(grappleGunGear);
+      if (potionGear) av.rArm.add(potionGear);
+    };
+    const detachGear = () => {
+      [swordGear, grappleGear, gunGear, grappleGunGear, potionGear].forEach(gear => gear?.removeFromParent());
     };
     loadGear(GEAR.sword.file, GEAR.sword.scale).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
@@ -452,6 +467,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       placeGear(grappleGunGear, "grappleGun");
       attachGear();
     }).catch(e => console.warn("Coy: grapple gun gear failed to load", e));
+    loadGear(GEAR.potion.file, GEAR.potion.scale).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      potionGear = gear;
+      placeGear(potionGear, "potion");
+      attachGear();
+    }).catch(e => console.warn("Coy: bodyswap potion failed to load", e));
     const bodyBaseScale = new THREE.Vector3(1, 1, 1);
     const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
@@ -495,36 +516,71 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!names.length) console.warn("Coy: no imported animation clips found; using procedural fallback");
     });
 
+    // ---- Bodyswap: the other avatars live in public/avatars/<id>/ and load on demand ----
+    // Coy (from /avatar/, kept fresh by the Roblox sync) is always the default. coyAv is kept
+    // loaded while someone else is worn so changing back is instant.
+    const swapCache = new Map();     // id -> loaded R6 avatar
+    const swapLoading = new Set();
+    const swapFailed = new Set();
+    let coyAv = null, shownKey = "coy", swapPulseAt = -10;
+    const showAvatar = (next, key) => {
+      if (av === next) { shownKey = key; return; }
+      if (av) { detachGear(); scene.remove(av.body); }
+      av = next;
+      shownKey = key;
+      bodyBaseScale.copy(av.body.scale);
+      if (av.head) headBaseScale.copy(av.head.scale);
+      scene.add(av.body);
+      attachGear();
+    };
+    const ensureSwapAvatar = id => {
+      if (!SWAP_AVATARS.includes(id) || swapCache.has(id) || swapLoading.has(id) || swapFailed.has(id)) return;
+      swapLoading.add(id);
+      loadModel({ obj: id + ".obj", mtl: id + ".mtl" }, AVATARS_BASE + id + "/")
+        .then(model => {
+          swapLoading.delete(id);
+          if (cancelled) { disposeAvatar(model.body); return; }
+          swapCache.set(id, model);
+          // Keep memory modest: at most three swap avatars stay loaded (never the one on screen).
+          while (swapCache.size > 3) {
+            const oldest = [...swapCache.keys()].find(key => key !== shownKey && key !== id);
+            if (!oldest) break;
+            disposeAvatar(swapCache.get(oldest).body);
+            swapCache.delete(oldest);
+          }
+        })
+        .catch(error => {
+          swapLoading.delete(id);
+          swapFailed.add(id);
+          console.warn("Coy: bodyswap avatar failed to load", id, error);
+        });
+    };
+
     // Re-checking the metadata lets the avatar change when your Roblox outfit does.
     let version = null;
     const loadMeta = () => fetch(META_URL, { cache: "no-store" })
       .then(r => (r.ok ? r.json() : {}))
       .catch(() => ({}))
       .then(async meta => {
-        if (cancelled || (av && meta.version === version)) return;
+        if (cancelled || (coyAv && meta.version === version)) return;
         version = meta.version;
         // Do not show a block placeholder if metadata or the real model is unavailable.
         if (!meta.model) return;
         const v = "?v=" + (meta.model.hash || meta.version);
         let next;
         try {
-          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v });
+          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }, BASE, { neonClip: true });
         } catch (e) {
           version = null; // let the next metadata poll retry this same avatar
           console.warn("Coy: real avatar model failed to load; will retry", e);
           return;
         }
         if (cancelled) { disposeAvatar(next.body); return; }
-        if (av) {
-          swordGear?.removeFromParent(); grappleGear?.removeFromParent();
-          gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
-          scene.remove(av.body); disposeAvatar(av.body);
-        }
-        av = next;
-        bodyBaseScale.copy(av.body.scale);
-        if (av.head) headBaseScale.copy(av.head.scale);
-        scene.add(av.body);
-        attachGear();
+        const previousCoy = coyAv;
+        coyAv = next;
+        // If someone else is being worn right now, the new Coy waits in the wings.
+        if (shownKey === "coy") showAvatar(next, "coy");
+        if (previousCoy) disposeAvatar(previousCoy.body);
         live.current.onReady?.();
       });
     loadMeta();
@@ -535,6 +591,14 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (!av || document.hidden) return;
       const delta = Math.min(clock.getDelta(), 0.05);
       const t = clock.elapsedTime, L = live.current;
+      // Bodyswap: wear L.swap while it is set, otherwise Coy.
+      const wantKey = SWAP_AVATARS.includes(L.swap) && !swapFailed.has(L.swap) ? L.swap : "coy";
+      if (L.swapPreload) ensureSwapAvatar(L.swapPreload);
+      if (wantKey !== shownKey) {
+        const next = wantKey === "coy" ? coyAv : swapCache.get(wantKey);
+        if (next) { showAvatar(next, wantKey); swapPulseAt = t; }
+        else if (wantKey !== "coy") ensureSwapAvatar(wantKey);
+      }
       const enteredPose = L.pose !== previousPose;
       if (enteredPose) {
         const priorPose = previousPose;
@@ -570,7 +634,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall" })[L.pose] || L.pose;
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall", bodyswap: "gearhold" })[L.pose] || L.pose;
       // Keep grounded sit, landing, and live-aim grapple procedural; preserve the imported CFrame clips for other moves.
       const clip = PROCEDURAL_POSES.has(L.pose) ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
@@ -647,6 +711,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // The pose and rope are updated independently; either marks the firing interval.
       const firingGrapple = L.pose === "grapple" || Boolean(L.grapple && L.grapple.active);
       const pairedGrapple = grappleMode === "grapple+gun" || (grappleMode === "grapplegun" && firingGrapple);
+      if (potionGear) potionGear.visible = L.pose === "bodyswap";
       if (gunGear) gunGear.visible = holdingGrapple && pairedGrapple;
       if (grappleGunGear) grappleGunGear.visible = holdingGrapple && !pairedGrapple;
       const externalGrapple = Boolean(L.grapple && L.grapple.active);
@@ -768,6 +833,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       placeGear(swordGear, "sword", false, swordGripPose, [0, 0.18, 0]);
       placeGear(gunGear, "gun", false, L.pose);
       placeGear(grappleGunGear, "grappleGun", false, L.pose);
+      placeGear(potionGear, "potion", false, L.pose);
       // Project the muzzle only after the body turn and grip offset are applied.
       const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
       let muzzleWorld = null, muzzleDepth = 0;
@@ -833,6 +899,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           bodyBaseScale.z * (1 + pulse * 0.72)
         );
       }
+      // Quick squash-and-stretch pop each time the body changes.
+      const swapAge = t - swapPulseAt;
+      if (swapAge >= 0 && swapAge < 0.7) {
+        const pop = Math.exp(-swapAge * 6) * Math.cos(swapAge * 24);
+        av.body.scale.set(bodyBaseScale.x * (1 + pop * 0.3), bodyBaseScale.y * (1 - pop * 0.35), bodyBaseScale.z * (1 + pop * 0.3));
+      }
       renderer.render(scene, camera);
     };
     frame();
@@ -846,8 +918,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       soundBuffers.clear();
       if (audioContext && audioContext.state !== "closed") audioContext.close().catch(() => {});
       cancelAnimationFrame(raf); clearInterval(metaTimer);
-      swordGear?.removeFromParent(); grappleGear?.removeFromParent();
-      gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
+      detachGear();
+      swapCache.forEach(model => disposeAvatar(model.body));
+      swapCache.clear();
+      if (potionGear) disposeAvatar(potionGear);
       if (swordGear) disposeAvatar(swordGear);
       if (grappleGear) disposeAvatar(grappleGear);
       if (gunGear) disposeAvatar(gunGear);

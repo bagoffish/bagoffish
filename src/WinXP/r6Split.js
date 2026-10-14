@@ -57,7 +57,35 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
   return center.y < jointBoundary - Math.max(0.2, torsoSize.y * 0.12);
 }
 
-function sourcePartName(object) {
+// Roblox names the six body groups after the avatar: Rig1..Rig6 for the original Coy export, but
+// e.g. Gyranaga1..6, Yachemon1..6 or Backlash13401..6 for other avatars. Find the one non-Handle
+// prefix that has every index 1..6 and treat PREFIX1..PREFIX6 as Rig1..Rig6 (1 rLeg, 2 lLeg,
+// 3 rArm, 4 lArm, 5 torso, 6 head - the same order Roblox uses for every R6 export).
+function groupNames(object) {
+  const names = [];
+  for (let current = object; current; current = current.parent) {
+    names.push(current.name, current.userData?.name, current.userData?.objectName, current.userData?.groupName);
+  }
+  return names.filter(value => typeof value === "string" && value.trim()).map(value => value.trim());
+}
+
+function detectBodyPrefix(root) {
+  const found = new Map();
+  root.traverse(object => {
+    if (!object.isMesh) return;
+    for (const name of groupNames(object)) {
+      const match = name.match(/^(.+?)([1-6])$/);
+      if (!match || /^Handle\d*$/i.test(match[1]) || /OpossumTail/i.test(name)) continue;
+      if (!found.has(match[1])) found.set(match[1], new Set());
+      found.get(match[1]).add(match[2]);
+    }
+  });
+  const complete = [...found.entries()].filter(([, digits]) => digits.size === 6).map(([prefix]) => prefix);
+  if (complete.includes("Rig")) return "Rig";
+  return complete[0] || null;
+}
+
+function sourcePartName(object, bodyPrefix) {
   // OBJLoader versions differ in whether a "g" name is stored on the mesh,
   // its parent, or the object's userData. Search all levels for an accessory
   // Handle first, so a parent Rig5 group cannot swallow glasses into the torso.
@@ -71,11 +99,25 @@ function sourcePartName(object) {
       ...[].concat(current.material || []).map(material => material?.name),
     );
   }
-  for (const candidate of candidates.filter(value => typeof value === "string")) {
+  const strings = candidates.filter(value => typeof value === "string");
+  // Group names win over material names: another avatar's body parts can share Handle1Mtl.
+  const names = groupNames(object);
+  for (const candidate of names) {
+    const handle = candidate.match(/(?:^|\s)(Handle\d+)$/i);
+    if (handle) return handle[1];
+  }
+  if (bodyPrefix) {
+    for (const candidate of names) {
+      if (candidate.startsWith(bodyPrefix) && /^[1-6]$/.test(candidate.slice(bodyPrefix.length))) {
+        return "Rig" + candidate.slice(bodyPrefix.length);
+      }
+    }
+  }
+  for (const candidate of strings) {
     const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
     if (handle) return handle[1];
   }
-  for (const candidate of candidates.filter(value => typeof value === "string")) {
+  for (const candidate of strings) {
     const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
     if (rig && RIG_TO_PART[rig[1]]) return rig[1];
   }
@@ -85,6 +127,7 @@ function sourcePartName(object) {
 
 export function splitIntoR6Parts(root) {
   root.updateMatrixWorld(true);
+  const bodyPrefix = detectBodyPrefix(root);
 
   // Normalize against the six actual body parts, not accessories. Tall hair or
   // hats must not shrink the avatar or move the feet away from the taskbar.
@@ -93,7 +136,7 @@ export function splitIntoR6Parts(root) {
   let foundRigParts = 0;
   root.traverse(object => {
     if (!object.isMesh) return;
-    const source = sourcePartName(object);
+    const source = sourcePartName(object, bodyPrefix);
     if (!RIG_TO_PART[source]) return;
     bodyBounds.expandByObject(object);
     rigBounds[source].expandByObject(object);
@@ -111,6 +154,10 @@ export function splitIntoR6Parts(root) {
   const centerX = (bodyBounds.min.x + bodyBounds.max.x) / 2;
   const centerZ = (bodyBounds.min.z + bodyBounds.max.z) / 2;
   const baseY = bodyBounds.min.y;
+  // The scene expects the avatar facing +Z with its right leg (Rig1) on -X. Other Roblox exports
+  // face -Z (right leg on +X); turn those half a revolution about Y so they face the camera.
+  const flipFacing = !rigBounds.Rig1.isEmpty() && !rigBounds.Rig2.isEmpty() &&
+    rigBounds.Rig1.getCenter(new THREE.Vector3()).x > rigBounds.Rig2.getCenter(new THREE.Vector3()).x;
 
   const body = new THREE.Group();
   const parts = {};
@@ -130,7 +177,7 @@ export function splitIntoR6Parts(root) {
 
   root.traverse(object => {
     if (!object.isMesh) return;
-    const sourceName = sourcePartName(object);
+    const sourceName = sourcePartName(object, bodyPrefix);
     if (!sourceName) return;
     const isTail = isTorsoAccessory(object, rigBounds.Rig5, rigBounds.Rig6);
     const partName = isTail ? "torso" : (RIG_TO_PART[sourceName] || "head");
@@ -142,6 +189,7 @@ export function splitIntoR6Parts(root) {
     geometry.applyMatrix4(object.matrixWorld);
     geometry.scale(scale, scale, scale);
     geometry.translate(-centerX * scale, -baseY * scale, -centerZ * scale);
+    if (flipFacing) geometry.scale(-1, 1, -1);            // 180 degrees about Y (keeps winding)
     geometry.translate(-pivot[0], -pivot[1], -pivot[2]);
     geometry.computeBoundingSphere();
 
@@ -205,7 +253,9 @@ export function splitIntoR6Parts(root) {
       mesh.geometry.computeBoundingBox();
       headBounds.union(mesh.geometry.boundingBox.clone().applyMatrix4(mesh.matrix));
     }
-    for (const accessory of headAccessoryMeshes) {
+    const headSize = headBounds.getSize(new THREE.Vector3());
+    // A headless avatar exports a zero-size head: there is nothing to snap accessories onto.
+    for (const accessory of (headSize.x > 0.5 && headSize.y > 0.5 ? headAccessoryMeshes : [])) {
       accessory.geometry.computeBoundingBox();
       const accessoryBounds = accessory.geometry.boundingBox.clone().applyMatrix4(accessory.matrix);
       const overlap = 0.035;
