@@ -303,6 +303,11 @@ export const AllPrograms = [
     items: [
       {
         type: 'item',
+        icon: spider,
+        text: 'Minesweeper',
+      },
+      {
+        type: 'item',
         icon: freecell,
         text: 'FreeCell',
       },
