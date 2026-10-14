@@ -155,7 +155,6 @@ export function clearSuperBalls() {
  *   onDone      called once the ball has disappeared
  */
 export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration = 7000, getFloor, onDone }) {
-  clearSuperBalls();                                   // only ever one ball in the air
   const size = Math.ceil(r * 3.4);                     // room for the squash-and-stretch
   const canvas = document.createElement("canvas");
   canvas.setAttribute("aria-hidden", "true");
