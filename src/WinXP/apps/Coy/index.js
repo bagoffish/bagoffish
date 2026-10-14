@@ -647,7 +647,7 @@ export default function CoyChat({ initialImage, initialText }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => (
           <div key={index} style={{ ...styles.bubble, ...(item.role === 'user' ? styles.user : styles.coy), ...(item.role === 'assistant' ? { transform: 'scaleX(-1)' } : {}) }}>
-            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')} style={{ position: 'absolute', bottom: 3, right: -13, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+            <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (item.role === 'user' ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png')} style={{ position: 'absolute', bottom: 3, right: item.role === 'assistant' ? -22 : -13, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
             <div style={item.role === 'assistant' ? { transform: 'scaleX(-1)', width: '100%' } : undefined}>
             {item.content && renderCoyContent(item.content)}
             {Array.isArray(item.attachments) && item.attachments.map((attachment, attachmentIndex) => <div key={attachmentIndex} style={{ marginTop: 7 }}>
@@ -661,7 +661,7 @@ export default function CoyChat({ initialImage, initialText }) {
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.coy, transform: 'scaleX(-1)' }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 3, right: -13, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 3, right: -22, width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ transform: 'scaleX(-1)', width: '100%' }}>Typing...</div>
         </div>}
         {error && <div role="alert" style={{ ...styles.bubble, ...styles.coy, color: '#fff', transform: 'scaleX(-1)' }}>
