@@ -320,12 +320,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     let av = null, raf = 0, cancelled = false;
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHitPlayed = false;
+    // Original Roblox classic gear audio asset IDs.
+    // Sword: unsheath.wav (12222225), swordslash.wav (12222216),
+    // swordlunge.wav (12222208). Grapple Hook: Fire (16211041),
+    // Connect (13510737), Hit (16211030).
     const soundIds = {
-      swordSlash: TOOL_SOUND_BASE + "slash.mp3",
-      swordLunge: TOOL_SOUND_BASE + "lunge.mp3",
-      unsheath: TOOL_SOUND_BASE + "unsheath.mp3",
-      grappleEquip: 12222225,
-      grappleFire: TOOL_SOUND_BASE + "grapple.mp3",
+      swordSlash: 12222216,
+      swordLunge: 12222208,
+      unsheath: 12222225,
+      grappleFire: 16211041,
       grappleConnect: 13510737,
       grappleHit: 16211030
     };
@@ -407,7 +410,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     };
     const soundUnlockEvents = ["pointerdown", "touchstart", "keydown", "click"];
     soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockGearAudio, { once: true, capture: true }));
-    const playGearSound = (source, volume = 0.22) => {
+    const playGearSound = (source, volume = 1) => {
       try {
         const src = soundUrl(source);
         const buffer = soundBuffers.get(src);
@@ -554,7 +557,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         transitionDuration = ["swordslash", "swordlunge"].includes(L.pose) ? 0.12 : 0.34;
         // Holding the grapple gear is silent; play tool sounds only when a move begins.
         if (L.pose === "swordequip") {
-          playGearSound(soundIds.unsheath, 0.18);
+          playGearSound(soundIds.unsheath);
         } else if (L.pose === "swordslash") {
           if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
           playGearSound(soundIds.swordSlash);
@@ -562,7 +565,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
-          if (!["gearhold", "climbing"].includes(priorPose)) playGearSound(soundIds.grappleEquip, 0.18);
           grappleHitPlayed = false;
           playGearSound(soundIds.grappleFire);
         }
@@ -640,8 +642,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       resizeViewport(externalGrapple);
       if (externalGrapple && Number(L.grapple.travel) >= 1 && !grappleHitPlayed) {
         grappleHitPlayed = true;
-        playGearSound(soundIds.grappleConnect, 0.22);
-        playGearSound(soundIds.grappleHit, 0.22);
+        playGearSound(soundIds.grappleHit);
+        window.setTimeout(() => playGearSound(soundIds.grappleConnect), 400);
       }
       // Held or falling: lean with the sideways speed.
       if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
