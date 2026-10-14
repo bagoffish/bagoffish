@@ -625,11 +625,14 @@ export default function CoyChat({ initialImage, initialText }) {
     } catch (err) {
       if (filesToSend.length) updateAttachments(previous => previous.length ? previous : filesToSend);
       if (message) setDraft(previous => previous || message);
-      setError(err.name === 'AbortError'
-        ? 'I’m tryna sleep dude.'
-        : (err.message === 'Failed to fetch'
-          ? 'I’m tryna sleep dude.'
-          : (err.message || 'I’m tryna sleep dude.')));
+      // Safari often reports network/CORS failures as "Load failed" rather than
+      // "Failed to fetch". Keep the message conversational; the green Coy bubble
+      // makes clear that this is Coy's connection error, not a user message.
+      const networkFailure = err.name === 'AbortError' ||
+        /^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim());
+      setError(networkFailure
+        ? 'Can’t reach the chat server rn.. sowwy. Try again in a moment.'
+        : (err.message || 'Something went wrong.. sowwy'));
     } finally {
       sendLockRef.current = false;
       setBusy(false);
@@ -656,11 +659,13 @@ export default function CoyChat({ initialImage, initialText }) {
           </div>
         ))}
         {busy && <div style={{ ...styles.bubble, ...styles.coy }}>
-          <span aria-hidden="true" style={{ position: 'absolute', bottom: 7, left: -8, borderTop: '7px solid transparent', borderRight: '8px solid #000', width: 0, height: 0, pointerEvents: 'none' }} />
-          <span aria-hidden="true" style={{ position: 'absolute', bottom: 8, left: -5, borderTop: '5px solid transparent', borderRight: '6px solid #f7f5eb', width: 0, height: 0, pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, left: -18, transform: 'scaleX(-1)', width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
           Typing...
         </div>}
-        {error && <div role="alert" style={{ ...styles.bubble, borderColor: '#a00000', color: '#8b0000' }}>{error}</div>}
+        {error && <div role="alert" style={{ ...styles.bubble, ...styles.coy, color: '#fff' }}>
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', bottom: 1, left: -18, transform: 'scaleX(-1)', width: 22, height: 22, objectFit: 'contain', pointerEvents: 'none' }} />
+          {error}
+        </div>}
         <div ref={bottomRef} />
       </div>
       {attachments.length > 0 && <div style={styles.pendingAttachments} aria-label="Files ready to send">
