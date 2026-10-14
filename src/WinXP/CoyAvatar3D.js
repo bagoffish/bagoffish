@@ -376,31 +376,9 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       return soundPools.get(src);
     };
     const localSoundSources = Object.values(soundIds);
-    // Audio is non-critical to the first visual frame. Start decoding after Coy's
-    // immediate fallback has painted so six clips cannot compete with avatar startup.
-    const audioPreloadTimer = window.setTimeout(() => {
-      if (cancelled) return;
-      if (audioContext) {
-        localSoundSources.forEach(source => {
-          const url = soundUrl(source);
-          fetch(url, { cache: "force-cache" }).then(response => {
-            if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
-            const type = response.headers.get("content-type") || "";
-            if (/text\/html|application\/json/i.test(type)) throw new Error("Non-audio response (" + type + ") for " + url);
-            return response.arrayBuffer();
-          }).then(bytes => {
-            if (!bytes || bytes.byteLength < 128) throw new Error("Audio file is empty or truncated: " + url);
-            return audioContext.decodeAudioData(bytes);
-          }).then(buffer => {
-            soundBuffers.set(url, buffer);
-          }).catch(error => {
-            console.warn("Coy: local gear sound preload failed; HTML audio fallback will be used", url, error);
-          });
-        });
-      }
-      // Prime same-origin HTMLAudioElement fallback players after first paint.
-      localSoundSources.forEach(getSoundPool);
-    }, 250);
+    // Start fetching local gear sounds immediately so they are ready for early actions.
+    // If playback is requested before a clip finishes loading, the audio element can queue it.
+    localSoundSources.forEach(getSoundPool);
     // Do not "unlock" audio by briefly playing and pausing every pooled clip.
     // On iOS Safari, that synthetic playback can interrupt/duck music from another
     // app. Effects are instead started only when their actual gameplay action occurs.
@@ -959,7 +937,6 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     return () => {
       cancelled = true;
-      window.clearTimeout(audioPreloadTimer);
       soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockWhenReady, true));
       soundPools.forEach(({ pool }) => pool.forEach(audio => { audio.pause(); audio.src = ""; }));
       soundPools.clear();
