@@ -516,7 +516,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const torsoLayer = { twist: 0, lean: 0 };
     const look = { x: 0, y: 0 }, lookQuat = new THREE.Quaternion(), lookEuler = new THREE.Euler();
     const clock = new THREE.Clock();
-    const readAnimationFile = url => fetch(url, { cache: "no-store" })
+    const readAnimationFile = url => fetch(url, { cache: "force-cache" })
       .then(response => response.ok ? response.json() : {})
       .catch(() => ({}));
     Promise.all([
