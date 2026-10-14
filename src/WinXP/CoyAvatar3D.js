@@ -383,46 +383,15 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // Prime same-origin HTMLAudioElement fallback players after first paint.
       localSoundSources.forEach(getSoundPool);
     }, 250);
-    const unlockGearAudio = () => {
-      if (audioContext) {
-        // resume() must be called synchronously from this gesture for iOS Safari.
-        const resume = audioContext.resume();
-        if (resume && typeof resume.catch === "function") {
-          resume.then(() => { audioUnlocked = audioContext.state === "running"; })
-            .catch(error => console.warn("Coy: Safari audio context could not resume", error));
-        } else {
-          audioUnlocked = audioContext.state === "running";
-        }
-      }
-      // Unlock the remote Roblox-hosted audio elements as a fallback. Avoid trying
-      // to start every pooled copy simultaneously; that can be rejected by Safari.
-      for (const { pool } of soundPools.values()) {
-        const audio = pool[0];
-        audio.muted = true;
-        const attempt = audio.play();
-        if (attempt && typeof attempt.then === "function") {
-          attempt.then(() => {
-            audio.pause();
-            try { audio.currentTime = 0; } catch (_) {}
-            audio.muted = false;
-          }).catch(() => { audio.muted = false; });
-        } else {
-          audio.pause();
-          try { audio.currentTime = 0; } catch (_) {}
-          audio.muted = false;
-        }
-      }
-    };
-    const soundUnlockEvents = ["pointerdown", "touchstart", "keydown", "click"];
-    // Keep listeners until audio is actually unlocked: a rejected first attempt
-    // must not permanently strand iOS Safari in a muted state.
-    const unlockWhenReady = () => {
-      unlockGearAudio();
-      if (audioUnlocked || !audioContext) {
-        soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockWhenReady, true));
-      }
-    };
-    soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockWhenReady, { passive: true, capture: true }));
+    // Do not "unlock" audio by briefly playing and pausing every pooled clip.
+    // On iOS Safari, that synthetic playback can interrupt/duck music from another
+    // app. Effects are instead started only when their actual gameplay action occurs.
+    // Keep no persistent AudioContext: HTMLAudioElement effects are independent of
+    // the page's media session as far as the browser/OS permits.
+    const unlockGearAudio = () => {};
+    const soundUnlockEvents = [];
+    const unlockWhenReady = () => {};
+
     const playGearSound = (source, volume = 0.28) => {
       try {
         const src = soundUrl(source);
