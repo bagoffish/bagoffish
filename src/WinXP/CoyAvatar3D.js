@@ -275,10 +275,10 @@ function loadModel(model) {
  *            (grapple.ax, grapple.ay) in screen px and the muzzle's screen position is written
  *            back to grapple.mx / grapple.my so the parent can draw the cable to it.
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple, onReady }) {
   const canvasRef = useRef(null);
   const live = useRef({});
-  live.current = { pose, dir, vx, impact, look, getPos, grapple };
+  live.current = { pose, dir, vx, impact, look, getPos, grapple, onReady };
   const W = size, H = Math.round(size / ASPECT);
   // Keep the drag/collision footprint compact, but make the actual WebGL viewport
   // far larger so swinging limbs, turns, and accessories don't get cut at its edges.
@@ -317,11 +317,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     scene.add(new THREE.AmbientLight(0xffffff, .7));
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
-    // Paint a lightweight R6 fallback immediately. The live Roblox avatar is swapped
-    // in as soon as avatar.json + its OBJ/MTL finish downloading, rather than leaving
-    // Coy invisible while the network responds.
-    let av = buildAvatar({ ...DEFAULT_COLORS }), raf = 0, cancelled = false;
-    scene.add(av.body);
+    // No substitute model: wait for the actual Roblox avatar before spawning Coy.
+    let av = null, raf = 0, cancelled = false;
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHitPlayed = false;
     // Serve gear sounds from this site's own origin. Roblox's asset endpoint
@@ -540,13 +537,17 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       .then(async meta => {
         if (cancelled || (av && meta.version === version)) return;
         version = meta.version;
-        let next = null;
-        if (meta.model) {
-          const v = "?v=" + (meta.model.hash || meta.version);
-          try { next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }); }
-          catch (e) { console.warn("Coy: avatar model failed to load, using blocks", e); }
+        // Do not show a block placeholder if metadata or the real model is unavailable.
+        if (!meta.model) return;
+        const v = "?v=" + (meta.model.hash || meta.version);
+        let next;
+        try {
+          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v });
+        } catch (e) {
+          version = null; // let the next metadata poll retry this same avatar
+          console.warn("Coy: real avatar model failed to load; will retry", e);
+          return;
         }
-        if (!next) next = buildAvatar({ ...DEFAULT_COLORS, ...meta.bodyColors });
         if (cancelled) { disposeAvatar(next.body); return; }
         if (av) {
           swordGear?.removeFromParent(); grappleGear?.removeFromParent();
@@ -558,6 +559,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (av.head) headBaseScale.copy(av.head.scale);
         scene.add(av.body);
         attachGear();
+        live.current.onReady?.();
       });
     loadMeta();
     const metaTimer = setInterval(loadMeta, 5 * 60 * 1000);
