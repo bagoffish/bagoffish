@@ -9,8 +9,8 @@ const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.leng
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 
 // ---- Coy's autonomous behaviour (tune here) ----
-const ACTION_MIN_MS = 6000;       // gap between random actions: sword / sit / grapple
-const ACTION_MAX_MS = 15000;
+const ACTION_MIN_MS = 18000;      // less frequent random actions: sword / sit / grapple
+const ACTION_MAX_MS = 32000;
 const WALL_CONTACT_PX = 14;       // how far his body centre hangs off the wall while climbing
 const CLIMB_SPEED = 85;           // px/s
 const HOOK_TRAVEL_S = 0.7;        // keep the travelling hook visible long enough to follow
