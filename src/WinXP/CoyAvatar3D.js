@@ -392,7 +392,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     const soundUnlockEvents = [];
     const unlockWhenReady = () => {};
 
-    const playGearSound = (source, volume = 0.28) => {
+    const playGearSound = (source, volume = 0.16) => {
       try {
         const src = soundUrl(source);
         const buffer = soundBuffers.get(src);
@@ -546,10 +546,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (L.pose === "swordequip") {
           playGearSound(soundIds.unsheath);
         } else if (L.pose === "swordslash") {
-          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
+          if (!["swordequip", "swordlunge", "swordslash"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
           playGearSound(soundIds.swordSlash);
         } else if (L.pose === "swordlunge") {
-          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.18);
+          if (!["swordequip", "swordslash", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
           playGearSound(soundIds.swordLunge);
         } else if (L.pose === "grapple") {
           grappleHitPlayed = false;
