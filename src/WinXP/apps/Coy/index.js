@@ -648,7 +648,7 @@ export default function CoyChat({ initialImage, initialText }) {
           const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png');
           return (
             <div key={index} style={{ position: 'relative', alignSelf: isUser ? 'flex-end' : 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: isUser ? 0 : 7, marginRight: isUser ? 7 : 0 }}>
-              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 2, top: '50%', ...(isUser ? { right: -18 } : { left: -18 }), transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
+              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: '50%', ...(isUser ? { right: -18 } : { left: -18 }), transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
               <div style={{ ...styles.bubble, ...(isUser ? styles.user : styles.coy), alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
                 <div>
                   {item.content && renderCoyContent(item.content)}
@@ -666,13 +666,13 @@ export default function CoyChat({ initialImage, initialText }) {
           );
         })}
         {busy && <div style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 2, top: '50%', left: -18, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -18, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
             <div>Typing...</div>
           </div>
         </div>}
         {error && <div role="alert" style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -20, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tail.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -18, transform: 'translateY(-50%)', width: 32, height: 32, objectFit: 'fill', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, color: '#fff', alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1 }}>
             <div>{error}</div>
           </div>
