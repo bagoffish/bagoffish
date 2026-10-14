@@ -141,6 +141,94 @@ function boing(strength) {
 }
 
 const active = new Set();
+let sharedCanvas = null, sharedRenderer = null, sharedScene = null, sharedCamera = null;
+let sharedEnvironment = null, sharedFrame = 0, sharedWidth = 0, sharedHeight = 0;
+const sharedLightsReady = () => {
+  if (sharedScene) return;
+  sharedScene = new THREE.Scene();
+  sharedCamera = new THREE.OrthographicCamera(0, window.innerWidth, 0, window.innerHeight, 0.1, 100);
+  sharedCamera.position.set(0, 0, 20);
+  sharedScene.add(new THREE.AmbientLight(0xffffff, 0.85));
+  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
+  sun.position.set(0.25, 0.3, 1);
+  sharedScene.add(sun);
+};
+function ensureSharedRenderer() {
+  if (sharedRenderer) return true;
+  try {
+    sharedCanvas = document.createElement("canvas");
+    sharedCanvas.setAttribute("aria-hidden", "true");
+    Object.assign(sharedCanvas.style, {
+      position: "fixed", inset: "0", width: "100vw", height: "100vh",
+      pointerEvents: "none", zIndex: "9998", background: "transparent"
+    });
+    document.body.appendChild(sharedCanvas);
+    sharedRenderer = new THREE.WebGLRenderer({ canvas: sharedCanvas, alpha: true, antialias: true });
+    sharedRenderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    sharedRenderer.setClearColor(0x000000, 0);
+    sharedLightsReady();
+    sharedEnvironment = createBallEnvironment(sharedRenderer);
+    return true;
+  } catch (error) {
+    console.warn("Coy: superball could not start WebGL", error);
+    sharedCanvas?.remove();
+    sharedCanvas = null;
+    sharedRenderer = null;
+    sharedScene = null;
+    sharedCamera = null;
+    return false;
+  }
+}
+function resizeSharedRenderer() {
+  const width = Math.max(1, window.innerWidth);
+  const height = Math.max(1, window.innerHeight);
+  if (width === sharedWidth && height === sharedHeight) return;
+  sharedWidth = width;
+  sharedHeight = height;
+  sharedRenderer.setSize(width, height, false);
+  sharedCamera.left = 0;
+  sharedCamera.right = width;
+  sharedCamera.top = 0;
+  sharedCamera.bottom = height;
+  sharedCamera.updateProjectionMatrix();
+}
+function scheduleSharedFrame() {
+  if (!sharedFrame && active.size) sharedFrame = window.requestAnimationFrame(renderSharedFrame);
+}
+function renderSharedFrame(now) {
+  sharedFrame = 0;
+  if (!active.size || !sharedRenderer) return;
+  resizeSharedRenderer();
+  const W = sharedWidth, H = sharedHeight;
+  for (const ball of [...active]) {
+    if (ball.stopped) continue;
+    const dt = Math.min((now - ball.last) / 1000, 0.033);
+    ball.last = now;
+    ball.age += dt * 1000;
+    if (ball.age >= ball.duration) {
+      ball.stop();
+      continue;
+    }
+    const floor = Math.min(H, Number(ball.getFloor?.()) || H);
+    ball.pvy += GRAVITY * dt;
+    ball.px += ball.pvx * dt;
+    ball.py += ball.pvy * dt;
+    if (ball.px < ball.r) { ball.px = ball.r; ball.pvx = Math.abs(ball.pvx) * WALL_BOUNCE; ball.hit("x", Math.abs(ball.pvx)); }
+    if (ball.px > W - ball.r) { ball.px = W - ball.r; ball.pvx = -Math.abs(ball.pvx) * WALL_BOUNCE; ball.hit("x", Math.abs(ball.pvx)); }
+    if (ball.py < ball.r) { ball.py = ball.r; ball.pvy = Math.abs(ball.pvy) * WALL_BOUNCE; ball.hit("y", Math.abs(ball.pvy)); }
+    if (ball.py > floor - ball.r) { ball.py = floor - ball.r; ball.pvy = -Math.abs(ball.pvy) * FLOOR_BOUNCE; ball.hit("y", Math.abs(ball.pvy)); }
+
+    ball.squash *= Math.exp(-dt * 16);
+    const fade = ball.age > ball.duration - FADE_MS ? Math.max(0, (ball.duration - ball.age) / FADE_MS) : 1;
+    ball.material.opacity = fade;
+    const sx = ball.squashAxis === "x" ? 1 - ball.squash : 1 + ball.squash * 0.6;
+    const sy = ball.squashAxis === "y" ? 1 - ball.squash : 1 + ball.squash * 0.6;
+    ball.pivot.position.set(ball.px, ball.py, 0);
+    ball.pivot.scale.set(sx, sy, 1 + ball.squash * 0.6);
+  }
+  sharedRenderer.render(sharedScene, sharedCamera);
+  if (active.size) scheduleSharedFrame();
+}
 export function clearSuperBalls() {
   [...active].forEach(ball => ball.stop());
 }
@@ -155,118 +243,66 @@ export function clearSuperBalls() {
  *   onDone      called once the ball has disappeared
  */
 export function launchSuperBall({ x, y, r = 12, vx = 700, vy = -1000, duration = 7000, getFloor, onDone }) {
-  clearSuperBalls();                                   // only ever one ball in the air
-  const size = Math.ceil(r * 3.4);                     // room for the squash-and-stretch
-  const canvas = document.createElement("canvas");
-  canvas.setAttribute("aria-hidden", "true");
-  Object.assign(canvas.style, {
-    position: "fixed", left: "0px", top: "0px", width: size + "px", height: size + "px",
-    pointerEvents: "none", zIndex: "9998", background: "transparent", willChange: "transform",
-    transform: `translate3d(${x - size / 2}px, ${y - size / 2}px, 0)`
-  });
-  document.body.appendChild(canvas);
-
-  let renderer = null;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-    renderer.setSize(size, size, false);
-    renderer.setClearColor(0x000000, 0);
-  } catch (error) {
-    console.warn("Coy: superball could not start WebGL", error);
-    canvas.remove();
+  if (!ensureSharedRenderer()) {
     onDone?.();
     return { stop() {} };
   }
-  const scene = new THREE.Scene();
-  const half = 1.7;                                    // the unit sphere fills ~60% of the canvas
-  const camera = new THREE.OrthographicCamera(-half, half, half, -half, 0.1, 20);
-  camera.position.set(0, 0, 8);
-  scene.add(new THREE.AmbientLight(0xffffff, 0.75));
-  const sun = new THREE.DirectionalLight(0xffffff, 0.9);
-  sun.position.set(-3, 4, 6);
-  scene.add(sun);
+  resizeSharedRenderer();
 
-  const pivot = new THREE.Group();                     // squashed on impact
-  scene.add(pivot);
-  const material = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 80, specular: 0x666666, transparent: true, opacity: 1 });
-  const environment = createBallEnvironment(renderer);
-  makeBallReflective(material, environment);
+  let stopped = false;
   let ownedGeometry = null;
   let mesh = null;
+  const pivot = new THREE.Group();
+  const material = new THREE.MeshPhongMaterial({
+    color: 0xffffff, shininess: 80, specular: 0x666666,
+    transparent: true, opacity: 1
+  });
+  makeBallReflective(material, sharedEnvironment);
+  sharedScene.add(pivot);
+
   const buildMesh = model => {
     if (stopped || mesh) return;
-    if (model && model.geometry) {
+    if (model?.geometry) {
       material.map = model.map || null;
       if (!model.map) material.color.set(0x971f33);
       material.needsUpdate = true;
-      mesh = new THREE.Mesh(model.geometry, material);        // geometry/texture are shared: don't dispose them
+      mesh = new THREE.Mesh(model.geometry, material); // model geometry/texture are shared
     } else {
       material.color.set(0x971f33);
       ownedGeometry = new THREE.SphereGeometry(1, 32, 20);
       mesh = new THREE.Mesh(ownedGeometry, material);
     }
+    const scale = Math.ceil(r * 3.4) / 3.4;
+    mesh.scale.setScalar(scale);
     pivot.add(mesh);
   };
 
-  let stopped = false, raf = 0;
-  let px = x, py = y, pvx = vx, pvy = vy;
-  let age = 0, squash = 0, squashAxis = "y";
-  let last = performance.now();
-
-  const stop = () => {
-    if (stopped) return;
-    stopped = true;
-    active.delete(handle);
-    window.cancelAnimationFrame(raf);
-    ownedGeometry?.dispose();
-    material.dispose();
-    environment.dispose();
-    renderer.dispose();
-    renderer.forceContextLoss?.();
-    canvas.remove();
-    onDone?.();
+  const ball = {
+    stopped: false, duration, getFloor, onDone, r,
+    px: x, py: y, pvx: vx, pvy: vy, age: 0, squash: 0, squashAxis: "y",
+    last: performance.now(), pivot, material,
+    hit(axis, speed) {
+      this.squash = Math.min(0.32, 0.08 + speed / 5000);
+      this.squashAxis = axis;
+      boing(Math.min(1, speed / 1400));
+    },
+    stop() {
+      if (this.stopped) return;
+      this.stopped = true;
+      active.delete(this);
+      sharedScene?.remove(pivot);
+      ownedGeometry?.dispose();
+      material.dispose();
+      onDone?.();
+      if (!active.size) {
+        if (sharedFrame) window.cancelAnimationFrame(sharedFrame);
+        sharedFrame = 0;
+        sharedRenderer?.clear();
+      }
+    }
   };
-  const handle = { stop };
-  active.add(handle);
-
-  const hit = (axis, speed) => {
-    squash = Math.min(0.32, 0.08 + speed / 5000);
-    squashAxis = axis;
-    boing(Math.min(1, speed / 1400));
-  };
-
-  const frame = now => {
-    if (stopped) return;
-    raf = window.requestAnimationFrame(frame);
-    const dt = Math.min((now - last) / 1000, 0.033);
-    last = now;
-    age += dt * 1000;
-    if (age >= duration) { stop(); return; }
-
-    const W = window.innerWidth, H = window.innerHeight;
-    const floor = Math.min(H, Number(getFloor?.()) || H);
-    pvy += GRAVITY * dt;
-    px += pvx * dt;
-    py += pvy * dt;
-    if (px < r)         { px = r;         pvx =  Math.abs(pvx) * WALL_BOUNCE; hit("x", Math.abs(pvx)); }
-    if (px > W - r)     { px = W - r;     pvx = -Math.abs(pvx) * WALL_BOUNCE; hit("x", Math.abs(pvx)); }
-    if (py < r)         { py = r;         pvy =  Math.abs(pvy) * WALL_BOUNCE; hit("y", Math.abs(pvy)); }
-    if (py > floor - r) { py = floor - r; pvy = -Math.abs(pvy) * FLOOR_BOUNCE; hit("y", Math.abs(pvy)); }
-
-    squash *= Math.exp(-dt * 16);
-    const fade = age > duration - FADE_MS ? Math.max(0, (duration - age) / FADE_MS) : 1;   // 1 -> 0 over the last FADE_MS
-    material.opacity = fade;                           // fade out by turning transparent, not by shrinking
-    const sx = squashAxis === "x" ? 1 - squash : 1 + squash * 0.6;
-    const sy = squashAxis === "y" ? 1 - squash : 1 + squash * 0.6;
-    pivot.scale.set(sx, sy, 1 + squash * 0.6);
-
-    canvas.style.transform = `translate3d(${(px - size / 2).toFixed(1)}px, ${(py - size / 2).toFixed(1)}px, 0)`;
-    if (mesh) renderer.render(scene, camera);
-  };
-
-  // The model is normally cached already (it is preloaded when Coy mounts), so this is near instant.
+  active.add(ball);
   preloadSuperBall().then(buildMesh);
-  raf = window.requestAnimationFrame(frame);
-  return handle;
+  scheduleSharedFrame();
+  return ball;
 }

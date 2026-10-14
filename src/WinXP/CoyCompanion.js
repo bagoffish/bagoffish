@@ -551,7 +551,7 @@ export default function CoyCompanion() {
     const onRendererLookup = event => {
       const detail = event.detail || {};
       if (String(detail.id || "") !== "37753591") return;
-      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "oh, you're looking me up?", "that's me! why'd you search me up?"]));
+      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "Oh, you're looking me up?", "That's me..!"]));
       setShowBubble(true);
       lastActivity.current = Date.now();
     };
@@ -737,9 +737,15 @@ export default function CoyCompanion() {
         );
       },
 
-      // Pick up the superball and throw it: coyMoves.ball()
-      ball() {
-        return Boolean(actionsRef.current.ball?.());
+      // Pick up the superball and throw it: coyMoves.ball(); pass 1–100 for multiple balls.
+      // Autonomous/random behavior calls doBall() without a count, so it still throws one.
+      ball(count = 1) {
+        const amount = Number(count);
+        if (!Number.isInteger(amount) || amount < 1 || amount > 100) {
+          console.warn("Coy: use coyMoves.ball() or coyMoves.ball(1–100).");
+          return false;
+        }
+        return Boolean(actionsRef.current.ball?.(amount));
       },
       async demo() {
         const sequence = [
@@ -1334,10 +1340,11 @@ export default function CoyCompanion() {
   // no separate throw animation; he stays in gearhold the whole time. The ball is spawned at its
   // exact on-screen position in his hand (reported by the avatar) and bounces around the whole
   // site for BALL_LIFETIME_MS.
-  function doBall() {
+  function doBall(count = 1) {
     if (ballActiveRef.current) return false;
+    const amount = Math.max(1, Math.min(100, Math.floor(Number(count) || 1)));
     cancelAction();
-    // Throw toward the middle of the screen so there is room for the ball to travel.
+    // Throw toward the middle of the screen so there is room for the balls to travel.
     const centreX = posRef.current.left + spriteSize / 2;
     dirRef.current = centreX < window.innerWidth / 2 ? 1 : -1;
     setDir(dirRef.current);
@@ -1355,16 +1362,23 @@ export default function CoyCompanion() {
       ball.held = false;
       const g = 1400;                                         // keep in step with GRAVITY in superball.js
       const floorY = getTaskbarTop();
-      // Lob it hard enough to reach well up the screen, and sideways across it.
-      const rise = Math.max(240, floorY * (0.5 + Math.random() * 0.35));
-      launchSuperBall({
-        x, y, r,
-        vx: dir * (600 + Math.random() * 380),
-        vy: -Math.sqrt(2 * g * rise),
-        duration: BALL_LIFETIME_MS,
-        getFloor: getTaskbarTop,
-        onDone: () => { ballActiveRef.current = false; }
-      });
+      // Release the requested number from the same hand with a slight spread in direction.
+      let remaining = amount;
+      for (let i = 0; i < amount; i++) {
+        const rise = Math.max(240, floorY * (0.5 + Math.random() * 0.35));
+        const spread = (i - (amount - 1) / 2) * 38;
+        launchSuperBall({
+          x: x + spread * 0.25, y, r,
+          vx: dir * (600 + Math.random() * 380) + spread,
+          vy: -Math.sqrt(2 * g * rise),
+          duration: BALL_LIFETIME_MS,
+          getFloor: getTaskbarTop,
+          onDone: () => {
+            remaining -= 1;
+            if (remaining === 0) ballActiveRef.current = false;
+          }
+        });
+      }
     }, BALL_HOLD_MS));
     return true;
   }
