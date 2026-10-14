@@ -317,7 +317,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     scene.add(new THREE.AmbientLight(0xffffff, .7));
     const sun = new THREE.DirectionalLight(0xffffff, .8); sun.position.set(3, 6, 8); scene.add(sun);
 
-    let av = null, raf = 0, cancelled = false;
+    // Paint a lightweight R6 fallback immediately. The live Roblox avatar is swapped
+    // in as soon as avatar.json + its OBJ/MTL finish downloading, rather than leaving
+    // Coy invisible while the network responds.
+    let av = buildAvatar({ ...DEFAULT_COLORS }), raf = 0, cancelled = false;
+    scene.add(av.body);
     let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null;
     let grappleHitPlayed = false;
     // Serve gear sounds from this site's own origin. Roblox's asset endpoint
@@ -362,27 +366,31 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       return soundPools.get(src);
     };
     const localSoundSources = Object.values(soundIds);
-    if (audioContext) {
-      localSoundSources.forEach(source => {
-        const url = soundUrl(source);
-        fetch(url, { cache: "force-cache" }).then(response => {
-          if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
-          const type = response.headers.get("content-type") || "";
-          if (/text\/html|application\/json/i.test(type)) throw new Error("Non-audio response (" + type + ") for " + url);
-          return response.arrayBuffer();
-        }).then(bytes => {
-          if (!bytes || bytes.byteLength < 128) throw new Error("Audio file is empty or truncated: " + url);
-          return audioContext.decodeAudioData(bytes);
-        }).then(buffer => {
-          soundBuffers.set(url, buffer);
-        }).catch(error => {
-          console.warn("Coy: local gear sound preload failed; HTML audio fallback will be used", url, error);
+    // Audio is non-critical to the first visual frame. Start decoding after Coy's
+    // immediate fallback has painted so six clips cannot compete with avatar startup.
+    const audioPreloadTimer = window.setTimeout(() => {
+      if (cancelled) return;
+      if (audioContext) {
+        localSoundSources.forEach(source => {
+          const url = soundUrl(source);
+          fetch(url, { cache: "force-cache" }).then(response => {
+            if (!response.ok) throw new Error("HTTP " + response.status + " loading " + url);
+            const type = response.headers.get("content-type") || "";
+            if (/text\/html|application\/json/i.test(type)) throw new Error("Non-audio response (" + type + ") for " + url);
+            return response.arrayBuffer();
+          }).then(bytes => {
+            if (!bytes || bytes.byteLength < 128) throw new Error("Audio file is empty or truncated: " + url);
+            return audioContext.decodeAudioData(bytes);
+          }).then(buffer => {
+            soundBuffers.set(url, buffer);
+          }).catch(error => {
+            console.warn("Coy: local gear sound preload failed; HTML audio fallback will be used", url, error);
+          });
         });
-      });
-    }
-    // Prime same-origin HTMLAudioElement players as a fallback for browsers that
-    // cannot decode Web Audio. These paths must resolve under PUBLIC_URL.
-    Object.values(soundIds).forEach(getSoundPool);
+      }
+      // Prime same-origin HTMLAudioElement fallback players after first paint.
+      localSoundSources.forEach(getSoundPool);
+    }, 250);
     const unlockGearAudio = () => {
       if (audioContext) {
         // resume() must be called synchronously from this gesture for iOS Safari.
@@ -839,7 +847,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     return () => {
       cancelled = true;
-      soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockGearAudio, true));
+      window.clearTimeout(audioPreloadTimer);
+      soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockWhenReady, true));
       soundPools.forEach(({ pool }) => pool.forEach(audio => { audio.pause(); audio.src = ""; }));
       soundPools.clear();
       soundBuffers.clear();
