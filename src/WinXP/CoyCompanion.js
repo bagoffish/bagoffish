@@ -126,10 +126,12 @@ function executeCoyRequestedAction(action) {
 export default function CoyCompanion() {
   const [avatarReady, setAvatarReady] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
+  const [bubbleExpanded, setBubbleExpanded] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [underAppWindows, setUnderAppWindows] = useState(false);
   const [line, setLine] = useState("");
   const [chatGreeting, setChatGreeting] = useState(randomGreeting);
+  useEffect(() => setBubbleExpanded(false), [line]);
   const [draft, setDraft] = useState("");
   const [history, setHistory] = useState(() => readCompanionChatCookie());
   const [busy, setBusy] = useState(false);
@@ -1014,7 +1016,8 @@ export default function CoyCompanion() {
     const dir = wall.dir;
     const token = beginAction("wall");
     const slipAt = wall.kind === "window" && Math.random() < 0.4 ? 0.3 + Math.random() * 0.55 : null;
-    const climbDirection = -1;
+    // Climb upward most of the time, with an occasional downward scramble for variety.
+    const climbDirection = Math.random() < 0.25 ? 1 : -1;
     let phase = "fire", t = 0, pullFrom = null, pullDur = 0.7, climbStartTop = 0, climbStopTop = 0, climbStopAt = 0, mantleFrom = null, mantleTo = null, mantleSurface = null;
     const contactLeft = x => x - dir * WALL_CONTACT_PX - W / 2;
 
@@ -1400,7 +1403,8 @@ export default function CoyCompanion() {
       maxWidth: "min(204px, calc(100vw - 20px))",
       height: "auto",
       overflow: "visible",
-      pointerEvents: "none",
+      pointerEvents: "auto",
+      cursor: "pointer",
       zIndex: 5,
       fontSize: 14
     },
@@ -1521,9 +1525,35 @@ export default function CoyCompanion() {
       </button>
 
       {showBubble && (
-        <div ref={bubbleWrapRef} style={styles.bubbleWrap}>
+        <div
+          ref={bubbleWrapRef}
+          style={styles.bubbleWrap}
+          role="button"
+          tabIndex={0}
+          aria-expanded={bubbleExpanded}
+          aria-label={bubbleExpanded ? "Collapse Coy's speech bubble" : "Expand Coy's speech bubble"}
+          title={bubbleExpanded ? "Click to collapse" : "Click to read the full message"}
+          onClick={() => setBubbleExpanded(expanded => !expanded)}
+          onKeyDown={event => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              setBubbleExpanded(expanded => !expanded);
+            }
+          }}
+        >
           <div style={styles.dialogBody}>
-            <div style={styles.dialogText}>{renderCoyLine(line)}</div>
+            <div
+              style={bubbleExpanded ? {
+                ...styles.dialogText,
+                display: "block",
+                WebkitLineClamp: "unset",
+                maxHeight: "min(40vh, 280px)",
+                overflowY: "auto",
+                pointerEvents: "auto"
+              } : styles.dialogText}
+            >
+              {renderCoyLine(line)}
+            </div>
           </div>
           <img
             src={robloxTexture("green", "tailDown")}
