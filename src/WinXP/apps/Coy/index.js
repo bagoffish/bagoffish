@@ -648,7 +648,7 @@ export default function CoyChat({ initialImage, initialText }) {
           const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png');
           return (
             <div key={index} style={{ position: 'relative', alignSelf: isUser ? 'flex-end' : 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: isUser ? 0 : 7, marginRight: isUser ? 7 : 0 }}>
-              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: '50%', ...(isUser ? { right: -17, transform: 'translateY(-50%) rotate(90deg)' } : { left: -17, transform: 'translateY(-50%) rotate(-90deg)' }), width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
+              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: '50%', ...(isUser ? { right: -17, transform: 'translateY(-50%) rotate(90deg)' } : { left: -17, transform: 'translateY(-50%) rotate(-90deg) scaleX(-1)' }), width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
               <div style={{ ...styles.bubble, ...(isUser ? styles.user : styles.coy), alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, ...(isUser ? {} : { transform: 'scaleX(-1)' }) }}>
                 <div style={isUser ? undefined : { transform: 'scaleX(-1)', width: '100%' }}>
                   {item.content && renderCoyContent(item.content)}
