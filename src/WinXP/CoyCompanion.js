@@ -1551,6 +1551,9 @@ export default function CoyCompanion() {
                 overflowY: "auto",
                 pointerEvents: "auto"
               } : styles.dialogText}
+              onClick={event => {
+                if (bubbleExpanded) event.stopPropagation();
+              }}
             >
               {renderCoyLine(line)}
             </div>
