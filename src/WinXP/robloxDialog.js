@@ -72,13 +72,19 @@ export function robloxSideTailStyle(side = "right") {
 }
 
 // Lightning-bolt tail hanging below an overhead speech bubble.
+// The first ~12 rows of the tail texture are a copy of the box's bottom border (fade, bright
+// ring, glow), with the ring opened up over the dark fill. To look seamless the tail has to
+// (a) start exactly where the box's bottom border starts, i.e. 0.4em above the bottom edge, and
+// (b) be drawn at the same pixel scale as that border (0.4em / 16px = 0.025em per texel; 0.031
+// em/texel for the tail keeps its ring within a texel of the box ring). The old 2.7em / 0.15em
+// overlap left the box's own bright ring running straight across the tail's opening.
 export function robloxDownTailStyle() {
   return {
     position: "absolute",
-    top: "calc(100% - 0.15em)",
+    top: "calc(100% - 0.4em)",
     left: "50%",
-    width: "2.7em",
-    height: "2.7em",
+    width: "2em",
+    height: "2em",
     transform: "translateX(-50%)",
     pointerEvents: "none",
     zIndex: 2,

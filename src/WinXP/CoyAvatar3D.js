@@ -39,7 +39,7 @@ function target(pose, t, dir, tiltIn) {
         rZ: 1.2 - thrust * 1.05, rX: -0.55 - thrust * 0.85,
         lZ: -0.35, lX: thrust * 0.55,
         rL: -thrust * 0.55, lL: thrust * 0.65,
-        torsoLean: thrust * 0.24,
+        torsoLean: 0,
       });
     }
     case "swordequip": return P({ rZ: 1.2, rX: -0.55, lZ: -0.35 });
@@ -560,6 +560,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         if (av && L.pose !== "land") {
           transitionFrom = capturePose();
           transitionStartedAt = t;
+          // Sword poses keep the head level; don't fade in the idle cursor-look tilt.
+          if (["swordequip", "swordslash", "swordlunge"].includes(L.pose)) {
+            transitionFrom.parts.head = null;
+            look.x = 0; look.y = 0;
+          }
         } else if (L.pose === "land") {
           // Landing is an impact, not a blended animation: let the squash hit now.
           transitionFrom = null;
