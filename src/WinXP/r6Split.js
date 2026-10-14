@@ -150,7 +150,12 @@ export function splitIntoR6Parts(root) {
   if (!(size.y > 0)) throw new Error("Roblox R6 body has zero height");
   // Roblox OBJ units are studs. Keep 1:1 when the body is a normal R6 height so the joint
   // pivots line up exactly; otherwise normalize to five studs tall.
-  const scale = size.y > 4.5 && size.y < 6.5 ? 1 : 5 / size.y;
+  // Size from legs + torso (always 4 studs in R6), not the whole body: headless avatars (seth,
+  // yache) are only 4 studs tall in total and used to be blown up 1.25x to reach five.
+  const lowerBounds = new THREE.Box3();
+  for (const name of ["Rig1", "Rig2", "Rig3", "Rig4", "Rig5"]) if (!rigBounds[name].isEmpty()) lowerBounds.union(rigBounds[name]);
+  const lowerHeight = lowerBounds.isEmpty() ? 0 : lowerBounds.getSize(new THREE.Vector3()).y;
+  const scale = lowerHeight > 2 ? 4 / lowerHeight : (size.y > 4.5 && size.y < 6.5 ? 1 : 5 / size.y);
   const centerX = (bodyBounds.min.x + bodyBounds.max.x) / 2;
   const centerZ = (bodyBounds.min.z + bodyBounds.max.z) / 2;
   const baseY = bodyBounds.min.y;

@@ -682,7 +682,35 @@ export default function CoyCompanion() {
       cursor() { const ok = actionsRef.current.cursor?.(true); if (!ok) console.warn("Coy: move the mouse first (and keep it away from him, above the taskbar)"); return Boolean(ok); },
       random() { actionsRef.current.random?.(); return true; },
       // Drink the bodyswap potion: coyMoves.bodyswap() for a random avatar, or coyMoves.bodyswap("ash").
-      bodyswap(id) { return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined)); },
+      // Cycle through every avatar to check they all loaded:
+      // coyMoves.tour() (2 s each) or coyMoves.tour(1000).
+      tour(ms) {
+        const step = Math.max(500, Number(ms) || 2000);
+        swapTimers.current.forEach(id => window.clearTimeout(id));
+        swapTimers.current = [];
+        swapRef.current = "tour";
+
+        SWAP_AVATARS.forEach((id, i) => {
+          swapTimers.current.push(window.setTimeout(() => {
+            console.info("Coy tour " + (i + 1) + "/" + SWAP_AVATARS.length + ": " + id);
+            setSwapAvatar(id);
+          }, i * step));
+        });
+
+        swapTimers.current.push(window.setTimeout(() => {
+          setSwapAvatar(null);
+          setSwapPreload(null);
+          swapRef.current = null;
+          console.info(
+            "Coy tour finished. Any avatar that stayed Coy failed to load - look for a yellow warning above."
+          );
+        }, SWAP_AVATARS.length * step));
+
+        return true;
+      },
+      bodyswap(id) {
+        return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined));
+      },
       async demo() {
         const sequence = ["wave", "dance", "dance2", "dance3", "swordlunge", "gearhold", "grapple", "climbing"];
         for (const move of sequence) {
@@ -693,26 +721,6 @@ export default function CoyCompanion() {
         }
         api.stop();
       }
-    };
-    window.coyMoves = api;
-    return () => { if (window.coyMoves === api) delete window.coyMoves; };
-  }, []);
-  useEffect(() => {
-    // Start the greeting only when the real avatar is ready to appear.
-    if (avatarReady) showPose("wave", 1650);
-  }, [avatarReady]);
-
-  useEffect(() => {
-    const onMove = e => { lookRef.current.x = e.clientX; lookRef.current.y = e.clientY; if (e.pointerType !== "touch") lastPointerAt.current = Date.now(); };
-    window.addEventListener("pointermove", onMove);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.clearTimeout(poseTimer.current);
-      swapTimers.current.forEach(id => window.clearTimeout(id));
-      window.cancelAnimationFrame(fallRaf.current);
-      window.cancelAnimationFrame(ropeRaf.current);
-    };
-  }, []);
 
   // Every few seconds Coy picks something to do on his own: swing the sword, sit down, or
   // grapple (onto a wall he then climbs, or onto the mouse cursor). This is one long-lived
