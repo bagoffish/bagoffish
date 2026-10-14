@@ -18,9 +18,9 @@ const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", 
 
 const P = o => Object.assign({ rZ: .1, lZ: -.1, rX: 0, lX: 0, rL: 0, lL: 0, bob: 0, spin: 0, torsoTurn: 0, torsoLean: 0, tilt: 0, sq: 0 }, o);
 const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
-const PROCEDURAL_POSES = new Set(["sit", "land", "grapple"]);
+const PROCEDURAL_POSES = new Set(["sit", "land", "grapple", "ballthrow"]);
 
-function target(pose, t, dir, tiltIn) {
+function target(pose, t, dir, tiltIn, age = 0) {
   let s;
   switch (pose) {
     case "wave":   return P({ rZ: 2.6 + Math.sin(t * 12) * .35, torsoTurn: Math.sin(t * 2.5) * .28 });
@@ -44,6 +44,11 @@ function target(pose, t, dir, tiltIn) {
       });
     }
     case "swordequip": return P({ rZ: 1.2, rX: -0.55, lZ: -0.35 });
+    // Superball throw: wind the arm back, then whip it forward. The avatar releases the ball
+    // (see BALL_RELEASE_S) while the arm is passing through the front of the swing.
+    case "ballthrow": return age < BALL_WINDUP_S
+      ? P({ rZ: 0.45, rX: 1.15, lZ: -0.5, lX: -0.35, rL: 0.25, lL: -0.25, torsoLean: -0.08 })
+      : P({ rZ: 0.3, rX: -1.75, lZ: -0.35, lX: 0.35, rL: -0.3, lL: 0.3, torsoLean: 0.1 });
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
     case "bodyswap": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
     case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
@@ -121,6 +126,9 @@ const GEAR = {
   // Bodyswap potion: a flat blue/red figure card. In its own mesh space it lies flat (thin in Y)
   // with its long axis along Z. This grip (Rx +90 degrees) stands it upright, face toward the
   // camera, in the outstretched gearhold arm; the hand holds it a little below its centre.
+  // Superball: a unit-radius sphere (ball.obj). Scale 0.5 makes it a 1-stud ball. gripPos z 0.7 puts
+  // the hand against the back of the ball so the ball floats just ahead of his fist.
+  ball:       { file: "ball.obj",       scale: 0.5,  gripPos: [0, 0, 0.7],       gripRotDeg: [0, 0, 0] },
   potion:     { file: "bodyswap.obj",   scale: 0.8,  gripPos: [0, 0, -0.3],     gripRotDeg: [0, 0, 0],
                 gripRotationMatrix: [1, 0, 0, 0, 0, -1, 0, 1, 0] },
 };
@@ -133,6 +141,8 @@ const POSE_GEAR_GRIPS = {
   },
 };
 const toRad = d => d * Math.PI / 180;
+const BALL_WINDUP_S = 0.28;    // arm goes back for this long...
+const BALL_RELEASE_S = 0.42;   // ...and the ball leaves his hand this long after the throw starts
 function gripMatrix(name, leftHand = false, pose) {
   const cfg = { ...GEAR[name], ...(POSE_GEAR_GRIPS[pose]?.[name] || {}) };
   const D = new THREE.Matrix4().makeScale(-1, 1, -1);                    // Roblox -> scene axes
@@ -289,10 +299,10 @@ function loadModel(model, base = BASE, options = {}) {
  *            (grapple.ax, grapple.ay) in screen px and the muzzle's screen position is written
  *            back to grapple.mx / grapple.my so the parent can draw the cable to it.
  */
-export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple, swap = null, swapPreload = null, onReady }) {
+export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0, impact = 0, look, getPos, grapple, ball, swap = null, swapPreload = null, onReady }) {
   const canvasRef = useRef(null);
   const live = useRef({});
-  live.current = { pose, dir, vx, impact, look, getPos, grapple, swap, swapPreload, onReady };
+  live.current = { pose, dir, vx, impact, look, getPos, grapple, ball, swap, swapPreload, onReady };
   const W = size, H = Math.round(size / ASPECT);
   // Keep the drag/collision footprint compact, but make the actual WebGL viewport
   // far larger so swinging limbs, turns, and accessories don't get cut at its edges.
@@ -333,7 +343,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
 
     // No substitute model: wait for the actual Roblox avatar before spawning Coy.
     let av = null, raf = 0, cancelled = false;
-    let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null, potionGear = null;
+    let swordGear = null, grappleGear = null, gunGear = null, grappleGunGear = null, potionGear = null, ballGear = null;
     let grappleHitPlayed = false;
     // Serve gear sounds from this site's own origin. Roblox's asset endpoint
     // can redirect, reject CORS, or return a non-audio response in Safari.
@@ -439,9 +449,10 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       if (gunGear) av.rArm.add(gunGear);
       if (grappleGunGear) av.rArm.add(grappleGunGear);
       if (potionGear) av.rArm.add(potionGear);
+      if (ballGear) av.rArm.add(ballGear);
     };
     const detachGear = () => {
-      [swordGear, grappleGear, gunGear, grappleGunGear, potionGear].forEach(gear => gear?.removeFromParent());
+      [swordGear, grappleGear, gunGear, grappleGunGear, potionGear, ballGear].forEach(gear => gear?.removeFromParent());
     };
     loadGear(GEAR.sword.file, GEAR.sword.scale).then(gear => {
       if (cancelled) { disposeAvatar(gear); return; }
@@ -473,6 +484,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       placeGear(potionGear, "potion");
       attachGear();
     }).catch(e => console.warn("Coy: bodyswap potion failed to load", e));
+    loadGear(GEAR.ball.file, GEAR.ball.scale).then(gear => {
+      if (cancelled) { disposeAvatar(gear); return; }
+      ballGear = gear;
+      placeGear(ballGear, "ball");
+      attachGear();
+    }).catch(e => console.warn("Coy: superball failed to load", e));
     const bodyBaseScale = new THREE.Vector3(1, 1, 1);
     const headBaseScale = new THREE.Vector3(1, 1, 1);
     let previousPose = "";
@@ -614,10 +631,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const priorPose = previousPose;
         previousPose = L.pose;
         poseStartedAt = t;
-        if (L.pose === "swordequip" || L.pose === "swordlunge") {
+        if (L.pose === "swordequip" || L.pose === "swordlunge" || L.pose === "ballhold") {
           swordFacingDirection = L.dir < 0 ? -1 : 1;
         }
-        transitionDuration = L.pose === "swordlunge" ? 0.12 : 0.34;
+        // Start the throw from the held pose instead of whatever the smoothing state was left at.
+        if (L.pose === "ballthrow") Object.assign(pose, P({ rZ: 1.2, rX: -0.55, lZ: -0.35 }));
+        transitionDuration = L.pose === "swordlunge" ? 0.12 : L.pose === "ballthrow" ? 0.14 : 0.34;
         // Holding the grapple gear is silent; play tool sounds only when a move begins.
         if (L.pose === "swordequip") {
           playGearSound(soundIds.unsheath);
@@ -644,7 +663,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         }
       }
       // Being held uses the real Roblox falling clip, like picking up a character in Roblox.
-      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall", bodyswap: "gearhold" })[L.pose] || L.pose;
+      const clipName = ({ idle: "idle1", idle1: "idle1", dance: "dance1", dance1: "dance1", held: "fall", bodyswap: "gearhold", ballhold: "gearhold" })[L.pose] || L.pose;
       // Keep grounded sit, landing, and live-aim grapple procedural; preserve the imported CFrame clips for other moves.
       const clip = PROCEDURAL_POSES.has(L.pose) ? null : animations[clipName];
       // Don't start the animation clock until its imported clip is actually available.
@@ -671,7 +690,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       }
       if (!usingImported) {
         resetAvatarPose(av);                                  // never mix leftovers from the last clip
-        const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5));
+        const tg = target(L.pose, t, L.dir, clamp(-L.vx * .0006, -.5, .5), t - poseStartedAt);
         const ext = L.grapple && L.grapple.active ? { x: L.grapple.ax, y: L.grapple.ay } : null;
         const aimAt = ext || L.look;
         if (L.pose === "grapple" && aimAt && L.getPos) {
@@ -686,7 +705,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
             tg.rX = clamp(-dy / Math.max(H, 1) * 2.2, -1.2, 1.2);
           }
         }
-        for (const k in pose) pose[k] += (tg[k] - pose[k]) * .15;
+        const poseEase = L.pose === "ballthrow" ? .4 : .15;      // the throw has to be snappy
+        for (const k in pose) pose[k] += (tg[k] - pose[k]) * poseEase;
         av.rArm.rotation.z = pose.rZ; av.lArm.rotation.z = pose.lZ;
         av.rArm.rotation.x = pose.rX; av.lArm.rotation.x = pose.lX;
         av.rLeg.rotation.x = pose.rL; av.lLeg.rotation.x = pose.lL;
@@ -722,6 +742,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const firingGrapple = L.pose === "grapple" || Boolean(L.grapple && L.grapple.active);
       const pairedGrapple = grappleMode === "grapple+gun" || (grappleMode === "grapplegun" && firingGrapple);
       if (potionGear) potionGear.visible = L.pose === "bodyswap";
+      if (ballGear) ballGear.visible = (L.pose === "ballhold" || L.pose === "ballthrow") && Boolean(L.ball && L.ball.held);
       if (gunGear) gunGear.visible = holdingGrapple && pairedGrapple;
       if (grappleGunGear) grappleGunGear.visible = holdingGrapple && !pairedGrapple;
       const externalGrapple = Boolean(L.grapple && L.grapple.active);
@@ -795,7 +816,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       // repeatedly blend the body back toward its old, front-facing quaternion.
       // Walking and climbing turn with movement; sword poses keep their captured
       // side-facing direction, while grapple aims toward its anchor.
-      const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordlunge"].includes(L.pose);
+      const ballPose = L.pose === "ballhold" || L.pose === "ballthrow";
+      const sideFacing = ["walk", "climbing", "grapple", "swordequip", "swordlunge"].includes(L.pose) || ballPose;
       const position = L.getPos ? (L.getPos() || {}) : {};
       const px = Number.isFinite(position.x) ? position.x : position.left;
       const aimAt = L.pose === "grapple" && L.grapple && L.grapple.active
@@ -804,12 +826,12 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       const cursorX = Number.isFinite(aimAt?.x) && Number.isFinite(px)
         ? aimAt.x - (px + W / 2)
         : 0;
-      const toolFacing = ["grapple", "swordequip", "swordlunge"].includes(L.pose);
+      const toolFacing = ["grapple", "swordequip", "swordlunge"].includes(L.pose) || ballPose;
       // Sword poses use the direction captured when the sword came out, so he stays turned
       // toward the target for the whole equip -> lunge instead of following live walk dir.
       const toolDirection = L.pose === "grapple" && Math.abs(cursorX) > 4
         ? Math.sign(cursorX)
-        : (swordPose ? swordFacingDirection : (L.dir < 0 ? -1 : 1));
+        : ((swordPose || ballPose) ? swordFacingDirection : (L.dir < 0 ? -1 : 1));
       const targetYaw = sideFacing ? (toolFacing ? toolDirection : (L.dir < 0 ? -1 : 1)) * Math.PI / 2 : 0;
       const yawAlpha = 1 - Math.exp(-Math.max(delta, 0.001) * (sideFacing ? 10 : 8));
       // Imported clips call resetAvatarPose() every frame, and the procedural
@@ -844,6 +866,27 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       placeGear(gunGear, "gun", false, L.pose);
       placeGear(grappleGunGear, "grappleGun", false, L.pose);
       placeGear(potionGear, "potion", false, L.pose);
+      placeGear(ballGear, "ball", false, L.pose);
+      // Report where the ball is on screen, and let go of it mid-throw. The parent spawns the
+      // bouncing superball at exactly this spot.
+      if (ballGear && ballGear.visible && L.ball) {
+        av.body.updateMatrixWorld(true);
+        ballGear.updateMatrixWorld(true);
+        camera.updateMatrixWorld();
+        const centre = new THREE.Vector3(0, 0, 0);
+        ballGear.localToWorld(centre);
+        const edge = centre.clone(); edge.x += 1;
+        centre.project(camera); edge.project(camera);
+        const rect = canvas.getBoundingClientRect();
+        L.ball.sx = rect.left + (centre.x * 0.5 + 0.5) * rect.width;
+        L.ball.sy = rect.top + (-centre.y * 0.5 + 0.5) * rect.height;
+        L.ball.ppu = Math.abs(edge.x - centre.x) * 0.5 * rect.width;   // screen px per scene unit
+        if (L.pose === "ballthrow" && t - poseStartedAt >= BALL_RELEASE_S) {
+          L.ball.held = false;
+          ballGear.visible = false;
+          L.ball.onRelease?.({ x: L.ball.sx, y: L.ball.sy, r: clamp(0.5 * L.ball.ppu, 9, 40) });
+        }
+      }
       // Project the muzzle only after the body turn and grip offset are applied.
       const activeGrappleGear = pairedGrapple ? gunGear : grappleGunGear;
       let muzzleWorld = null, muzzleDepth = 0;
@@ -932,6 +975,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       swapCache.forEach(model => disposeAvatar(model.body));
       swapCache.clear();
       if (potionGear) disposeAvatar(potionGear);
+      if (ballGear) disposeAvatar(ballGear);
       if (swordGear) disposeAvatar(swordGear);
       if (grappleGear) disposeAvatar(grappleGear);
       if (gunGear) disposeAvatar(gunGear);

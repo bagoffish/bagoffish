@@ -2,12 +2,23 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261012-headshot-grid-v21";
+  var RENDERER_SCRIPT_VERSION = "20261014-coy-lookup-v22";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
   function text(value) {
     return value == null ? "" : String(value);
+  }
+
+  // Tell Coy what was looked up so he can react to it in his speech bubble (CoyCompanion listens).
+  // The query may be a username, a numeric user id, or a roblox.com/users/<id> link.
+  function notifyCoy(query, id) {
+    try {
+      var typed = text(query).trim().match(/^(?:https?:\/\/(?:www\.)?roblox\.com\/users\/)?(\d+)(?:\/profile)?\/?$/i);
+      window.dispatchEvent(new CustomEvent("coy:renderer-lookup", {
+        detail: { query: text(query).trim(), id: text(id || (typed && typed[1]) || "") }
+      }));
+    } catch (error) { /* Coy's reaction is optional */ }
   }
 
   function escapeHtml(value) {
@@ -88,6 +99,13 @@
         return;
       }
 
+      // React the moment an id / profile link is searched; a username is checked once it resolves.
+      var notified = false;
+      if (/^(?:https?:\/\/(?:www\.)?roblox\.com\/users\/)?\d+(?:\/profile)?\/?$/i.test(username)) {
+        notifyCoy(username);
+        notified = true;
+      }
+
       messageBox.style.display = "none";
       // Keep the last successful result visible while the next lookup loads.
       loadingIndicator.style.display = "flex";
@@ -95,6 +113,7 @@
         .then(function (data) {
           if (sequence !== lookupSequence) return;
           var roblox = data && data.roblox ? data.roblox : {};
+          if (!notified && roblox.id) notifyCoy(username, roblox.id);
           var rolimons = data && data.rolimons ? data.rolimons : {};
           var oldAvatars = Array.isArray(roblox.oldAvatars) ? roblox.oldAvatars : [];
           var imageUrls = [];

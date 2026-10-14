@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import CoyAvatar3D from "./CoyAvatar3D";
-import { SWAP_AVATARS, BODYSWAP_MS, BODYSWAP_POTION_MS, BODYSWAP_CHANCE } from "./avatarRoster";
+import { SWAP_AVATARS, BODYSWAP_MS, BODYSWAP_POTION_MS } from "./avatarRoster";
+import { launchSuperBall, preloadSuperBall, clearSuperBalls } from "./superball";
 import { ROBLOX_FONT, robloxBoxStyle, robloxDownTailStyle, robloxTexture } from "./robloxDialog";
 
 const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
@@ -11,7 +12,11 @@ const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.leng
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 
 // ---- Coy's autonomous behaviour (tune here) ----
-const ACTION_MIN_MS = 18000;      // less frequent random actions: sword / sit / grapple
+const ACTION_MIN_MS = 18000;      // less frequent random actions: sword / sit / grapple / bodyswap / superball
+const IDLE_SKIP_CHANCE = 0.08;    // sometimes he just keeps wandering instead (set 0 to always act)
+const BALL_HOLD_MS = 1300;        // gearhold pose with the superball in his hand
+const BALL_THROW_MS = 800;        // the throw animation (the ball leaves his hand partway through)
+const BALL_LIFETIME_MS = 7000;    // how long the ball bounces around the site before vanishing
 const ACTION_MAX_MS = 32000;
 const WALL_CONTACT_PX = 14;       // how far his body centre hangs off the wall while climbing
 const CLIMB_SPEED = 85;           // px/s
@@ -160,6 +165,11 @@ export default function CoyCompanion() {
   const fallRaf = useRef(0);
   const poseTimer = useRef(0);
   const gearHeldRef = useRef(false);
+  // Superball. ballRef is shared with the avatar: while held is true the ball is drawn in his hand,
+  // the avatar writes the ball's screen position (sx, sy) and calls onRelease when he lets go.
+  const ballRef = useRef({ held: false, sx: NaN, sy: NaN, ppu: 18, onRelease: null });
+  const ballTimers = useRef([]);
+  const ballActiveRef = useRef(false);
   // Autonomous grapple / climb routines. grappleRef is shared with the avatar: while
   // active, the arm aims at (ax, ay) and the avatar writes the muzzle position to (mx, my).
   const grappleRef = useRef({ active: false, ax: 0, ay: 0, mx: NaN, my: NaN, travel: 0, gripFall: false });
@@ -536,7 +546,17 @@ export default function CoyCompanion() {
       setShowBubble(true);
       lastActivity.current = Date.now();
     };
+    // The Renderer app announces every lookup (public/js/renderer.js). Searching Coy's own account
+    // gets a reaction, whether the visitor typed the user id, the profile link, or the username.
+    const onRendererLookup = event => {
+      const detail = event.detail || {};
+      if (String(detail.id || "") !== "37753591") return;
+      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "oh, you're looking me up?", "that's me! why'd you search me up?"]));
+      setShowBubble(true);
+      lastActivity.current = Date.now();
+    };
     window.addEventListener("coy:activity", onActivity);
+    window.addEventListener("coy:renderer-lookup", onRendererLookup);
     window.addEventListener("coy:app-action", onCoyAppAction);
     // Keep the companion state correct if the viewport rotates/resizes, and
     // catch the initial app-state event even if it fired before this listener.
@@ -550,6 +570,7 @@ export default function CoyCompanion() {
 
     return () => {
       window.removeEventListener("coy:activity", onActivity);
+      window.removeEventListener("coy:renderer-lookup", onRendererLookup);
       window.removeEventListener("coy:app-action", onCoyAppAction);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("fullscreenchange", onResize);
@@ -620,7 +641,7 @@ export default function CoyCompanion() {
 
   // Developer console test hooks for checking every custom and imported move.
   useEffect(() => {
-    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit", "bodyswap"];  // plus coyMoves.wall(), .cursor(), .random(), .bodyswap("ash")
+    const names = ["idle", "wave", "dance", "dance2", "dance3", "walk", "swordlunge", "gearhold", "grapple", "climbing", "fall", "sit", "bodyswap"];  // plus coyMoves.wall(), .cursor(), .random(), .ball(), .bodyswap("ash")
     const durations = { swordlunge: 900, grapple: 2100, climbing: 3500, gearhold: 2500, wave: 1800, dance: 4500, dance2: 4500, dance3: 4500 };
     const api = {
       moves: names,
@@ -711,6 +732,8 @@ export default function CoyCompanion() {
       bodyswap(id) {
         return Boolean(actionsRef.current.bodyswap?.(id ? String(id).toLowerCase() : undefined));
       },
+      // Pick up the superball and throw it: coyMoves.ball()
+      ball() { return Boolean(actionsRef.current.ball?.()); },
       async demo() {
         const sequence = [
           "wave",
@@ -770,10 +793,15 @@ export default function CoyCompanion() {
       window.removeEventListener("pointermove", onMove);
       window.clearTimeout(poseTimer.current);
       swapTimers.current.forEach(id => window.clearTimeout(id));
+      ballTimers.current.forEach(id => window.clearTimeout(id));
+      clearSuperBalls();
       window.cancelAnimationFrame(fallRaf.current);
       window.cancelAnimationFrame(ropeRaf.current);
     };
   }, []);
+
+  // Warm up the superball model and bounce sound so the first throw doesn't wait on a download.
+  useEffect(() => { preloadSuperBall(); }, []);
 
   // Every few seconds Coy picks something to do on his own: swing the sword, sit down, or
   // grapple (onto a wall he then climbs, or onto the mouse cursor). This is one long-lived
@@ -996,7 +1024,18 @@ export default function CoyCompanion() {
     wasStandingAligned.current = false;           // placement/walk logic must leave him alone
     return token;
   }
+  // Put the ball away if he was still holding it (grabbed, interrupted...). A ball already in the
+  // air keeps bouncing until its seven seconds are up.
+  function cancelBallHold() {
+    ballTimers.current.forEach(id => window.clearTimeout(id));
+    ballTimers.current = [];
+    if (ballRef.current.held) {
+      ballRef.current.held = false;
+      ballActiveRef.current = false;
+    }
+  }
   function cancelAction() {
+    cancelBallHold();
     const a = actionRef.current;
     if (!a) return;
     a.cancelled = true;
@@ -1284,19 +1323,74 @@ export default function CoyCompanion() {
     showPose("sit", 6500 + Math.random() * 3500);
     return true;
   }
-  // Weighted pick; anything that cannot happen right now (no wall in reach, mouse not moving) falls through.
-  function doRandomAction() {
-    const roll = Math.random();
-    if (roll < 0.08) return;                                    // sometimes he just keeps wandering
-    if (roll < 0.08 + BODYSWAP_CHANCE && !swapRef.current) { doBodySwap(); return; }
-    const r = roll - BODYSWAP_CHANCE;                           // the rest keep their original odds
-    if (r < 0.28) { doSword(); return; }
-    if (r < 0.48) { doSit(); return; }
-    if (r < 0.58 && startCursorGrapple()) return;
-    if (startWallGrapple()) return;
-    doSword();
+  // Pick up the superball (gearhold pose), wind up and throw it. The avatar calls onRelease at the
+  // moment the ball leaves his hand; from there it bounces around the whole site for a few seconds.
+  function doBall() {
+    if (ballActiveRef.current) return false;
+    cancelAction();
+    // Throw toward the middle of the screen so there is room for the ball to travel.
+    const centreX = posRef.current.left + spriteSize / 2;
+    dirRef.current = centreX < window.innerWidth / 2 ? 1 : -1;
+    setDir(dirRef.current);
+    const dir = dirRef.current;
+    const ball = ballRef.current;
+    ballActiveRef.current = true;
+    ball.held = true;
+    ball.sx = NaN; ball.sy = NaN;
+    let released = false;
+    const spawn = ({ x, y, r }) => {
+      if (released) return;
+      released = true;
+      ball.held = false;
+      const g = 1400;                                         // keep in step with GRAVITY in superball.js
+      const floorY = getTaskbarTop();
+      // Lob it hard enough to reach well up the screen, and sideways across it.
+      const rise = Math.max(240, floorY * (0.5 + Math.random() * 0.35));
+      launchSuperBall({
+        x, y, r,
+        vx: dir * (600 + Math.random() * 380),
+        vy: -Math.sqrt(2 * g * rise),
+        duration: BALL_LIFETIME_MS,
+        getFloor: getTaskbarTop,
+        onDone: () => { ballActiveRef.current = false; }
+      });
+    };
+    ball.onRelease = spawn;
+    showPose("ballhold", BALL_HOLD_MS + 2000);
+    ballTimers.current.push(window.setTimeout(() => {
+      showPose("ballthrow", BALL_THROW_MS);
+      // Safety net: if the avatar never reported a release, throw from where Coy is standing.
+      ballTimers.current.push(window.setTimeout(() => {
+        if (released) return;
+        const x = Number.isFinite(ball.sx) ? ball.sx : posRef.current.left + spriteSize / 2;
+        const y = Number.isFinite(ball.sy) ? ball.sy : posRef.current.top + spriteSize * 0.3;
+        spawn({ x, y, r: 12 });
+      }, BALL_THROW_MS - 100));
+    }, BALL_HOLD_MS));
+    return true;
   }
-  actionsRef.current = { wall: startWallGrapple, cursor: startCursorGrapple, random: doRandomAction, cancel: cancelAction, bodyswap: doBodySwap };
+  // Every random action has the same chance: bodyswap, sword, sit, grapple and the superball are
+  // shuffled and the first one that can actually happen right now (a wall in reach, no ball already
+  // in the air, ...) wins, so a blocked pick falls through to another equal pick, not to the sword.
+  function doRandomAction() {
+    if (Math.random() < IDLE_SKIP_CHANCE) return;               // sometimes he just keeps wandering
+    const options = [
+      () => !swapRef.current && doBodySwap(),
+      doSword,
+      doSit,
+      // a grapple is a wall grapple most of the time, sometimes onto the mouse cursor
+      () => (Math.random() < 0.2
+        ? startCursorGrapple() || startWallGrapple()
+        : startWallGrapple() || startCursorGrapple()),
+      doBall
+    ];
+    for (let i = options.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [options[i], options[j]] = [options[j], options[i]];
+    }
+    for (const run of options) if (run()) return;
+  }
+  actionsRef.current = { wall: startWallGrapple, cursor: startCursorGrapple, random: doRandomAction, cancel: cancelAction, bodyswap: doBodySwap, ball: doBall };
 
   function onCoyPointerDown(event) {
     if (event.button !== undefined && event.button !== 0) return;
@@ -1574,7 +1668,7 @@ export default function CoyCompanion() {
         onPointerCancel={onCoyPointerUp}
         style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
-        <CoyAvatar3D size={spriteSize} pose={pose} swap={swapAvatar} swapPreload={swapPreload} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
+        <CoyAvatar3D size={spriteSize} pose={pose} swap={swapAvatar} swapPreload={swapPreload} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} ball={ballRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
       </button>
 
       <button
