@@ -153,7 +153,7 @@ export default function CoyCompanion() {
   const gearHeldRef = useRef(false);
   // Autonomous grapple / climb routines. grappleRef is shared with the avatar: while
   // active, the arm aims at (ax, ay) and the avatar writes the muzzle position to (mx, my).
-  const grappleRef = useRef({ active: false, ax: 0, ay: 0, mx: NaN, my: NaN, travel: 0 });
+  const grappleRef = useRef({ active: false, ax: 0, ay: 0, mx: NaN, my: NaN, travel: 0, gripFall: false });
   const actionRef = useRef(null);
   const actionsRef = useRef({});
   const poseRef = useRef("wave");
@@ -176,6 +176,10 @@ export default function CoyCompanion() {
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
+  // The held grapple hand only lasts for the fall that follows letting go of the rope.
+  useEffect(() => {
+    if (pose !== "fall") grappleRef.current.gripFall = false;
+  }, [pose]);
   const hasInitialPlacement = useRef(false);
   const wasStandingAligned = useRef(true);
   const standingSurfaceRef = useRef({ kind: "taskbar", minLeft: 0, maxLeft: 0, top: 0, zIndex: -1 });
@@ -946,6 +950,8 @@ export default function CoyCompanion() {
     window.cancelAnimationFrame(token.raf);
     if (actionRef.current === token) actionRef.current = null;
     hideRope();
+    // He is still holding the grapple gun: the avatar keeps that hand out during the fall.
+    grappleRef.current.gripFall = true;
     velRef.current.vx = vx;
     velRef.current.t = performance.now();
     startFall();
@@ -1421,7 +1427,9 @@ export default function CoyCompanion() {
       fontSize: "inherit",
       fontWeight: 400,
       lineHeight: 1.125,
-      textAlign: "center",
+      // The text block is centered in the bubble by dialogBody (flex); the lines inside
+      // it are left-aligned, like a text editor.
+      textAlign: "left",
       whiteSpace: "pre-wrap",
       overflowWrap: "anywhere",
       wordBreak: "normal",
