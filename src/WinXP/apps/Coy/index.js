@@ -333,6 +333,10 @@ export default function CoyChat({ initialImage, initialText }) {
   const sendLockRef = useRef(false);
   const lastSendRef = useRef({ message: '', at: 0 });
   const [error, setError] = useState('');
+  const [speechLoadingIndex, setSpeechLoadingIndex] = useState(null);
+  const [speechAudio, setSpeechAudio] = useState(null);
+  const [speechErrorIndex, setSpeechErrorIndex] = useState(null);
+  const speechAudioRef = useRef(null);
   const errorTimerRef = useRef(null);
   const showError = (msg) => {
     if (errorTimerRef.current) window.clearTimeout(errorTimerRef.current);
@@ -350,8 +354,10 @@ export default function CoyChat({ initialImage, initialText }) {
     inputRef.current?.focus();
     return () => {
       try { recognitionRef.current?.stop(); } catch (_) {}
+      try { speechAudioRef.current?.pause(); } catch (_) {}
+      if (speechAudio?.url) URL.revokeObjectURL(speechAudio.url);
     };
-  }, []);
+  }, [speechAudio]);
 
   useEffect(() => {
     const onPrefill = event => {
@@ -513,6 +519,41 @@ export default function CoyChat({ initialImage, initialText }) {
   }
 
 
+  async function playCoySpeech(text, index) {
+    if (!String(text || '').trim() || speechLoadingIndex !== null) return;
+    setSpeechLoadingIndex(index);
+    setSpeechErrorIndex(null);
+    try {
+      const response = await fetch(API_BASE + '/personal-ai/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Accept: 'audio/mpeg, application/json' },
+        body: JSON.stringify({ text: String(text).slice(0, 1200) }),
+      });
+      if (!response.ok) throw new Error('speech request failed');
+      const blob = await response.blob();
+      if (!blob.size || !blob.type.startsWith('audio/')) throw new Error('audio response missing');
+      const url = URL.createObjectURL(blob);
+      try { speechAudioRef.current?.pause(); } catch (_) {}
+      setSpeechAudio(previous => {
+        if (previous?.url) URL.revokeObjectURL(previous.url);
+        return { index, url };
+      });
+      const player = new Audio(url);
+      player.preload = 'auto';
+      speechAudioRef.current = player;
+      try {
+        await player.play();
+      } catch (_) {
+        // Safari may require a second, direct tap after the network request.
+        // The native audio controls below remain available as a fallback.
+      }
+    } catch (_) {
+      setSpeechErrorIndex(index);
+    } finally {
+      setSpeechLoadingIndex(null);
+    }
+  }
+
   async function send(event, forcedMessage) {
     event?.preventDefault?.();
     const message = (typeof forcedMessage === 'string' ? forcedMessage : draft).trim();
@@ -645,10 +686,10 @@ export default function CoyChat({ initialImage, initialText }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => {
           const isUser = item.role === 'user';
-          const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tailRight.png');
+          const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tail.png' : 'chatBubble_botGreen_tail.png');
           return (
             <div key={index} style={{ position: 'relative', alignSelf: isUser ? 'flex-end' : 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: isUser ? 0 : 7, marginRight: isUser ? 7 : 0 }}>
-              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, bottom: 3, ...(isUser ? { right: -22 } : { left: -22, transform: 'scaleX(-1)' }), width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
               <div style={{ ...styles.bubble, ...(isUser ? styles.user : styles.coy), alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, ...(isUser ? {} : { transform: 'scaleX(-1)' }) }}>
                 <div style={isUser ? undefined : { transform: 'scaleX(-1)', width: '100%' }}>
                   {item.content && renderCoyContent(item.content)}
@@ -659,19 +700,24 @@ export default function CoyChat({ initialImage, initialText }) {
                     <span style={{ fontSize: 11, color: '#444' }}>📎 {attachment.name || 'Attachment'}</span>
                   </div>)}
                   {item.image && <img src={item.image} alt="Image Coy found on the site" style={{ display: 'block', maxWidth: '100%', maxHeight: 220, marginTop: 7, objectFit: 'contain' }} />}
+                  {!isUser && item.content && <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginTop: 7 }}>
+                    <button type="button" onClick={() => playCoySpeech(item.content, index)} disabled={speechLoadingIndex !== null} title="Play Coy's voice" style={{ ...styles.button, minHeight: 24, padding: '2px 7px', fontSize: 11 }}>{speechLoadingIndex === index ? 'Loading sound…' : '▶ Play voice'}</button>
+                    {speechErrorIndex === index && <span role="status" style={{ color: '#fff', fontSize: 11 }}>Hold on.. Busy rn</span>}
+                    {speechAudio?.index === index && <audio controls preload="auto" src={speechAudio.url} style={{ display: 'block', maxWidth: '100%', width: 220, height: 28 }} />}
+                  </div>}
                 </div>
               </div>
             </div>
           );
         })}
         {busy && <div style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, bottom: 3, left: -22, transform: 'scaleX(-1)', width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, transform: 'scaleX(-1)' }}>
             <div style={{ transform: 'scaleX(-1)', width: '100%' }}>Typing...</div>
           </div>
         </div>}
         {error && <div role="alert" style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, bottom: 3, left: -22, transform: 'scaleX(-1)', width: 24, height: 24, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, color: '#fff', alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, transform: 'scaleX(-1)' }}>
             <div style={{ transform: 'scaleX(-1)', width: '100%' }}>{error}</div>
           </div>
