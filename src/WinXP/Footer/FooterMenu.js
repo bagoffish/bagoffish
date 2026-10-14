@@ -27,6 +27,7 @@ import winamp from 'assets/windowsIcons/winamp.png';
 import notepad from 'assets/windowsIcons/327(32x32).png';
 import empty from 'assets/empty.png';
 import rendererIcon from 'assets/windowsIcons/299(32x32).png';
+import minesweeperIcon from 'assets/minesweeper/mine-ceil.png';
 
 import { AllPrograms, ConnectTo, MyRecentDocuments } from './FooterMenuData';
 
@@ -56,6 +57,7 @@ function FooterMenu({ className, onClick }) {
               { icon: winamp, text: 'Winamp' },
               { icon: music, text: 'Bloxify' },
               { icon: outlook, text: 'Winter_Letter' },
+              { icon: minesweeperIcon, text: 'Minesweeper' },
             ]}
           />
           <div style={{ flex: 1 }} />
