@@ -3,7 +3,7 @@ import * as THREE from "three";
 import { OBJLoader } from "three/examples/jsm/loaders/OBJLoader.js";
 import { MTLLoader } from "three/examples/jsm/loaders/MTLLoader.js";
 import { splitIntoR6Parts } from "./r6Split";
-import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorsoLayer } from "./r6Retarget";
+import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorsoLayer, sampleClip } from "./r6Retarget";
 
 // R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
@@ -621,9 +621,29 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.torso.rotation.x = pose.torsoLean; av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
+      // After letting go of the rope he is still holding the grapple gun. Keep the fall clip on
+      // the body, legs and left arm, but hold the right arm out in the gearhold pose instead of
+      // letting it flail up with the rest of the fall animation.
+      const gripFall = L.pose === "fall" && Boolean(L.grapple && L.grapple.gripFall);
+      if (gripFall) {
+        const holdClip = animations.gearhold;
+        const holdFrames = holdClip?.frames;
+        const holdDuration = holdFrames?.length
+          ? Math.max(0, Number(holdClip.duration) || holdFrames[holdFrames.length - 1]?.time || 0)
+          : 0;
+        const holdArm = holdFrames?.length
+          ? sampleClip(holdClip, holdDuration > 0 ? t % holdDuration : 0)["Right Arm"]
+          : null;
+        if (holdArm) {
+          av.rArm.quaternion.copy(holdArm.quaternion);
+          av.rArm.position.copy(holdArm.position);
+        } else {
+          av.rArm.rotation.set(-0.55, 0, 1.2);               // procedural gearhold fallback
+        }
+      }
       // Show classic gear only during its matching emote.
       if (swordGear) swordGear.visible = ["swordequip", "swordslash", "swordlunge"].includes(L.pose);
-      const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose);
+      const holdingGrapple = ["gearhold", "climbing", "grapple"].includes(L.pose) || gripFall;
       const grappleMode = typeof window === "undefined" ? "grapplegun" : window.__coyGear?.mode || "grapplegun";
       // The pose and rope are updated independently; either marks the firing interval.
       const firingGrapple = L.pose === "grapple" || Boolean(L.grapple && L.grapple.active);

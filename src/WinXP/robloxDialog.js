@@ -50,7 +50,7 @@ export function robloxBoxStyle(variant = "green") {
     fontFamily: ROBLOX_FONT,
     fontWeight: 400,
     lineHeight: 1.125,
-    textAlign: "center",
+    textAlign: "left",   // lines start at the left edge, like a text editor
     textShadow: "none",
     zIndex: 1,
   };
