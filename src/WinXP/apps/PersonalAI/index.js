@@ -25,7 +25,18 @@ export default function PersonalAI({ standalone = false }) {
     try {
       const saved = window.localStorage.getItem(STORAGE_KEY);
       const parsed = saved ? JSON.parse(saved) : [];
-      return Array.isArray(parsed) ? parsed.slice(-100) : [];
+      // Ignore malformed/stale entries so one bad saved message cannot crash
+      // the entire Coy window during React rendering.
+      return Array.isArray(parsed)
+        ? parsed
+            .filter(item =>
+              item &&
+              typeof item === "object" &&
+              (item.role === "user" || item.role === "assistant") &&
+              typeof item.content === "string"
+            )
+            .slice(-100)
+        : [];
     } catch {
       return [];
     }
