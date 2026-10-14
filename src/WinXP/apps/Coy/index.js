@@ -391,7 +391,7 @@ export default function CoyChat({ initialImage, initialText }) {
     if (!freshPicked.length) return;
     const combined = [...existingAttachments, ...freshPicked];
     if (combined.length > 3) {
-      setError('Attach up to 3 files at a time.');
+      setError('Hold on.. Busy rn');
       return;
     }
 
@@ -428,18 +428,18 @@ export default function CoyChat({ initialImage, initialText }) {
     });
 
     if (normalized.some(item => item.kind === 'unsupported')) {
-      setError('That file type isn’t supported yet. Try an image, audio file, PDF, DOCX, or text/code file.');
+      setError('Hold on.. Busy rn');
       return;
     }
     if (combined.some(file => file.size > 8 * 1024 * 1024) || combined.reduce((sum, file) => sum + file.size, 0) > 10 * 1024 * 1024) {
-      setError('Keep each file under 8 MB and all attachments under 10 MB total.');
+      setError('Hold on.. Busy rn');
       return;
     }
     const textFiles = normalized.filter(item => item.kind === 'text');
     const existingTextBytes = existingAttachments.reduce((sum, item) => sum + (item.textContent ? new Blob([item.textContent]).size : 0), 0);
     const pickedTextBytes = textFiles.reduce((sum, item) => sum + item.file.size, 0);
     if (textFiles.some(item => item.file.size > 50 * 1024) || existingTextBytes + pickedTextBytes > 80 * 1024) {
-      setError('Text/code files must be under 50 KB each and 80 KB total so Coy can read them reliably.');
+      setError('Hold on.. Busy rn');
       return;
     }
 
@@ -476,7 +476,7 @@ export default function CoyChat({ initialImage, initialText }) {
       });
       setError('');
     } catch (err) {
-      setError(err.message || 'Couldn’t read that file.');
+      setError('Hold on.. Busy rn');
     }
   }
   async function chooseFiles(event) {
@@ -630,9 +630,7 @@ export default function CoyChat({ initialImage, initialText }) {
       // makes clear that this is Coy's connection error, not a user message.
       const networkFailure = err.name === 'AbortError' ||
         /^(?:failed to fetch|load failed|network request failed)$/i.test(String(err.message || '').trim());
-      setError(networkFailure
-        ? 'Can’t reach the chat server rn.. sowwy. Try again in a moment.'
-        : (err.message || 'Something went wrong.. sowwy'));
+      setError('Hold on.. Busy rn');
     } finally {
       sendLockRef.current = false;
       setBusy(false);
