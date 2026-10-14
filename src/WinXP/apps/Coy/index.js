@@ -320,8 +320,9 @@ function RobloxBubble({ isUser, children }) {
   const variant = isUser ? 'red' : 'green';
   return (
     <div style={{ ...styles.bubbleWrap, alignSelf: isUser ? 'flex-end' : 'flex-start', marginLeft: isUser ? 0 : 30, marginRight: isUser ? 30 : 0 }}>
-      <div style={{ ...robloxBoxStyle(variant), ...styles.bubble }}>
-        {children}
+      <div style={{ ...robloxBoxStyle(variant), ...styles.bubble, ...(isUser ? { paddingRight: '0.9em' } : { paddingLeft: '0.9em' }) }}>
+        {/* Text sits above the tail (zIndex 2) so the lightning bolt never covers letters. */}
+        <div style={{ position: 'relative', zIndex: 3 }}>{children}</div>
         <img aria-hidden="true" alt="" draggable={false} src={robloxTexture(variant, 'tailSide')} style={robloxSideTailStyle(isUser ? 'right' : 'left')} />
       </div>
     </div>
