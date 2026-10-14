@@ -582,8 +582,22 @@ export default function CoyCompanion() {
     }, ms);
   }
 
+  // Turn side-on toward the mouse cursor before drawing the sword, so the slash / lunge goes
+  // toward the user instead of whichever way Coy happened to be walking. With no recent mouse
+  // movement (touch screens, idle mouse) he keeps his current facing.
+  function faceSwordTarget() {
+    const fine = !window.matchMedia || window.matchMedia("(pointer: fine)").matches;
+    if (!fine || Date.now() - lastPointerAt.current > 6000) return;
+    const cursor = lookRef.current;
+    const cx = posRef.current.left + spriteSize / 2;
+    if (!cursor || !Number.isFinite(cursor.x) || Math.abs(cursor.x - cx) < 4) return;
+    dirRef.current = cursor.x < cx ? -1 : 1;
+    setDir(dirRef.current);
+  }
+
   function startSwordAction(move, duration) {
     window.clearTimeout(poseTimer.current);
+    faceSwordTarget();
     poseRef.current = "swordequip";
     setPose("swordequip");
     poseTimer.current = window.setTimeout(() => {
