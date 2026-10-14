@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 
-const API_BASE = (process.env.REACT_APP_API_BASE || 'https://bloxify-backend-sg.onrender.com').replace(/\/$/, '');
+const API_BASE = (process.env.REACT_APP_API_BASE || 'https://winxp-7yes.onrender.com').replace(/\/$/, '');
 const GREETINGS = ['Sup', 'Hi', 'Hello', 'Haii', 'Hai', 'Yo'];
 const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const ALLOWED_COY_EMOJIS = ["😭", "💀", "👀", "🖤", "💔", "🥀"];
