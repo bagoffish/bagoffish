@@ -1,144 +1,355 @@
-import React, { useEffect, useState } from 'react';
+import React, { useReducer, useEffect, useState } from 'react';
+import sampleSize from 'lodash.samplesize';
 
-const LEVELS = {
-  Beginner: { rows: 9, cols: 9, mines: 10 },
-  Intermediate: { rows: 16, cols: 16, mines: 40 },
-  Expert: { rows: 16, cols: 30, mines: 99 },
-};
-const COLORS = ['', '#0000ff', '#008000', '#ff0000', '#000080', '#800000', '#008080', '#000000', '#808080'];
+import { Config } from './config';
+import MinesweeperView from './MinesweeperView';
 
-function makeBoard(level, safeIndex = -1) {
-  const { rows, cols, mines } = LEVELS[level];
-  const safe = new Set([safeIndex]);
-  const candidates = Array.from({ length: rows * cols }, (_, i) => i).filter(i => !safe.has(i));
-  for (let i = candidates.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [candidates[i], candidates[j]] = [candidates[j], candidates[i]];
+// state: {
+//   difficulty: 'Beginner' || 'Intermediate' || 'Expert',
+//   status: 'new' || 'started' || 'died' || 'won',
+//   rows: Number,
+//   columns: Number,
+//   mines: Number,
+//   ceils: Array {
+//     state: 'cover' || 'flag' || 'unknown' || 'open' || 'die' || 'misflagged',
+//     minesAround: Number (negative for mine itself),
+//     opening: true || false
+//   }
+// }
+
+function getInitState(difficulty = 'Beginner') {
+  return {
+    difficulty,
+    status: 'new',
+    ...genGameConfig(Config[difficulty]),
+  };
+}
+
+function reducer(state, action = {}) {
+  switch (action.type) {
+    case 'CLEAR_MAP':
+      const difficulty = action.payload || state.difficulty;
+      return getInitState(difficulty);
+    case 'START_GAME':
+      const exclude = action.payload;
+      return {
+        ...state,
+        ...insertMines({ ...Config[state.difficulty], exclude }, state.ceils),
+        status: 'started',
+      };
+    case 'OPEN_CEIL': {
+      const indexes = autoCeils(state, action.payload);
+      const ceils = [...state.ceils];
+      indexes.forEach(i => {
+        const ceil = ceils[i];
+        ceils[i] = { ...ceil, state: 'open' };
+      });
+      return {
+        ...state,
+        ceils,
+      };
+    }
+    case 'CHANGE_CEIL_STATE': {
+      const index = action.payload;
+      const ceils = [...state.ceils];
+      const ceil = state.ceils[index];
+      let newState;
+      switch (ceil.state) {
+        case 'cover':
+          newState = 'flag';
+          break;
+        case 'flag':
+          newState = 'unknown';
+          break;
+        case 'unknown':
+          newState = 'cover';
+          break;
+        default:
+          throw new Error(`Unknown ceil state ${ceil.state}`);
+      }
+      ceils[index] = { ...ceil, state: newState };
+      return {
+        ...state,
+        ceils,
+      };
+    }
+    case 'GAME_OVER': {
+      const ceils = state.ceils.map(ceil => {
+        if (ceil.minesAround < 0 && ceil.state !== 'flag') {
+          return {
+            ...ceil,
+            state: 'mine',
+          };
+        } else if (ceil.state === 'flag' && ceil.minesAround >= 0) {
+          return {
+            ...ceil,
+            state: 'misflagged',
+          };
+        } else {
+          return {
+            ...ceil,
+            opening: false,
+          };
+        }
+      });
+      ceils[action.payload].state = 'die';
+      return {
+        ...state,
+        status: 'died',
+        ceils,
+      };
+    }
+    case 'WON': {
+      const ceils = state.ceils.map(ceil => {
+        if (ceil.minesAround >= 0) {
+          return {
+            ...ceil,
+            state: 'open',
+          };
+        } else {
+          return {
+            ...ceil,
+            state: 'flag',
+          };
+        }
+      });
+      return {
+        ...state,
+        status: 'won',
+        ceils,
+      };
+    }
+    case 'OPENING_CEIL': {
+      const ceil = state.ceils[action.payload];
+      const ceils = state.ceils.map(ceil => ({
+        ...ceil,
+        opening: false,
+      }));
+      ceils[action.payload] = { ...ceil, opening: true };
+      return {
+        ...state,
+        ceils,
+      };
+    }
+    case 'OPENING_CEILS': {
+      const indexes = getNearIndexes(action.payload, state.rows, state.columns);
+      const ceils = state.ceils.map(ceil => ({
+        ...ceil,
+        opening: false,
+      }));
+      [...indexes, action.payload].forEach(index => {
+        const ceil = { ...ceils[index] };
+        ceil.opening = true;
+        ceils[index] = ceil;
+      });
+      return {
+        ...state,
+        ceils,
+      };
+    }
+    default:
+      return state;
   }
-  const mineSet = new Set(candidates.slice(0, mines));
-  return Array.from({ length: rows * cols }, (_, index) => {
-    const neighbors = getNeighbors(index, rows, cols);
-    return { mine: mineSet.has(index), count: neighbors.filter(n => mineSet.has(n)).length, open: false, flag: false };
+}
+
+function MineSweeper({ defaultDifficulty, onClose }) {
+  const [state, dispatch] = useReducer(
+    reducer,
+    getInitState(defaultDifficulty),
+  );
+  const seconds = useTimer(state.status);
+  function changeCeilState(index) {
+    const ceil = state.ceils[index];
+    if (ceil.state === 'open' || ['won', 'died'].includes(state.status)) return;
+    dispatch({ type: 'CHANGE_CEIL_STATE', payload: index });
+  }
+  function openCeil(index) {
+    switch (state.status) {
+      case 'new':
+        dispatch({ type: 'START_GAME', payload: index });
+        dispatch({ type: 'OPEN_CEIL', payload: index });
+        break;
+      case 'started':
+        const ceil = state.ceils[index];
+        if (['flag', 'open'].includes(ceil.state)) {
+          break;
+        } else if (ceil.minesAround < 0) {
+          dispatch({ type: 'GAME_OVER', payload: index });
+        } else {
+          dispatch({ type: 'OPEN_CEIL', payload: index });
+        }
+        break;
+      default:
+      // console.log(state.status);
+    }
+  }
+  function openCeils(index) {
+    const ceil = state.ceils[index];
+    if (
+      ceil.state !== 'open' ||
+      ceil.minesAround <= 0 ||
+      state.status !== 'started'
+    )
+      return;
+    const indexes = getNearIndexes(index, state.rows, state.columns);
+    const nearCeils = indexes.map(i => state.ceils[i]);
+    if (
+      nearCeils.filter(ceil => ceil.state === 'flag').length !==
+      ceil.minesAround
+    )
+      return;
+    const mineIndex = indexes.find(
+      i => state.ceils[i].minesAround < 0 && state.ceils[i].state !== 'flag',
+    );
+    if (mineIndex) {
+      dispatch({ type: 'GAME_OVER', payload: mineIndex });
+    } else {
+      indexes.forEach(i => dispatch({ type: 'OPEN_CEIL', payload: i }));
+    }
+  }
+  useEffect(() => {
+    if (state.status === 'started' && checkRemains() === 0) {
+      dispatch({ type: 'WON' });
+    }
+  });
+  function onReset(difficulty) {
+    dispatch({ type: 'CLEAR_MAP', payload: difficulty });
+  }
+  function checkRemains() {
+    const safeCeils = state.ceils
+      .filter(ceil => ceil.state !== 'open')
+      .filter(ceil => ceil.minesAround >= 0);
+    return safeCeils.length;
+  }
+  function openingCeil(index) {
+    if (['died', 'won'].includes(state.status)) return;
+    dispatch({ type: 'OPENING_CEIL', payload: index });
+  }
+  function openingCeils(index) {
+    if (['died', 'won'].includes(state.status)) return;
+    dispatch({ type: 'OPENING_CEILS', payload: index });
+  }
+  return (
+    <MinesweeperView
+      {...state}
+      onClose={onClose}
+      changeCeilState={changeCeilState}
+      openCeil={openCeil}
+      openCeils={openCeils}
+      onReset={onReset}
+      seconds={seconds}
+      openingCeil={openingCeil}
+      openingCeils={openingCeils}
+    />
+  );
+}
+
+function genGameConfig(config) {
+  const { rows, columns, mines } = config;
+  const ceils = Array(rows * columns)
+    .fill()
+    .map(_ => ({
+      state: 'cover',
+      minesAround: 0,
+      opening: false,
+    }));
+  return {
+    rows,
+    columns,
+    ceils,
+    mines,
+  };
+}
+
+function insertMines(config, originCeils) {
+  const { rows, columns, mines, exclude } = config;
+  const ceils = originCeils.map(ceil => ({ ...ceil }));
+  if (rows * columns !== ceils.length)
+    throw new Error('rows and columns not equal to ceils');
+  const indexArray = [...Array(rows * columns).keys()];
+  sampleSize(
+    indexArray.filter(i => i !== exclude),
+    mines,
+  ).forEach(chosen => {
+    ceils[chosen].minesAround = -10;
+    getNearIndexes(chosen, rows, columns).forEach(nearIndex => {
+      ceils[nearIndex].minesAround += 1;
+    });
+  });
+  return {
+    rows,
+    columns,
+    ceils,
+    mines,
+  };
+}
+
+function autoCeils(state, index) {
+  const { rows, columns } = state;
+  const ceils = state.ceils.map(ceil => ({
+    ...ceil,
+    walked: false,
+  }));
+  return walkCeils(index);
+  function walkCeils(index) {
+    const ceil = ceils[index];
+    if (ceil.walked || ceil.minesAround < 0 || ceil.state === 'flag') return [];
+    ceil.walked = true;
+    if (ceil.minesAround > 0) return [index];
+    return [
+      index,
+      ...getNearIndexes(index, rows, columns).reduce(
+        (lastIndexes, ceilIndex) => {
+          return [...lastIndexes, ...walkCeils(ceilIndex)];
+        },
+        [],
+      ),
+    ];
+  }
+}
+
+function getNearIndexes(index, rows, columns) {
+  if (index < 0 || index >= rows * columns) return [];
+  const row = Math.floor(index / columns);
+  const column = index % columns;
+  return [
+    index - columns - 1,
+    index - columns,
+    index - columns + 1,
+    index - 1,
+    index + 1,
+    index + columns - 1,
+    index + columns,
+    index + columns + 1,
+  ].filter((_, arrayIndex) => {
+    if (row === 0 && arrayIndex < 3) return false;
+    if (row === rows - 1 && arrayIndex > 4) return false;
+    if (column === 0 && [0, 3, 5].includes(arrayIndex)) return false;
+    if (column === columns - 1 && [2, 4, 7].includes(arrayIndex)) return false;
+    return true;
   });
 }
 
-function getNeighbors(index, rows, cols) {
-  const r = Math.floor(index / cols), c = index % cols, result = [];
-  for (let dr = -1; dr <= 1; dr++) for (let dc = -1; dc <= 1; dc++) {
-    if (!dr && !dc) continue;
-    const nr = r + dr, nc = c + dc;
-    if (nr >= 0 && nr < rows && nc >= 0 && nc < cols) result.push(nr * cols + nc);
-  }
-  return result;
-}
-
-function reveal(board, index, rows, cols) {
-  const next = board.map(cell => ({ ...cell }));
-  const queue = [index], visited = new Set();
-  while (queue.length) {
-    const current = queue.shift();
-    if (visited.has(current)) continue;
-    visited.add(current);
-    const cell = next[current];
-    if (!cell || cell.open || cell.flag) continue;
-    cell.open = true;
-    if (!cell.mine && cell.count === 0) {
-      getNeighbors(current, rows, cols).forEach(n => {
-        if (!visited.has(n) && !next[n].mine) queue.push(n);
-      });
-    }
-  }
-  return next;
-}
-
-export default function Minesweeper() {
-  const [level, setLevel] = useState('Beginner');
-  const [board, setBoard] = useState(() => makeBoard('Beginner'));
-  const [started, setStarted] = useState(false);
-  const [status, setStatus] = useState('playing');
+function useTimer(status) {
   const [seconds, setSeconds] = useState(0);
-  const { rows, cols, mines } = LEVELS[level];
-  const flags = board.filter(cell => cell.flag).length;
-
+  function addSecond() {
+    setSeconds(sec => sec + 1);
+  }
   useEffect(() => {
-    if (!started || status !== 'playing') return undefined;
-    const timer = window.setInterval(() => setSeconds(s => Math.min(999, s + 1)), 1000);
-    return () => window.clearInterval(timer);
-  }, [started, status]);
-
-  function restart(nextLevel = level) {
-    setLevel(nextLevel);
-    setBoard(makeBoard(nextLevel));
-    setStarted(false);
-    setStatus('playing');
-    setSeconds(0);
-  }
-
-  function openCell(index) {
-    if (status !== 'playing' || board[index].open || board[index].flag) return;
-    let next = board;
-    if (!started) {
-      next = makeBoard(level, index);
-      setStarted(true);
+    let timer;
+    switch (status) {
+      case 'started':
+        timer = setInterval(addSecond, 1000);
+        break;
+      case 'new':
+        setSeconds(0);
+        break;
+      default:
+        break;
     }
-    if (next[index].mine) {
-      setBoard(next.map((cell, i) => ({ ...cell, open: cell.open || cell.mine || i === index })));
-      setStatus('lost');
-      return;
-    }
-    next = reveal(next, index, rows, cols);
-    const opened = next.filter(cell => cell.open && !cell.mine).length;
-    setBoard(next);
-    if (opened === rows * cols - mines) setStatus('won');
-  }
-
-  function toggleFlag(event, index) {
-    event.preventDefault();
-    if (status !== 'playing' || board[index].open) return;
-    const next = board.map((cell, i) => i === index ? { ...cell, flag: !cell.flag } : cell);
-    setBoard(next);
-  }
-
-  const face = status === 'lost' ? '☹' : status === 'won' ? '😎' : '☺';
-  const displayNumber = n => String(Math.max(0, Math.min(999, n))).padStart(3, '0');
-
-  return (
-    <div style={{ boxSizing: 'border-box', width: '100%', height: '100%', padding: 8, overflow: 'auto', background: '#c0c0c0', color: '#111', fontFamily: 'Tahoma, Arial, sans-serif', fontSize: 12 }}>
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 8 }}>
-        <label>Difficulty{' '}
-          <select value={level} onChange={e => restart(e.target.value)} style={{ font: '12px Tahoma, sans-serif' }}>
-            {Object.keys(LEVELS).map(name => <option key={name} value={name}>{name}</option>)}
-          </select>
-        </label>
-        <button type="button" onClick={() => restart()} aria-label="Restart game" style={{ marginLeft: 'auto', fontSize: 22, lineHeight: '26px', width: 34, height: 32, padding: 0, border: '2px outset #fff', background: '#c0c0c0' }}>{face}</button>
-      </div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', padding: 6, border: '3px inset #eee', marginBottom: 8, background: '#c0c0c0' }}>
-        <span aria-label="Mines remaining" style={{ background: '#111', color: '#f00', fontFamily: 'monospace', fontSize: 22, fontWeight: 'bold', padding: '1px 4px', letterSpacing: 1 }}>{displayNumber(mines - flags)}</span>
-        <span aria-label="Elapsed time" style={{ background: '#111', color: '#f00', fontFamily: 'monospace', fontSize: 22, fontWeight: 'bold', padding: '1px 4px', letterSpacing: 1 }}>{displayNumber(seconds)}</span>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 24px)`, width: 'max-content', border: '3px inset #eee', background: '#c0c0c0', margin: '0 auto' }}>
-        {board.map((cell, index) => {
-          const shown = cell.open;
-          const exploded = status === 'lost' && cell.mine && !cell.flag;
-          return <button
-            key={index}
-            type="button"
-            onClick={() => openCell(index)}
-            onContextMenu={event => toggleFlag(event, index)}
-            aria-label={cell.flag ? 'Flagged cell' : shown ? (cell.mine ? 'Mine' : cell.count ? String(cell.count) : 'Empty') : 'Covered cell'}
-            style={{
-              width: 24, height: 24, padding: 0, margin: 0, boxSizing: 'border-box',
-              border: shown ? '1px solid #888' : '3px outset #fff',
-              background: shown ? (exploded ? '#f00' : '#c0c0c0') : '#c0c0c0',
-              color: cell.mine ? '#111' : COLORS[cell.count],
-              font: 'bold 15px Arial, sans-serif', textAlign: 'center', lineHeight: '19px',
-            }}
-          >{cell.flag ? '🚩' : shown ? (cell.mine ? '●' : cell.count || '') : ''}</button>;
-        })}
-      </div>
-      <div style={{ marginTop: 8, textAlign: 'center', minHeight: 18 }} role="status">
-        {status === 'won' ? 'You win! All safe squares are open.' : status === 'lost' ? 'Game over! Try again.' : 'Left-click to reveal · Right-click to flag'}
-      </div>
-    </div>
-  );
+    return () => clearInterval(timer);
+  }, [status]);
+  return seconds;
 }
+
+export default MineSweeper;
