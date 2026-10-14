@@ -223,7 +223,7 @@ function renderSharedFrame(now) {
     ball.material.opacity = fade;
     const sx = ball.squashAxis === "x" ? 1 - ball.squash : 1 + ball.squash * 0.6;
     const sy = ball.squashAxis === "y" ? 1 - ball.squash : 1 + ball.squash * 0.6;
-    ball.pivot.position.set(ball.px, H - ball.py, 0);
+    ball.pivot.position.set(ball.px, ball.py, 0);
     ball.pivot.scale.set(sx, sy, 1 + ball.squash * 0.6);
   }
   if (active.size) {
