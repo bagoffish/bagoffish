@@ -801,6 +801,17 @@ async function callAiProvider(provider, systemPrompt, conversation, mediaInputs,
   return data;
 }
 
+function getCachedPromptTokenCount(provider, data) {
+  const usage = data?.usage || data?.usageMetadata || {};
+  const cached = provider.name === "gemini"
+    ? (usage.total_cached_tokens ?? usage.cachedContentTokenCount)
+    : (usage.prompt_tokens_details?.cached_tokens ??
+       usage.promptTokenDetails?.cachedTokens ??
+       usage.cached_tokens);
+  const value = Number(cached);
+  return cached !== undefined && cached !== null && Number.isFinite(value) ? value : null;
+}
+
 function extractProviderAnswer(provider, data) {
   if (provider.name === "gemini") return extractAnswer(data);
   if (provider.name === "cohere" || provider.name === "cohere-2") {
@@ -1062,7 +1073,12 @@ router.post("/chat", rateLimit, async (req, res) => {
           error.status = 502;
           throw error;
         }
-        console.info("Coy reply served by:", provider.name);
+        const cachedPromptTokens = getCachedPromptTokenCount(provider, data);
+        console.info(
+          "Coy reply served by:",
+          provider.name,
+          cachedPromptTokens === null ? "(provider did not report cached-token usage)" : "(cached input tokens: " + cachedPromptTokens + ")"
+        );
         break;
       } catch (providerError) {
         failedProviders.push(provider.name);
