@@ -645,10 +645,10 @@ export default function CoyChat({ initialImage, initialText }) {
       <div style={styles.messages} aria-live="polite">
         {messages.map((item, index) => {
           const isUser = item.role === 'user';
-          const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tail.png' : 'chatBubble_botGreen_tail.png');
+          const tailSrc = (process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/' + (isUser ? 'chatBubble_botRed_tailRight.png' : 'chatBubble_botGreen_tail.png');
           return (
             <div key={index} style={{ position: 'relative', alignSelf: isUser ? 'flex-end' : 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: isUser ? 0 : 7, marginRight: isUser ? 7 : 0 }}>
-              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
+              <img aria-hidden="true" alt="" src={tailSrc} style={{ position: 'absolute', zIndex: 0, top: '50%', ...(isUser ? { right: -17, transform: 'translateY(-50%) rotate(90deg)' } : { left: -17, transform: 'translateY(-50%) rotate(-90deg)' }), width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
               <div style={{ ...styles.bubble, ...(isUser ? styles.user : styles.coy), alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, ...(isUser ? {} : { transform: 'scaleX(-1)' }) }}>
                 <div style={isUser ? undefined : { transform: 'scaleX(-1)', width: '100%' }}>
                   {item.content && renderCoyContent(item.content)}
@@ -666,13 +666,13 @@ export default function CoyChat({ initialImage, initialText }) {
           );
         })}
         {busy && <div style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -17, transform: 'translateY(-50%) rotate(-90deg)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, transform: 'scaleX(-1)' }}>
             <div style={{ transform: 'scaleX(-1)', width: '100%' }}>Typing...</div>
           </div>
         </div>}
         {error && <div role="alert" style={{ position: 'relative', alignSelf: 'flex-start', width: 'fit-content', maxWidth: '92%', marginLeft: 7 }}>
-          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: 'calc(100% - 12px)', left: '50%', transform: 'translateX(-50%)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
+          <img aria-hidden="true" alt="" src={(process.env.PUBLIC_URL || '').replace(/\/$/, '') + '/images/roblox-dialog/chatBubble_botGreen_tailRight.png'} style={{ position: 'absolute', zIndex: 0, top: '50%', left: -17, transform: 'translateY(-50%) rotate(-90deg)', width: 26, height: 26, objectFit: 'contain', pointerEvents: 'none' }} />
           <div style={{ ...styles.bubble, ...styles.coy, color: '#fff', alignSelf: 'auto', marginLeft: 0, marginRight: 0, maxWidth: '100%', position: 'relative', zIndex: 1, transform: 'scaleX(-1)' }}>
             <div style={{ transform: 'scaleX(-1)', width: '100%' }}>{error}</div>
           </div>
