@@ -454,10 +454,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
           swordFacingDirection = L.dir < 0 ? -1 : 1;
         }
         transitionDuration = ["swordslash", "swordlunge"].includes(L.pose) ? 0.12 : 0.34;
-        // Browsers may block tool audio until the visitor interacts with the page.
-        if (L.pose === "gearhold" && !["gearhold", "climbing", "grapple"].includes(priorPose)) {
-          playGearSound(soundIds.grappleEquip, 0.18);
-        }
+        // Holding the grapple gear is silent; play tool sounds only when a move begins.
         if (L.pose === "swordequip") {
           playGearSound(soundIds.unsheath, 0.18);
         } else if (L.pose === "swordslash") {
