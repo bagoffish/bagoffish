@@ -46,6 +46,7 @@ import movieMaker from 'assets/windowsIcons/894(16x16).png';
 import ie from 'assets/windowsIcons/896(16x16).png';
 import messenger from 'assets/windowsIcons/msn.png';
 import spider from 'assets/windowsIcons/spider.png';
+import minesweeperIcon from 'assets/minesweeper/mine-ceil.png';
 import freecell from 'assets/windowsIcons/freecell.png';
 import heart from 'assets/windowsIcons/heart.png';
 import rdp from 'assets/windowsIcons/rdp.png';
@@ -303,7 +304,7 @@ export const AllPrograms = [
     items: [
       {
         type: 'item',
-        icon: spider,
+        icon: minesweeperIcon,
         text: 'Minesweeper',
       },
       {
