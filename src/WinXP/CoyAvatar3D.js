@@ -329,13 +329,68 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
       grappleConnect: 13510737,
       grappleHit: 16211030
     };
+    // Reuse preloaded audio objects instead of creating a fresh request on every move.
+    // Mobile Safari and some browsers block playback until a real user gesture.
+    const soundPools = new Map();
+    let audioUnlocked = false;
+    const soundUrl = source => typeof source === "number"
+      ? "https://www.roblox.com/asset/?id=" + source
+      : source;
+    const getSoundPool = source => {
+      const src = soundUrl(source);
+      if (!soundPools.has(src)) {
+        const pool = Array.from({ length: 3 }, () => {
+          const audio = new Audio();
+          audio.preload = "auto";
+          audio.src = src;
+          audio.load();
+          return audio;
+        });
+        soundPools.set(src, { pool, next: 0 });
+      }
+      return soundPools.get(src);
+    };
+    const unlockGearAudio = () => {
+      if (audioUnlocked) return;
+      audioUnlocked = true;
+      for (const { pool } of soundPools.values()) {
+        for (const audio of pool) {
+          const wasMuted = audio.muted;
+          audio.muted = true;
+          const attempt = audio.play();
+          if (attempt && typeof attempt.then === "function") {
+            attempt.then(() => {
+              audio.pause();
+              try { audio.currentTime = 0; } catch (_) {}
+              audio.muted = wasMuted;
+            }).catch(() => { audio.muted = wasMuted; });
+          } else {
+            audio.pause();
+            try { audio.currentTime = 0; } catch (_) {}
+            audio.muted = wasMuted;
+          }
+        }
+      }
+    };
+    // Create the pools before the first user gesture so the gesture can unlock them.
+    Object.values(soundIds).forEach(getSoundPool);
+    const soundUnlockEvents = ["pointerdown", "touchstart", "keydown"];
+    soundUnlockEvents.forEach(eventName => window.addEventListener(eventName, unlockGearAudio, { once: true, capture: true }));
     const playGearSound = (source, volume = 0.22) => {
       try {
-        const src = typeof source === "number" ? "https://www.roblox.com/asset/?id=" + source : source;
-        const audio = new Audio(src);
+        const entry = getSoundPool(source);
+        const audio = entry.pool[entry.next];
+        entry.next = (entry.next + 1) % entry.pool.length;
+        audio.pause();
+        try { audio.currentTime = 0; } catch (_) {}
         audio.volume = volume;
-        audio.play().catch(() => {});
-      } catch (_) {}
+        const attempt = audio.play();
+        if (attempt && typeof attempt.catch === "function") {
+          attempt.catch(error => console.warn("Coy: gear sound could not play", audio.currentSrc || audio.src, error));
+        }
+      } catch (error) {
+        console.warn("Coy: gear sound setup failed", error);
+      }
     };
     const attachGear = () => {
       if (!av) return;
@@ -725,7 +780,11 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     frame();
 
     return () => {
-      cancelled = true; cancelAnimationFrame(raf); clearInterval(metaTimer);
+      cancelled = true;
+      soundUnlockEvents.forEach(eventName => window.removeEventListener(eventName, unlockGearAudio, true));
+      soundPools.forEach(({ pool }) => pool.forEach(audio => { audio.pause(); audio.src = ""; }));
+      soundPools.clear();
+      cancelAnimationFrame(raf); clearInterval(metaTimer);
       swordGear?.removeFromParent(); grappleGear?.removeFromParent();
       gunGear?.removeFromParent(); grappleGunGear?.removeFromParent();
       if (swordGear) disposeAvatar(swordGear);
