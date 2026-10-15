@@ -250,8 +250,15 @@ function loadModel(model, base = BASE, options = {}) {
       materials.preload();
       const objLoader = new OBJLoader();
       objLoader.setMaterials(materials);
-      objLoader.setPath(base);
-      objLoader.load(model.obj, root => {
+      // OBJLoader preserves "o" object names but discards the names in "g" group
+      // declarations. Roblox avatar exports use "g" for each R6 body part, so
+      // convert those declarations to objects before parsing to retain names like
+      // Katamarimo1..6 and Cdplusr1..6 for the R6 splitter.
+      const fileLoader = new THREE.FileLoader();
+      fileLoader.setPath(base);
+      fileLoader.load(model.obj, objText => {
+        const namedObjText = objText.replace(/^g\\s+(.+)$/gm, "o $1");
+        const root = objLoader.parse(namedObjText);
         root.traverse(o => {
           if (!o.isMesh) return;
           [].concat(o.material).forEach(m => {
