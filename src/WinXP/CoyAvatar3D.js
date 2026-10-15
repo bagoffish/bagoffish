@@ -257,7 +257,13 @@ function loadModel(model, base = BASE, options = {}) {
       const fileLoader = new THREE.FileLoader();
       fileLoader.setPath(base);
       fileLoader.load(model.obj, objText => {
-        const namedObjText = objText.replace(/^g[ \t]+([^\r\n]+)\r?$/gm, "o $1");
+        const normalizedObjText = objText.replace(/\r/g, "");
+        // Grub's export uses the avatar-specific Katamarimo1..6 names rather
+        // than the standard Rig1..6 names. Normalize those six body groups
+        // directly so they cannot be mistaken for accessory meshes.
+        const namedObjText = normalizedObjText
+          .replace(/^g[ \t]+Katamarimo([1-6])$/gm, "o Rig$1")
+          .replace(/^g[ \t]+([^\r\n]+)$/gm, "o $1");
         const root = objLoader.parse(namedObjText);
         root.traverse(o => {
           if (!o.isMesh) return;
