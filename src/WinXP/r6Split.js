@@ -194,7 +194,7 @@ export function splitIntoR6Parts(root) {
     if (!object.isMesh) return;
     const sourceName = sourcePartName(object, bodyPrefix);
     if (!sourceName) return;
-    const isTail = isTorsoAccessory(object, rigBounds.Rig5, rigBounds.Rig6);
+    const isTail = !RIG_TO_PART[sourceName] && isTorsoAccessory(object, rigBounds.Rig5, rigBounds.Rig6);
     const partName = isTail ? "torso" : (RIG_TO_PART[sourceName] || "head");
     const pivot = PIVOTS[partName];
     const geometry = object.geometry.clone();
