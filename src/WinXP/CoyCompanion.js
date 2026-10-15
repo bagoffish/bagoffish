@@ -730,11 +730,11 @@ export default function CoyCompanion() {
         return true;
       },
       bodyswap(id) {
-        return Boolean(
-          actionsRef.current.bodyswap?.(
-            id ? String(id).toLowerCase() : undefined
-          )
-        );
+        const requested = id ? String(id).trim().toLowerCase() : "";
+        const matchedAvatar = requested
+          ? SWAP_AVATARS.find(avatar => avatar.toLowerCase() === requested)
+          : undefined;
+        return Boolean(actionsRef.current.bodyswap?.(matchedAvatar));
       },
 
       // Pick up the superball and throw it: coyMoves.ball(); pass 1–100 for multiple balls.
