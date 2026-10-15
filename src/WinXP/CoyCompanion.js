@@ -268,7 +268,7 @@ export default function CoyCompanion() {
   const findAppbarLanding = (left, top) => {
     const height = getCoyHeight();
     const dropBottomY = top + height;
-    const candidates = Array.from(document.querySelectorAll(".app__header"))
+    const candidates = Array.from(document.querySelectorAll(".app__header, .ie__toolbar"))
       .map(header => {
         const windowNode = header.closest("[data-app-window-id][data-app-title]");
         if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
@@ -308,7 +308,7 @@ export default function CoyCompanion() {
   // final pointer-release rectangle.
   const findAppbarCollision = (left, fromTop, toTop, taskbarTop) => {
     const height = getCoyHeight();
-    const candidates = Array.from(document.querySelectorAll(".app__header"))
+    const candidates = Array.from(document.querySelectorAll(".app__header, .ie__toolbar"))
       .map(header => {
         const windowNode = header.closest("[data-app-window-id][data-app-title]");
         if (!windowNode || !isVisibleAppbar(header, windowNode)) return null;
@@ -352,7 +352,7 @@ export default function CoyCompanion() {
         if (!rootRef.current || dragState.current || !wasStandingAligned.current) return;
         // Observe every eligible window and title bar, including windows created
         // after Coy was mounted. A resize can change geometry without a style mutation.
-        document.querySelectorAll(".app__header").forEach(header => {
+        document.querySelectorAll(".app__header, .ie__toolbar").forEach(header => {
           const windowNode = header.closest("[data-app-window-id][data-app-title]");
           if (windowNode) {
             resizeObserver?.observe(header);
@@ -518,7 +518,7 @@ export default function CoyCompanion() {
     // app windows on mobile (where windows fill the usable screen).
     const syncMobileAppVisibility = () => {
       const isMobile = window.matchMedia("(max-width: 700px)").matches;
-      const visibleAppHeader = Array.from(document.querySelectorAll(".app__header"))
+      const visibleAppHeader = Array.from(document.querySelectorAll(".app__header, .ie__toolbar"))
         .some(header => {
           const rect = header.getBoundingClientRect();
           const style = getComputedStyle(header);
@@ -582,7 +582,7 @@ export default function CoyCompanion() {
   // Coy occasionally comments on desktop controls, media, and app-window activity.
   useEffect(() => {
     const onDesktopClick = event => {
-      const target = event.target?.closest?.('button, [role="button"], [data-app-title], .app__header, .desktop-icon, audio, video, canvas');
+      const target = event.target?.closest?.('button, [role="button"], [data-app-title], .app__header, .ie__toolbar, .desktop-icon, audio, video, canvas');
       if (!target || target.closest('[data-coy-ui="true"]')) return;
       const tag = String(target.tagName || '').toLowerCase();
       if (['input', 'textarea', 'select'].includes(tag) || target.isContentEditable) return;
@@ -592,7 +592,7 @@ export default function CoyCompanion() {
       lastActivity.current = now;
       const label = String(target.getAttribute('aria-label') || target.getAttribute('title') || target.getAttribute('data-app-title') || target.textContent || '').trim().replace(/\s+/g, ' ').slice(0, 48);
       const media = tag === 'audio' || tag === 'video';
-      const windowControl = target.matches('.app__header') || Boolean(target.closest('.app-window, [data-app-title]'));
+      const windowControl = target.matches('.app__header, .ie__toolbar') || Boolean(target.closest('.app-window, [data-app-title]'));
       const lines = media ? ["oh, media", "what are we watching", "lemme listen"]
         : windowControl ? ["moving windows around?", "which window now", "desktop's busy today"]
         : label ? ["oh, " + label, "what's that", "hm, clicking around"]
@@ -1118,7 +1118,7 @@ export default function CoyCompanion() {
     };
     add("screen", "left", 0, null, 60, Infinity);
     add("screen", "right", vw, null, 60, Infinity);
-    document.querySelectorAll(".app__header").forEach(header => {
+    document.querySelectorAll(".app__header, .ie__toolbar").forEach(header => {
       const node = header.closest("[data-app-window-id][data-app-title]");
       if (!node || !isVisibleAppbar(header, node)) return;
       const rect = node.getBoundingClientRect();
