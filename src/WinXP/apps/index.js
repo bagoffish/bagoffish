@@ -11,7 +11,7 @@ const Bloxify = lazyApp(() => import("./MusicAI"));
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
 import winamp from "assets/windowsIcons/winamp.png";
-import musicIcon from "assets/windowsIcons/550(32x32).png";
+import musicIcon from "assets/windowsIcons/550(32x16).png";
 import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
@@ -164,7 +164,9 @@ export const appSettings = {
   Minesweeper: {
     header: { icon: minesweeperIcon, title: "Minesweeper", buttons: ["minimize", "close"] },
     component: Minesweeper,
-    defaultSize: { width: 0, height: 0 },
+    // Used by the window manager to calculate a centered desktop offset.
+    // The actual window continues to size itself to the game board.
+    defaultSize: { width: 220, height: 250 },
     defaultOffset: { x: 16, y: 16 },
     fitContent: true,
     resizable: false,
