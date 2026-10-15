@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 
 import { WindowDropDowns } from "components";
@@ -58,23 +58,10 @@ export default function Writings({ onClose }) {
     }
   }
 
-  const enhancedDropDownData = useMemo(() => {
-    const fileMenu = [...dropDownData.File];
-    const separatorIndex = fileMenu.findIndex(item => item.type === 'separator');
-    if (separatorIndex !== -1) {
-      const writingsMenuItems = writings.map(writing => ({
-        type: 'item',
-        text: writing,
-      }));
-      fileMenu.splice(separatorIndex, 0, ...writingsMenuItems, { type: 'separator' });
-    }
-    return { ...dropDownData, File: fileMenu };
-  }, []);
-
   return (
     <Div>
       <section className="np__toolbar">
-        <WindowDropDowns items={enhancedDropDownData} onClickItem={onClickOptionItem} />
+        <WindowDropDowns items={dropDownData} onClickItem={onClickOptionItem} />
       </section>
 
       <StyledTextarea

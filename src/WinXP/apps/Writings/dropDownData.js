@@ -1,3 +1,21 @@
+const writings = [
+  "Chrysalis of Light",
+  "Rising from Ashes",
+  "If I Forget",
+  "The Edge of Meaning",
+  "Sweetness of the Grave",
+  "After You",
+  "Echoes Between Us",
+  "I Ought to Be Thy Adam",
+  "Some thoughts",
+  "I don't think you can get away with it for long",
+  "Talking about love",
+  "After reading 920London",
+  "After reading Your Wings My Wings",
+  "Untitled",
+  "Goodnight",
+];
+
 const File = [
   {
     type: 'item',
@@ -18,6 +36,19 @@ const File = [
     type: 'item',
     disable: true,
     text: 'Save As...',
+  },
+  {
+    type: 'separator',
+  },
+  {
+    type: 'menu',
+    text: 'Files',
+    symbol: 'folder',
+    position: { left: '100%', top: '-5px' },
+    items: writings.map(writing => ({
+      type: 'item',
+      text: writing,
+    })),
   },
   {
     type: 'separator',
