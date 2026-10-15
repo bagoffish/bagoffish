@@ -43,25 +43,11 @@ const File = [
   {
     type: 'menu',
     text: 'Files',
-    symbol: 'folder',
     position: { left: '100%', top: '-5px' },
     items: writings.map(writing => ({
       type: 'item',
       text: writing,
     })),
-  },
-  {
-    type: 'separator',
-  },
-  {
-    type: 'item',
-    disable: true,
-    text: 'Page Setup...',
-  },
-  {
-    type: 'item',
-    disable: true,
-    text: 'Print...',
   },
   {
     type: 'separator',
