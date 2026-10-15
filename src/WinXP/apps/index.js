@@ -4,7 +4,7 @@ const Renderer = lazyApp(() => import("./Renderer"));
 import ErrorBox from "./ErrorBox";
 const Paint = lazyApp(() => import("./Paint"));
 const Minesweeper = lazyApp(() => import("./Minesweeper"));
-const Poems = lazyApp(() => import("./Poems"));
+const Writings = lazyApp(() => import("./Writings"));
 import Winamp from "./Winamp";
 const Bloxify = lazyApp(() => import("./MusicAI"));
 
@@ -73,7 +73,7 @@ export const defaultAppState = [
 /* desktop icons */
 export const defaultIconState = [
   { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
-  { id: 2, icon: poemsIcon, title: "Poems", component: Poems, isFocus: false },
+  { id: 2, icon: poemsIcon, title: "Writings", component: Writings, isFocus: false },
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
   { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
@@ -117,9 +117,9 @@ export const appSettings = {
     multiInstance: false,
   },
 
-  Poems: {
-    header: { icon: poemsIconSmall, title: "Poems" },
-    component: Poems,
+  Writings: {
+    header: { icon: poemsIconSmall, title: "Writings" },
+    component: Writings,
     defaultSize: { width: 660, height: 520 },
     defaultOffset: { x: 160, y: 60 },
     resizable: true,
@@ -198,7 +198,7 @@ export const appSettings = {
 
 export {
   AboutMe,
-  Poems,
+  Writings,
   Renderer,
   ErrorBox,
   Paint,
