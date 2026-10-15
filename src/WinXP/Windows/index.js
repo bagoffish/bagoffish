@@ -46,6 +46,7 @@ const Window = memo(function({
   defaultOffset,
   resizable,
   maximized,
+  fitContent,
   component,
   zIndex,
   isFocus,
@@ -98,7 +99,12 @@ const Window = memo(function({
     resizeThreshold: 6,
   });
   let width, height, x, y;
-  if (maximized || mobile) {
+  if (fitContent) {
+    width = 'max-content';
+    height = 'auto';
+    x = offset.x;
+    y = offset.y;
+  } else if (maximized || mobile) {
     width = windowWidth;
     height = Math.max(0, windowHeight - 32);
     x = 0;
@@ -118,8 +124,8 @@ const Window = memo(function({
       onMouseDown={_onMouseDown}
       style={{
         transform: `translate(${x}px,${y}px)`,
-        width: width ? `${width}px` : 'auto',
-        height: height ? `${height}px` : 'auto',
+        width: fitContent ? 'max-content' : width ? `${width}px` : 'auto',
+        height: fitContent ? 'auto' : height ? `${height}px` : 'auto',
         zIndex,
       }}
     >
@@ -236,13 +242,13 @@ const StyledWindow = styled(Window)`
     text-overflow: ellipsis;
   }
   .app__content {
-    flex: 1;
+    flex: ${({ fitContent }) => (fitContent ? '0 0 auto' : '1')};
     min-width: 0;
     min-height: 0;
-    overflow: auto;
+    overflow: ${({ fitContent }) => (fitContent ? 'visible' : 'auto')};
     position: relative;
     margin-top: ${({ header }) => (header.invisible ? 0 : 25)}px;
-    height: ${({ header }) => (header.invisible ? '100%' : 'calc(100% - 25px)')};
+    height: ${({ header, fitContent }) => (fitContent ? 'auto' : header.invisible ? '100%' : 'calc(100% - 25px)')};
   }
 @media (max-width: 700px) {
   .app__header {

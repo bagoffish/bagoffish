@@ -162,11 +162,12 @@ export const appSettings = {
   },
 
   Minesweeper: {
-    header: { icon: minesweeperIcon, title: "Minesweeper" },
+    header: { icon: minesweeperIcon, title: "Minesweeper", buttons: ["minimize", "close"] },
     component: Minesweeper,
-    defaultSize: { width: 270, height: 280 },
-    defaultOffset: { x: 260, y: 80 },
-    resizable: true,
+    defaultSize: { width: 0, height: 0 },
+    defaultOffset: { x: 16, y: 16 },
+    fitContent: true,
+    resizable: false,
     minimized: false,
     maximized: false,
     multiInstance: false,
