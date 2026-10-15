@@ -345,6 +345,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     // The four verified classic clips are bundled under public/sounds/coy-tools.
     const soundIds = {
       swordLunge: TOOL_SOUND_BASE + "lunge.mp3",
+      swordSlash: TOOL_SOUND_BASE + "slash.mp3",
       unsheath: TOOL_SOUND_BASE + "unsheath.mp3",
       grappleFire: TOOL_SOUND_BASE + "grapple.mp3",
       grappleConnect: TOOL_SOUND_BASE + "grapple-connect.mp3",
@@ -640,6 +641,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         } else if (L.pose === "swordlunge") {
           if (!["swordequip", "swordlunge"].includes(priorPose)) playGearSound(soundIds.unsheath, 0.10);
           playGearSound(soundIds.swordLunge);
+        } else if (L.pose === "swordslash") {
+          playGearSound(soundIds.swordSlash);
         } else if (L.pose === "grapple") {
           grappleHitPlayed = false;
           playGearSound(soundIds.grappleFire);
