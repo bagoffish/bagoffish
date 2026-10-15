@@ -108,18 +108,25 @@ function sourcePartName(object, bodyPrefix) {
   }
   if (bodyPrefix) {
     for (const candidate of names) {
-      if (candidate.startsWith(bodyPrefix) && /^[1-6]$/.test(candidate.slice(bodyPrefix.length))) {
-        return "Rig" + candidate.slice(bodyPrefix.length);
+      // Some OBJLoader versions append a mesh suffix (for example "Rig1_1")
+      // to object names. Keep the original body-part index in that case.
+      if (candidate.startsWith(bodyPrefix)) {
+        const suffix = candidate.slice(bodyPrefix.length).match(/^([1-6])(?:$|[\\s_])/);
+        if (suffix) return "Rig" + suffix[1];
       }
     }
   }
   for (const candidate of strings) {
-    const handle = candidate.match(/(?:^|\s)(Handle\d+)(?:Mtl)?(?:$|\s)/i);
+    const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:Mtl)?(?:$|\\s)/i);
     if (handle) return handle[1];
   }
   for (const candidate of strings) {
-    const rig = candidate.match(/(?:^|\s)(Rig[1-6])(?:$|\s)/);
-    if (rig && RIG_TO_PART[rig[1]]) return rig[1];
+    // Explicitly accept Grub's exported Katamarimo1..6 labels as a fallback,
+    // plus optional OBJLoader suffixes such as "_1".
+    const rig = candidate.match(/(?:^|\\s)(?:Rig|Katamarimo)([1-6])(?:$|[\\s_])/i);
+    if (rig) return "Rig" + rig[1];
+    const standardRig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|[\\s_])/);
+    if (standardRig && RIG_TO_PART[standardRig[1]]) return standardRig[1];
   }
   // Preserve unknown accessory meshes rather than dropping them.
   return "head";
