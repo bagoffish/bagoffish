@@ -74,7 +74,8 @@ function detectBodyPrefix(root) {
   root.traverse(object => {
     if (!object.isMesh) return;
     for (const name of groupNames(object)) {
-      const match = name.match(/^(.+?)([1-6])$/);
+      // OBJLoader may append suffixes like "_1" to an object name.
+      const match = name.match(/^(.+?)([1-6])(?:$|[_\s])/);
       if (!match || /^Handle\d*$/i.test(match[1]) || /OpossumTail/i.test(name)) continue;
       if (!found.has(match[1])) found.set(match[1], new Set());
       found.get(match[1]).add(match[2]);
@@ -82,13 +83,13 @@ function detectBodyPrefix(root) {
   });
   const complete = [...found.entries()].filter(([, digits]) => digits.size === 6).map(([prefix]) => prefix);
   if (complete.includes("Rig")) return "Rig";
+  if (complete.includes("Katamarimo")) return "Katamarimo";
   return complete[0] || null;
 }
 
 function sourcePartName(object, bodyPrefix) {
-  // OBJLoader versions differ in whether a "g" name is stored on the mesh,
-  // its parent, or the object's userData. Search all levels for an accessory
-  // Handle first, so a parent Rig5 group cannot swallow glasses into the torso.
+  // OBJLoader versions differ in whether an "o" name is stored on the mesh,
+  // its parent, or userData. Inspect all names, not material names, first.
   const candidates = [];
   for (let current = object; current; current = current.parent) {
     candidates.push(
@@ -96,39 +97,41 @@ function sourcePartName(object, bodyPrefix) {
       current.userData?.name,
       current.userData?.objectName,
       current.userData?.groupName,
-      ...[].concat(current.material || []).map(material => material?.name),
     );
   }
-  const strings = candidates.filter(value => typeof value === "string");
-  // Group names win over material names: another avatar's body parts can share Handle1Mtl.
-  const names = groupNames(object);
+  const names = candidates.filter(value => typeof value === "string" && value.trim()).map(value => value.trim());
+
+  // Body labels can be exact ("Rig1") or suffixed by OBJLoader ("Rig1_1").
+  // Do not rely on a detected prefix: the fallback is important for exports
+  // whose object names differ slightly between Three.js versions.
   for (const candidate of names) {
-    const handle = candidate.match(/(?:^|\s)(Handle\d+)$/i);
-    if (handle) return handle[1];
+    const handle = candidate.match(/(?:^|[\s/])Handle(\d+)(?:$|[_\s])/i);
+    if (handle) return "Handle" + handle[1];
+  }
+  for (const candidate of names) {
+    const rig = candidate.match(/(?:^|[^A-Za-z])(?:Rig|Katamarimo)([1-6])(?:$|[_\s])/i);
+    if (rig) return "Rig" + rig[1];
   }
   if (bodyPrefix) {
     for (const candidate of names) {
-      // Some OBJLoader versions append a mesh suffix (for example "Rig1_1")
-      // to object names. Keep the original body-part index in that case.
-      if (candidate.startsWith(bodyPrefix)) {
-        const suffix = candidate.slice(bodyPrefix.length).match(/^([1-6])(?:$|[\\s_])/);
-        if (suffix) return "Rig" + suffix[1];
-      }
+      if (!candidate.startsWith(bodyPrefix)) continue;
+      const suffix = candidate.slice(bodyPrefix.length);
+      const index = suffix.match(/^([1-6])(?:$|[_\s])/);
+      if (index) return "Rig" + index[1];
     }
   }
-  for (const candidate of strings) {
-    const handle = candidate.match(/(?:^|\\s)(Handle\\d+)(?:Mtl)?(?:$|\\s)/i);
-    if (handle) return handle[1];
-  }
-  for (const candidate of strings) {
-    // Explicitly accept Grub's exported Katamarimo1..6 labels as a fallback,
-    // plus optional OBJLoader suffixes such as "_1".
-    const rig = candidate.match(/(?:^|\\s)(?:Rig|Katamarimo)([1-6])(?:$|[\\s_])/i);
+
+  // Some OBJLoader versions retain the body label only in material names.
+  for (const candidate of [].concat(...candidates.map((_, i) => {
+    const objectAtLevel = (() => { let current = object; for (let n = 0; n < i && current; n++) current = current.parent; return current; })();
+    return [].concat(objectAtLevel?.material || []).map(material => material?.name);
+  }))) {
+    if (typeof candidate !== "string") continue;
+    const handle = candidate.match(/Handle(\d+)(?:Mtl)?/i);
+    if (handle) return "Handle" + handle[1];
+    const rig = candidate.match(/(?:Rig|Katamarimo)([1-6])(?:Mtl)?/i);
     if (rig) return "Rig" + rig[1];
-    const standardRig = candidate.match(/(?:^|\\s)(Rig[1-6])(?:$|[\\s_])/);
-    if (standardRig && RIG_TO_PART[standardRig[1]]) return standardRig[1];
   }
-  // Preserve unknown accessory meshes rather than dropping them.
   return "head";
 }
 
