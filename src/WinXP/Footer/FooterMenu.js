@@ -5,6 +5,7 @@ import SubMenu from 'components/SubMenu';
 import ie from 'assets/windowsIcons/ie.png';
 import setAccess from 'assets/windowsIcons/227(32x32).png';
 import outlook from 'assets/windowsIcons/887(32x32).png';
+import winterLetterIcon from 'assets/windowsIcons/mail.png';
 import mediaPlayer from 'assets/windowsIcons/846(32x32).png';
 import messenger from 'assets/windowsIcons/msn.png';
 import documents from 'assets/windowsIcons/308(32x32).png';
@@ -56,7 +57,7 @@ function FooterMenu({ className, onClick }) {
               { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
               { icon: music, text: 'Bloxify' },
-              { icon: outlook, text: 'Winter_Letter' },
+              { icon: winterLetterIcon, text: 'Winter_Letter' },
               { icon: minesweeperIcon, text: 'Minesweeper' },
             ]}
           />
