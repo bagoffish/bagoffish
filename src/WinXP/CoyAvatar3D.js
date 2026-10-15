@@ -257,7 +257,7 @@ function loadModel(model, base = BASE, options = {}) {
       const fileLoader = new THREE.FileLoader();
       fileLoader.setPath(base);
       fileLoader.load(model.obj, objText => {
-        const namedObjText = objText.replace(/^g\s+(.+)$/gm, "o $1");
+        const namedObjText = objText.replace(/^g[ \t]+([^\r\n]+)\r?$/gm, "o $1");
         const root = objLoader.parse(namedObjText);
         root.traverse(o => {
           if (!o.isMesh) return;
