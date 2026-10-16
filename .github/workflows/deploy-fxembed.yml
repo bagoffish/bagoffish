@@ -81,10 +81,10 @@ jobs:
           main = "./dist/bagofish-worker.js"
           compatibility_date = "2026-04-11"
           send_metrics = false
+          workers_dev = false
 
-          routes = [
-            { pattern = "bagof.fish/*", zone_name = "bagof.fish" }
-          ]
+          # The existing bagof.fish/* route is reassigned through the Cloudflare API
+          # after the new Worker has been uploaded.
 
           [build]
           command = "npm run build && npx esbuild ../fxembed-dispatcher.ts --bundle --format=esm --outfile=dist/bagofish-worker.js"
@@ -139,3 +139,60 @@ jobs:
           if [[ "${CREDENTIALS_CONFIGURED}" == "true" ]]; then
             printf '%s' "${CREDENTIAL_KEY}" | npx wrangler secret put CREDENTIAL_KEY --config wrangler.toml
           fi
+
+      - name: Reassign bagof.fish route to FxEmbed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ZONE_ID: 9aa38ccc825f360df7c326d434ab6034
+        run: |
+          set -euo pipefail
+          node --input-type=module <<'NODE'
+          const token = process.env.CLOUDFLARE_API_TOKEN;
+          const zoneId = process.env.CF_ZONE_ID;
+          const routePattern = "bagof.fish/*";
+          const workerName = "bagoffish-fxembed";
+
+          async function cloudflare(path, options = {}) {
+            const response = await fetch(`https://api.cloudflare.com/client/v4${path}`, {
+              ...options,
+              headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json",
+                ...(options.headers ?? {})
+              }
+            });
+            const result = await response.json();
+            if (!response.ok || result.success !== true) {
+              const details = (result.errors ?? []).map((error) => error.message).join("; ");
+              throw new Error(`Cloudflare API failed (${response.status}): ${details || "unknown error"}`);
+            }
+            return result.result;
+          }
+
+          if (!token || !zoneId) throw new Error("Missing Cloudflare token or zone ID.");
+
+          const routes = await cloudflare(`/zones/${zoneId}/workers/routes`);
+          const matches = routes.filter((route) => route.pattern === routePattern);
+          if (matches.length > 1) {
+            throw new Error(`Found ${matches.length} duplicate routes for ${routePattern}; refusing to change them automatically.`);
+          }
+
+          if (matches.length === 1) {
+            const route = matches[0];
+            if (route.script === workerName) {
+              console.log(`Route ${routePattern} is already assigned to ${workerName}.`);
+            } else {
+              await cloudflare(`/zones/${zoneId}/workers/routes/${route.id}`, {
+                method: "PUT",
+                body: JSON.stringify({ pattern: routePattern, script: workerName })
+              });
+              console.log(`Reassigned ${routePattern} from ${route.script ?? "(no script)"} to ${workerName}.`);
+            }
+          } else {
+            await cloudflare(`/zones/${zoneId}/workers/routes`, {
+              method: "POST",
+              body: JSON.stringify({ pattern: routePattern, script: workerName })
+            });
+            console.log(`Created route ${routePattern} for ${workerName}.`);
+          }
+          NODE
