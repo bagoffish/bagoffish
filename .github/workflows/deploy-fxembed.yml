@@ -104,3 +104,37 @@ jobs:
           test -n "${CLOUDFLARE_API_TOKEN}" || { echo "::error::Add CLOUDFLARE_API_TOKEN to repository Actions secrets."; exit 1; }
           # The existing bagof.fish/* route is configured in Cloudflare; only upload new Worker code here.
           npx wrangler deploy --config wrangler.toml --no-bundle
+
+      - name: Diagnose Twitter embed response
+        continue-on-error: true
+        run: |
+          set -u
+          probe() {
+            label="$1"
+            url="$2"
+            body="$(mktemp)"
+            status="$(curl -sSL --max-time 30 -A 'Discordbot/2.0' -o "$body" -w '%{http_code}' "$url" || true)"
+            echo "===== $label: HTTP ${status:-request-failed} ====="
+            python3 - "$body" <<'PY'
+          import html, re, sys
+          from pathlib import Path
+          body = Path(sys.argv[1]).read_text(errors="replace")
+          metas = {}
+          for tag in re.findall(r'<meta\\b[^>]*>', body, re.I):
+              attrs = dict(re.findall(r'''([\\w:-]+)\\s*=\\s*["']([^"']*)["']''', tag))
+              name = attrs.get('property') or attrs.get('name')
+              if name and (name.lower().startswith(('og:', 'twitter:')) or name.lower() in ('description',)):
+                  metas[name] = html.unescape(attrs.get('content', ''))
+          title = re.search(r'<title[^>]*>(.*?)</title>', body, re.I | re.S)
+          print("title:", html.unescape(re.sub(r'\\s+', ' ', title.group(1)).strip()) if title else "(none)")
+          for key in ('og:title', 'og:description', 'og:image', 'og:video', 'twitter:card', 'twitter:image', 'description'):
+              if metas.get(key):
+                  print(f"{key}: {metas[key][:500]}")
+          if not metas and not title:
+              print("body preview:", re.sub(r'\\s+', ' ', body[:700]))
+          PY
+            rm -f "$body"
+          }
+          probe "bagof.fish" "https://bagof.fish/bananvn/status/2110801176640065627"
+          probe "FxTwitter API" "https://api.fxtwitter.com/bananvn/status/2110801176640065627"
+          probe "fxtwitter.com" "https://fxtwitter.com/bananvn/status/2110801176640065627"
