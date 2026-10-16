@@ -110,7 +110,7 @@ jobs:
             csrfToken: process.env.TWITTER_CSRF_TOKEN,
             username: process.env.TWITTER_USERNAME
           };
-          fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\\n', { mode: 0o600 });
+          fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\n', { mode: 0o600 });
           NODE
             npm run credentials:encrypt
             echo "configured=true" >> "$GITHUB_OUTPUT"
