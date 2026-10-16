@@ -1,0 +1,3 @@
+[submodule "workers/fxembed"]
+	path = workers/fxembed
+	url = https://github.com/FxEmbed/FxEmbed.git

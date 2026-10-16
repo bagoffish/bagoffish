@@ -1,0 +1,124 @@
+name: Deploy FxEmbed Worker
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".gitmodules"
+      - "workers/**"
+      - ".github/workflows/deploy-fxembed.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fxembed-worker-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build and deploy FxEmbed
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository and FxEmbed submodule
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: workers/fxembed/package-lock.json
+
+      - name: Install FxEmbed dependencies
+        working-directory: workers/fxembed
+        run: npm ci
+
+      - name: Prepare build config
+        working-directory: workers/fxembed
+        env:
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID || secrets.R2_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          test -n "${CF_ACCOUNT_ID}" || { echo "::error::Add CF_ACCOUNT_ID (or R2_ACCOUNT_ID) to repository Actions secrets."; exit 1; }
+          cp .env.example .env
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re
+
+          env_path = Path(".env")
+          env, changed = re.subn(
+              r"^STANDARD_DOMAIN_LIST\s*=.*$",
+              'STANDARD_DOMAIN_LIST = "bagof.fish,fxtwitter.com,fixupx.com,twittpr.com"',
+              env_path.read_text(),
+              count=1,
+              flags=re.MULTILINE,
+          )
+          if changed != 1:
+              raise SystemExit("Could not set STANDARD_DOMAIN_LIST in .env")
+          env_path.write_text(env)
+
+          branding_path = Path("branding.example.json")
+          branding = json.loads(branding_path.read_text())
+          for zone in branding.get("zones", []):
+              if zone.get("provider") == "twitter" and zone.get("default"):
+                  domains = zone.setdefault("domains", [])
+                  if "bagof.fish" not in domains:
+                      domains.insert(0, "bagof.fish")
+                  break
+          branding_path.write_text(json.dumps(branding, indent=2) + "\n")
+          PY
+
+          cat > wrangler.toml <<EOF
+          name = "bagoffish-fxembed"
+          account_id = "${CF_ACCOUNT_ID}"
+          main = "./dist/bagofish-worker.js"
+          compatibility_date = "2026-04-11"
+          send_metrics = false
+
+          analytics_engine_datasets = [
+            { binding = "AnalyticsEngine" }
+          ]
+
+          routes = [
+            { pattern = "bagof.fish/*", zone_name = "bagof.fish" }
+          ]
+
+          [build]
+          command = "npm run build && npx esbuild ../fxembed-dispatcher.ts --bundle --format=esm --outfile=dist/bagofish-worker.js"
+          EOF
+
+      - name: Fetch encrypted credentials from R2
+        working-directory: workers/fxembed
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID || secrets.CF_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: bagoffish-media
+        run: |
+          set -euo pipefail
+          node tools/credential-tools.mjs pull
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const data = JSON.parse(fs.readFileSync('credentials.enc.json', 'utf8'));
+          if (typeof data.ciphertext !== 'string' || !data.ciphertext.length ||
+              typeof data.iv !== 'string' || !data.iv.length) {
+            throw new Error('credentials.enc.json must contain non-empty ciphertext and iv strings');
+          }
+          NODE
+
+      - name: Deploy Worker and set credential key
+        working-directory: workers/fxembed
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CREDENTIAL_KEY: ${{ secrets.CREDENTIAL_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${CLOUDFLARE_API_TOKEN}" || { echo "::error::Add CLOUDFLARE_API_TOKEN to repository Actions secrets."; exit 1; }
+          test -n "${CREDENTIAL_KEY}" || { echo "::error::Add CREDENTIAL_KEY matching the encrypted R2 object to repository Actions secrets."; exit 1; }
+          npx wrangler deploy --config wrangler.toml --no-bundle
+          printf '%s' "${CREDENTIAL_KEY}" | npx wrangler secret put CREDENTIAL_KEY --config wrangler.toml
