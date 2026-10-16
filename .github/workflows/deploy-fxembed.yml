@@ -76,7 +76,8 @@ jobs:
           PY
 
           cat > wrangler.toml <<EOF
-          name = "bagoffish-fxembed"
+          # Reuse the Worker that already owns bagof.fish/*; a second Worker cannot claim this route.
+          name = "twitterembed"
           account_id = "${CF_ACCOUNT_ID}"
           main = "./dist/bagofish-worker.js"
           compatibility_date = "2026-04-11"
