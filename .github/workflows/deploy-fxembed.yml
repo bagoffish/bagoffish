@@ -69,6 +69,12 @@ jobs:
               if zone.get("provider") == "twitter" and zone.get("default"):
                   zone["name"] = "bag of fish"
                   zone["redirect"] = "https://bagof.fish"
+                  icon_url = "https://bagof.fish/images/spin.gif"
+                  zone["favicon"] = icon_url
+                  zone["activityIcons"] = {
+                      "default": icon_url,
+                      "32": icon_url
+                  }
                   domains = zone.setdefault("domains", [])
                   if "bagof.fish" not in domains:
                       domains.insert(0, "bagof.fish")
