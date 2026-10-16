@@ -1,4 +1,4 @@
-import fxEmbedWorker from './fxembed/src/worker';
+import fxEmbedWorker from './fxembed/dist/worker.js';
 
 const statusPath = /^\/[^/]+\/status\/\d+(?:\/.*)?\/?$/;
 
