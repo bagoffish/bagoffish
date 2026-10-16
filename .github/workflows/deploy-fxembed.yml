@@ -129,7 +129,7 @@ jobs:
               }
             }
             fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\n', { mode: 0o600 });
-            NODE
+          NODE
             npm run credentials:encrypt
             echo "configured=true" >> "$GITHUB_OUTPUT"
             echo "Bundled encrypted Twitter credentials from GitHub Actions secrets."
@@ -142,7 +142,7 @@ jobs:
                 typeof data.iv !== 'string' || !data.iv.length) {
               throw new Error('credentials.enc.json must contain non-empty ciphertext and iv strings');
             }
-            NODE
+          NODE
             echo "configured=true" >> "$GITHUB_OUTPUT"
             echo "Loaded encrypted credentials from R2."
           else
