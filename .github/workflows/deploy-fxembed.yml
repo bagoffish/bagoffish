@@ -82,10 +82,6 @@ jobs:
           compatibility_date = "2026-04-11"
           send_metrics = false
 
-          analytics_engine_datasets = [
-            { binding = "AnalyticsEngine" }
-          ]
-
           routes = [
             { pattern = "bagof.fish/*", zone_name = "bagof.fish" }
           ]
