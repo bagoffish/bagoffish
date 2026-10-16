@@ -69,6 +69,7 @@ jobs:
               if zone.get("provider") == "twitter" and zone.get("default"):
                   zone["name"] = "bag of fish"
                   zone["redirect"] = "https://bagof.fish"
+                  zone["color"] = "#01ff01"
                   icon_url = "https://bagof.fish/images/spin.gif"
                   zone["favicon"] = icon_url
                   zone["activityIcons"] = {
