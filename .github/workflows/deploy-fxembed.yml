@@ -100,10 +100,40 @@ jobs:
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
           R2_BUCKET_NAME: bagoffish-media
           CREDENTIAL_KEY: ${{ secrets.CREDENTIAL_KEY }}
+          TWITTER_AUTH_TOKEN: ${{ secrets.TWITTER_AUTH_TOKEN }}
+          TWITTER_CSRF_TOKEN: ${{ secrets.TWITTER_CSRF_TOKEN }}
+          TWITTER_USERNAME: ${{ secrets.TWITTER_USERNAME }}
         run: |
           set -euo pipefail
-          if [[ -n "${R2_ACCOUNT_ID}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" && -n "${CREDENTIAL_KEY}" ]]; then
+          has_direct_twitter_creds=false
+          if [[ -n "${TWITTER_AUTH_TOKEN}" || -n "${TWITTER_CSRF_TOKEN}" || -n "${TWITTER_USERNAME}" ]]; then
+            has_direct_twitter_creds=true
+          fi
+
+          if [[ "${has_direct_twitter_creds}" == "true" ]]; then
+            if [[ -z "${TWITTER_AUTH_TOKEN}" || -z "${TWITTER_CSRF_TOKEN}" || -z "${TWITTER_USERNAME}" || -z "${CREDENTIAL_KEY}" ]]; then
+              echo "::error::For GitHub-secret credentials, set all of TWITTER_AUTH_TOKEN, TWITTER_CSRF_TOKEN, TWITTER_USERNAME, and CREDENTIAL_KEY."
+              exit 1
+            fi
+            printf '%s' "${CREDENTIAL_KEY}" > .credential-key
+            node --input-type=module <<'NODE'
+            import fs from 'node:fs';
+            const account = {
+              authToken: process.env.TWITTER_AUTH_TOKEN,
+              csrfToken: process.env.TWITTER_CSRF_TOKEN,
+              username: process.env.TWITTER_USERNAME
+            };
+            for (const [key, value] of Object.entries(account)) {
+              if (typeof value !== 'string' || !value.trim()) {
+                throw new Error(`Missing Twitter credential field: ${key}`);
+              }
+            }
+            fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\n', { mode: 0o600 });
+            NODE
+            npm run credentials:encrypt
             echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Bundled encrypted Twitter credentials from GitHub Actions secrets."
+          elif [[ -n "${R2_ACCOUNT_ID}" && -n "${R2_ACCESS_KEY_ID}" && -n "${R2_SECRET_ACCESS_KEY}" && -n "${CREDENTIAL_KEY}" ]]; then
             node tools/credential-tools.mjs pull
             node --input-type=module <<'NODE'
             import fs from 'node:fs';
@@ -112,11 +142,13 @@ jobs:
                 typeof data.iv !== 'string' || !data.iv.length) {
               throw new Error('credentials.enc.json must contain non-empty ciphertext and iv strings');
             }
-          NODE
+            NODE
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+            echo "Loaded encrypted credentials from R2."
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
-            rm -f credentials.enc.json
-            echo "::warning::R2 credentials or CREDENTIAL_KEY are missing. Continuing without bundled logged-in account credentials."
+            rm -f credentials.enc.json credentials.json .credential-key
+            echo "::warning::No Twitter credential secrets or complete R2 credential setup found. Continuing without logged-in account credentials."
           fi
 
       - name: Build FxEmbed Worker bundle
