@@ -1,6 +1,7 @@
 import fxEmbedWorker from './fxembed/dist/worker.js';
 
-const statusPath = /^\/[^/]+\/status\/\d+(?:\/.*)?\/?$/;
+const statusPath = /^\/[^/]+\/status(?:es)?\/\d+(?:\/.*)?\/?$/;
+const activityApiPath = /^\/api\/v1\/statuses\/\d+\/?$/;
 
 export default {
   async fetch(
@@ -12,7 +13,7 @@ export default {
 
     if (
       (request.method === 'GET' || request.method === 'HEAD') &&
-      statusPath.test(url.pathname)
+      (statusPath.test(url.pathname) || activityApiPath.test(url.pathname))
     ) {
       return fxEmbedWorker.fetch(request, env, ctx);
     }
