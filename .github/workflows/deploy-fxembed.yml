@@ -128,7 +128,7 @@ jobs:
                 throw new Error(`Missing Twitter credential field: ${key}`);
               }
             }
-            fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\\n', { mode: 0o600 });
+            fs.writeFileSync('credentials.json', JSON.stringify({ twitter: { accounts: [account] } }) + '\n', { mode: 0o600 });
             NODE
             npm run credentials:encrypt
             echo "configured=true" >> "$GITHUB_OUTPUT"
