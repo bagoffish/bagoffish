@@ -116,7 +116,7 @@ jobs:
                 typeof data.iv !== 'string' || !data.iv.length) {
               throw new Error('credentials.enc.json must contain non-empty ciphertext and iv strings');
             }
-            NODE
+          NODE
           else
             echo "configured=false" >> "$GITHUB_OUTPUT"
             rm -f credentials.enc.json
