@@ -541,7 +541,7 @@ export default function CoyCompanion() {
       const detail = event.detail || {};
       if (String(detail.action || "").toLowerCase() !== "search") return;
       const target = String(detail.value || "").trim();
-      if (!/^(?:https?:\/\/www\.roblox\.com\/users\/)?37753591(?:\/profile)?\/?$/i.test(target)) return;
+      if (!/^(?:https?:\/\/www\.roblox\.com\/users\/)?50020898(?:\/profile)?\/?$/i.test(target)) return;
       setLine("Searching me up?");
       setShowBubble(true);
       lastActivity.current = Date.now();
@@ -550,8 +550,8 @@ export default function CoyCompanion() {
     // gets a reaction, whether the visitor typed the user id, the profile link, or the username.
     const onRendererLookup = event => {
       const detail = event.detail || {};
-      if (String(detail.id || "") !== "37753591") return;
-      setLine(randomLine(["Searching me up?", "Searching me up, huh?", "Oh, you're looking me up?", "That's me..!"]));
+      if (String(detail.id || "") !== "50020898") return;
+      setLine(randomLine(["Searching me up, huh?", "You're looking me up?", "That's me..!"]));
       setShowBubble(true);
       lastActivity.current = Date.now();
     };
