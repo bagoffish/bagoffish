@@ -258,7 +258,7 @@ function loadModel(model, base = BASE, options = {}) {
     // unchanged, which is why swapping only the OBJ/MTL URL is not enough.
     fileLoader.load(withCacheBust(model.mtl), mtlText => {
       const cacheBustedMtl = mtlText.replace(
-        /^(\\s*map_\\w+\\s+)(.+?)\\s*$/gim,
+        /^(\s*map_\w+\s+)(.+?)\s*$/gim,
         (line, directive, filename) => directive + withCacheBust(filename.trim())
       );
       const materials = mtlLoader.parse(cacheBustedMtl, base);
