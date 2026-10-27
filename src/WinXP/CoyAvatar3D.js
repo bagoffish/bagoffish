@@ -244,9 +244,24 @@ function loadGear(filename, scale) {
 // Loads the Roblox OBJ/MTL that scripts/sync-avatar.mjs downloaded, then splits it into R6 limbs.
 function loadModel(model, base = BASE, options = {}) {
   return new Promise((resolve, reject) => {
+    // Avatar OBJ/MTL/PNG files are replaced in-place in public/. Give each page
+    // load a fresh URL so browser/CDN caches cannot keep an older body or texture.
+    const cacheBust = "v=" + Math.floor(performance.timeOrigin || Date.now());
+    const withCacheBust = url => url + (url.includes("?") ? "&" : "?") + cacheBust;
+    const fileLoader = new THREE.FileLoader();
+    fileLoader.setPath(base);
     const mtlLoader = new MTLLoader();
-    mtlLoader.setPath(base);
-    mtlLoader.load(model.mtl, materials => {
+    mtlLoader.setResourcePath(base);
+
+    // Load the MTL as text so texture-map URLs receive the same cache key as the
+    // material file. MTLLoader's normal load() path leaves referenced PNG URLs
+    // unchanged, which is why swapping only the OBJ/MTL URL is not enough.
+    fileLoader.load(withCacheBust(model.mtl), mtlText => {
+      const cacheBustedMtl = mtlText.replace(
+        /^(\\s*map_\\w+\\s+)(.+?)\\s*$/gim,
+        (line, directive, filename) => directive + withCacheBust(filename.trim())
+      );
+      const materials = mtlLoader.parse(cacheBustedMtl, base);
       materials.preload();
       const objLoader = new OBJLoader();
       objLoader.setMaterials(materials);
@@ -254,12 +269,10 @@ function loadModel(model, base = BASE, options = {}) {
       // declarations. Roblox avatar exports use "g" for each R6 body part, so
       // convert those declarations to objects before parsing to retain names like
       // Katamarimo1..6 and Cdplusr1..6 for the R6 splitter.
-      const fileLoader = new THREE.FileLoader();
-      fileLoader.setPath(base);
-      fileLoader.load(model.obj, objText => {
+      fileLoader.load(withCacheBust(model.obj), objText => {
         const normalizedObjText = objText.replace(/\r/g, "");
         // Grub's export uses the avatar-specific Katamarimo1..6 names rather
-        // than the standard Rig1..6 names. Normalize those six body groups
+        // than the standard Rig1..Rig6 names. Normalize those six body groups
         // directly so they cannot be mistaken for accessory meshes.
         const namedObjText = normalizedObjText
           .replace(/^g[ \t]+Katamarimo([1-6])$/gm, "o Rig$1")
@@ -268,21 +281,20 @@ function loadModel(model, base = BASE, options = {}) {
         root.traverse(o => {
           if (!o.isMesh) return;
           [].concat(o.material).forEach(m => {
-            m.side = THREE.DoubleSide;                 // thin hair/hat meshes need both sides
-            m.transparent = false;                     // prevent unintended see-through materials
+            m.side = THREE.DoubleSide;
+            m.transparent = false;
             m.opacity = 1;
             m.depthWrite = true;
             if ("transmission" in m) m.transmission = 0;
 
-            // Handle4Mtl is Coy's @ hairclip, which should stay neon green.
-            // Its exported 1x1 texture is unreliable, so color the clip explicitly.
-            // Only Coy's: other avatars' Handle4 is a real texture (yache, coolest).
+            // Coy's Handle4 hairclip is intentionally neon green; other avatars'
+            // Handle4 is a real textured accessory.
             if (options.neonClip && /^Handle4Mtl$/i.test(m.name || "")) {
               m.map = null;
               m.alphaMap = null;
               m.color.set("#39ff14");
             } else if (m.map) {
-              m.color.set(0xffffff);                   // let real textures show at full brightness
+              m.color.set(0xffffff);
             }
             m.needsUpdate = true;
           });
@@ -292,7 +304,6 @@ function loadModel(model, base = BASE, options = {}) {
     }, undefined, reject);
   });
 }
-
 /**
  * props:
  *  size    - canvas width in px
