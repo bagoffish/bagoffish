@@ -36,5 +36,8 @@
   },
   "overrides": {
     "spessasynth_core": "4.3.14"
+  },
+  "resolutions": {
+    "spessasynth_core": "4.3.14"
   }
 }
