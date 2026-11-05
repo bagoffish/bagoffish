@@ -55,6 +55,12 @@ and limitations under the License.
 
 /*! safe-buffer. MIT License. Feross Aboukhadijeh <https://feross.org/opensource> */
 
+/**
+ * @license
+ * Copyright 2010-2023 Three.js Authors
+ * SPDX-License-Identifier: MIT
+ */
+
 /** @license React v0.19.1
  * scheduler.production.min.js
  *
