@@ -56,7 +56,6 @@ function FooterMenu({ className, onClick }) {
               { icon: rendererIcon, text: 'Renderer' },
               { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
-              { icon: music, text: 'Bloxify' },
               { icon: winterLetterIcon, text: 'Winter_Letter' },
               { icon: minesweeperIcon, text: 'Minesweeper' },
             ]}

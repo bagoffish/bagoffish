@@ -251,7 +251,7 @@ function WinXP() {
       const aliases = {
         'about': 'About Me', 'about me': 'About Me', 'profile': 'About Me',
         'letters': 'Winter_Letter', 'winter letter': 'Winter_Letter',
-        'winterletter': 'Winter_Letter', 'music ai': 'Bloxify', 'music generator': 'Bloxify',
+        'winterletter': 'Winter_Letter',
         'paint': 'Paint', 'ms paint': 'Paint',
         'music player': 'Winamp', 'winamp': 'Winamp',
         'poem': 'Poems', 'poems': 'Poems', 'roblox renderer': 'Renderer',

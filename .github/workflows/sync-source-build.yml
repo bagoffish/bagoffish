@@ -52,8 +52,6 @@ name: Sync compiled site from winXP source
 # 2026-10-10: include desktop full-tab visibility condition in Coy rebuild.
 # 2026-10-10: rebuild after Coy desktop drag, pat, full-tab visibility, image-copy, and upload syntax fixes.
 # 2026-10-10: rebuild after Coy dragging fix in private winXP source.
-# Bloxify mix: track melody continuously when assigning instruments.
-# Rebuild the published site from latest winXP source, including Bloxify, public/audios, active backend URLs, and Coy chatbot UI changes.
 # 2026-10-10: rebuild after Coy wording and chatbot endpoint fixes.
 # 2026-10-10: remove all yoink references from Coy source.
 # 2026-10-10: rebuild after Gemini backend and Coy integration fixes.

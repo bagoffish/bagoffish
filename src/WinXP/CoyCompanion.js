@@ -73,7 +73,6 @@ const COY_APP_ALIASES = {
   "letters": "Winter_Letter", "winter letter": "Winter_Letter", "winterletter": "Winter_Letter",
   "poem": "Poems", "poems": "Poems",
   "renderer": "Renderer", "roblox renderer": "Renderer", "avatar renderer": "Renderer",
-  "bloxify": "Bloxify", "music ai": "Bloxify", "music generator": "Bloxify",
   "paint": "Paint", "ms paint": "Paint", "minesweeper": "Minesweeper",
   "mine sweeper": "Minesweeper", "winamp": "Winamp", "music player": "Winamp",
   "coy": "Coy", "coy chat": "Coy"
