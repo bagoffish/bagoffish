@@ -6,12 +6,10 @@ const Paint = lazyApp(() => import("./Paint"));
 const Minesweeper = lazyApp(() => import("./Minesweeper"));
 const Writings = lazyApp(() => import("./Writings"));
 import Winamp from "./Winamp";
-const Bloxify = lazyApp(() => import("./MusicAI"));
 
 /* ===== icons ===== */
 import iePaper from "assets/windowsIcons/ie-paper.png";
 import winamp from "assets/windowsIcons/winamp.png";
-import musicIcon from "assets/windowsIcons/550(32x32).png";
 import error from "assets/windowsIcons/897(16x16).png";
 import paintLarge from "assets/windowsIcons/680(32x32).png";
 import paintSmall from "assets/windowsIcons/680(16x16).png";
@@ -75,7 +73,6 @@ export const defaultIconState = [
   { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
   { id: 2, icon: poemsIcon, title: "Writings", component: Writings, isFocus: false },
   { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
-  { id: 7, icon: musicIcon, title: "Bloxify", component: Bloxify, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
   { id: 10, icon: minesweeperIcon, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
@@ -139,17 +136,6 @@ export const appSettings = {
     multiInstance: false,
   },
 
-  Bloxify: {
-    header: { icon: musicIcon, title: "Bloxify" },
-    component: Bloxify,
-    defaultSize: { width: 800, height: 520 },
-    defaultOffset: { x: 220, y: 70 },
-    resizable: true,
-    minimized: false,
-    maximized: window.innerWidth < 800,
-    multiInstance: false,
-  },
-
   Error: {
     header: { icon: error, title: "C:\\", buttons: ["close"], noFooterWindow: true },
     component: ErrorBox,
@@ -206,6 +192,5 @@ export {
   Paint,
   Minesweeper,
   Winamp,
-  Bloxify,
   WinterLetter,
 };

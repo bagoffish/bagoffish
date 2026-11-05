@@ -20,8 +20,6 @@ jobs:
         run: |
           node --check server.js
           node --check personal-ai.js
-          node --check bloxify.cjs
-          node --check bloxify-core.cjs
       - name: Run backend tests
         working-directory: backend
         run: |
