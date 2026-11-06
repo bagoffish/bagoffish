@@ -269,7 +269,7 @@ function loadModel(model, base = BASE, options = {}) {
       // represented in its MTL (Capitalstate body groups share Handle5).
       // Tour/swap avatars must use their own MTL maps: many do not have all
       // Handle1..5_diff.png files, and forcing those names causes 404 requests.
-      const isDefaultCoyModel = base.replace(/\\/+$/, "") === COY_BASE.replace(/\\/+$/, "");
+      const isDefaultCoyModel = base.replace(/\/+$/, "") === COY_BASE.replace(/\/+$/, "");
       const handleTextureFiles = isDefaultCoyModel ? {
         1: "Handle1_diff.png",
         2: "Handle2_diff.png",
