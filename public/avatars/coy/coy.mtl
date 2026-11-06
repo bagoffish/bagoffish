@@ -22,9 +22,6 @@ d 1
 
 Ns 0
 
-map_Ka Handle4_diff.png
-map_Kd Handle4_diff.png
-map_d Handle4_diff.png
 
 newmtl Handle2Mtl
 Material Color
