@@ -25,9 +25,17 @@ const PIVOTS = {
   lLeg: [1, 2, 0],
 };
 
+function distanceToBox(point, bounds) {
+  const dx = Math.max(bounds.min.x - point.x, 0, point.x - bounds.max.x);
+  const dy = Math.max(bounds.min.y - point.y, 0, point.y - bounds.max.y);
+  const dz = Math.max(bounds.min.z - point.z, 0, point.z - bounds.max.z);
+  return Math.hypot(dx, dy, dz);
+}
+
 function isTorsoAccessory(object, torsoBounds, headBounds) {
-  // A specifically named tail is reliable; Handle numbers are not. Roblox can
-  // renumber handles on export, so Handle7 must never be treated as a tail by name.
+  // A specifically named tail is always a torso accessory. Other Handle meshes
+  // (bags, backpacks and waist accessories included) are assigned by proximity,
+  // never by their unstable Handle number.
   let isHandle = false;
   for (let current = object; current; current = current.parent) {
     const candidates = [
@@ -45,16 +53,15 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
   const accessoryBounds = new THREE.Box3().setFromObject(object);
   if (accessoryBounds.isEmpty()) return false;
 
-  // Face accessories often sit in front of (rather than inside) the head box.
-  // Give the head a small 3D margin before considering any low Handle a torso tail.
-  const headAccessoryZone = headBounds.clone().expandByScalar(0.7);
-  if (headAccessoryZone.intersectsBox(accessoryBounds)) return false;
-
-  // Only classify a Handle as a tail when it is clearly below the neck joint.
   const center = accessoryBounds.getCenter(new THREE.Vector3());
-  const jointBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
-  const torsoSize = torsoBounds.getSize(new THREE.Vector3());
-  return center.y < jointBoundary - Math.max(0.2, torsoSize.y * 0.12);
+  const torsoDistance = distanceToBox(center, torsoBounds);
+  const headDistance = distanceToBox(center, headBounds);
+  const neckBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
+
+  // Face/head accessories are generally closer to the head. A bag or backpack
+  // sits at torso height and is closer to the torso, even when it is in front
+  // of or behind the torso's actual surface.
+  return center.y < neckBoundary + 0.35 && torsoDistance <= headDistance + 0.25;
 }
 
 // Roblox names the six body groups after the avatar: Rig1..Rig6 for the original Coy export, but
@@ -222,9 +229,9 @@ export function splitIntoR6Parts(root) {
       : geometry.attributes.position.count / 3;
   });
 
-  // The tail's exported attachment transform can leave its base floating away
-  // from the torso even when it is parented to the torso group. Align its nearest
-  // end with the torso's back surface in the same normalized model space.
+  // An accessory's exported attachment transform can leave it floating away
+  // from the torso even when it is parented to the torso group. Move only detached
+  // accessories just enough to touch the torso in normalized model space.
   if (tailMeshes.length && torsoMeshes.length) {
     const torsoBounds = new THREE.Box3();
     for (const mesh of torsoMeshes) {
