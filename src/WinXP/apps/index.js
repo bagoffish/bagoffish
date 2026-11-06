@@ -21,7 +21,6 @@ import poemsIconSmall from "assets/windowsIcons/327(16x16).png";
 import socialsIcon from "assets/windowsIcons/ie.png";
 import socialsIconSmall from "assets/windowsIcons/ie-paper.png";
 import winterLetterIcon from "assets/windowsIcons/mail.png";
-import coyChatIcon from "assets/windowsIcons/at.png";
 import RendererIcon from "assets/windowsIcons/299(32x32).png";
 
 // Heavy apps are loaded only when opened. This keeps the XP desktop fast
@@ -38,7 +37,6 @@ function lazyApp(loader) {
 }
 
 const WinterLetter = lazyApp(() => import("./WinterLetter"));
-const CoyChat = lazyApp(() => import("./Coy"));
 
 import RendererIconSmall from "assets/windowsIcons/299(32x32).png";
 
@@ -81,17 +79,6 @@ export const defaultIconState = [
 
 /* start menu / openApp settings */
 export const appSettings = {
-  Coy: {
-    header: { icon: coyChatIcon, title: "Coy", buttons: ["minimize", "maximize", "close"] },
-    component: CoyChat,
-    defaultSize: { width: 500, height: 520 },
-    defaultOffset: { x: 180, y: 45 },
-    resizable: true,
-    minimized: false,
-    maximized: window.innerWidth < 800,
-    multiInstance: false,
-  },
-
   Winter_Letter: {
     header: { icon: winterLetterIcon, title: "Winter_Letter" },
     component: WinterLetter,
