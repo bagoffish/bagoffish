@@ -342,9 +342,8 @@ That's all I'll say due to limited space, just talk to me if you're interested.
 If normal, there's 0 biting.`;
 
 const INTERESTS_TEXT = `Hobbies: Playing guitar, writing, photographing, illustrating & dissecting
-Genres: Philosophy, horror eroge, ero guro, body horror,
-        psychological horror, speculative evolution,
-        post-apocalyptic sci-fi`;
+Genres: Philosophy, horror eroge, ero guro, body horror, psychological horror, 
+        speculative evolution & post-apocalyptic sci-fi`;
 
 const RECS_TEXT = `TV Shows: Mr. Robot & American Gods
 Visual Novels: Saya no Uta, Steins;Gate, Katawa Shoujo,
