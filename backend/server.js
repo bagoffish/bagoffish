@@ -4,7 +4,6 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { gunzipSync } from "zlib";
-import personalAiRouter from "./personal-ai.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +51,6 @@ app.use((err, req, res, next) => {
 });
 
 app.use(express.json({ limit: "18mb" }));
-app.use("/personal-ai", personalAiRouter);
 
 app.get("/", (req, res) => {
   res.type("text").send("ok");
