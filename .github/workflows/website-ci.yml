@@ -19,7 +19,6 @@ jobs:
         working-directory: backend
         run: |
           node --check server.js
-          node --check personal-ai.js
       - name: Run backend tests
         working-directory: backend
         run: |
@@ -53,19 +52,7 @@ jobs:
                 throw new Error('Visitor counter endpoint returned an invalid count');
               }
 
-              const preflight = await fetch(base + '/personal-ai/chat', {
-                method: 'OPTIONS',
-                headers: {
-                  Origin: 'https://bagof.fish',
-                  'Access-Control-Request-Method': 'POST',
-                  'Access-Control-Request-Headers': 'content-type'
-                }
-              });
-              if (preflight.status !== 204 || preflight.headers.get('access-control-allow-origin') !== '*') {
-                throw new Error('Chat CORS preflight failed (HTTP ' + preflight.status + ')');
-              }
-
-              console.log('Backend health OK; visitor count endpoint returned ' + count + '; visitor storage: ' + health.visitorStore + '; chat CORS preflight OK.');
+              console.log('Backend health OK; visitor count endpoint returned ' + count + '; visitor storage: ' + health.visitorStore + ';');
               process.exit(0);
             } catch (error) {
               lastError = error;
