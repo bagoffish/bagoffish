@@ -5,10 +5,6 @@ import { SWAP_AVATARS, BODYSWAP_MS, BODYSWAP_POTION_MS } from "./avatarRoster";
 import { launchSuperBall, preloadSuperBall, clearSuperBalls } from "./superball";
 import { ROBLOX_FONT, robloxBoxStyle, robloxDownTailStyle, robloxTexture } from "./robloxDialog";
 
-const API_BASE = (process.env.REACT_APP_API_BASE || "https://fossils.onrender.com").replace(/\/$/, "");
-const ROBLOX_DIALOG_ASSET_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/images/roblox-dialog/";
-const GREETINGS = ["Sup", "Hi", "Haii", "Hai", "Hey", "Heyy", "Hii", "Yo!"];
-const randomGreeting = () => GREETINGS[Math.floor(Math.random() * GREETINGS.length)];
 const randomLine = lines => lines[Math.floor(Math.random() * lines.length)];
 
 // ---- Coy's autonomous behaviour (tune here) ----
@@ -24,27 +20,7 @@ const HOOK_TRAVEL_S = 0.7;        // keep the travelling hook visible long enoug
 const WALL_ROPE_REACH = 560;      // farthest wall he will fire at, px
 const lerp = (a, b, k) => a + (b - a) * k;
 const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
-const COY_COMPANION_COOKIE = 'coy_companion_chat';
-function readCompanionChatCookie() {
-  try {
-    const match = document.cookie.split('; ').find(part => part.startsWith(COY_COMPANION_COOKIE + '='));
-    if (!match) return [];
-    const parsed = JSON.parse(decodeURIComponent(match.slice(COY_COMPANION_COOKIE.length + 1)));
-    return Array.isArray(parsed) ? parsed.filter(item => item && ['user', 'assistant'].includes(item.role) && typeof item.content === 'string').slice(-12) : [];
-  } catch (_) { return []; }
-}
-function writeCompanionChatCookie(messages) {
-  try {
-    let kept = messages.slice(-12);
-    let encoded = encodeURIComponent(JSON.stringify(kept));
-    while (encoded.length > 3500 && kept.length > 2) {
-      kept = kept.slice(1);
-      encoded = encodeURIComponent(JSON.stringify(kept));
-    }
-    document.cookie = COY_COMPANION_COOKIE + '=' + encoded + '; Max-Age=2592000; Path=/; SameSite=Lax';
-  } catch (_) {}
-}
-const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
+companion chat cookie helpersconst renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
   : part);
 
@@ -68,79 +44,13 @@ const formatCoyText = value => {
   return text.charAt(0).toLocaleUpperCase() + text.slice(1);
 };
 
-const COY_APP_ALIASES = {
-  "about": "About Me", "about me": "About Me", "profile": "About Me",
-  "letters": "Winter_Letter", "winter letter": "Winter_Letter", "winterletter": "Winter_Letter",
-  "poem": "Poems", "poems": "Poems",
-  "renderer": "Renderer", "roblox renderer": "Renderer", "avatar renderer": "Renderer",
-  "paint": "Paint", "ms paint": "Paint", "minesweeper": "Minesweeper",
-  "mine sweeper": "Minesweeper", "winamp": "Winamp", "music player": "Winamp",
-  "coy": "Coy", "coy chat": "Coy"
-};
-
-function parseCoyRequestedAction(message) {
-  let text = String(message || "").trim()
-    .replace(/^(?:hey\s+coy[,! ]*|coy[,! ]*)/i, "")
-    .replace(/^(?:(?:please|kindly)\s+|(?:can|could|would|will)\s+you\s+(?:(?:please)\s+)?|i\s+(?:want|need)\s+you\s+to\s+)/i, "")
-    .trim();
-  const clean = value => String(value || "").trim().replace(/^["']|["']$/g, "")
-    .replace(/[.!?]+$/, "").replace(/\s+(?:for me|please|thanks|thank you)$/i, "").trim();
-  const appName = value => COY_APP_ALIASES[clean(value).toLowerCase()
-    .replace(/[_-]+/g, " ").replace(/\s+(?:app|window)$/i, "").replace(/\s+/g, " ")] || null;
-
-  // One message can both open Renderer and run its search.
-  let match = text.match(/^(?:open|launch|start|show)\s+(?:the\s+)?(?:roblox\s+|avatar\s+)?renderer(?:\s+app|\s+window)?\s+(?:and|then)\s+(?:look\s+up|lookup|search(?:\s+for)?|find)\s+(.+?)[.!?]*$/i);
-  if (match) return { action: "search", name: "Renderer", target: "search", value: clean(match[1]) };
-  match = text.match(/^(?:look\s+up|lookup|find|search(?:\s+for)?)\s+(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
-  if (match) {
-    const name = appName(match[2]);
-    if (name) return { action: "search", name, target: "search", value: clean(match[1]).replace(/^for\s+/i, "") };
-  }
-  match = text.match(/^(click|press)\s+(?:on\s+)?(?:the\s+)?(.+?)\s+(?:button\s+)?in\s+(?:the\s+)?(.+?)[.!?]*$/i);
-  if (match) {
-    const name = appName(match[3]);
-    if (name && match[1].toLowerCase() === "click") return { action: "click", name, target: clean(match[2]).replace(/\s+button$/i, "") };
-    if (name && match[1].toLowerCase() === "press") return { action: "press", name, key: clean(match[2]) };
-  }
-  match = text.match(/^(?:type|enter)\s+(.+?)\s+into\s+(?:the\s+)?(.+?)\s+in\s+(?:the\s+)?(.+?)[.!?]*$/i);
-  if (match) {
-    const name = appName(match[3]);
-    if (name) return { action: "fill", name, value: clean(match[1]), target: clean(match[2]) };
-  }
-  match = text.match(/^(open|launch|start|show|focus|switch to|maximize|minimize|restore|close|hide)(?:\s+up)?\s+(?:the\s+)?(.+?)[.!?]*$/i);
-  if (match) {
-    const name = appName(clean(match[2]));
-    if (name) {
-      const word = match[1].toLowerCase();
-      return { action: ["launch", "start"].includes(word) ? "open" : ["show", "switch to"].includes(word) ? "focus" : word === "hide" ? "minimize" : word, name };
-    }
-  }
-  // Generic lookups happen inside this site's Renderer app, never in a new browser tab.
-  match = text.match(/^(?:look\s+up|lookup|search\s+for|find|search)\s+(.+?)[.!?]*$/i);
-  if (match) return { action: "search", name: "Renderer", target: "search", value: clean(match[1]) };
-  return null;
-}
-
-function executeCoyRequestedAction(action) {
-  if (!action) return;
-  const eventName = ["click", "fill", "search", "press"].includes(action.action)
-    ? "coy:app-action" : "coy:desktop-action";
-  window.dispatchEvent(new CustomEvent(eventName, { detail: action }));
-}
-
 export default function CoyCompanion() {
   const [avatarReady, setAvatarReady] = useState(false);
   const [showBubble, setShowBubble] = useState(false);
   const [bubbleExpanded, setBubbleExpanded] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
   const [underAppWindows, setUnderAppWindows] = useState(false);
   const [line, setLine] = useState("");
-  const [chatGreeting, setChatGreeting] = useState(randomGreeting);
   useEffect(() => setBubbleExpanded(false), [line]);
-  const [draft, setDraft] = useState("");
-  const [history, setHistory] = useState(() => readCompanionChatCookie());
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef(null);
   const lastActivity = useRef(0);
   const openAppsRef = useRef([]);
   const fullTabActiveRef = useRef(false);
@@ -190,7 +100,7 @@ export default function CoyCompanion() {
   const lastDesktopReaction = useRef(0);
   posRef.current = position;
   poseRef.current = pose;
-  uiRef.current = { chatOpen, busy, underAppWindows };
+  uiRef.current = { underAppWindows };
 
   const rootRef = useRef(null);
   const bubbleWrapRef = useRef(null);
@@ -471,35 +381,12 @@ export default function CoyCompanion() {
 
 
   useEffect(() => {
-    if (!showBubble || busy) return undefined;
-    // Give longer lines more reading time, but don't leave a bubble hanging around.
+    if (!showBubble) return undefined;
+    // Give longer scripted lines more reading time, but don't leave a bubble hanging around.
     const readingTime = Math.min(14000, Math.max(5000, 3000 + line.length * 50));
     const timer = window.setTimeout(() => setShowBubble(false), readingTime);
     return () => window.clearTimeout(timer);
-  }, [showBubble, busy, line]);
-
-  useEffect(() => {
-    writeCompanionChatCookie(history);
-  }, [history]);
-
-  useEffect(() => {
-    if (chatOpen) inputRef.current?.focus();
-  }, [chatOpen]);
-
-  // Press / anywhere on the desktop to open Coy chat. Never steal the key
-  // while the user is already typing into a field or an editable element.
-  useEffect(() => {
-    const onShortcut = event => {
-      if (event.key !== "/" || event.altKey || event.ctrlKey || event.metaKey || event.repeat) return;
-      const target = event.target;
-      const tag = String(target?.tagName || "").toLowerCase();
-      if (tag === "input" || tag === "textarea" || tag === "select" || target?.isContentEditable) return;
-      event.preventDefault();
-      openChat();
-    };
-    window.addEventListener("keydown", onShortcut);
-    return () => window.removeEventListener("keydown", onShortcut);
-  }, []);
+  }, [showBubble, line]);
 
   useEffect(() => {
     const announce = (text, options = {}) => {
@@ -507,9 +394,6 @@ export default function CoyCompanion() {
       setShowBubble(true);
       if (options.image) setFoundImage(options.image);
     };
-    const onCloseChat = () => setChatOpen(false);
-    window.addEventListener("coy:close-chat", onCloseChat);
-
     // Use both the app-state event and the rendered window DOM. The DOM check
     // is a fallback for app windows opened by another launcher/tab that doesn't
     // publish coy:activity, and MutationObserver keeps it in sync on mobile.
@@ -573,7 +457,6 @@ export default function CoyCompanion() {
       window.removeEventListener("coy:app-action", onCoyAppAction);
       window.removeEventListener("resize", onResize);
       document.removeEventListener("fullscreenchange", onResize);
-      window.removeEventListener("coy:close-chat", onCloseChat);
       appWindowObserver.disconnect();
     };
   }, []);
@@ -826,7 +709,7 @@ export default function CoyCompanion() {
     const fire = () => {
       if (dead) return;
       const ui = uiRef.current;
-      const ready = !ui.chatOpen && !ui.busy && !ui.underAppWindows && !reduced() && !document.hidden &&
+      const ready = !ui.underAppWindows && !reduced() && !document.hidden &&
         !actionRef.current && !dragState.current && wasStandingAligned.current &&
         (poseRef.current === "idle" || poseRef.current === "walk");
       if (!ready) { schedule(1500 + Math.random() * 1500); return; }
@@ -839,7 +722,7 @@ export default function CoyCompanion() {
 
   useEffect(() => {
     // Speech bubbles are visual only: they must not pause Coy's autonomous walking.
-    if (chatOpen || busy || underAppWindows) return;
+    if (underAppWindows) return;
     if (pose !== "idle" && pose !== "walk") return;
     if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     let raf = 0, last = performance.now(), walking = pose === "walk";
@@ -910,7 +793,7 @@ export default function CoyCompanion() {
     };
     raf = window.requestAnimationFrame(step);
     return () => window.cancelAnimationFrame(raf);
-  }, [pose, chatOpen, showBubble, busy, underAppWindows, spriteSize]);
+  }, [pose, showBubble, underAppWindows, spriteSize]);
 
 
   function startFall() {
@@ -1520,56 +1403,13 @@ export default function CoyCompanion() {
     lastActivity.current = Date.now();
   }
 
-  function openChat() {
-    window.dispatchEvent(new CustomEvent("coy:open-chat"));
-  }
-
-  async function send(event, overrideMessage) {
-    if (event && event.preventDefault) event.preventDefault();
-    const message = (overrideMessage || draft).trim();
-    if (!message || busy) return;
-    setDraft("");
-    setBusy(true);
-    const nextHistory = [...history, { role: "user", content: message }];
-    setHistory(nextHistory);
-    // Execute clear desktop/app requests from the floating Coy chat too. The
-    // in-window Coy app and companion should share the same practical behavior.
-    try { executeCoyRequestedAction(parseCoyRequestedAction(message)); } catch (_) {}
-    try {
-      const response = await fetch(API_BASE + "/personal-ai/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Accept: "application/json" },
-        body: JSON.stringify({
-          message,
-          history: nextHistory.slice(-8),
-          websiteContext: { source: "companion-chat", openApps: openAppsRef.current }
-        })
-      });
-      const data = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(data.error || ("Chat failed (HTTP " + response.status + ")"));
-      if (!data || typeof data !== "object") throw new Error("Invalid chat response");
-      const answer = typeof data.answer === "string" ? data.answer.trim() : "";
-      if (answer) {
-        setHistory(h => [...h, { role: "assistant", content: answer }]);
-        setLine(formatCoyText(answer));
-        setShowBubble(true);
-      }
-    } catch (err) {
-      console.error("Coy chat request failed:", err);
-      setLine("Can’t reach me rn.. sowwy");
-      setShowBubble(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const styles = {
     root: {
       position: "fixed",
       left: position.left,
       top: position.top,
-      zIndex: chatOpen ? 10001 : underAppWindows ? 0 : 9999,
-      visibility: underAppWindows && !chatOpen ? "hidden" : "visible",
+      zIndex: underAppWindows ? 0 : 9999,
+      visibility: underAppWindows ? "hidden" : "visible",
       pointerEvents: "none",
       userSelect: "none",
       touchAction: "none"
@@ -1636,19 +1476,6 @@ export default function CoyCompanion() {
       textShadow: "none",
       pointerEvents: "none"
     },
-    chatBox: {
-      position: "absolute",
-      bottom: "100%",
-      marginBottom: 12,
-      left: "50%",
-      width: 240,
-      background: "#ece9d8",
-      border: "2px solid #000",
-      padding: 8,
-      font: "12px Tahoma, Arial, sans-serif",
-      zIndex: 2,
-      pointerEvents: "auto"
-    },
     heldRender: {
       position: "absolute",
       bottom: spriteSize * 0.6,
@@ -1681,43 +1508,6 @@ export default function CoyCompanion() {
         style={{ position: "relative", display: "block", width: spriteSize, height: getCoyHeight(), background: "transparent", border: 0, outline: "none", padding: 0, margin: 0, overflow: "visible", cursor: "grab", touchAction: "none", pointerEvents: "auto" }}
       >
         <CoyAvatar3D size={spriteSize} pose={pose} swap={swapAvatar} swapPreload={swapPreload} dir={dir} vx={velRef.current.vx} impact={impact} look={lookRef.current} grapple={grappleRef.current} ball={ballRef.current} getPos={() => ({ x: posRef.current.left, y: posRef.current.top })} onReady={() => setAvatarReady(true)} />
-      </button>
-
-      <button
-        type="button"
-        aria-label="Open Coy chat"
-        title="Chat with Coy"
-        onClick={event => { event.stopPropagation(); openChat(); }}
-        style={{
-          position: "absolute",
-          // Keep the chat icon beside Coy's head rather than beside his torso.
-          left: Math.round(spriteSize * 0.7),
-          top: Math.round(spriteSize * 0.05),
-          width: 30,
-          height: 30,
-          padding: 0,
-          border: 0,
-          background: "transparent",
-          cursor: "pointer",
-          pointerEvents: "auto",
-          display: "block",
-          zIndex: 4
-        }}
-        onMouseEnter={event => {
-          const image = event.currentTarget.querySelector("img");
-          if (image) image.src = ROBLOX_DIALOG_ASSET_BASE + "Chat_ovr.png";
-        }}
-        onMouseLeave={event => {
-          const image = event.currentTarget.querySelector("img");
-          if (image) image.src = ROBLOX_DIALOG_ASSET_BASE + "Chat_ds.png";
-        }}
-      >
-        <img
-          src={ROBLOX_DIALOG_ASSET_BASE + "Chat_ds.png"}
-          alt=""
-          draggable={false}
-          style={{ display: "block", width: "100%", height: "100%", objectFit: "contain" }}
-        />
       </button>
 
       {showBubble && (
