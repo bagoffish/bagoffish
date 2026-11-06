@@ -20,7 +20,7 @@ const HOOK_TRAVEL_S = 0.7;        // keep the travelling hook visible long enoug
 const WALL_ROPE_REACH = 560;      // farthest wall he will fire at, px
 const lerp = (a, b, k) => a + (b - a) * k;
 const easeInOut = k => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
-companion chat cookie helpersconst renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
+const renderCoyEmoji = value => String(value ?? "").split(/(:ono:)/gi).map((part, index) => part.toLowerCase() === ":ono:"
   ? <img key={index} src="/images/ono.png" onError={event => { event.currentTarget.replaceWith(document.createTextNode("😬")); }} alt="nervous, awkward, or startled" title="Nervous / awkward / startled" style={{ width: "1.6em", height: "1.6em", objectFit: "contain", verticalAlign: "-0.3em", display: "inline-block" }} />
   : part);
 
@@ -1394,7 +1394,7 @@ export default function CoyCompanion() {
       return;
     }
     if (poseRef.current === "climbing" || poseRef.current === "fall" || actionRef.current?.name === "wall") return;
-    // Clicking Coy only pats him; use the chat button to open the chatbot.
+    // Clicking Coy only triggers a short dance.
     if (clickTimer.current) window.clearTimeout(clickTimer.current);
     clickTimer.current = null;
     // A direct click plays one dance; it never triggers the old pat pose or a pat bubble.
