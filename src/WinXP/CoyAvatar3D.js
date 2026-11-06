@@ -265,12 +265,12 @@ function loadModel(model, base = BASE, options = {}) {
       const materials = mtlLoader.parse(cacheBustedMtl, base);
       materials.preload();
 
-      // Coy's texture layout:
-      // Handle1 = hair, Handle2 = hat, Handle3 = blush/face accessory,
-      // Handle4 = bag, Handle5 = body plus additional hats/accessories.
-      // Handle6..8 and Capitalstate body groups share Handle5's body/accessory atlas.
-      // Assign textures by OBJ group name so reused MTL names cannot leak the bag map.
-      const handleTextureFiles = {
+      // The default Coy model has a custom texture layout that is not fully
+      // represented in its MTL (Capitalstate body groups share Handle5).
+      // Tour/swap avatars must use their own MTL maps: many do not have all
+      // Handle1..5_diff.png files, and forcing those names causes 404 requests.
+      const isDefaultCoyModel = base.replace(/\\/+$/, "") === COY_BASE.replace(/\\/+$/, "");
+      const handleTextureFiles = isDefaultCoyModel ? {
         1: "Handle1_diff.png",
         2: "Handle2_diff.png",
         3: "Handle3_diff.png",
@@ -279,11 +279,11 @@ function loadModel(model, base = BASE, options = {}) {
         6: "Handle5_diff.png",
         7: "Handle5_diff.png",
         8: "Handle5_diff.png",
-      };
+      } : null;
       const textureLoader = new THREE.TextureLoader();
       const handleTextures = new Map();
       const getHandleTexture = index => {
-        const filename = handleTextureFiles[index];
+        const filename = handleTextureFiles?.[index];
         if (!filename) return null;
         if (!handleTextures.has(filename)) {
           const texture = textureLoader.load(
@@ -316,10 +316,9 @@ function loadModel(model, base = BASE, options = {}) {
         root.traverse(o => {
           if (!o.isMesh) return;
 
-          // Give every OBJ group its own material instance. Handles 1..4
-          // get their dedicated accessory maps. Handle5's atlas is also used by
-          // Handle6..8 and all Capitalstate body meshes, because it contains the
-          // full body plus additional hats/accessories.
+          // Give every OBJ group its own material instance. The default Coy
+          // model needs its custom Handle texture assignments; swap avatars keep
+          // the maps declared by their own MTL files.
           const objectName = String(o.name || "");
           const handleMatch = objectName.match(/^Handle([1-8])(?:_|$)/i);
           const isBodyGroup = /^Capitalstate\d*/i.test(objectName);
