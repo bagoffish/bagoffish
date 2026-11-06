@@ -316,15 +316,10 @@ function loadModel(model, base = BASE, options = {}) {
             m.depthWrite = true;
             if ("transmission" in m) m.transmission = 0;
 
-            // Coy's Handle4 hairclip is intentionally neon green; other avatars'
-            // Handle4 is a real textured accessory.
-            if (options.neonClip && /^Handle4Mtl$/i.test(m.name || "")) {
-              m.map = null;
-              m.alphaMap = null;
-              m.color.set("#39ff14");
-            } else if (m.map) {
-              m.color.set(0xffffff);
-            }
+            // Keep Coy accessories textured too. In particular, Handle4 can be
+            // the bag in this export, so never replace its diffuse map with a
+            // hard-coded neon-green material.
+            if (m.map) m.color.set(0xffffff);
             m.needsUpdate = true;
           });
         });
@@ -646,7 +641,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const v = "?v=" + (meta.model.hash || meta.version);
         let next;
         try {
-          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }, COY_BASE, { neonClip: true });
+          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }, COY_BASE);
         } catch (e) {
           version = null; // let the next metadata poll retry this same avatar
           console.warn("Coy: real avatar model failed to load; will retry", e);
