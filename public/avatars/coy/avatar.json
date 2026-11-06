@@ -1,0 +1,11 @@
+{
+  "version": "coy-avatars-folder",
+  "rig": "R6",
+  "bodyColors": {},
+  "model": {
+    "obj": "coy.obj",
+    "mtl": "coy.mtl",
+    "hash": "coy-avatars-folder"
+  },
+  "assets": []
+}
