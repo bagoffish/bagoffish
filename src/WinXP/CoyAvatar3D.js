@@ -7,8 +7,8 @@ import { splitIntoR6Parts } from "./r6Split";
 import { SWAP_AVATARS } from "./avatarRoster";
 import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorsoLayer, sampleClip } from "./r6Retarget";
 
-// R6 avatar rendered on a transparent canvas. Colors come from /avatar/avatar.json,
-// which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
+// R6 avatar rendered on a transparent canvas. The default Coy model lives in
+// public/avatars/coy; animation clips and gear assets remain in public/avatar.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
 const AVATARS_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatars/";
 const COY_BASE = AVATARS_BASE + "coy/";
