@@ -11,8 +11,9 @@ import { REST, resetAvatarPose, applyImportedAnimation, torsoTargets, applyTorso
 // which scripts/sync-avatar.mjs refreshes from Roblox on a schedule.
 const BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatar/";
 const AVATARS_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/avatars/";
+const COY_BASE = AVATARS_BASE + "coy/";
 const TOOL_SOUND_BASE = (process.env.PUBLIC_URL || "").replace(/\/$/, "") + "/sounds/coy-tools/";
-const META_URL = BASE + "avatar.json";
+const META_URL = COY_BASE + "avatar.json";
 const ASPECT = 0.9;          // canvas width / height
 const FOOT = 0.09;           // fraction of canvas height below the feet
 const DEFAULT_COLORS = { head: "#f5cd30", torso: "#2f6fed", leftArm: "#f5cd30", rightArm: "#f5cd30", leftLeg: "#2b2f3a", rightLeg: "#2b2f3a" };
@@ -558,7 +559,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
     });
 
     // ---- Bodyswap: the other avatars live in public/avatars/<id>/ and load on demand ----
-    // Coy (from /avatar/, kept fresh by the Roblox sync) is always the default. coyAv is kept
+    // Coy (from /avatars/coy/) is always the default. coyAv is kept
     // loaded while someone else is worn so changing back is instant.
     const swapCache = new Map();     // id -> loaded R6 avatar
     const swapLoading = new Set();
@@ -617,7 +618,7 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         const v = "?v=" + (meta.model.hash || meta.version);
         let next;
         try {
-          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }, BASE, { neonClip: true });
+          next = await loadModel({ obj: meta.model.obj + v, mtl: meta.model.mtl + v }, COY_BASE, { neonClip: true });
         } catch (e) {
           version = null; // let the next metadata poll retry this same avatar
           console.warn("Coy: real avatar model failed to load; will retry", e);
