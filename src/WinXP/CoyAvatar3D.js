@@ -265,10 +265,11 @@ function loadModel(model, base = BASE, options = {}) {
       const materials = mtlLoader.parse(cacheBustedMtl, base);
       materials.preload();
 
-      // The OBJ contains Handle1..Handle8 groups. Handle1..Handle5 each
-      // have their own texture; Handle6..Handle8 intentionally share Handle5.
-      // Assign textures by OBJ group name, not just by MTL material name, so
-      // one reused MTL material can never spread the bag texture across the body.
+      // Coy's texture layout:
+      // Handle1 = hair, Handle2 = hat, Handle3 = blush/face accessory,
+      // Handle4 = bag, Handle5 = body plus additional hats/accessories.
+      // Handle6..8 and Capitalstate body groups share Handle5's body/accessory atlas.
+      // Assign textures by OBJ group name so reused MTL names cannot leak the bag map.
       const handleTextureFiles = {
         1: "Handle1_diff.png",
         2: "Handle2_diff.png",
@@ -315,19 +316,21 @@ function loadModel(model, base = BASE, options = {}) {
         root.traverse(o => {
           if (!o.isMesh) return;
 
-          // Give every OBJ group its own material instance. The body groups
-          // (Capitalstate1..6) must remain untextured; only Handle groups receive
-          // one of the five numbered accessory textures.
-          const handleMatch = String(o.name || "").match(/^Handle([1-8])(?:_|$)/i);
-          const handleTexture = handleMatch ? getHandleTexture(Number(handleMatch[1])) : null;
+          // Give every OBJ group its own material instance. Handles 1..4
+          // get their dedicated accessory maps. Handle5's atlas is also used by
+          // Handle6..8 and all Capitalstate body meshes, because it contains the
+          // full body plus additional hats/accessories.
+          const objectName = String(o.name || "");
+          const handleMatch = objectName.match(/^Handle([1-8])(?:_|$)/i);
+          const isBodyGroup = /^Capitalstate\d*/i.test(objectName);
+          const handleTexture = handleMatch
+            ? getHandleTexture(Number(handleMatch[1]))
+            : (isBodyGroup ? getHandleTexture(5) : null);
           const sourceMaterials = [].concat(o.material || []);
           const isolatedMaterials = sourceMaterials.map(sourceMaterial => {
             const material = sourceMaterial.clone();
             if (handleTexture) {
               material.map = handleTexture;
-              material.color?.set(0xffffff);
-            } else if (/^Capitalstate\d*/i.test(String(o.name || ""))) {
-              material.map = null;
               material.color?.set(0xffffff);
             }
             material.needsUpdate = true;
