@@ -273,7 +273,6 @@ function loadModel(model, base = BASE, options = {}) {
         Handle3Mtl: "Handle3_diff.png",
         Handle4Mtl: "Handle4_diff.png",
         Handle5Mtl: "Handle5_diff.png",
-        Capitalstate1Mtl: "Handle4_diff.png",
       };
       const textureLoader = new THREE.TextureLoader();
       Object.entries(materials.materials || {}).forEach(([materialName, material]) => {
