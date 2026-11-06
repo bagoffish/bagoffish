@@ -264,6 +264,34 @@ function loadModel(model, base = BASE, options = {}) {
       );
       const materials = mtlLoader.parse(cacheBustedMtl, base);
       materials.preload();
+
+      // Resolve Coy's numbered accessory textures directly from this avatar
+      // folder. This avoids relying on relative map paths in exported MTL files.
+      const accessoryTextureFiles = {
+        Handle1Mtl: "Handle1_diff.png",
+        Handle2Mtl: "Handle2_diff.png",
+        Handle3Mtl: "Handle3_diff.png",
+        Handle4Mtl: "Handle4_diff.png",
+        Handle5Mtl: "Handle5_diff.png",
+        Capitalstate1Mtl: "Handle5_diff.png",
+      };
+      const textureLoader = new THREE.TextureLoader();
+      Object.entries(materials.materials || {}).forEach(([materialName, material]) => {
+        const textureFile = accessoryTextureFiles[materialName]
+          || accessoryTextureFiles[materialName.replace(/_\d+$/, "")];
+        if (!textureFile || !material) return;
+        const texture = textureLoader.load(
+          withCacheBust(base + textureFile),
+          undefined,
+          undefined,
+          error => console.warn("Coy: accessory texture failed to load", textureFile, error)
+        );
+        if ("colorSpace" in texture && THREE.SRGBColorSpace) texture.colorSpace = THREE.SRGBColorSpace;
+        material.map = texture;
+        material.color?.set(0xffffff);
+        material.needsUpdate = true;
+      });
+
       const objLoader = new OBJLoader();
       objLoader.setMaterials(materials);
       // OBJLoader preserves "o" object names but discards the names in "g" group
