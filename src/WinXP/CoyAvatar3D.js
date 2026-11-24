@@ -319,9 +319,9 @@ function loadModel(model, base = BASE, options = {}) {
           // the maps declared by their own MTL files.
           const objectName = String(o.name || "");
           const handleMatch = objectName.match(/^Handle([1-8])(?:_|$)/i);
-          // In Coy's export, Handle4 is the Frenemy shoulder accessory. Mark
+          // In Coy's export, Handle3 is the Frenemy shoulder accessory. Mark
           // it explicitly so the R6 splitter attaches it to the torso joint.
-          if (isDefaultCoyModel && /^Handle4(?:_|$)/i.test(objectName)) {
+          if (isDefaultCoyModel && /^Handle3(?:_|$)/i.test(objectName)) {
             o.userData.attachToTorso = true;
           }
           const isBodyGroup = /^Capitalstate\d*/i.test(objectName);
