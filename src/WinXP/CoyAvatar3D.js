@@ -271,14 +271,12 @@ function loadModel(model, base = BASE, options = {}) {
       // Handle1..5_diff.png files, and forcing those names causes 404 requests.
       const isDefaultCoyModel = base.replace(/\/+$/, "") === COY_BASE.replace(/\/+$/, "");
       const handleTextureFiles = isDefaultCoyModel ? {
+        // Coy's OBJ assigns Handle1Mtl to Handles 1–4, so they all share
+        // the one texture actually shipped with this avatar.
         1: "Handle1_diff.png",
-        2: "Handle2_diff.png",
-        3: "Handle3_diff.png",
-        4: "Handle4_diff.png",
-        5: "Handle5_diff.png",
-        6: "Handle5_diff.png",
-        7: "Handle5_diff.png",
-        8: "Handle5_diff.png",
+        2: "Handle1_diff.png",
+        3: "Handle1_diff.png",
+        4: "Handle1_diff.png",
       } : null;
       const textureLoader = new THREE.TextureLoader();
       const handleTextures = new Map();
