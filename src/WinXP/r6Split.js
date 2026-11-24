@@ -45,7 +45,7 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
       current.userData?.groupName,
       ...[].concat(current.material || []).map(material => material?.name),
     ].filter(value => typeof value === "string");
-    if (candidates.some(value => /OpossumTail/i.test(value))) return true;
+    if (current.userData?.attachToTorso || candidates.some(value => /OpossumTail/i.test(value))) return true;
     if (candidates.some(value => /(?:^|\s)Handle\d+(?:Mtl)?(?:$|\s)/i.test(value.trim()))) isHandle = true;
   }
 
@@ -57,18 +57,6 @@ function isTorsoAccessory(object, torsoBounds, headBounds) {
   const torsoDistance = distanceToBox(center, torsoBounds);
   const headDistance = distanceToBox(center, headBounds);
   const neckBoundary = (torsoBounds.max.y + headBounds.min.y) / 2;
-
-  // Shoulder-mounted accessories can have a center above the neck boundary
-  // while their lower/inner edge sits against the upper torso. If the mesh
-  // overlaps the torso's shoulder-height band and extends clearly beyond the
-  // side of the head, keep it with the torso so head tracking cannot move it.
-  const overlapsShoulderBand =
-    accessoryBounds.min.y < torsoBounds.max.y + 0.15 &&
-    accessoryBounds.max.y > torsoBounds.max.y - 0.5;
-  const extendsPastHeadSide =
-    accessoryBounds.min.x < headBounds.min.x - 0.25 ||
-    accessoryBounds.max.x > headBounds.max.x + 0.25;
-  if (overlapsShoulderBand && extendsPastHeadSide) return true;
 
   // Face/head accessories are generally closer to the head. A bag or backpack
   // sits at torso height and is closer to the torso, even when it is in front
