@@ -152,8 +152,8 @@ jobs:
           SOURCE_SHA: ${{ steps.source-check.outputs.sha }}
         run: |
           set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "coy"
+          git config user.email "c@bagof.fish"
 
           # Publish on top of the latest main instead of rebasing a stale generated
           # commit over concurrent edits to index.html or asset-manifest.json.
