@@ -1,0 +1,91 @@
+name: Forum archive worker
+
+# Rebuilds the old Roblox forum from Wayback Machine captures (Archive Team's
+# archiveteam_roblox collection), a few batches per run. Progress is kept as
+# assets of the forum-wayback-work release.
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      workers:
+        description: "Parallel batches this run"
+        default: "4"
+  push:
+    branches: [forum-wayback]
+    paths: [tools/wayback/**, .github/workflows/forum-wayback-worker.yml]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forum-wayback-worker
+  cancel-in-progress: false
+
+env:
+  WORK_TAG: forum-wayback-work
+  PAGES_PER_BATCH: "50"
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      batches: ${{ steps.plan.outputs.batches }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$WORK_TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release create "$WORK_TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --prerelease \
+              --title "Forum archive work in progress" \
+              --notes "Working files for rebuilding the old Roblox forum from Wayback Machine captures. Finished data is published in forum-posts-index-v1."
+          fi
+          WORKERS="${{ github.event.inputs.workers || '4' }}"
+          [ "${{ github.event_name }}" = "push" ] && WORKERS=1
+          RID=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$WORK_TAG" --jq .id)
+          gh api --paginate "repos/$GITHUB_REPOSITORY/releases/$RID/assets?per_page=100" --jq '.[].name' > assets.txt || true
+          RESULT=$(sort -u assets.txt | python3 tools/wayback/plan.py "$WORKERS" "$PAGES_PER_BATCH")
+          echo "$RESULT"
+          echo "batches=$(echo "$RESULT" | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin)["batches"]))')" >> "$GITHUB_OUTPUT"
+
+  work:
+    needs: plan
+    if: needs.plan.outputs.batches != '[]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    strategy:
+      fail-fast: false
+      matrix:
+        batch: ${{ fromJSON(needs.plan.outputs.batches) }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Process batch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -uo pipefail
+          B=$(printf "%05d" ${{ matrix.batch }})
+          mkdir -p w && cd w
+          gh release download "$WORK_TAG" -R "$GITHUB_REPOSITORY" -p "partial-$B.jsonl.gz" -p "partial-$B.progress.json" 2>/dev/null || true
+          EXTRA=""
+          [ "${{ github.event_name }}" = "push" ] && EXTRA="--max-pages 150"
+          python3 ../tools/wayback/worker.py --batch ${{ matrix.batch }} --pages-per-batch "$PAGES_PER_BATCH" \
+            --out "partial-$B.jsonl.gz" --progress "partial-$B.progress.json" $EXTRA
+          touch "partial-$B.jsonl.gz"
+          if python3 -c "import json,sys;sys.exit(0 if json.load(open('partial-$B.progress.json'))['complete'] else 1)"; then
+            mv "partial-$B.jsonl.gz" "batch-$B.jsonl.gz"
+            gh release upload "$WORK_TAG" -R "$GITHUB_REPOSITORY" --clobber "batch-$B.jsonl.gz"
+            gh release delete-asset "$WORK_TAG" "partial-$B.jsonl.gz" -R "$GITHUB_REPOSITORY" -y 2>/dev/null || true
+            gh release delete-asset "$WORK_TAG" "partial-$B.progress.json" -R "$GITHUB_REPOSITORY" -y 2>/dev/null || true
+          else
+            gh release upload "$WORK_TAG" -R "$GITHUB_REPOSITORY" --clobber "partial-$B.jsonl.gz" "partial-$B.progress.json"
+          fi
+
+  # On test pushes, publish right away so results can be checked end to end.
+  publish:
+    needs: work
+    if: always() && github.event_name == 'push'
+    uses: ./.github/workflows/forum-wayback-merge.yml

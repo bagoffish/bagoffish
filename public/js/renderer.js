@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v3";
+  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v4";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -235,7 +235,8 @@
       var title = text(post.title) || "(untitled)";
       var threadUrl = safeHttpUrl(post.threadUrl);
       item.appendChild(threadUrl ? externalLink("checker-post-title", title, threadUrl) : el("div", "checker-post-title", title));
-      var meta = [text(post.forum), formatArchiveDate(post.created)].filter(Boolean).join(" · ");
+      // Forum dates are kept exactly as the forum printed them (Roblox forum time).
+      var meta = [text(post.forum), text(post.created)].filter(Boolean).join(" · ");
       if (meta) item.appendChild(el("div", "checker-post-meta", meta));
       if (post.body) item.appendChild(el("div", "checker-post-body", text(post.body)));
       return item;
