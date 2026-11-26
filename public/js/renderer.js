@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v1";
+  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v2";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -111,136 +111,153 @@
 
     function getJson(url) {
       return fetch(url, { headers: { Accept: "application/json" } }).then(function (response) {
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        return response.json();
+        return response.json().catch(function () { return {}; }).then(function (body) {
+          if (!response.ok) {
+            var err = new Error((body && body.error) || ("HTTP " + response.status));
+            err.status = response.status;
+            err.code = body && body.code;
+            throw err;
+          }
+          return body;
+        });
       });
     }
 
-    function loadGroups(userId, sequence) {
-      var section = document.getElementById("userGroups");
+    // Every section reports its own failure, e.g. "Forum posts error: ...".
+    function showSectionError(container, label, message) {
+      if (!container) return;
+      var box = container.querySelector(":scope > .checker-error");
+      if (!box) {
+        box = el("div", "checker-error");
+        box.setAttribute("role", "alert");
+        var title = container.querySelector(":scope > .checker-section-title");
+        if (title && title.nextSibling) container.insertBefore(box, title.nextSibling);
+        else container.appendChild(box);
+      }
+      box.textContent = label + " error: " + message;
+    }
+
+    function clearSectionError(container) {
+      var box = container && container.querySelector(":scope > .checker-error");
+      if (box) box.remove();
+    }
+
+    function describeFailure(error, archiveName) {
+      if (error && error.code === "ARCHIVE_NOT_PUBLISHED") {
+        return "the " + archiveName + " archive isn't available yet.";
+      }
+      if (error && /Failed to fetch|NetworkError|Load failed/i.test(String(error.message))) {
+        return "couldn't reach the checker service. Try again in a moment.";
+      }
+      return "couldn't load right now" + (error && error.status ? " (HTTP " + error.status + ")." : ".");
+    }
+
+    function formatArchiveDate(value) {
+      var raw = text(value).trim();
+      if (!raw) return "";
+      var d = /^\d{10,13}$/.test(raw) ? new Date(Number(raw) * (raw.length === 10 ? 1000 : 1)) : new Date(raw);
+      if (isNaN(d.getTime())) return raw;
+      try {
+        return d.toLocaleString("en-US", { year: "numeric", month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "UTC" }) + " UTC";
+      } catch (_) { return d.toISOString(); }
+    }
+
+    function externalLink(className, label, href) {
+      var link = el("a", className, label);
+      link.href = href;
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      return link;
+    }
+
+    // Shared loader for archive sections: pages through ?offset= with "Load more".
+    function loadArchiveSection(options) {
+      var section = document.getElementById(options.sectionId);
       if (!section) return;
       var status = section.querySelector(".checker-section-status");
-      var list = section.querySelector(".checker-groups");
-      var id = text(userId).trim();
-      if (!/^\d+$/.test(id)) { status.textContent = "Groups unavailable."; return; }
+      var list = section.querySelector(".checker-archive-list");
+      var actions = section.querySelector(".checker-archive-actions");
+      var id = text(options.userId).trim();
+      if (!/^\d+$/.test(id)) { status.textContent = ""; showSectionError(section, options.label, "no user ID to look up."); return; }
+      var loaded = 0;
 
-      getJson(API_BASE + "/proxy-roblox-groups?userId=" + encodeURIComponent(id)).then(function (payload) {
-        if (sequence !== lookupSequence || !document.body.contains(section)) return;
-        var groups = Array.isArray(payload && payload.groups) ? payload.groups : [];
-        if (!groups.length) { status.textContent = "Not in any groups."; return; }
-        status.textContent = groups.length + (groups.length === 1 ? " group" : " groups");
-        groups.forEach(function (group) {
-          var card = el("a", "checker-group" + (group.isPrimary ? " is-primary" : ""));
-          card.href = "https://www.roblox.com/groups/" + encodeURIComponent(text(group.id)) + "/";
-          card.target = "_blank";
-          card.rel = "noopener noreferrer";
-          card.title = text(group.name);
+      function renderActions(nextOffset, busy) {
+        actions.innerHTML = "";
+        if (nextOffset != null) {
+          var more = el("button", "xpButton checker-more", busy ? "Loading…" : "Load more");
+          more.type = "button";
+          more.disabled = !!busy;
+          more.addEventListener("click", function () { fetchPage(nextOffset); });
+          actions.appendChild(more);
+        }
+        if (options.extraLink) actions.appendChild(options.extraLink(id));
+      }
 
-          var icon = el("img", "checker-group-icon");
-          icon.alt = "";
-          icon.loading = "lazy";
-          icon.decoding = "async";
-          var iconUrl = safeHttpUrl(group.iconUrl);
-          if (iconUrl) {
-            icon.addEventListener("error", function () { icon.style.visibility = "hidden"; }, { once: true });
-            icon.src = iconUrl;
-          } else {
-            icon.style.visibility = "hidden";
-          }
-          card.appendChild(icon);
-
-          var info = el("div", "checker-group-info");
-          var name = el("div", "checker-group-name", text(group.name) || ("Group " + text(group.id)));
-          if (group.verified) name.appendChild(el("span", "checker-badge checker-badge-verified", "✓"));
-          info.appendChild(name);
-          info.appendChild(el("div", "checker-group-meta", (text(group.role) || "Member") + (group.rank ? " · rank " + group.rank : "")));
-          info.appendChild(el("div", "checker-group-meta", formatCount(group.memberCount) + " members"));
-          if (group.isPrimary) info.appendChild(el("span", "checker-badge", "Primary"));
-          card.appendChild(info);
-          list.appendChild(card);
+      function fetchPage(offset) {
+        if (offset) renderActions(offset, true);
+        clearSectionError(section);
+        getJson(API_BASE + options.endpoint + "?userId=" + encodeURIComponent(id) + "&offset=" + offset + "&limit=25").then(function (payload) {
+          if (options.sequence !== lookupSequence || !document.body.contains(section)) return;
+          var posts = Array.isArray(payload && payload.posts) ? payload.posts : [];
+          posts.forEach(function (post) { list.appendChild(options.renderPost(post)); });
+          loaded += posts.length;
+          var total = Number(payload && payload.total) || loaded;
+          status.textContent = total
+            ? "Showing " + loaded + " of " + formatCount(total) + " " + (total === 1 ? options.noun : options.nounPlural)
+            : options.emptyText;
+          renderActions(payload && payload.nextOffset != null ? payload.nextOffset : null, false);
+        }).catch(function (error) {
+          if (options.sequence !== lookupSequence || !document.body.contains(section)) return;
+          status.textContent = loaded ? "Showing " + loaded + " " + options.nounPlural : "";
+          showSectionError(section, options.label, describeFailure(error, options.archiveName));
+          renderActions(loaded ? offset : null, false);
         });
-      }).catch(function () {
-        if (sequence !== lookupSequence || !document.body.contains(section)) return;
-        status.textContent = "Groups unavailable right now.";
+      }
+
+      fetchPage(0);
+    }
+
+    function renderGroupWallPost(post) {
+      var item = el("div", "checker-post");
+      var groupLabel = text(post.groupName) || (post.groupId ? "Group " + text(post.groupId) : "Unknown group");
+      var heading = post.groupId
+        ? externalLink("checker-post-title", groupLabel, "https://www.roblox.com/groups/" + encodeURIComponent(text(post.groupId)) + "/")
+        : el("div", "checker-post-title", groupLabel);
+      item.appendChild(heading);
+      var meta = [post.username ? "as " + text(post.username) : "", text(post.role), formatArchiveDate(post.created)].filter(Boolean).join(" · ");
+      if (meta) item.appendChild(el("div", "checker-post-meta", meta));
+      item.appendChild(el("div", "checker-post-body", text(post.message)));
+      return item;
+    }
+
+    function renderForumPost(post) {
+      var item = el("div", "checker-post");
+      var title = text(post.title) || "(untitled)";
+      var threadUrl = safeHttpUrl(post.threadUrl);
+      item.appendChild(threadUrl ? externalLink("checker-post-title", title, threadUrl) : el("div", "checker-post-title", title));
+      var meta = [text(post.forum), formatArchiveDate(post.created)].filter(Boolean).join(" · ");
+      if (meta) item.appendChild(el("div", "checker-post-meta", meta));
+      if (post.body) item.appendChild(el("div", "checker-post-body", text(post.body)));
+      return item;
+    }
+
+    function loadGroupWallPosts(userId, sequence) {
+      loadArchiveSection({
+        sectionId: "userGroupWallPosts", endpoint: "/proxy-roblox-group-wall", userId: userId, sequence: sequence,
+        label: "Group wall posts", archiveName: "group wall", noun: "group wall post", nounPlural: "group wall posts",
+        emptyText: "No archived group wall posts.", renderPost: renderGroupWallPost
       });
     }
 
     function loadForumPosts(userId, sequence) {
-      var section = document.getElementById("userForumPosts");
-      if (!section) return;
-      var status = section.querySelector(".checker-section-status");
-      var list = section.querySelector(".checker-forum-list");
-      var actions = section.querySelector(".checker-forum-actions");
-      var id = text(userId).trim();
-      if (!/^\d+$/.test(id)) { status.textContent = "Forum posts unavailable."; return; }
-      var archiveProfile = "https://archive.froast.io/users/" + encodeURIComponent(id);
-      var total = 0;
-
-      function renderActions(nextCursor, busy) {
-        actions.innerHTML = "";
-        if (nextCursor) {
-          var more = el("button", "xpButton checker-more", busy ? "Loading…" : "Load more posts");
-          more.type = "button";
-          more.disabled = !!busy;
-          more.addEventListener("click", function () { fetchPage(nextCursor); });
-          actions.appendChild(more);
+      loadArchiveSection({
+        sectionId: "userForumPosts", endpoint: "/proxy-roblox-forum", userId: userId, sequence: sequence,
+        label: "Forum posts", archiveName: "forum", noun: "forum post", nounPlural: "forum posts",
+        emptyText: "No archived forum posts.", renderPost: renderForumPost,
+        extraLink: function (id) {
+          return externalLink("checker-archive-link", "Open on archive.froast.io", "https://archive.froast.io/users/" + encodeURIComponent(id));
         }
-        var link = el("a", "checker-archive-link", "Open on archive.froast.io");
-        link.href = archiveProfile;
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
-        actions.appendChild(link);
-      }
-
-      function renderPost(post) {
-        var item = el("div", "checker-post");
-        var title = text(post.title) || "(untitled)";
-        var threadUrl = safeHttpUrl(post.threadUrl);
-        var heading;
-        if (threadUrl) {
-          heading = el("a", "checker-post-title", title);
-          heading.href = threadUrl;
-          heading.target = "_blank";
-          heading.rel = "noopener noreferrer";
-        } else {
-          heading = el("div", "checker-post-title", title);
-        }
-        item.appendChild(heading);
-        var meta = [text(post.forum), text(post.date)].filter(Boolean).join(" · ");
-        if (meta) item.appendChild(el("div", "checker-post-meta", meta));
-        if (post.body) item.appendChild(el("div", "checker-post-body", text(post.body)));
-        list.appendChild(item);
-      }
-
-      function fetchPage(cursor) {
-        renderActions(cursor, true);
-        if (!cursor) actions.innerHTML = "";
-        var url = API_BASE + "/proxy-roblox-forum?userId=" + encodeURIComponent(id) +
-          (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
-        getJson(url).then(function (payload) {
-          if (sequence !== lookupSequence || !document.body.contains(section)) return;
-          var posts = Array.isArray(payload && payload.posts) ? payload.posts : [];
-          posts.forEach(renderPost);
-          total += posts.length;
-          if (!total) {
-            status.textContent = payload && payload.found === false
-              ? "No archived forum account for this user."
-              : "No archived forum posts found.";
-          } else {
-            status.textContent = total + (total === 1 ? " post" : " posts") + " loaded" +
-              (payload && payload.next ? " (more available)" : "");
-          }
-          renderActions(payload && payload.next ? payload.next : "", false);
-        }).catch(function () {
-          if (sequence !== lookupSequence || !document.body.contains(section)) return;
-          status.textContent = total
-            ? total + " posts loaded. Couldn't load more right now."
-            : "Forum archive unavailable right now.";
-          renderActions(cursor, false);
-        });
-      }
-
-      fetchPage("");
+      });
     }
 
     function runLookup() {
@@ -285,6 +302,7 @@
           var terminated = rolimons.terminated ? '<p class="rendererTermination">Terminated</p>' : "";
           var html =
             '<div class="info-box">' +
+              '<div id="avatarRendererErrors" class="checker-avatar-errors"></div>' +
               '<div class="avatar-container">' +
                 '<a href="https://www.roblox.com/users/' + encodeURIComponent(text(roblox.id)) + '/profile" target="_blank" rel="noopener noreferrer">' +
                   '<img alt="" loading="eager" decoding="async" fetchpriority="high" style="width:120px;height:120px;object-fit:cover;background:#fff;">' +
@@ -302,24 +320,26 @@
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
               '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row;gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
-              '<div id="userGroups" class="checker-section">' +
-                '<div class="checker-section-title">Groups</div>' +
-                '<div class="checker-section-status" role="status">Loading groups…</div>' +
-                '<div class="checker-groups"></div>' +
+              '<div id="userGroupWallPosts" class="checker-section">' +
+                '<div class="checker-section-title">Group Wall Posts</div>' +
+                '<div class="checker-section-status" role="status">Loading group wall posts…</div>' +
+                '<div class="checker-archive-list"></div>' +
+                '<div class="checker-archive-actions"></div>' +
               '</div>' +
               '<div id="userForumPosts" class="checker-section">' +
-                '<div class="checker-section-title">Roblox Forum Archive posts</div>' +
+                '<div class="checker-section-title">Forum Posts</div>' +
                 '<div class="checker-section-status" role="status">Loading forum posts…</div>' +
-                '<div class="checker-forum-list"></div>' +
-                '<div class="checker-forum-actions"></div>' +
+                '<div class="checker-archive-list"></div>' +
+                '<div class="checker-archive-actions"></div>' +
               '</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
           loadingIndicator.style.display = "none";
 
-          loadGroups(roblox.id, sequence);
+          loadGroupWallPosts(roblox.id, sequence);
           loadForumPosts(roblox.id, sequence);
+          var avatarErrors = document.getElementById("avatarRendererErrors");
 
           // Try the backend image proxy first, then the original Roblox CDN URL.
           // Some Roblox CDN responses work in browsers even when the server proxy fails.
@@ -345,6 +365,7 @@
                 liveAvatarImage.removeAttribute("src");
                 liveAvatarImage.alt = "Avatar unavailable";
                 liveAvatarImage.title = "Roblox did not return a usable avatar image. Try checking again.";
+                showSectionError(avatarErrors, "Avatar renderer", "Roblox didn't return a usable avatar image. Try checking again.");
               }
             });
             if (avatarCandidates.length) {
@@ -353,6 +374,7 @@
             } else {
               liveAvatarImage.alt = "Avatar unavailable";
               liveAvatarImage.title = "No live avatar thumbnail URL was returned by Roblox.";
+              showSectionError(avatarErrors, "Avatar renderer", "Roblox didn't return an avatar for this user.");
             }
           }
 
@@ -625,7 +647,8 @@
             });
           }).catch(function () {
             if (sequence !== lookupSequence) return;
-            if (oldContainer && document.body.contains(oldContainer)) oldContainer.textContent = "Archived renders unavailable.";
+            if (oldContainer && document.body.contains(oldContainer)) oldContainer.textContent = "";
+            showSectionError(avatarErrors, "Avatar renderer", "archived renders couldn't load right now.");
           });
 
         })
@@ -635,7 +658,7 @@
           loadingIndicator.style.display = "none";
           showError(
             error && error.message && error.message.indexOf("Failed to fetch") !== -1
-              ? "Renderer service unavailable. Try again in a moment."
+              ? "Avatar renderer error: the checker service is unavailable. Try again in a moment."
               : "User not found (◞‸◟；)"
           );
         });
