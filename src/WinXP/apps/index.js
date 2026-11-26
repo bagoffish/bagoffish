@@ -70,7 +70,7 @@ export const defaultAppState = [
 export const defaultIconState = [
   { id: 0, icon: socialsIcon, title: "About Me", component: AboutMe, isFocus: false },
   { id: 2, icon: poemsIcon, title: "Writings", component: Writings, isFocus: false },
-  { id: 3, icon: RendererIcon, title: "Renderer", component: Renderer, isFocus: false },
+  { id: 3, icon: RendererIcon, title: "User Checker", component: Renderer, isFocus: false },
   { id: 9, icon: winterLetterIcon, title: "Winter_Letter", component: WinterLetter, isFocus: false },
   { id: 10, icon: minesweeperIcon, title: "Minesweeper", component: Minesweeper, isFocus: false },
   { id: 5, icon: paintLarge, title: "Paint", component: Paint, isFocus: false },
@@ -112,8 +112,8 @@ export const appSettings = {
     multiInstance: false,
   },
 
-  Renderer: {
-    header: { icon: RendererIconSmall, title: "Renderer" },
+  "User Checker": {
+    header: { icon: RendererIconSmall, title: "User Checker" },
     component: Renderer,
     defaultSize: { width: 660, height: 600 },
     defaultOffset: { x: 210, y: 90 },
