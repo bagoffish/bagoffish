@@ -1,0 +1,2 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specified endpoint. Please send all future requests to this endpoint.</Message><Endpoint>rbx-archive.s3-eu-west-1.amazonaws.com</Endpoint><Bucket>rbx-archive</Bucket><RequestId>WMCH9YX29YMDDPE7</RequestId><HostId>0CHJhsHgVnyLrWpj5hFpN8pEXN7Lu7/d2rNCibA2t4KDHdAWlAEudyvL6/pVj4+vPnaQ8Xmw5cxIm5+d+VNbq/AMmdDgAg0S</HostId></Error>
