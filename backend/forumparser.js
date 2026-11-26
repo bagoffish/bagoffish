@@ -23,8 +23,14 @@ export function decodeEntities(value) {
 }
 
 export function htmlToText(html) {
-  return decodeEntities(String(html || "")
-    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, "")
+  let source = String(html || "");
+  let previous;
+  do {
+    previous = source;
+    source = source.replace(/<(script|style)[\s\S]*?<\/\1>/gi, "");
+  } while (source !== previous);
+
+  return decodeEntities(source
     .replace(/<br\s*\/?>/gi, "\n")
     .replace(/<\/(p|div|li|tr|blockquote|h\d)>/gi, "\n")
     .replace(/<[^>]+>/g, ""))
