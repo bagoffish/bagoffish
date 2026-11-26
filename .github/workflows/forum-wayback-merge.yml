@@ -18,7 +18,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 350
     env:
       WORK_TAG: forum-wayback-work
       TAG: forum-posts-index-v1
@@ -47,5 +47,15 @@ jobs:
           else
             gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Roblox Forum Index v1" --notes "$NOTES"
           fi
-          ls fp-s*.txt.gz | xargs -n 40 sh -c 'gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber "$@"' _
+          # Replacing ~990 files costs ~2 API calls each; GitHub allows ~1000 calls an hour,
+          # so upload in groups of 30 with a pause in between (about two hours in total).
+          ls fp-s*.txt.gz > files.txt
+          split -l 30 files.txt group_
+          for g in group_*; do
+            for attempt in 1 2 3; do
+              if xargs -a "$g" gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber; then break; fi
+              echo "upload group $g failed (attempt $attempt); waiting"; sleep 600
+            done
+            sleep 200
+          done
           gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber manifest.json

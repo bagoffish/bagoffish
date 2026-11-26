@@ -103,7 +103,7 @@ def main():
     ap.add_argument("--pages-per-batch", type=int, default=50)
     ap.add_argument("--out", required=True)
     ap.add_argument("--progress", required=True, help="progress json (read if present, rewritten)")
-    ap.add_argument("--threads", type=int, default=3)
+    ap.add_argument("--threads", type=int, default=4)
     ap.add_argument("--time-budget", type=int, default=5 * 3600 + 1200, help="seconds")
     ap.add_argument("--max-pages", type=int, default=0, help="testing: cap thread pages fetched")
     ap.add_argument("--scan-pages", type=int, default=0, help="testing: read only this many index pages")
