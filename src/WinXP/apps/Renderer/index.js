@@ -25,7 +25,7 @@ import dropdown from "assets/windowsIcons/dropdown.png";
 
 function Renderer({ onClose }) {
   // Address text shown in IE bar
-  const addressText = useMemo(() => "https://bagof.fish/renderer", []);
+  const addressText = useMemo(() => "https://bagof.fish/checker", []);
 
   useEffect(() => {
     // The app window can be closed and reopened while the page remains mounted.
@@ -44,7 +44,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261127-user-checker-v3";
+    s.src = "/js/renderer.js?v=20261127-user-checker-v5";
     s.async = true;
     s.onload = function () {
       if (window.initLegacyRenderer) window.initLegacyRenderer();
@@ -411,7 +411,7 @@ const legacyCss = `
 .old-avatar-thumb{transition:transform .08s ease,box-shadow .08s ease;}
 .old-avatar-thumb:hover{transform:translateY(-1px);}
 
-/* User Checker: group wall posts and forum posts */
+/* User Checker: group wall posts */
 .checker-section{width:100%;box-sizing:border-box;margin-top:8px;padding-top:8px;border-top:1px solid #aebfd4;font-size:11px;color:#24364b;}
 .checker-section-title{font-weight:bold;font-size:12px;color:#174a88;margin-bottom:3px;}
 .checker-section-status{margin-bottom:6px;}

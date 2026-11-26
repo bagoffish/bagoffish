@@ -1,0 +1,59 @@
+name: Forum archive publish
+
+# Combines finished forum batches into per-user shards and publishes them as
+# the forum-posts-index-v1 release, which the User Checker backend reads.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: forum-wayback-merge
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    env:
+      WORK_TAG: forum-wayback-work
+      TAG: forum-posts-index-v1
+      SHARDS: "990"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Download finished batches
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p batches
+          gh release download "$WORK_TAG" -R "$GITHUB_REPOSITORY" -D batches -p "batch-*.jsonl.gz" -p "partial-*.jsonl.gz" || true
+          ls batches | wc -l; du -sh batches
+      - name: Build shards
+        run: python3 tools/wayback/merge.py batches shards --shards "$SHARDS"
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd shards
+          RECORDS=$(python3 -c 'import json;m=json.load(open("manifest.json"));print("{:,} posts from {:,} users".format(m["records"],m["users"]))')
+          NOTES="Old Roblox forum posts rebuilt from Wayback Machine captures of Archive Team's archiveteam_roblox collection, grouped by author user ID: $RECORDS so far. Updated as more of the archive is processed."
+          if gh release view "$TAG" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" -R "$GITHUB_REPOSITORY" --notes "$NOTES"
+          else
+            gh release create "$TAG" -R "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Roblox Forum Index v1" --notes "$NOTES"
+          fi
+          # Replacing ~990 files costs ~2 API calls each; GitHub allows ~1000 calls an hour,
+          # so upload in groups of 30 with a pause in between (about two hours in total).
+          ls fp-s*.txt.gz > files.txt
+          split -l 30 files.txt group_
+          for g in group_*; do
+            for attempt in 1 2 3; do
+              if xargs -a "$g" gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber; then break; fi
+              echo "upload group $g failed (attempt $attempt); waiting"; sleep 600
+            done
+            sleep 200
+          done
+          gh release upload "$TAG" -R "$GITHUB_REPOSITORY" --clobber manifest.json
