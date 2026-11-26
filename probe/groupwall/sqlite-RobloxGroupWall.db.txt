@@ -1,0 +1,17 @@
+wall
+CREATE TABLE wall (post INTEGER PRIMARY KEY, "group" INTEGER, "user" INTEGER, username TEXT, role TEXT, content TEXT, created TEXT);
+CREATE INDEX idx_wall_group ON wall("group");
+CREATE INDEX idx_wall_user ON wall("user");
+CREATE INDEX idx_wall_created ON wall(created);
+CREATE INDEX idx_wall_post
+ON wall(post);
+-- wall count: 150301295
+post|group|user|username|role|content|created
+3|11|111627|noob007||First POAST!|2009-07-30T05:47:54.333Z
+6|14|24941|david.baszucki||Cool group idea!|2009-07-30T06:03:35.42Z
+10|2|352329|jkid243|Lieutenant of LOL|WOOT! nice update guys!|2009-07-30T06:05:14.68Z
+14|30|19358|clockwork|Owner|hell yes.|2009-07-30T06:06:19.347Z
+15|9|723341|Keletho|Guest|FIRST MEMBER >:D|2009-07-30T06:06:21.73Z
+16|8|890094|jedi11866||ello world|2009-07-30T06:06:37.067Z
+17|30||||cool story bro|2009-07-30T06:06:47.207Z
+18|8|890094|jedi11866||How has roblox been up to|2009-07-30T06:06:59.657Z

@@ -1,0 +1,62 @@
+
+7-Zip 26.00 (x64) : Copyright (c) 1999-2026 Igor Pavlov : 2026-02-12
+ 64-bit locale=C.UTF-8 Threads:4 OPEN_MAX:65536, ASM
+
+Scanning the drive for archives:
+1 file, 112810 bytes (111 KiB)
+
+Listing archive: work/app.7z
+
+--
+Path = work/app.7z
+Type = 7z
+Physical Size = 112810
+Headers Size = 901
+Method = LZMA2:19
+Solid = +
+Blocks = 1
+
+   Date      Time    Attr         Size   Compressed  Name
+------------------- ----- ------------ ------------  ------------------------
+2026-09-22 00:30:52 D....            0            0  Code
+2026-04-23 06:50:22 D....            0            0  Code/extension
+2026-04-23 06:50:22 D....            0            0  Code/extension/icons
+2026-04-23 06:50:22 D....            0            0  Code/extension/roblox
+2026-04-23 06:50:23 D....            0            0  Code/server
+2026-04-23 06:50:23 D....            0            0  Code/server/data
+2026-04-23 06:50:23 D....            0            0  Code/server/data/roblox
+2026-04-23 06:50:23 D....            0            0  Code/server/sites
+2026-04-23 06:50:23 D....            0            0  Code/server/sites/__pycache__
+2026-04-23 06:50:23 D....            0            0  Code/server/__pycache__
+2026-09-22 00:30:48 D....            0            0  OLD
+2026-04-11 22:56:47 ....A            0            0  Code/server/data/.keep
+2026-04-11 22:56:47 ....A            0            0  Code/server/data/roblox/.keep
+2026-04-19 03:43:59 ....A        11398       111909  Code/extension/background.js
+2026-04-19 03:43:59 ....A         4407               Code/extension/content.js
+2026-04-19 03:43:59 ....A          925               Code/extension/icons/icon128.png
+2026-04-19 03:43:59 ....A          165               Code/extension/icons/icon16.png
+2026-04-19 03:43:59 ....A          243               Code/extension/icons/icon32.png
+2026-04-19 03:43:59 ....A          334               Code/extension/icons/icon48.png
+2026-04-19 03:43:59 ....A         1322               Code/extension/manifest.json
+2026-04-19 03:43:59 ....A         1274               Code/extension/popup.css
+2026-04-19 03:43:59 ....A         1667               Code/extension/popup.html
+2026-04-19 03:43:59 ....A         2942               Code/extension/popup.js
+2026-04-19 03:43:59 ....A         3620               Code/extension/roblox/roblox_bg.js
+2026-04-19 03:43:59 ....A       142645               Code/extension/roblox/roblox_capture.js
+2026-04-19 03:43:59 ....A         9025               Code/extension/roblox/roblox_page_hook.js
+2026-04-24 04:49:07 ....A        78247               Code/roblox_db_merge.py
+2026-04-19 03:44:14 ....A        19691               Code/server/omni_ingest_server.py
+2026-04-19 03:44:14 ....A          434               Code/server/roblox_ingest_server.py
+2026-04-19 03:44:14 ....A          121               Code/server/run_server.bat
+2026-04-19 03:44:20 ....A        32189               Code/server/sites/roblox_site.py
+2026-04-19 03:44:20 ....A           15               Code/server/sites/__init__.py
+2026-04-19 03:45:04 ....A        37789               Code/server/sites/__pycache__/roblox_site.cpython-312.pyc
+2026-04-19 03:44:34 ....A        38531               Code/server/sites/__pycache__/roblox_site.cpython-313.pyc
+2026-04-19 03:45:04 ....A          169               Code/server/sites/__pycache__/__init__.cpython-312.pyc
+2026-04-19 03:44:47 ....A        31645               Code/server/__pycache__/omni_ingest_server.cpython-313.pyc
+2026-03-15 13:44:11 ....A        10272               OLD/CompletedIDs.txt
+2026-09-22 00:20:37 ....A        18542               OLD/DatabaseInfo.txt
+2026-02-23 07:54:08 ....A          334               OLD/list.txt
+2026-04-17 07:29:43 ....A        63562               OLD/RBLX_Verified.csv
+------------------- ----- ------------ ------------  ------------------------
+2026-09-22 00:30:52             511508       111909  29 files, 11 folders

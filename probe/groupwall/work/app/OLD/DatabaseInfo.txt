@@ -1,0 +1,430 @@
+Paths
+    Input
+        "E:\Roblox\Roblox_001.db"
+        "E:\Roblox\Roblox_002.db"
+        "E:\Roblox\Roblox_003.db"
+        "E:\Roblox\Roblox_005.db"
+        "E:\Roblox\Roblox_004.db"
+        "E:\Roblox\roblox_groups_ENRICHMENT2.sqlite"
+        "E:\Roblox\Roblox.db"
+        "E:\Roblox\Roblox_004.05.db"
+        "E:\Roblox\roblox_archive_BACKUP15.db"
+        "E:\Roblox\Roblox_2026-02-15_01.42.db"
+        "E:\Roblox\Roblox_0.db"
+        "E:\Roblox\Roblox2.db"
+        "E:\Roblox\roblox_archive.db"
+        "E:\Roblox\roblox_groups_2026-01-15_14.11.sqlite"
+        "E:\Roblox\roblox_groups.sqlite"
+        "E:\Roblox\roblox_groups_FULL-1-40M.sqlite"
+        "E:\Roblox\roblox_groups1.sqlite"
+        "E:\Roblox\RobloxUsers.db"
+        "E:\Roblox\roblox_groups_MORE_ENRICHMENT.sqlite"
+        "D:\02_CODE\!Roblox\2026-06-07-Roblox.db"
+        "D:\02_CODE\!Roblox\2026-05-01-Roblox.db"
+
+    Output
+        "E:\Roblox\OUTPUT\RobloxGroupWall.db"
+        "E:\Roblox\OUTPUT\RobloxGroupWallDupes.db"
+        "E:\Roblox\OUTPUT\RobloxGroupShout.db"
+        "E:\Roblox\OUTPUT\RobloxGroupArchiveLogs.db"
+
+Structure
+    Input Databases
+        Needed for RobloxGroupWall.db
+            rb_group_wall_archive           -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox_004.db, Roblox_004.05.db, Roblox_005.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+                created
+                body
+                role
+                username
+                user_id
+                group_id
+                post_id
+            rb_group_wall                   -   roblox_groups_ENRICHMENT2.sqlite
+                created
+                body
+                role
+                username
+                user_id
+                group_id
+                post_id
+            rb_wall_archive                 -   roblox_archive.db
+                group_id
+                group_name
+                user_id
+                username
+                message_id
+                message
+                status
+                creation
+                captured
+        Needed for RobloxGroupShout.db
+            rb_group_shout_archive          -   Roblox_001.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+                captured
+                created
+                body
+                role
+                username
+                user_id
+                group_id
+                shout_id
+            rb_shout_archive                -   roblox_archive.db
+                captured
+                creation
+                status
+                shout
+                username
+                user_id
+                group_name
+                group_id
+            wall_posts                      -   roblox_archive_BACKUP15.db
+                group_id
+                owner_id
+                is_verified
+                member_count
+                created
+                public_entry_allowed
+                shout_content
+                shout_timestamp
+                shout_user_id
+                wall_access_type
+                wall_requires_cookie
+                wall_access_checked_at
+                wall_quick_complete
+                wall_full_complete
+                wall_in_progress
+                claimed_by
+                claimed_at
+                last_error
+                last_attempt_at
+                discovered_at
+                last_updated_at
+        discovery                       -   Roblox_004.db, Roblox_004.05.db, Roblox_005.db
+            ReachedTimestamp            
+            BoundaryDate
+            Checked
+            Status
+            MemberCount
+            GroupName
+            GroupID
+        discovery_runtime               -   Roblox_004.db, Roblox_004.05.db, Roblox_005.db
+            Key
+            Value
+            Updated
+        rb_dynamic_group_archive        -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox_004.db, Roblox_004.05.db, Roblox_005.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+            uuid
+            id
+            name
+            ranks
+            description
+            members
+            funds
+            verified
+            links
+            affiliates
+            captured
+            content_hash
+        rb_hierarchy_archive            -   Roblox_001.db, Roblox_2026-02-15_01.42.db, Roblox_0.db
+            captured
+            depth
+            relationship
+            origin
+            id
+            parent
+        rb_layout_archive               -   Roblox_001.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+            layout_key
+            hash
+            captured
+            structure
+        rb_misc_archive                 -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox_004.db, Roblox_004.05.db, Roblox_005.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db
+            uuid
+            url
+            key
+            captured
+            metadata
+        rb_raw_ingest_archive           -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox_004.db, Roblox_004.05.db, Roblox_005.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+            payload
+            kind
+            page_url
+            source
+            received
+            uuid
+        rb_static_archive               -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox_004.db, Roblox_004.05.db, Roblox_005.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+            verified
+            active
+            creation
+            subtype
+            type
+            owner
+            id
+        rb_static_archive               -   RobloxUsers.db
+            id
+            owner
+            type
+            creation
+            active
+            status_code
+            first_seen
+            verified
+        rb_static_enrich_queue          -   Roblox_001.db, Roblox_002.db, Roblox_003.db, Roblox.db, Roblox_2026-02-15_01.42.db, Roblox_0.db, Roblox2.db
+            id
+            target_id
+            target_type
+            enqueued
+            attempts
+            last_error
+            done
+        raw_json                        -   roblox_groups_ENRICHMENT2.sqlite, roblox_groups_MORE_ENRICHMENT.sqlite
+            meta
+            captured_utc
+            json_data
+            api_endpoint
+            source_group_id
+            id
+        rb_group_relationships          -   roblox_groups_ENRICHMENT2.sqlite
+            captured_utc
+            relation_type
+            source_group_id
+            related_group_id
+        rb_groups                       -   roblox_groups_ENRICHMENT2.sqlite, roblox_groups_MORE_ENRICHMENT.sqlite
+            enrichment_source
+            wall_gap
+            wall_archived
+            raw_json_v2
+            raw_json_v1
+            socials
+            public_entry
+            builders_club
+            members
+            owner_verified
+            owner_display
+            owner_username
+            owner_id
+            verified
+            created
+            group_id
+            name
+            description
+        rb_groups                       -   roblox_groups.sqlite, roblox_groups_2026-01-15_14.11.sqlite, roblox_groups1.sqlite
+            group_id
+            name
+            description
+            created_utc
+            has_verified_badge
+            emblem_url
+            owner_user_id
+            owner_username
+            owner_display_name
+            member_count
+            public_entry_allowed
+            is_locked
+            v2_status
+            v1_status
+            http_status_v2
+            http_status_v1
+            last_discovery_utc
+            last_enrich_utc
+            raw_json_v2
+            raw_json_v1
+        rb_groups                       -   roblox_groups_FULL-1-40M.sqlite
+            group_id
+            name
+            description
+            created
+            verified
+            owner_id
+            owner_username
+            owner_display
+            owner_verified
+            members
+            builders_club
+            public_entry
+            socials
+            raw_json_v1
+            raw_json_v2
+        work_claims                     -   roblox_archive_BACKUP15.db
+            updated
+            last_error
+            retry_count
+            status
+            priority
+            task_type
+            group_id
+            task_id
+        settings_snapshot               -   roblox_archive_BACKUP15.db
+            group_id
+            consumed
+            added_at
+        runs                            -   roblox_archive_BACKUP15.db
+            run_id
+            mode
+            worker_id
+            started_at
+            finished_at
+            groups_done
+            errors
+        priority_queue                  -   roblox_archive_BACKUP15.db
+            key
+            value
+        groups                          -   roblox_archive_BACKUP15.db
+            message_id
+            group_id
+            user_id
+            content
+            timestamp
+            archived_at
+        coord_tasks                     -   roblox_archive_BACKUP15.db
+            group_id
+            mode
+            claimed_by
+            claimed_at
+        rb_group_archive                -   roblox_archive.db
+            group_id
+            group_name
+            owner_id
+            owner
+            members
+            message_old
+            message_new
+            creation
+            captured
+            shout
+            wall
+            status
+        rb_dynamic_user_archive         -   RobloxUsers.db
+            uuid
+            id
+            name
+            display
+            previous
+            description
+            friends
+            followers
+            following
+            verified
+            premium
+            admin
+            links
+            inv_visibility
+            captured
+        rb_sys_runs                     -   RobloxUsers.db
+            run_id
+            run_kind
+            start_id
+            end_id
+            started
+            ended
+            status
+            db_path
+            proxy_path
+            settings
+
+    Main
+        rb_group_wall_archive
+            created                             -   RobloxGroupWall.db -> wall -> created
+            body                                -   RobloxGroupWall.db -> wall -> content
+            role                                -   RobloxGroupWall.db -> wall -> role
+            username                            -   RobloxGroupWall.db -> wall -> username
+            user_id                             -   RobloxGroupWall.db -> wall -> user
+            group_id                            -   RobloxGroupWall.db -> wall -> group
+            post_id                             -   RobloxGroupWall.db -> wall -> post
+        rb_group_wall
+            created                             -   RobloxGroupWall.db -> wall -> created
+            body                                -   RobloxGroupWall.db -> wall -> content
+            role                                -   RobloxGroupWall.db -> wall -> role
+            username                            -   RobloxGroupWall.db -> wall -> username
+            user_id                             -   RobloxGroupWall.db -> wall -> user
+            group_id                            -   RobloxGroupWall.db -> wall -> group
+            post_id                             -   RobloxGroupWall.db -> wall -> post
+        rb_wall_archive
+            group_id                            -   RobloxGroupWall.db -> wall -> group
+            group_name                          -   RobloxGroupArchiveLogs.db -> rb_wall_archive -> group_name
+            user_id                             -   RobloxGroupWall.db -> wall -> user
+            username                            -   RobloxGroupWall.db -> wall -> username
+            message_id                          -   RobloxGroupWall.db -> wall -> post
+            message                             -   RobloxGroupWall.db -> wall -> content
+            status                              -   RobloxGroupArchiveLogs.db -> rb_wall_archive -> status
+            creation                            -   RobloxGroupWall.db -> wall -> created
+            captured                            -   RobloxGroupArchiveLogs.db -> rb_wall_archive -> captured
+        rb_group_shout_archive
+            captured                            -   RobloxGroupArchiveLogs.db -> rb_group_shout_archive -> captured
+            created                             -   RobloxGroupShout.db -> shout -> created
+            body                                -   RobloxGroupShout.db -> shout -> content
+            role                                -   RobloxGroupArchiveLogs.db -> rb_group_shout_archive -> role
+            username                            -   RobloxGroupShout.db -> shout -> username
+            user_id                             -   RobloxGroupShout.db -> shout -> user
+            group_id                            -   RobloxGroupShout.db -> shout -> group
+            shout_id                            -   RobloxGroupArchiveLogs.db -> rb_group_shout_archive -> shout_id
+        rb_shout_archive
+            captured                            -   RobloxGroupArchiveLogs.db -> rb_shout_archive -> captured
+            creation                            -   RobloxGroupShout.db -> shout -> created
+            status                              -   RobloxGroupArchiveLogs.db -> rb_shout_archive -> status
+            shout                               -   RobloxGroupShout.db -> shout -> content
+            username                            -   RobloxGroupShout.db -> shout -> username
+            user_id                             -   RobloxGroupShout.db -> shout -> user
+            group_name                          -   RobloxGroupArchiveLogs.db -> rb_shout_archive -> group_name
+            group_id                            -   RobloxGroupShout.db -> shout -> group
+        wall_posts
+            group_id                            -   RobloxGroupShout.db -> shout -> group
+            owner_id                            -   RobloxGroupArchiveLogs.db -> wall_posts -> owner_id
+            is_verified                         -   RobloxGroupArchiveLogs.db -> wall_posts -> is_verified
+            member_count                        -   RobloxGroupArchiveLogs.db -> wall_posts -> member_count
+            created                             -   RobloxGroupArchiveLogs.db -> wall_posts -> created
+            public_entry_allowed                -   RobloxGroupArchiveLogs.db -> wall_posts -> public_entry_allowed
+            shout_content                       -   RobloxGroupShout.db -> shout -> content
+            shout_timestamp                     -   RobloxGroupShout.db -> shout -> created
+            shout_user_id                       -   RobloxGroupShout.db -> shout -> user
+            wall_access_type                    -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_access_type
+            wall_requires_cookie                -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_requires_cookie
+            wall_access_checked_at              -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_access_checked_at
+            wall_quick_complete                 -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_quick_complete
+            wall_full_complete                  -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_full_complete
+            wall_in_progress                    -   RobloxGroupArchiveLogs.db -> wall_posts -> wall_in_progress
+            claimed_by                          -   RobloxGroupArchiveLogs.db -> wall_posts -> claimed_by
+            claimed_at                          -   RobloxGroupArchiveLogs.db -> wall_posts -> claimed_at
+            last_error                          -   RobloxGroupArchiveLogs.db -> wall_posts -> last_error
+            last_attempt_at                     -   RobloxGroupArchiveLogs.db -> wall_posts -> last_attempt_at
+            discovered_at                       -   RobloxGroupArchiveLogs.db -> wall_posts -> discovered_at
+            last_updated_at                     -   RobloxGroupArchiveLogs.db -> wall_posts -> last_updated_at
+
+    Output Databases
+        RobloxGroupWall.db
+            wall                -   Deduped by post field
+                post            -   INT         + Unique/Primary Key + Index
+                group           -   INT         + Index
+                user            -   INT         + Index
+                username        -   TEXT
+                role            -   TEXT
+                content         -   TEXT
+                created         -   TIMESTAMP   + Index
+
+        RobloxGroupWallDupes.db
+            wall
+                post            -   INT         + Index
+                group           -   INT         + Index
+                user            -   INT         + Index
+                username        -   TEXT
+                role            -   TEXT
+                content         -   TEXT
+                created         -   TIMESTAMP   + Index
+
+        RobloxGroupShout.db
+            shout                   -   Deduped by identical rows (all fields)
+                group               -   INT         + Index
+                user                -   INT         + Index
+                username            -   TEXT
+                content             -   TEXT
+                created             -   TIMESTMAP   + Index
+
+        RobloxGroupArchiveLogs.db
+            all other tables/fields -   Deduped by identical rows (all fields)
+            due to duplicate table names, just rename some (for example: rb_groups1, rb_groups2, rb_groups3 - check the table names first, and then add a number to the end of them if they are dupes)
+            any tables with the same name, but different structure are different tables, and should be renames like I said above
+            also make sure the table has the same settings as the one in the original database
+
+        There are some empty tables in some of the databases, they can just be logged when scanned, and then left out of the new database
+
+
+
+
+
+
