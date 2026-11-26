@@ -87,5 +87,5 @@ jobs:
   # On test pushes, publish right away so results can be checked end to end.
   publish:
     needs: work
-    if: always() && github.event_name == 'push'
+    if: always() && github.event_name == 'push' && needs.work.result != 'skipped'
     uses: ./.github/workflows/forum-wayback-merge.yml
