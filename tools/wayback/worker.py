@@ -103,6 +103,7 @@ def main():
     ap.add_argument("--threads", type=int, default=3)
     ap.add_argument("--time-budget", type=int, default=5 * 3600 + 1200, help="seconds")
     ap.add_argument("--max-pages", type=int, default=0, help="testing: cap thread pages fetched")
+    ap.add_argument("--scan-pages", type=int, default=0, help="testing: read only this many index pages")
     args = ap.parse_args()
     started = time.time()
 
@@ -113,14 +114,19 @@ def main():
 
     first = args.batch * args.pages_per_batch
     lines = []
-    for p in range(first, first + args.pages_per_batch):
+    scan = args.scan_pages or args.pages_per_batch
+    for p in range(first, first + scan):
         lines += cdx_page(p)
+    cdx_seconds = round(time.time() - started)
     captures = newest_captures(lines)
+    # Every reply has its own captured link, but each opens a whole thread page. Posts already
+    # seen on a fetched page don't need their own fetch (only page 1 links can be skipped this way).
+    seen_ids = set(progress.get("seenIds", []))
     todo = sorted(k for k in captures if k not in done)
     if args.max_pages:
         todo = todo[: args.max_pages]
-    print(f"batch {args.batch}: {len(lines):,} index lines, {len(captures):,} thread pages, "
-          f"{len(done):,} already done, {len(todo):,} to fetch", flush=True)
+    print(f"batch {args.batch}: {len(lines):,} index lines read in {cdx_seconds}s, {len(captures):,} page links, "
+          f"{len(done):,} already done, {len(todo):,} to check", flush=True)
 
     out = gzip.open(args.out, "at", encoding="utf-8")
     write_lock = threading.Lock()
@@ -133,6 +139,10 @@ def main():
         if status != 200:
             return key, None, status
         posts = parse_thread_page(body.decode("utf-8", "replace"), original.replace("&amp;", "&"))
+        # The link's PostID may be a reply; the thread id is the first post on page 1.
+        root = posts[0]["id"] if posts and key[1] == 1 else None
+        for post in posts:
+            post["th"] = root
         return key, posts, 200
 
     pool = ThreadPoolExecutor(max_workers=args.threads)
@@ -140,8 +150,15 @@ def main():
     queue = iter(todo)
     out_of_time = False
 
+    skipped = 0
+
     def submit_next():
+        nonlocal skipped
         for key in queue:
+            if key[1] == 1 and key[0] in seen_ids:
+                done.add(key)
+                skipped += 1
+                continue
             futures[pool.submit(work, key)] = key
             return True
         return False
@@ -157,14 +174,15 @@ def main():
                 failed.append([key[0], key[1], str(status)])
             else:
                 with write_lock:
+                    seen_ids.update(post["id"] for post in posts)
                     for post in posts:
                         if post.get("uid"):
                             out.write(json.dumps(post, ensure_ascii=False, separators=(",", ":")) + "\n")
                             kept += 1
                 done.add(key)
             if fetched % 500 == 0:
-                rate = fetched / max(1, time.time() - started)
-                print(f"  {fetched:,}/{len(todo):,} pages, {kept:,} posts, {len(failed)} failed, {rate:.2f} pages/s", flush=True)
+                rate = fetched / max(1, time.time() - started - cdx_seconds)
+                print(f"  {fetched:,} fetched, {skipped:,} skipped as already seen, {kept:,} posts, {len(failed)} failed, {rate:.2f} pages/s", flush=True)
             if time.time() - started > args.time_budget:
                 out_of_time = True
             if not out_of_time:
@@ -173,11 +191,15 @@ def main():
     pool.shutdown(wait=True)
     out.close()
 
-    complete = not out_of_time and len(done) >= len(captures) - len(failed) and not args.max_pages
-    progress = {"batch": args.batch, "done": sorted(done), "failed": failed,
+    complete = (not out_of_time and len(done) >= len(captures) - len(failed)
+                and not args.max_pages and not args.scan_pages)
+    progress = {"batch": args.batch, "done": sorted(done), "failed": failed, "seenIds": sorted(seen_ids),
                 "threadPages": len(captures), "complete": complete}
     json.dump(progress, open(args.progress, "w"))
-    print(json.dumps({"batch": args.batch, "fetched": fetched, "posts": kept, "failed": len(failed),
+    fetch_seconds = max(1, time.time() - started - cdx_seconds)
+    print(json.dumps({"batch": args.batch, "fetched": fetched, "skipped": skipped, "posts": kept,
+                      "failed": len(failed), "indexSeconds": cdx_seconds,
+                      "pagesPerSecond": round(fetched / fetch_seconds, 2),
                       "complete": complete, "seconds": round(time.time() - started)}), flush=True)
 
 

@@ -11,7 +11,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-11-27-user-checker-v2";
+const BACKEND_VERSION = "2026-11-27-user-checker-v3";
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
 const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || path.join(DATA_ROOT, "visitor-count-v2.json");
@@ -1112,10 +1112,12 @@ app.get("/proxy-roblox-forum", async (req, res) => {
       nextOffset: page.nextOffset,
       posts: page.items.map((p) => {
         const threadId = /^\d+$/.test(String(p.th || "")) ? String(p.th) : "";
+        const postId = /^\d+$/.test(String(p.id || "")) ? String(p.id) : "";
         return {
-          postId: String(p.id || ""),
+          postId,
           threadId,
-          threadUrl: threadId ? `https://archive.froast.io/forum/${threadId}` : "",
+          // Each post opens its archived thread page in the Wayback Machine.
+          threadUrl: postId ? `https://web.archive.org/web/2017/https://forum.roblox.com/Forum/ShowPost.aspx?PostID=${postId}` : "",
           title: String(p.ti || ""),
           forum: String(p.f || ""),
           username: String(p.u || ""),

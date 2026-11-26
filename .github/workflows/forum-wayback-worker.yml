@@ -71,7 +71,7 @@ jobs:
           mkdir -p w && cd w
           gh release download "$WORK_TAG" -R "$GITHUB_REPOSITORY" -p "partial-$B.jsonl.gz" -p "partial-$B.progress.json" 2>/dev/null || true
           EXTRA=""
-          [ "${{ github.event_name }}" = "push" ] && EXTRA="--max-pages 150"
+          [ "${{ github.event_name }}" = "push" ] && EXTRA="--max-pages 400 --scan-pages 3"
           python3 ../tools/wayback/worker.py --batch ${{ matrix.batch }} --pages-per-batch "$PAGES_PER_BATCH" \
             --out "partial-$B.jsonl.gz" --progress "partial-$B.progress.json" $EXTRA
           touch "partial-$B.jsonl.gz"
