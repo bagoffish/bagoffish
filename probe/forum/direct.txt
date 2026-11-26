@@ -1,0 +1,21 @@
+RESULT 403 rbx-archive.s3-eu-west-1.amazonaws.com/100000229-1.gz~100001184-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>VAS564KEVVY30EHB</RequestId><HostId>aKZYECx5Yz
+RESULT 403 rbx-archive.s3-eu-west-1.amazonaws.com/100000229-1.gz~100001184-1.gz/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>BGG3TGB7NJ11P2YX</RequestId><HostId>3fEoZUy2m4
+RESULT 403 rbx-archive.s3-eu-west-1.amazonaws.com/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>BGGDD45WHBDN69J8</RequestId><HostId>M3wUJGsTsb
+RESULT 301 rbx-archive.s3.us-west-2.amazonaws.com/100000229-1.gz~100001184-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 301 rbx-archive.s3.us-west-2.amazonaws.com/100000229-1.gz~100001184-1.gz/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 301 rbx-archive.s3.us-west-2.amazonaws.com/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 301 s3.us-west-2.amazonaws.com/rbx-archive/100000229-1.gz~100001184-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 301 s3.us-west-2.amazonaws.com/rbx-archive/100000229-1.gz~100001184-1.gz/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 301 s3.us-west-2.amazonaws.com/rbx-archive/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>PermanentRedirect</Code><Message>The bucket you are attempting to access must be addressed using the specifi
+RESULT 403 rbx-archive.s3.amazonaws.com/100000229-1.gz~100001184-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>NKRC22XPEKBQF9AT</RequestId><HostId>C+TZf/uUG+
+RESULT 403 rbx-archive.s3.amazonaws.com/100000229-1.gz~100001184-1.gz/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>NKR07QM8Z1TZAJTN</RequestId><HostId>Z35rv4kCCo
+RESULT 403 rbx-archive.s3.amazonaws.com/100000229-1.gz <?xml version="1.0" encoding="UTF-8"?> <Error><Code>AccessDenied</Code><Message>Access Denied</Message><RequestId>JFBJKBFM2YS45N6T</RequestId><HostId>Zqn6uPTsD8
+RESULT HTTP/1.1 403 Forbidden
+RESULT x-amz-bucket-region: eu-west-1
+RESULT Server: AmazonS3
+RESULT x-amz-request-id: JFBVMZK65SPJF6S7
+RESULT x-amz-id-2: nBISNVD3FsXRHid4YXmfF+Xt1nQfS7qTd/1On9MI1NuWsT7DpZuERI/59WdippkeBrK+BOYEBwHX94108FnXgmgSHO2gMAMA
+RESULT Content-Type: application/xml
+RESULT Transfer-Encoding: chunked
+RESULT Date: Thu, 26 Nov 2026 15:29:43 GMT
+RESULT 
