@@ -4,14 +4,14 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { gunzipSync } from "zlib";
-import { parseForumUserPage, safeForumPath } from "./forumparser.js";
+import { createShardStore, pageOf } from "./archiveshards.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const BACKEND_VERSION = "2026-11-27-user-checker-v1";
+const BACKEND_VERSION = "2026-11-27-user-checker-v2";
 
 const DATA_ROOT = process.env.DATA_ROOT || "/tmp/winxp-data";
 const VISITOR_COUNT_PATH = process.env.VISITOR_COUNT_PATH || path.join(DATA_ROOT, "visitor-count-v2.json");
@@ -1021,164 +1021,111 @@ app.get("/proxy-roblox-archived", async (req, res) => {
   res.json({ images });
 });
 
-// ===== User Checker: groups =====
-const groupsCache = new Map();
-const GROUPS_CACHE_MS = 10 * 60 * 1000;
-const GROUPS_CACHE_LIMIT = 300;
-
 function rememberLimited(map, key, value, limit) {
   map.delete(key);
   map.set(key, value);
   while (map.size > limit) map.delete(map.keys().next().value);
 }
 
-app.get("/proxy-roblox-groups", async (req, res) => {
+// ===== User Checker: archived group wall posts and forum posts =====
+// Both archives are pre-processed into per-user shards published as GitHub release
+// assets (see tools/groupwall and tools/forum). The backend only downloads the one
+// shard that contains the requested user.
+const GROUP_WALL_RELEASE_BASE = process.env.GROUP_WALL_RELEASE_BASE ||
+  "https://github.com/bagoffish/bagoffish/releases/download/group-wall-index-v1";
+const FORUM_POSTS_RELEASE_BASE = process.env.FORUM_POSTS_RELEASE_BASE ||
+  "https://github.com/bagoffish/bagoffish/releases/download/forum-posts-index-v1";
+const groupWallStore = createShardStore({ releaseBase: GROUP_WALL_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 4, version: "1" });
+const forumPostStore = createShardStore({ releaseBase: FORUM_POSTS_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 4, version: "1" });
+
+const groupNameCache = new Map();
+async function resolveGroupNames(ids) {
+  const missing = [...new Set(ids.map(String))].filter((id) => /^\d+$/.test(id) && !groupNameCache.has(id));
+  for (let i = 0; i < missing.length; i += 100) {
+    const batch = missing.slice(i, i + 100);
+    const response = await fetchWithTimeout(
+      `https://groups.roblox.com/v2/groups?groupIds=${batch.join(",")}`,
+      { headers: ROBLOX_UA },
+      6000
+    ).catch(() => null);
+    if (!response || !response.ok) continue;
+    const body = await response.json().catch(() => null);
+    for (const g of body?.data || []) {
+      if (g?.id) rememberLimited(groupNameCache, String(g.id), String(g.name || ""), 20000);
+    }
+  }
+  const out = {};
+  for (const id of ids) out[id] = groupNameCache.get(String(id)) || "";
+  return out;
+}
+
+function archiveErrorResponse(res, err, label) {
+  const notPublished = err && err.code === "ARCHIVE_NOT_PUBLISHED";
+  console.warn(`${label} lookup failed:`, err && err.message ? err.message : err);
+  res.status(notPublished ? 503 : 502).json({
+    error: notPublished ? `${label} archive isn't available yet` : `${label} archive unavailable`,
+    code: notPublished ? "ARCHIVE_NOT_PUBLISHED" : "ARCHIVE_UNAVAILABLE",
+  });
+}
+
+app.get("/proxy-roblox-group-wall", async (req, res) => {
   setCors(req, res);
   const id = String(req.query.userId || "").trim();
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: "User ID required" });
-
-  const cached = groupsCache.get(id);
-  if (cached && Date.now() - cached.at < GROUPS_CACHE_MS) {
-    res.setHeader("Cache-Control", "private, max-age=300");
-    return res.json(cached.payload);
-  }
-
   try {
-    let rolesRes = await fetchWithTimeout(
-      `https://groups.roblox.com/v1/users/${id}/groups/roles?includeLocked=true`,
-      { headers: ROBLOX_UA }
-    ).catch(() => null);
-    if (!rolesRes || !rolesRes.ok) {
-      rolesRes = await fetchWithTimeout(
-        `https://groups.roblox.com/v2/users/${id}/groups/roles`,
-        { headers: ROBLOX_UA }
-      ).catch(() => null);
-    }
-    if (!rolesRes || !rolesRes.ok) {
-      if (cached) return res.json(cached.payload);
-      return res.status(502).json({ error: "Groups unavailable" });
-    }
-    const body = await rolesRes.json();
-    const rows = Array.isArray(body?.data) ? body.data : [];
-
-    let primaryId = "";
-    const flagged = rows.find((row) => row && row.isPrimaryGroup);
-    if (flagged?.group?.id) primaryId = String(flagged.group.id);
-    if (!primaryId) {
-      const primaryRes = await fetchWithTimeout(
-        `https://groups.roblox.com/v1/users/${id}/groups/primary/role`,
-        { headers: ROBLOX_UA },
-        5000
-      ).catch(() => null);
-      if (primaryRes && primaryRes.ok) {
-        const primary = await primaryRes.json().catch(() => null);
-        if (primary?.group?.id) primaryId = String(primary.group.id);
-      }
-    }
-
-    const groups = rows
-      .filter((row) => row && row.group && row.group.id)
-      .map((row) => ({
-        id: String(row.group.id),
-        name: String(row.group.name || ""),
-        memberCount: Number(row.group.memberCount) || 0,
-        verified: !!row.group.hasVerifiedBadge,
-        role: String(row.role?.name || ""),
-        rank: Number(row.role?.rank) || 0,
-        isPrimary: String(row.group.id) === primaryId,
-        iconUrl: "",
-      }));
-
-    // Group icons, 100 per request.
-    const iconMap = new Map();
-    for (let i = 0; i < groups.length; i += 100) {
-      const ids = groups.slice(i, i + 100).map((g) => g.id).join(",");
-      const iconRes = await fetchWithTimeout(
-        `https://thumbnails.roblox.com/v1/groups/icons?groupIds=${ids}&size=150x150&format=Png&isCircular=false`,
-        { headers: ROBLOX_UA }
-      ).catch(() => null);
-      if (!iconRes || !iconRes.ok) continue;
-      const iconBody = await iconRes.json().catch(() => null);
-      for (const item of iconBody?.data || []) {
-        if (item?.targetId && item.imageUrl && item.state === "Completed") {
-          iconMap.set(String(item.targetId), item.imageUrl);
-        }
-      }
-    }
-    groups.forEach((g) => { g.iconUrl = iconMap.get(g.id) || ""; });
-    groups.sort((a, b) => (b.isPrimary - a.isPrimary) || (b.rank - a.rank) || (b.memberCount - a.memberCount));
-
-    const payload = { userId: id, groups };
-    rememberLimited(groupsCache, id, { at: Date.now(), payload }, GROUPS_CACHE_LIMIT);
-    res.setHeader("Cache-Control", "private, max-age=300");
-    res.json(payload);
+    const { records } = await groupWallStore.recordsFor(id);
+    const page = pageOf(records, req.query.offset, req.query.limit);
+    const names = await resolveGroupNames(page.items.map((p) => String(p.g || "")));
+    res.setHeader("Cache-Control", "private, max-age=600");
+    res.json({
+      userId: id,
+      total: page.total,
+      offset: page.offset,
+      nextOffset: page.nextOffset,
+      posts: page.items.map((p) => ({
+        postId: String(p.id || ""),
+        groupId: String(p.g || ""),
+        groupName: names[String(p.g || "")] || "",
+        username: String(p.u || ""),
+        role: String(p.r || ""),
+        message: String(p.m || ""),
+        created: String(p.t || ""),
+      })),
+    });
   } catch (err) {
-    console.error("proxy-roblox-groups error:", err);
-    if (cached) return res.json(cached.payload);
-    res.status(500).json({ error: "Groups unavailable" });
+    archiveErrorResponse(res, err, "Group wall");
   }
 });
-
-// ===== User Checker: Roblox Forum Archive (archive.froast.io) posts =====
-// The old Roblox forum used Roblox user IDs, so the archive lists a user's posts at
-// /users/<robloxUserId>. Pages are followed with the archive's own "next" link.
-const forumCache = new Map();
-const FORUM_CACHE_MS = 6 * 60 * 60 * 1000;
-const FORUM_CACHE_LIMIT = 400;
 
 app.get("/proxy-roblox-forum", async (req, res) => {
   setCors(req, res);
   const id = String(req.query.userId || "").trim();
   if (!/^\d+$/.test(id)) return res.status(400).json({ error: "User ID required" });
-  const pagePath = safeForumPath(id, req.query.cursor);
-  if (!pagePath) return res.status(400).json({ error: "Invalid cursor" });
-
-  const archiveUrl = `https://archive.froast.io${pagePath}`;
-  const cached = forumCache.get(pagePath);
-  if (cached && Date.now() - cached.at < FORUM_CACHE_MS) {
-    res.setHeader("Cache-Control", "private, max-age=600");
-    return res.json(cached.payload);
-  }
-
   try {
-    const response = await fetchWithTimeout(archiveUrl, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; bagof.fish User Checker)",
-        "Accept": "text/html,application/xhtml+xml",
-      },
-    }, 15000).catch(() => null);
-
-    if (!response) {
-      if (cached) return res.json(cached.payload);
-      return res.status(504).json({ error: "Forum archive timed out" });
-    }
-    if (response.status === 404) {
-      const payload = { userId: id, posts: [], next: "", archiveUrl, found: false };
-      rememberLimited(forumCache, pagePath, { at: Date.now(), payload }, FORUM_CACHE_LIMIT);
-      return res.json(payload);
-    }
-    if (!response.ok) {
-      if (cached) return res.json(cached.payload);
-      return res.status(502).json({ error: `Forum archive HTTP ${response.status}` });
-    }
-
-    const html = await response.text();
-    const parsed = parseForumUserPage(html);
-    const next = parsed.next ? safeForumPath(id, parsed.next) : "";
-    const payload = {
-      userId: id,
-      posts: parsed.posts,
-      next: next && next !== pagePath ? next : "",
-      archiveUrl,
-      found: true,
-    };
-    rememberLimited(forumCache, pagePath, { at: Date.now(), payload }, FORUM_CACHE_LIMIT);
+    const { records } = await forumPostStore.recordsFor(id);
+    const page = pageOf(records, req.query.offset, req.query.limit);
     res.setHeader("Cache-Control", "private, max-age=600");
-    res.json(payload);
+    res.json({
+      userId: id,
+      total: page.total,
+      offset: page.offset,
+      nextOffset: page.nextOffset,
+      posts: page.items.map((p) => {
+        const threadId = /^\d+$/.test(String(p.th || "")) ? String(p.th) : "";
+        return {
+          postId: String(p.id || ""),
+          threadId,
+          threadUrl: threadId ? `https://archive.froast.io/forum/${threadId}` : "",
+          title: String(p.ti || ""),
+          forum: String(p.f || ""),
+          username: String(p.u || ""),
+          body: String(p.b || ""),
+          created: String(p.t || ""),
+        };
+      }),
+    });
   } catch (err) {
-    console.error("proxy-roblox-forum error:", err);
-    if (cached) return res.json(cached.payload);
-    res.status(500).json({ error: "Forum archive unavailable" });
+    archiveErrorResponse(res, err, "Forum posts");
   }
 });
 
