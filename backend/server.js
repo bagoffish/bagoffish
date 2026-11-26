@@ -1035,8 +1035,8 @@ const GROUP_WALL_RELEASE_BASE = process.env.GROUP_WALL_RELEASE_BASE ||
   "https://github.com/bagoffish/bagoffish/releases/download/group-wall-index-v1";
 const FORUM_POSTS_RELEASE_BASE = process.env.FORUM_POSTS_RELEASE_BASE ||
   "https://github.com/bagoffish/bagoffish/releases/download/forum-posts-index-v1";
-const groupWallStore = createShardStore({ releaseBase: GROUP_WALL_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 4, version: "1" });
-const forumPostStore = createShardStore({ releaseBase: FORUM_POSTS_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 4, version: "1" });
+const groupWallStore = createShardStore({ releaseBase: GROUP_WALL_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 3, version: "1" });
+const forumPostStore = createShardStore({ releaseBase: FORUM_POSTS_RELEASE_BASE, fetchImpl: fetch, cacheLimit: 2, version: "1" });
 
 const groupNameCache = new Map();
 async function resolveGroupNames(ids) {
