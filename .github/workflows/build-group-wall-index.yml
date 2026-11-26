@@ -1,0 +1,78 @@
+name: Build group wall index
+
+# Turns the Roblox Group Wall Archive (archive.org/details/roblox-group-wall-archive)
+# into per-user shards published as the group-wall-index-v1 release.
+on:
+  push:
+    branches: [build-group-wall-index]
+    paths: [tools/groupwall/build_shards.py, .github/workflows/build-group-wall-index.yml]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-group-wall-index
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      TAG: group-wall-index-v1
+      SHARDS: "960"
+      WORK: /home/runner/gw
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          df -h /
+
+      - name: Install tools
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full aria2
+
+      - name: Download group wall archive
+        run: |
+          mkdir -p "$WORK"
+          aria2c -x 8 -s 8 -k 64M --max-tries=20 --retry-wait=15 --file-allocation=none \
+            -d "$WORK" -o wall.7z \
+            "https://archive.org/download/roblox-group-wall-archive/RobloxGroupWallArchive.7z"
+          ls -l "$WORK/wall.7z"
+          test "$(stat -c %s "$WORK/wall.7z")" -eq 5281245083
+
+      - name: Extract database
+        run: |
+          7z x -y -o"$WORK" "$WORK/wall.7z" RobloxGroupWall.db
+          rm -f "$WORK/wall.7z"
+          ls -l "$WORK"
+          df -h /
+
+      - name: Build per-user shards
+        run: |
+          python3 tools/groupwall/build_shards.py "$WORK/RobloxGroupWall.db" "$WORK/shards" --shards "$SHARDS"
+          rm -f "$WORK/RobloxGroupWall.db"
+          du -sh "$WORK/shards"
+          ls "$WORK/shards" | wc -l
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cd "$WORK/shards"
+          RECORDS=$(python3 -c 'import json;m=json.load(open("manifest.json"));print("{:,}".format(m["records"]))')
+          NOTES="$SHARDS compressed shards containing $RECORDS archived Roblox group wall posts, grouped by poster user ID. Source: https://archive.org/details/roblox-group-wall-archive"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --notes "$NOTES"
+          else
+            gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" \
+              --title "Roblox Group Wall Index v1" --notes "$NOTES"
+          fi
+          # Upload shards first and the manifest last, so the backend only
+          # starts using the release once every shard is present.
+          ls gw-s*.txt.gz | xargs -n 40 sh -c 'gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber "$@"' _
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber manifest.json
+          gh release view "$TAG" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets | length'
