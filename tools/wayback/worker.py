@@ -38,6 +38,7 @@ class Throttle:
 
 
 throttle = Throttle()
+STATS = {"slowdowns": 0, "errors": 0}
 
 
 def fetch(url, timeout=90, tries=6):
@@ -53,10 +54,12 @@ def fetch(url, timeout=90, tries=6):
             if e.code == 404:
                 return 404, b""
             if e.code in (429, 503, 502, 504):
+                STATS["slowdowns"] += 1
                 throttle.back_off(60 * (attempt + 1))
             else:
                 time.sleep(5 * (attempt + 1))
         except Exception as e:  # timeouts, resets
+            STATS["errors"] += 1
             last = repr(e)
             throttle.back_off(15 * (attempt + 1))
     return last, b""
@@ -104,6 +107,7 @@ def main():
     ap.add_argument("--time-budget", type=int, default=5 * 3600 + 1200, help="seconds")
     ap.add_argument("--max-pages", type=int, default=0, help="testing: cap thread pages fetched")
     ap.add_argument("--scan-pages", type=int, default=0, help="testing: read only this many index pages")
+    ap.add_argument("--log-every", type=int, default=500)
     args = ap.parse_args()
     started = time.time()
 
@@ -180,9 +184,10 @@ def main():
                             out.write(json.dumps(post, ensure_ascii=False, separators=(",", ":")) + "\n")
                             kept += 1
                 done.add(key)
-            if fetched % 500 == 0:
+            if fetched % args.log_every == 0:
                 rate = fetched / max(1, time.time() - started - cdx_seconds)
-                print(f"  {fetched:,} fetched, {skipped:,} skipped as already seen, {kept:,} posts, {len(failed)} failed, {rate:.2f} pages/s", flush=True)
+                print(f"  {fetched:,} fetched, {skipped:,} skipped as already seen, {kept:,} posts, {len(failed)} failed, "
+                      f"{STATS['slowdowns']} slow-down replies, {STATS['errors']} network errors, {rate:.2f} pages/s", flush=True)
             if time.time() - started > args.time_budget:
                 out_of_time = True
             if not out_of_time:
@@ -198,7 +203,7 @@ def main():
     json.dump(progress, open(args.progress, "w"))
     fetch_seconds = max(1, time.time() - started - cdx_seconds)
     print(json.dumps({"batch": args.batch, "fetched": fetched, "skipped": skipped, "posts": kept,
-                      "failed": len(failed), "indexSeconds": cdx_seconds,
+                      "failed": len(failed), "indexSeconds": cdx_seconds, **STATS,
                       "pagesPerSecond": round(fetched / fetch_seconds, 2),
                       "complete": complete, "seconds": round(time.time() - started)}), flush=True)
 
