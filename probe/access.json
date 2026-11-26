@@ -1,0 +1,321 @@
+[
+ {
+  "id": "archiveteam_roblox_20170726222242",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_roblox_20170726222242.cdx.gz": {
+    "size": "46592342",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170726222242.megawarc.json.gz": {
+    "size": "2518842",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170726222242.megawarc.warc.gz": {
+    "size": "26777006576",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170726222242.megawarc.warc.os.cdx.gz": {
+    "size": "47769199",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_roblox_20170727023443",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_roblox_20170727023443.cdx.gz": {
+    "size": "43270392",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727023443.megawarc.json.gz": {
+    "size": "2319607",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727023443.megawarc.warc.gz": {
+    "size": "26782307697",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727023443.megawarc.warc.os.cdx.gz": {
+    "size": "44385389",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_roblox_20170727055345",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_roblox_20170727055345.cdx.gz": {
+    "size": "43899572",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727055345.megawarc.json.gz": {
+    "size": "2347452",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727055345.megawarc.warc.gz": {
+    "size": "26782066376",
+    "private": "true",
+    "status": 401
+   },
+   "roblox_20170727055345.megawarc.warc.os.cdx.gz": {
+    "size": "45035248",
+    "private": "true",
+    "status": 403
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171208111847",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171208111847.cdx.gz": {
+    "size": "22222235",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171208111847.megawarc.json.gz": {
+    "size": "464191",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171208111847.megawarc.warc.gz": {
+    "size": "10727711246",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171208111847.megawarc.warc.os.cdx.gz": {
+    "size": "22704315",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171208112118",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171208112118.cdx.gz": {
+    "size": "22218023",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171208112118.megawarc.json.gz": {
+    "size": "463903",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171208112118.megawarc.warc.gz": {
+    "size": "10728101426",
+    "private": "true",
+    "status": 403
+   },
+   "robloxforums_20171208112118.megawarc.warc.os.cdx.gz": {
+    "size": "22696770",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171209101702",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171209101702.cdx.gz": {
+    "size": "26542738",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209101702.megawarc.json.gz": {
+    "size": "532179",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209101702.megawarc.warc.gz": {
+    "size": "10725755197",
+    "private": "true",
+    "status": 403
+   },
+   "robloxforums_20171209101702.megawarc.warc.os.cdx.gz": {
+    "size": "27385239",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171209102424",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171209102424.cdx.gz": {
+    "size": "26297594",
+    "private": "true",
+    "status": 403
+   },
+   "robloxforums_20171209102424.megawarc.json.gz": {
+    "size": "528507",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209102424.megawarc.warc.gz": {
+    "size": "10724936746",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209102424.megawarc.warc.os.cdx.gz": {
+    "size": "27122353",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171209103147",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171209103147.cdx.gz": {
+    "size": "26073239",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103147.megawarc.json.gz": {
+    "size": "523248",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103147.megawarc.warc.gz": {
+    "size": "10723168963",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103147.megawarc.warc.os.cdx.gz": {
+    "size": "26880109",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171209103909",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171209103909.cdx.gz": {
+    "size": "26124956",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103909.megawarc.json.gz": {
+    "size": "524258",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103909.megawarc.warc.gz": {
+    "size": "10723227244",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209103909.megawarc.warc.os.cdx.gz": {
+    "size": "26935447",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxforums_20171209182242",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam_roblox",
+   "archiveteam",
+   "web"
+  ],
+  "files": {
+   "archiveteam_robloxforums_20171209182242.cdx.gz": {
+    "size": "26113961",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209182242.megawarc.json.gz": {
+    "size": "528442",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209182242.megawarc.warc.gz": {
+    "size": "10723634950",
+    "private": "true",
+    "status": 401
+   },
+   "robloxforums_20171209182242.megawarc.warc.os.cdx.gz": {
+    "size": "26925262",
+    "private": "true",
+    "status": 401
+   }
+  }
+ },
+ {
+  "id": "archiveteam_robloxgroups",
+  "access-restricted": "true",
+  "collection": [
+   "archiveteam",
+   "archiveteam_roblox"
+  ],
+  "files": {}
+ }
+]
