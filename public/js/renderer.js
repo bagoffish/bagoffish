@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261014-coy-lookup-v22";
+  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v1";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -90,6 +90,159 @@
 
     var lookupSequence = 0;
 
+    function el(tag, className, textValue) {
+      var node = document.createElement(tag);
+      if (className) node.className = className;
+      if (textValue != null) node.textContent = textValue;
+      return node;
+    }
+
+    function safeHttpUrl(value) {
+      try {
+        var parsed = new URL(text(value));
+        return (parsed.protocol === "https:" || parsed.protocol === "http:") ? parsed.href : "";
+      } catch (_) { return ""; }
+    }
+
+    function formatCount(value) {
+      var n = Number(value) || 0;
+      try { return n.toLocaleString("en-US"); } catch (_) { return String(n); }
+    }
+
+    function getJson(url) {
+      return fetch(url, { headers: { Accept: "application/json" } }).then(function (response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      });
+    }
+
+    function loadGroups(userId, sequence) {
+      var section = document.getElementById("userGroups");
+      if (!section) return;
+      var status = section.querySelector(".checker-section-status");
+      var list = section.querySelector(".checker-groups");
+      var id = text(userId).trim();
+      if (!/^\d+$/.test(id)) { status.textContent = "Groups unavailable."; return; }
+
+      getJson(API_BASE + "/proxy-roblox-groups?userId=" + encodeURIComponent(id)).then(function (payload) {
+        if (sequence !== lookupSequence || !document.body.contains(section)) return;
+        var groups = Array.isArray(payload && payload.groups) ? payload.groups : [];
+        if (!groups.length) { status.textContent = "Not in any groups."; return; }
+        status.textContent = groups.length + (groups.length === 1 ? " group" : " groups");
+        groups.forEach(function (group) {
+          var card = el("a", "checker-group" + (group.isPrimary ? " is-primary" : ""));
+          card.href = "https://www.roblox.com/groups/" + encodeURIComponent(text(group.id)) + "/";
+          card.target = "_blank";
+          card.rel = "noopener noreferrer";
+          card.title = text(group.name);
+
+          var icon = el("img", "checker-group-icon");
+          icon.alt = "";
+          icon.loading = "lazy";
+          icon.decoding = "async";
+          var iconUrl = safeHttpUrl(group.iconUrl);
+          if (iconUrl) {
+            icon.addEventListener("error", function () { icon.style.visibility = "hidden"; }, { once: true });
+            icon.src = iconUrl;
+          } else {
+            icon.style.visibility = "hidden";
+          }
+          card.appendChild(icon);
+
+          var info = el("div", "checker-group-info");
+          var name = el("div", "checker-group-name", text(group.name) || ("Group " + text(group.id)));
+          if (group.verified) name.appendChild(el("span", "checker-badge checker-badge-verified", "✓"));
+          info.appendChild(name);
+          info.appendChild(el("div", "checker-group-meta", (text(group.role) || "Member") + (group.rank ? " · rank " + group.rank : "")));
+          info.appendChild(el("div", "checker-group-meta", formatCount(group.memberCount) + " members"));
+          if (group.isPrimary) info.appendChild(el("span", "checker-badge", "Primary"));
+          card.appendChild(info);
+          list.appendChild(card);
+        });
+      }).catch(function () {
+        if (sequence !== lookupSequence || !document.body.contains(section)) return;
+        status.textContent = "Groups unavailable right now.";
+      });
+    }
+
+    function loadForumPosts(userId, sequence) {
+      var section = document.getElementById("userForumPosts");
+      if (!section) return;
+      var status = section.querySelector(".checker-section-status");
+      var list = section.querySelector(".checker-forum-list");
+      var actions = section.querySelector(".checker-forum-actions");
+      var id = text(userId).trim();
+      if (!/^\d+$/.test(id)) { status.textContent = "Forum posts unavailable."; return; }
+      var archiveProfile = "https://archive.froast.io/users/" + encodeURIComponent(id);
+      var total = 0;
+
+      function renderActions(nextCursor, busy) {
+        actions.innerHTML = "";
+        if (nextCursor) {
+          var more = el("button", "xpButton checker-more", busy ? "Loading…" : "Load more posts");
+          more.type = "button";
+          more.disabled = !!busy;
+          more.addEventListener("click", function () { fetchPage(nextCursor); });
+          actions.appendChild(more);
+        }
+        var link = el("a", "checker-archive-link", "Open on archive.froast.io");
+        link.href = archiveProfile;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        actions.appendChild(link);
+      }
+
+      function renderPost(post) {
+        var item = el("div", "checker-post");
+        var title = text(post.title) || "(untitled)";
+        var threadUrl = safeHttpUrl(post.threadUrl);
+        var heading;
+        if (threadUrl) {
+          heading = el("a", "checker-post-title", title);
+          heading.href = threadUrl;
+          heading.target = "_blank";
+          heading.rel = "noopener noreferrer";
+        } else {
+          heading = el("div", "checker-post-title", title);
+        }
+        item.appendChild(heading);
+        var meta = [text(post.forum), text(post.date)].filter(Boolean).join(" · ");
+        if (meta) item.appendChild(el("div", "checker-post-meta", meta));
+        if (post.body) item.appendChild(el("div", "checker-post-body", text(post.body)));
+        list.appendChild(item);
+      }
+
+      function fetchPage(cursor) {
+        renderActions(cursor, true);
+        if (!cursor) actions.innerHTML = "";
+        var url = API_BASE + "/proxy-roblox-forum?userId=" + encodeURIComponent(id) +
+          (cursor ? "&cursor=" + encodeURIComponent(cursor) : "");
+        getJson(url).then(function (payload) {
+          if (sequence !== lookupSequence || !document.body.contains(section)) return;
+          var posts = Array.isArray(payload && payload.posts) ? payload.posts : [];
+          posts.forEach(renderPost);
+          total += posts.length;
+          if (!total) {
+            status.textContent = payload && payload.found === false
+              ? "No archived forum account for this user."
+              : "No archived forum posts found.";
+          } else {
+            status.textContent = total + (total === 1 ? " post" : " posts") + " loaded" +
+              (payload && payload.next ? " (more available)" : "");
+          }
+          renderActions(payload && payload.next ? payload.next : "", false);
+        }).catch(function () {
+          if (sequence !== lookupSequence || !document.body.contains(section)) return;
+          status.textContent = total
+            ? total + " posts loaded. Couldn't load more right now."
+            : "Forum archive unavailable right now.";
+          renderActions(cursor, false);
+        });
+      }
+
+      fetchPage("");
+    }
+
     function runLookup() {
       var sequence = ++lookupSequence;
       var username = usernameInput.value.trim();
@@ -149,10 +302,24 @@
               '<div id="lastOnlineLine" class="info-line"><b>Last Online:</b> ' + escapeHtml(lastOnline) + '</div>' +
               '<div id="valueLine" class="info-line"><b>RAP:</b> ' + escapeHtml(rap) + ' &nbsp;&nbsp; <b>Value:</b> ' + escapeHtml(value) + '</div>' +
               '<div id="oldAvatars" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row;gap:8px;width:100%;margin-top:12px;padding-top:10px;border-top:1px solid #7b9ebd;font-size:11px;color:#24364b;align-items:stretch;box-sizing:border-box;">Loading archived renders…</div>' +
+              '<div id="userGroups" class="checker-section">' +
+                '<div class="checker-section-title">Groups</div>' +
+                '<div class="checker-section-status" role="status">Loading groups…</div>' +
+                '<div class="checker-groups"></div>' +
+              '</div>' +
+              '<div id="userForumPosts" class="checker-section">' +
+                '<div class="checker-section-title">Roblox Forum Archive posts</div>' +
+                '<div class="checker-section-status" role="status">Loading forum posts…</div>' +
+                '<div class="checker-forum-list"></div>' +
+                '<div class="checker-forum-actions"></div>' +
+              '</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
           loadingIndicator.style.display = "none";
+
+          loadGroups(roblox.id, sequence);
+          loadForumPosts(roblox.id, sequence);
 
           // Try the backend image proxy first, then the original Roblox CDN URL.
           // Some Roblox CDN responses work in browsers even when the server proxy fails.

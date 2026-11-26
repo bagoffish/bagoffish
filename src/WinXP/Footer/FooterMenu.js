@@ -53,7 +53,7 @@ function FooterMenu({ className, onClick }) {
             items={[
               { icon: ie, text: 'About Me' },
               { icon: notepad, text: 'Writings' },
-              { icon: rendererIcon, text: 'Renderer' },
+              { icon: rendererIcon, text: 'User Checker' },
               { icon: paint, text: 'Paint' },
               { icon: winamp, text: 'Winamp' },
               { icon: winterLetterIcon, text: 'Winter_Letter' },
