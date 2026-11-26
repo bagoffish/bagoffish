@@ -1,0 +1,24 @@
+name: Probe Archive Team Roblox collection
+on:
+  push:
+    branches: [archive-probe]
+    paths: [tools/archiveteam/probe.py, .github/workflows/archive-probe.yml]
+permissions:
+  contents: write
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with: { ref: archive-probe }
+      - run: pip install warcio
+      - run: python3 tools/archiveteam/probe.py
+      - name: Commit probe output
+        if: always()
+        run: |
+          git config user.name "coy"
+          git config user.email "c@bagof.fish"
+          git add probe
+          git commit -m "Probe output [skip ci]" || true
+          git push origin HEAD:archive-probe
