@@ -3,8 +3,6 @@ name: Forum archive publish
 # Combines finished forum batches into per-user shards and publishes them as
 # the forum-posts-index-v1 release, which the User Checker backend reads.
 on:
-  schedule:
-    - cron: "41 4 * * *"
   workflow_dispatch:
   workflow_call:
 

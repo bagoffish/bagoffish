@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v4";
+  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v5";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -123,7 +123,7 @@
       });
     }
 
-    // Every section reports its own failure, e.g. "Forum posts error: ...".
+    // Every section reports its own failure, e.g. "Group wall posts error: ...".
     function showSectionError(container, label, message) {
       if (!container) return;
       var box = container.querySelector(":scope > .checker-error");
@@ -230,34 +230,11 @@
       return item;
     }
 
-    function renderForumPost(post) {
-      var item = el("div", "checker-post");
-      var title = text(post.title) || "(untitled)";
-      var threadUrl = safeHttpUrl(post.threadUrl);
-      item.appendChild(threadUrl ? externalLink("checker-post-title", title, threadUrl) : el("div", "checker-post-title", title));
-      // Forum dates are kept exactly as the forum printed them (Roblox forum time).
-      var meta = [text(post.forum), text(post.created)].filter(Boolean).join(" · ");
-      if (meta) item.appendChild(el("div", "checker-post-meta", meta));
-      if (post.body) item.appendChild(el("div", "checker-post-body", text(post.body)));
-      return item;
-    }
-
     function loadGroupWallPosts(userId, sequence) {
       loadArchiveSection({
         sectionId: "userGroupWallPosts", endpoint: "/proxy-roblox-group-wall", userId: userId, sequence: sequence,
         label: "Group wall posts", archiveName: "group wall", noun: "group wall post", nounPlural: "group wall posts",
         emptyText: "No archived group wall posts.", renderPost: renderGroupWallPost
-      });
-    }
-
-    function loadForumPosts(userId, sequence) {
-      loadArchiveSection({
-        sectionId: "userForumPosts", endpoint: "/proxy-roblox-forum", userId: userId, sequence: sequence,
-        label: "Forum posts", archiveName: "forum", noun: "forum post", nounPlural: "forum posts",
-        emptyText: "No archived forum posts.", renderPost: renderForumPost,
-        extraLink: function (id) {
-          return externalLink("checker-archive-link", "Open on archive.froast.io", "https://archive.froast.io/users/" + encodeURIComponent(id));
-        }
       });
     }
 
@@ -327,19 +304,12 @@
                 '<div class="checker-archive-list"></div>' +
                 '<div class="checker-archive-actions"></div>' +
               '</div>' +
-              '<div id="userForumPosts" class="checker-section">' +
-                '<div class="checker-section-title">Forum Posts</div>' +
-                '<div class="checker-section-status" role="status">Loading forum posts…</div>' +
-                '<div class="checker-archive-list"></div>' +
-                '<div class="checker-archive-actions"></div>' +
-              '</div>' +
             '</div>';
 
           centerPanel.innerHTML = html;
           loadingIndicator.style.display = "none";
 
           loadGroupWallPosts(roblox.id, sequence);
-          loadForumPosts(roblox.id, sequence);
           var avatarErrors = document.getElementById("avatarRendererErrors");
 
           // Try the backend image proxy first, then the original Roblox CDN URL.
