@@ -1,24 +1,24 @@
-name: Probe Archive Team Roblox collection
+name: Inspect group wall archive
 on:
   push:
     branches: [archive-probe]
-    paths: [tools/archiveteam/probe.py, .github/workflows/archive-probe.yml]
+    paths: [tools/groupwall/inspect.sh, .github/workflows/archive-probe.yml]
 permissions:
   contents: write
 jobs:
-  probe:
+  inspect:
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
         with: { ref: archive-probe }
-      - run: pip install warcio
-      - run: python3 tools/archiveteam/probe.py
-      - name: Commit probe output
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq p7zip-full sqlite3 file
+      - run: bash tools/groupwall/inspect.sh
+      - name: Commit inspection output
         if: always()
         run: |
           git config user.name "coy"
           git config user.email "c@bagof.fish"
           git add probe
-          git commit -m "Probe output [skip ci]" || true
+          git commit -m "Group wall inspection output [skip ci]" || true
           git push origin HEAD:archive-probe
