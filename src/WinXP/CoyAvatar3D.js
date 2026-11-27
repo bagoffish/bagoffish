@@ -30,8 +30,9 @@ function target(pose, t, dir, tiltIn) {
     case "dance2": s = Math.sin(t * 10); return P({ rZ: .2, lZ: -.2, rX: -1.3 + s * .7, lX: -1.3 - s * .7, bob: Math.abs(s) * .4 });
     case "dance3": s = Math.sin(t * 6);  return P({ rZ: 1.6 + s * .8, lZ: -(1.6 + s * .8), rL: s * .3, lL: -s * .3, bob: Math.abs(s) * .15, spin: Math.sin(t * 3) * 1.1 });
     case "walk":   s = Math.sin(t * 8.5); return P({ rX: s * .58, lX: -s * .58, rL: -s * .48, lL: s * .48, bob: 0, spin: 0 });
-    case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5, tilt: tiltIn });
-    case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4, tilt: tiltIn });
+    // Coy stays upright while held, falling, climbing or grappling (no sideways lean).
+    case "held":   s = Math.sin(t * 14); return P({ rZ: 2.5 + s * .4, lZ: -(2.5 - s * .4), rL: Math.sin(t * 9) * .5, lL: -Math.sin(t * 9) * .5 });
+    case "fall":   return P({ rZ: 2.7, lZ: -2.7, rL: .4, lL: -.4 });
     // Rest the arms forward and lower the hips into the seat.
     case "sit":    return P({ rZ: 0, lZ: 0, rX: -1.42, lX: -1.42, rL: -1.42, lL: -1.42, bob: -1.2, tilt: 0 });
     case "land":   return P({ sq: .25, rZ: -.24, lZ: .24 });
@@ -48,8 +49,9 @@ function target(pose, t, dir, tiltIn) {
     case "swordequip": return P({ rZ: 1.2, rX: -0.55, lZ: -0.35 });
     case "gearhold": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
     case "bodyswap": return P({ rZ: 1.2 + Math.sin(t * 2) * .04, rX: -0.55, lZ: -0.35 });
-    case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.9 + a * .25, lZ: -(1.9 - a * .25), rX: -0.6 + a * .2, lX: -0.6 - a * .2, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08, tilt: -0.12 }); }
-    case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, tilt: -0.08 + tiltIn, bob: Math.abs(a) * .04 }); }
+    // Climbing holds the grapple gun like the gear-hold pose; only the legs climb.
+    case "climbing": { const a = Math.sin(t * 7); return P({ rZ: 1.2, rX: -0.55, lZ: -0.35, rL: -a * .4, lL: a * .4, bob: Math.abs(a) * .08 }); }
+    case "grapple": { const a = Math.sin(t * 8); return P({ rZ: 1.35 + a * .12, rX: -0.5, lZ: -0.45, bob: Math.abs(a) * .04 }); }
     default:       return P({ rZ: .1 + Math.sin(t * 2) * .03, lZ: -.1 - Math.sin(t * 2) * .03, bob: Math.sin(t * 2) * .03 });
   }
 }
@@ -792,24 +794,34 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         av.torso.rotation.x = pose.torsoLean; av.torso.rotation.y = pose.torsoTurn;
         av.body.scale.set(1 + pose.sq, 1 - pose.sq, 1 + pose.sq);
       }
-      // After letting go of the rope he is still holding the grapple gun. Keep the fall clip on
-      // the body, legs and left arm, but hold the right arm out in the gearhold pose instead of
-      // letting it flail up with the rest of the fall animation.
+      // While climbing a wall with the grapple, and after letting go of the rope, he keeps holding
+      // the grapple gun: both arms take the gear-hold pose instead of swinging with the climb or
+      // fall clip. The legs and body keep their animation.
       const gripFall = L.pose === "fall" && Boolean(L.grapple && L.grapple.gripFall);
-      if (gripFall) {
+      if (gripFall || L.pose === "climbing") {
         const holdClip = animations.gearhold;
         const holdFrames = holdClip?.frames;
         const holdDuration = holdFrames?.length
           ? Math.max(0, Number(holdClip.duration) || holdFrames[holdFrames.length - 1]?.time || 0)
           : 0;
-        const holdArm = holdFrames?.length
-          ? sampleClip(holdClip, holdDuration > 0 ? t % holdDuration : 0)["Right Arm"]
+        const holdPose = holdFrames?.length
+          ? sampleClip(holdClip, holdDuration > 0 ? t % holdDuration : 0)
           : null;
-        if (holdArm) {
-          av.rArm.quaternion.copy(holdArm.quaternion);
-          av.rArm.position.copy(holdArm.position);
+        const holdRight = holdPose?.["Right Arm"];
+        const holdLeft = holdPose?.["Left Arm"];
+        if (holdRight) {
+          av.rArm.quaternion.copy(holdRight.quaternion);
+          av.rArm.position.copy(holdRight.position);
         } else {
           av.rArm.rotation.set(-0.55, 0, 1.2);               // procedural gearhold fallback
+        }
+        if (holdLeft) {
+          av.lArm.quaternion.copy(holdLeft.quaternion);
+          av.lArm.position.copy(holdLeft.position);
+        } else {
+          // The gear-hold clip only animates the right arm; the left arm rests at its side.
+          av.lArm.quaternion.identity();
+          if (REST.lArm) av.lArm.position.set(...REST.lArm);
         }
       }
       // Show classic gear only during its matching emote.
@@ -830,8 +842,8 @@ export default function CoyAvatar3D({ size = 92, pose = "idle", dir = 1, vx = 0,
         playGearSound(soundIds.grappleHit);
         window.setTimeout(() => playGearSound(soundIds.grappleConnect), 400);
       }
-      // Held or falling: lean with the sideways speed.
-      if (usingImported && (L.pose === "held" || L.pose === "fall")) av.body.rotation.z = clamp(-L.vx * .0006, -.5, .5);
+      // Stay upright while held, falling, climbing or grappling.
+      if (["held", "fall", "climbing", "grapple"].includes(L.pose)) av.body.rotation.z = 0;
 
       // Head follows the cursor when calm, layered on top of whatever clip is playing.
       let wy = 0, wx = 0;
