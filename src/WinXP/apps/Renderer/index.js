@@ -44,7 +44,7 @@ function Renderer({ onClose }) {
 
     const s = document.createElement("script");
     s.id = "legacy-renderer-script";
-    s.src = "/js/renderer.js?v=20261127-user-checker-v5";
+    s.src = "/js/renderer.js?v=20261127-user-checker-v6";
     s.async = true;
     s.onload = function () {
       if (window.initLegacyRenderer) window.initLegacyRenderer();
