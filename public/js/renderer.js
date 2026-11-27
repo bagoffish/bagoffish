@@ -2,7 +2,7 @@
   "use strict";
 
   var API_BASE = window.RENDERER_API_BASE || "https://fossils.onrender.com";
-  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v5";
+  var RENDERER_SCRIPT_VERSION = "20261127-user-checker-v6";
   var RETRY_LIMIT = 60;
   var OLD_AVATAR_PAGE_SIZE = 12;
 
@@ -221,7 +221,7 @@
       var item = el("div", "checker-post");
       var groupLabel = text(post.groupName) || (post.groupId ? "Group " + text(post.groupId) : "Unknown group");
       var heading = post.groupId
-        ? externalLink("checker-post-title", groupLabel, "https://www.roblox.com/communities/" + encodeURIComponent(text(post.groupId)) + "/")
+        ? externalLink("checker-post-title", groupLabel, "https://www.roblox.com/communities/" + encodeURIComponent(text(post.groupId)))
         : el("div", "checker-post-title", groupLabel);
       item.appendChild(heading);
       var meta = [post.username ? "as " + text(post.username) : "", text(post.role), formatArchiveDate(post.created)].filter(Boolean).join(" · ");
